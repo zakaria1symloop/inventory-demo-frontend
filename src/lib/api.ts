@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://rafik-biskra.symloop.com/api',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://logistics-demo.symloop.com/api',
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
