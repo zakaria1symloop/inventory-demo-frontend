@@ -551,13 +551,13 @@ export default function ProductsPage() {
 
           {/* Price Section Header */}
           <div className="bg-blue-50 p-3 rounded-lg">
-            <h3 className="font-semibold text-blue-800">الأسعار (سعر الوحدة: {(units as Unit[])?.find(u => u.id.toString() === formData.unit_buy_id)?.name || 'كرتون'})</h3>
-            <p className="text-sm text-blue-600">عدد القطع في الوحدة ({formData.pieces_per_package} قطعة) للمعلومات فقط</p>
+            <h3 className="font-semibold text-blue-800">الأسعار (سعر القطعة)</h3>
+            <p className="text-sm text-blue-600">جميع الأسعار للقطعة الواحدة</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">سعر الشراء (لل{(units as Unit[])?.find(u => u.id.toString() === formData.unit_buy_id)?.name || 'وحدة'})</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">سعر الشراء (للقطعة)</label>
               <input
                 type="number"
                 value={formData.cost_price}
@@ -566,11 +566,11 @@ export default function ProductsPage() {
                 required
                 min="0"
                 step="0.01"
-                placeholder="سعر الوحدة"
+                placeholder="سعر القطعة"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">سعر البيع (لل{(units as Unit[])?.find(u => u.id.toString() === formData.unit_sale_id)?.name || 'وحدة'})</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">سعر البيع (للقطعة)</label>
               <input
                 type="number"
                 value={formData.retail_price}
@@ -579,7 +579,7 @@ export default function ProductsPage() {
                 required
                 min="0"
                 step="0.01"
-                placeholder="سعر الوحدة"
+                placeholder="سعر القطعة"
               />
             </div>
           </div>
