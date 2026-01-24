@@ -30,6 +30,8 @@ import {
   UserPlusIcon,
   UserMinusIcon,
   ShoppingCartIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
 } from '@heroicons/react/24/outline';
 
 interface Client {
@@ -87,6 +89,7 @@ export default function ClientsPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [creditLimitFilter, setCreditLimitFilter] = useState<'all' | 'has_limit' | 'no_limit' | 'exceeded'>('all');
+  const [showFilters, setShowFilters] = useState(false);
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -574,105 +577,121 @@ export default function ClientsPage() {
 
       {/* Filters and Search */}
       <div className="card">
-        <div className="flex items-center gap-2 mb-4">
-          <FunnelIcon className="w-5 h-5 text-gray-500" />
-          <span className="font-medium text-gray-700">الفلاتر</span>
-          {hasActiveFilters && (
-            <button
-              onClick={resetFilters}
-              className="mr-auto flex items-center gap-1 text-sm text-red-600 hover:text-red-700"
-            >
-              <XCircleIcon className="w-4 h-4" />
-              إعادة تعيين
-            </button>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-          {/* Search */}
-          <div className="relative">
-            <MagnifyingGlassIcon className="w-5 h-5 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="بحث بالاسم، الهاتف، البريد..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="input w-full pr-10"
-            />
-          </div>
-
-          {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-            className="select"
+        {/* Filter Header - Always Visible */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-2 text-gray-700 hover:text-gray-900"
           >
-            <option value="all">جميع الحالات</option>
-            <option value="active">نشط فقط</option>
-            <option value="inactive">معطل فقط</option>
-          </select>
-
-          {/* Balance Filter */}
-          <select
-            value={balanceFilter}
-            onChange={(e) => setBalanceFilter(e.target.value as typeof balanceFilter)}
-            className="select"
-          >
-            <option value="all">جميع الأرصدة</option>
-            <option value="has_debt">لديه دين</option>
-            <option value="no_debt">بدون دين</option>
-          </select>
-
-          {/* Credit Limit Filter */}
-          <select
-            value={creditLimitFilter}
-            onChange={(e) => setCreditLimitFilter(e.target.value as typeof creditLimitFilter)}
-            className="select"
-          >
-            <option value="all">حد الائتمان</option>
-            <option value="has_limit">لديه حد ائتمان</option>
-            <option value="no_limit">بدون حد ائتمان</option>
-            <option value="exceeded">تجاوز الحد ({stats.exceededCreditLimit})</option>
-          </select>
-        </div>
-
-        {/* Date Range */}
-        <div className="flex flex-wrap items-center gap-4 mb-4">
-          <div className="flex items-center gap-2">
-            <CalendarIcon className="w-5 h-5 text-gray-400" />
-            <span className="text-sm text-gray-600">تاريخ الإنشاء:</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="input text-sm"
-              placeholder="من"
-            />
-            <span className="text-gray-400">-</span>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="input text-sm"
-              placeholder="إلى"
-            />
-          </div>
-        </div>
-
-        {/* Results count */}
-        <div className="text-sm text-gray-500 mb-4 flex items-center justify-between">
-          <span>عرض {filteredClients.length} من {stats.totalClients} عميل</span>
-          {hasActiveFilters && (
-            <span className="text-blue-600">
-              ({stats.totalClients - filteredClients.length} مخفي بالفلاتر)
+            <FunnelIcon className="w-5 h-5" />
+            <span className="font-medium">الفلاتر</span>
+            {hasActiveFilters && (
+              <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">
+                نشط
+              </span>
+            )}
+            {showFilters ? (
+              <ChevronUpIcon className="w-4 h-4" />
+            ) : (
+              <ChevronDownIcon className="w-4 h-4" />
+            )}
+          </button>
+          <div className="flex items-center gap-3">
+            {hasActiveFilters && (
+              <button
+                onClick={resetFilters}
+                className="flex items-center gap-1 text-sm text-red-600 hover:text-red-700"
+              >
+                <XCircleIcon className="w-4 h-4" />
+                إعادة تعيين
+              </button>
+            )}
+            <span className="text-sm text-gray-500">
+              {filteredClients.length} من {stats.totalClients} عميل
             </span>
-          )}
+          </div>
         </div>
+
+        {/* Collapsible Filters */}
+        {showFilters && (
+          <div className="mt-4 pt-4 border-t">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+              {/* Search */}
+              <div className="relative">
+                <MagnifyingGlassIcon className="w-5 h-5 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="بحث بالاسم، الهاتف، البريد..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="input w-full pr-10"
+                />
+              </div>
+
+              {/* Status Filter */}
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+                className="select"
+              >
+                <option value="all">جميع الحالات</option>
+                <option value="active">نشط فقط</option>
+                <option value="inactive">معطل فقط</option>
+              </select>
+
+              {/* Balance Filter */}
+              <select
+                value={balanceFilter}
+                onChange={(e) => setBalanceFilter(e.target.value as typeof balanceFilter)}
+                className="select"
+              >
+                <option value="all">جميع الأرصدة</option>
+                <option value="has_debt">لديه دين</option>
+                <option value="no_debt">بدون دين</option>
+              </select>
+
+              {/* Credit Limit Filter */}
+              <select
+                value={creditLimitFilter}
+                onChange={(e) => setCreditLimitFilter(e.target.value as typeof creditLimitFilter)}
+                className="select"
+              >
+                <option value="all">حد الائتمان</option>
+                <option value="has_limit">لديه حد ائتمان</option>
+                <option value="no_limit">بدون حد ائتمان</option>
+                <option value="exceeded">تجاوز الحد ({stats.exceededCreditLimit})</option>
+              </select>
+            </div>
+
+            {/* Date Range */}
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <CalendarIcon className="w-5 h-5 text-gray-400" />
+                <span className="text-sm text-gray-600">تاريخ الإنشاء:</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="input text-sm"
+                  placeholder="من"
+                />
+                <span className="text-gray-400">-</span>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="input text-sm"
+                  placeholder="إلى"
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Clients Table */}
-        <div className="overflow-x-auto">
+        <div className={`overflow-x-auto ${showFilters ? '' : 'mt-4'}`}>
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50">

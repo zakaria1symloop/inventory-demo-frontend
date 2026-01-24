@@ -58,9 +58,11 @@ interface PurchaseItem {
 
 interface PurchaseFormProps {
   purchaseId?: number | null;
+  onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
-export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
+export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }: PurchaseFormProps) {
   const router = useRouter();
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const productSearchRef = useRef<HTMLInputElement>(null);
@@ -516,7 +518,11 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
         });
 
         toast.success('تم تحديث الفاتورة بنجاح');
-        router.push('/dashboard/purchases');
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          router.push('/dashboard/purchases');
+        }
       } catch (error: any) {
         toast.error(error.response?.data?.message || 'خطأ في تحديث الفاتورة');
       } finally {
@@ -569,7 +575,11 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
       });
 
       toast.success('تم إنشاء فاتورة الشراء بنجاح');
-      router.push('/dashboard/purchases');
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.push('/dashboard/purchases');
+      }
     } catch (error) {
       toast.error('خطأ في إنشاء فاتورة الشراء');
     } finally {
@@ -708,11 +718,19 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <Link href="/dashboard/purchases" className="text-gray-500 hover:text-gray-700">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </Link>
+          {onCancel ? (
+            <button onClick={onCancel} className="text-gray-500 hover:text-gray-700">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          ) : (
+            <Link href="/dashboard/purchases" className="text-gray-500 hover:text-gray-700">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          )}
           <h1 className="text-2xl font-bold">{isEditMode ? 'تعديل فاتورة الشراء' : 'فاتورة شراء جديدة'}</h1>
         </div>
       </div>
@@ -1307,9 +1325,15 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
                   {isSaving ? 'جاري الحفظ...' : 'حفظ الفاتورة'}
                 </button>
 
-                <Link href="/dashboard/purchases" className="btn btn-secondary w-full text-center block">
-                  إلغاء
-                </Link>
+                {onCancel ? (
+                  <button type="button" onClick={onCancel} className="btn btn-secondary w-full text-center block">
+                    إلغاء
+                  </button>
+                ) : (
+                  <Link href="/dashboard/purchases" className="btn btn-secondary w-full text-center block">
+                    إلغاء
+                  </Link>
+                )}
               </div>
             </div>
           </div>

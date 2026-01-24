@@ -67,9 +67,11 @@ interface SaleItem {
 
 interface SaleFormProps {
   saleId?: number | null;
+  onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
-export default function SaleForm({ saleId = null }: SaleFormProps) {
+export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFormProps) {
   const router = useRouter();
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const productSearchRef = useRef<HTMLInputElement>(null);
@@ -558,7 +560,11 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
         });
 
         toast.success('تم تحديث الفاتورة بنجاح');
-        router.push('/dashboard/sales');
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          router.push('/dashboard/sales');
+        }
       } catch (error: any) {
         toast.error(error.response?.data?.message || 'خطأ في تحديث الفاتورة');
       } finally {
@@ -619,7 +625,11 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
       });
 
       toast.success('تم إنشاء فاتورة البيع بنجاح');
-      router.push('/dashboard/sales');
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.push('/dashboard/sales');
+      }
     } catch (error) {
       toast.error('خطأ في إنشاء فاتورة البيع');
     } finally {
@@ -735,11 +745,19 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <Link href="/dashboard/sales" className="text-gray-500 hover:text-gray-700">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </Link>
+          {onCancel ? (
+            <button onClick={onCancel} className="text-gray-500 hover:text-gray-700">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          ) : (
+            <Link href="/dashboard/sales" className="text-gray-500 hover:text-gray-700">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          )}
           <h1 className="text-2xl font-bold">{isEditMode ? 'تعديل فاتورة البيع' : 'فاتورة بيع جديدة'}</h1>
         </div>
       </div>
@@ -1377,9 +1395,15 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
                   {isSaving ? 'جاري الحفظ...' : 'حفظ الفاتورة (F4)'}
                 </button>
 
-                <Link href="/dashboard/sales" className="btn btn-secondary w-full text-center block">
-                  إلغاء
-                </Link>
+                {onCancel ? (
+                  <button type="button" onClick={onCancel} className="btn btn-secondary w-full text-center block">
+                    إلغاء
+                  </button>
+                ) : (
+                  <Link href="/dashboard/sales" className="btn btn-secondary w-full text-center block">
+                    إلغاء
+                  </Link>
+                )}
               </div>
             </div>
           </div>
