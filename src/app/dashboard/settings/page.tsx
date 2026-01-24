@@ -568,63 +568,42 @@ export default function SettingsPage() {
                   {/* Stock Management Setting */}
                   <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                     <h3 className="text-md font-semibold mb-3 dark:text-white">إدارة المخزون</h3>
-                    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            خصم الكمية عند إنشاء الطلب
-                          </label>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {settings.decrease_stock_on_order === 'true'
-                              ? 'سيتم خصم الكمية من المخزون فور إنشاء الطلب من قبل البائع'
-                              : 'سيتم خصم الكمية من المخزون فقط عند تأكيد الطلب'}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setSettings({
-                            ...settings,
-                            decrease_stock_on_order: settings.decrease_stock_on_order === 'true' ? 'false' : 'true'
-                          })}
-                          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                            settings.decrease_stock_on_order === 'true' ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'
-                          }`}
-                        >
-                          <span
-                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                              settings.decrease_stock_on_order === 'true' ? 'translate-x-5' : 'translate-x-0'
-                            }`}
-                          />
-                        </button>
-                      </div>
-                      <div className="mt-3 flex gap-4">
-                        <div className={`flex-1 p-3 rounded-lg border-2 ${settings.decrease_stock_on_order === 'true' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-600'}`}>
-                          <div className="flex items-center gap-2">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${settings.decrease_stock_on_order === 'true' ? 'bg-blue-100' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                              <svg className={`w-4 h-4 ${settings.decrease_stock_on_order === 'true' ? 'text-blue-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                              </svg>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium dark:text-white">فوري</p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">عند إنشاء الطلب</p>
-                            </div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">متى يتم خصم الكمية من المخزون؟</p>
+                    <div className="flex gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setSettings({ ...settings, decrease_stock_on_order: 'true' })}
+                        className={`flex-1 p-4 rounded-lg border-2 transition-all cursor-pointer ${settings.decrease_stock_on_order === 'true' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.decrease_stock_on_order === 'true' ? 'bg-blue-100' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                            <svg className={`w-5 h-5 ${settings.decrease_stock_on_order === 'true' ? 'text-blue-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                          </div>
+                          <div className="text-right">
+                            <p className={`text-sm font-semibold ${settings.decrease_stock_on_order === 'true' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>فوري - عند إنشاء الطلب</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">يخصم المخزون فور إنشاء الطلب من البائع</p>
                           </div>
                         </div>
-                        <div className={`flex-1 p-3 rounded-lg border-2 ${settings.decrease_stock_on_order === 'false' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-600'}`}>
-                          <div className="flex items-center gap-2">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${settings.decrease_stock_on_order === 'false' ? 'bg-blue-100' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                              <svg className={`w-4 h-4 ${settings.decrease_stock_on_order === 'false' ? 'text-blue-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium dark:text-white">عند التأكيد</p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">بعد مراجعة الطلب</p>
-                            </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSettings({ ...settings, decrease_stock_on_order: 'false' })}
+                        className={`flex-1 p-4 rounded-lg border-2 transition-all cursor-pointer ${settings.decrease_stock_on_order === 'false' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.decrease_stock_on_order === 'false' ? 'bg-blue-100' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                            <svg className={`w-5 h-5 ${settings.decrease_stock_on_order === 'false' ? 'text-blue-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                          <div className="text-right">
+                            <p className={`text-sm font-semibold ${settings.decrease_stock_on_order === 'false' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>عند التأكيد</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">يخصم المخزون فقط بعد تأكيد الطلب</p>
                           </div>
                         </div>
-                      </div>
+                      </button>
                     </div>
                   </div>
                 </div>
