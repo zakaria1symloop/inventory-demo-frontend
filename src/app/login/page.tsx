@@ -47,9 +47,12 @@ export default function LoginPage() {
       toast.success('تم تسجيل الدخول بنجاح');
       router.push('/dashboard');
     } catch (error: unknown) {
-      console.error('Login error:', error);
-      const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'خطأ في تسجيل الدخول');
+      console.error('Login error full:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+      const err = error as { response?: { data?: { message?: string } }, message?: string, code?: string };
+      console.error('Error message:', err.message);
+      console.error('Error code:', err.code);
+      console.error('Error response:', err.response);
+      toast.error(err.response?.data?.message || err.message || 'خطأ في تسجيل الدخول');
     } finally {
       setIsLoading(false);
     }
