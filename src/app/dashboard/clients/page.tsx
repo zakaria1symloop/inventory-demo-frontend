@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { clientsApi, salesApi } from '@/lib/api';
@@ -24,6 +24,12 @@ import {
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
   MagnifyingGlassIcon,
+  CalendarIcon,
+  FunnelIcon,
+  XCircleIcon,
+  UserPlusIcon,
+  UserMinusIcon,
+  ShoppingCartIcon,
 } from '@heroicons/react/24/outline';
 
 interface Client {
@@ -78,6 +84,9 @@ export default function ClientsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [balanceFilter, setBalanceFilter] = useState<'all' | 'has_debt' | 'no_debt'>('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [creditLimitFilter, setCreditLimitFilter] = useState<'all' | 'has_limit' | 'no_limit' | 'exceeded'>('all');
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -267,35 +276,114 @@ export default function ClientsPage() {
   };
 
   // Statistics - use combined_debt (sales + deliveries)
-  const totalClients = clients.length;
-  const activeClients = clients.filter(c => c.is_active).length;
-  const clientsWithDebt = clients.filter(c => (Number(c.combined_debt) || 0) > 0).length;
-  const totalDebt = clients.reduce((sum, c) => {
-    const debt = Number(c.combined_debt) || 0;
-    return sum + (debt > 0 ? debt : 0);
-  }, 0);
+  const stats = useMemo(() => {
+    const totalClients = clients.length;
+    const activeClients = clients.filter(c => c.is_active).length;
+    const inactiveClients = clients.filter(c => !c.is_active).length;
+    const clientsWithDebt = clients.filter(c => (Number(c.combined_debt) || 0) > 0).length;
+    const clientsWithoutDebt = clients.filter(c => (Number(c.combined_debt) || 0) <= 0).length;
+    const totalDebt = clients.reduce((sum, c) => {
+      const debt = Number(c.combined_debt) || 0;
+      return sum + (debt > 0 ? debt : 0);
+    }, 0);
+    const avgDebt = clientsWithDebt > 0 ? totalDebt / clientsWithDebt : 0;
+
+    // New clients this month
+    const now = new Date();
+    const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const newThisMonth = clients.filter(c => {
+      if (!c.created_at) return false;
+      return new Date(c.created_at) >= thisMonth;
+    }).length;
+
+    // Clients with credit limit
+    const withCreditLimit = clients.filter(c => c.credit_limit && c.credit_limit > 0).length;
+    const exceededCreditLimit = clients.filter(c => {
+      if (!c.credit_limit || c.credit_limit <= 0) return false;
+      const debt = Number(c.combined_debt) || 0;
+      return debt > c.credit_limit;
+    }).length;
+
+    // Total sales count
+    const totalOrders = clients.reduce((sum, c) => sum + (c.orders_count || 0), 0);
+    const totalSales = clients.reduce((sum, c) => sum + (c.sales_count || 0), 0);
+
+    return {
+      totalClients,
+      activeClients,
+      inactiveClients,
+      clientsWithDebt,
+      clientsWithoutDebt,
+      totalDebt,
+      avgDebt,
+      newThisMonth,
+      withCreditLimit,
+      exceededCreditLimit,
+      totalOrders,
+      totalSales,
+    };
+  }, [clients]);
+
+  // Check if any filters are active
+  const hasActiveFilters = searchTerm || statusFilter !== 'all' || balanceFilter !== 'all' ||
+    dateFrom || dateTo || creditLimitFilter !== 'all';
+
+  // Reset all filters
+  const resetFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setBalanceFilter('all');
+    setDateFrom('');
+    setDateTo('');
+    setCreditLimitFilter('all');
+  };
 
   // Filtered clients
-  const filteredClients = clients.filter(client => {
-    const matchesSearch =
-      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.address?.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredClients = useMemo(() => {
+    return clients.filter(client => {
+      const matchesSearch =
+        client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client.address?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus =
-      statusFilter === 'all' ||
-      (statusFilter === 'active' && client.is_active) ||
-      (statusFilter === 'inactive' && !client.is_active);
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'active' && client.is_active) ||
+        (statusFilter === 'inactive' && !client.is_active);
 
-    const clientDebt = Number(client.combined_debt) || 0;
-    const matchesBalance =
-      balanceFilter === 'all' ||
-      (balanceFilter === 'has_debt' && clientDebt > 0) ||
-      (balanceFilter === 'no_debt' && clientDebt <= 0);
+      const clientDebt = Number(client.combined_debt) || 0;
+      const matchesBalance =
+        balanceFilter === 'all' ||
+        (balanceFilter === 'has_debt' && clientDebt > 0) ||
+        (balanceFilter === 'no_debt' && clientDebt <= 0);
 
-    return matchesSearch && matchesStatus && matchesBalance;
-  });
+      // Date filter
+      let matchesDate = true;
+      if (dateFrom || dateTo) {
+        const createdAt = client.created_at ? new Date(client.created_at) : null;
+        if (createdAt) {
+          if (dateFrom && createdAt < new Date(dateFrom)) matchesDate = false;
+          if (dateTo && createdAt > new Date(dateTo + 'T23:59:59')) matchesDate = false;
+        } else {
+          matchesDate = false;
+        }
+      }
+
+      // Credit limit filter
+      let matchesCreditLimit = true;
+      if (creditLimitFilter !== 'all') {
+        const hasLimit = client.credit_limit && client.credit_limit > 0;
+        const isExceeded = hasLimit && clientDebt > (client.credit_limit || 0);
+
+        if (creditLimitFilter === 'has_limit') matchesCreditLimit = !!hasLimit;
+        else if (creditLimitFilter === 'no_limit') matchesCreditLimit = !hasLimit;
+        else if (creditLimitFilter === 'exceeded') matchesCreditLimit = !!isExceeded;
+      }
+
+      return matchesSearch && matchesStatus && matchesBalance && matchesDate && matchesCreditLimit;
+    });
+  }, [clients, searchTerm, statusFilter, balanceFilter, dateFrom, dateTo, creditLimitFilter]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
@@ -331,93 +419,256 @@ export default function ClientsPage() {
         </div>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Main KPI Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
         <div className="card bg-blue-50 border-blue-200">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-              <UserGroupIcon className="w-6 h-6 text-blue-600" />
+            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+              <UserGroupIcon className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">إجمالي العملاء</p>
-              <p className="text-2xl font-bold text-blue-600">{totalClients}</p>
+              <p className="text-xs text-gray-600">إجمالي العملاء</p>
+              <p className="text-xl font-bold text-blue-600">{stats.totalClients}</p>
             </div>
           </div>
         </div>
 
         <div className="card bg-green-50 border-green-200">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-              <CheckCircleIcon className="w-6 h-6 text-green-600" />
+            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+              <CheckCircleIcon className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">عملاء نشطون</p>
-              <p className="text-2xl font-bold text-green-600">{activeClients}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="card bg-orange-50 border-orange-200">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
-              <ExclamationTriangleIcon className="w-6 h-6 text-orange-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">عملاء لديهم ديون</p>
-              <p className="text-2xl font-bold text-orange-600">{clientsWithDebt}</p>
+              <p className="text-xs text-gray-600">نشطون</p>
+              <p className="text-xl font-bold text-green-600">{stats.activeClients}</p>
             </div>
           </div>
         </div>
 
         <div className="card bg-red-50 border-red-200">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
-              <BanknotesIcon className="w-6 h-6 text-red-600" />
+            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+              <BanknotesIcon className="w-5 h-5 text-red-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">إجمالي الديون</p>
-              <p className="text-2xl font-bold text-red-600">{formatCurrency(totalDebt)}</p>
+              <p className="text-xs text-gray-600">إجمالي الديون</p>
+              <p className="text-xl font-bold text-red-600">{formatCurrency(stats.totalDebt)}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="card bg-orange-50 border-orange-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+              <ExclamationTriangleIcon className="w-5 h-5 text-orange-600" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-600">لديهم ديون</p>
+              <p className="text-xl font-bold text-orange-600">{stats.clientsWithDebt}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="card bg-purple-50 border-purple-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+              <UserPlusIcon className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-600">جدد هذا الشهر</p>
+              <p className="text-xl font-bold text-purple-600">{stats.newThisMonth}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="card bg-amber-50 border-amber-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+              <CurrencyDollarIcon className="w-5 h-5 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-600">متوسط الدين</p>
+              <p className="text-xl font-bold text-amber-600">{formatCurrency(stats.avgDebt)}</p>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Clickable Status Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <button
+          onClick={() => { setStatusFilter('all'); setBalanceFilter('all'); }}
+          className={`p-3 rounded-lg border-2 transition-all text-right ${
+            statusFilter === 'all' && balanceFilter === 'all'
+              ? 'border-blue-500 bg-blue-50'
+              : 'border-gray-200 bg-white hover:border-gray-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <UserGroupIcon className="w-5 h-5 text-blue-600" />
+            <span className="text-lg font-bold text-gray-800">{stats.totalClients}</span>
+          </div>
+          <p className="text-xs text-gray-600 mt-1">الكل</p>
+        </button>
+
+        <button
+          onClick={() => { setStatusFilter('active'); setBalanceFilter('all'); }}
+          className={`p-3 rounded-lg border-2 transition-all text-right ${
+            statusFilter === 'active' && balanceFilter === 'all'
+              ? 'border-green-500 bg-green-50'
+              : 'border-gray-200 bg-white hover:border-gray-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <CheckCircleIcon className="w-5 h-5 text-green-600" />
+            <span className="text-lg font-bold text-gray-800">{stats.activeClients}</span>
+          </div>
+          <p className="text-xs text-gray-600 mt-1">نشطون</p>
+        </button>
+
+        <button
+          onClick={() => { setStatusFilter('inactive'); setBalanceFilter('all'); }}
+          className={`p-3 rounded-lg border-2 transition-all text-right ${
+            statusFilter === 'inactive'
+              ? 'border-gray-500 bg-gray-50'
+              : 'border-gray-200 bg-white hover:border-gray-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <UserMinusIcon className="w-5 h-5 text-gray-600" />
+            <span className="text-lg font-bold text-gray-800">{stats.inactiveClients}</span>
+          </div>
+          <p className="text-xs text-gray-600 mt-1">معطلون</p>
+        </button>
+
+        <button
+          onClick={() => { setStatusFilter('all'); setBalanceFilter('has_debt'); }}
+          className={`p-3 rounded-lg border-2 transition-all text-right ${
+            balanceFilter === 'has_debt'
+              ? 'border-red-500 bg-red-50'
+              : 'border-gray-200 bg-white hover:border-gray-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <ArrowTrendingUpIcon className="w-5 h-5 text-red-600" />
+            <span className="text-lg font-bold text-gray-800">{stats.clientsWithDebt}</span>
+          </div>
+          <p className="text-xs text-gray-600 mt-1">لديهم ديون</p>
+        </button>
+
+        <button
+          onClick={() => { setStatusFilter('all'); setBalanceFilter('no_debt'); }}
+          className={`p-3 rounded-lg border-2 transition-all text-right ${
+            balanceFilter === 'no_debt'
+              ? 'border-teal-500 bg-teal-50'
+              : 'border-gray-200 bg-white hover:border-gray-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <CheckCircleIcon className="w-5 h-5 text-teal-600" />
+            <span className="text-lg font-bold text-gray-800">{stats.clientsWithoutDebt}</span>
+          </div>
+          <p className="text-xs text-gray-600 mt-1">بدون دين</p>
+        </button>
+      </div>
+
       {/* Filters and Search */}
       <div className="card">
-        <div className="flex flex-wrap gap-4 mb-4">
-          <div className="flex-1 min-w-[250px] relative">
+        <div className="flex items-center gap-2 mb-4">
+          <FunnelIcon className="w-5 h-5 text-gray-500" />
+          <span className="font-medium text-gray-700">الفلاتر</span>
+          {hasActiveFilters && (
+            <button
+              onClick={resetFilters}
+              className="mr-auto flex items-center gap-1 text-sm text-red-600 hover:text-red-700"
+            >
+              <XCircleIcon className="w-4 h-4" />
+              إعادة تعيين
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+          {/* Search */}
+          <div className="relative">
             <MagnifyingGlassIcon className="w-5 h-5 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="بحث بالاسم، الهاتف، البريد، أو العنوان..."
+              placeholder="بحث بالاسم، الهاتف، البريد..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="input w-full pr-10"
             />
           </div>
+
+          {/* Status Filter */}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-            className="select min-w-[150px]"
+            className="select"
           >
             <option value="all">جميع الحالات</option>
             <option value="active">نشط فقط</option>
             <option value="inactive">معطل فقط</option>
           </select>
+
+          {/* Balance Filter */}
           <select
             value={balanceFilter}
             onChange={(e) => setBalanceFilter(e.target.value as typeof balanceFilter)}
-            className="select min-w-[150px]"
+            className="select"
           >
             <option value="all">جميع الأرصدة</option>
             <option value="has_debt">لديه دين</option>
             <option value="no_debt">بدون دين</option>
           </select>
+
+          {/* Credit Limit Filter */}
+          <select
+            value={creditLimitFilter}
+            onChange={(e) => setCreditLimitFilter(e.target.value as typeof creditLimitFilter)}
+            className="select"
+          >
+            <option value="all">حد الائتمان</option>
+            <option value="has_limit">لديه حد ائتمان</option>
+            <option value="no_limit">بدون حد ائتمان</option>
+            <option value="exceeded">تجاوز الحد ({stats.exceededCreditLimit})</option>
+          </select>
+        </div>
+
+        {/* Date Range */}
+        <div className="flex flex-wrap items-center gap-4 mb-4">
+          <div className="flex items-center gap-2">
+            <CalendarIcon className="w-5 h-5 text-gray-400" />
+            <span className="text-sm text-gray-600">تاريخ الإنشاء:</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="input text-sm"
+              placeholder="من"
+            />
+            <span className="text-gray-400">-</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="input text-sm"
+              placeholder="إلى"
+            />
+          </div>
         </div>
 
         {/* Results count */}
-        <div className="text-sm text-gray-500 mb-4">
-          عرض {filteredClients.length} من {totalClients} عميل
+        <div className="text-sm text-gray-500 mb-4 flex items-center justify-between">
+          <span>عرض {filteredClients.length} من {stats.totalClients} عميل</span>
+          {hasActiveFilters && (
+            <span className="text-blue-600">
+              ({stats.totalClients - filteredClients.length} مخفي بالفلاتر)
+            </span>
+          )}
         </div>
 
         {/* Clients Table */}

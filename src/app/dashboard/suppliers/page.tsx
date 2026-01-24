@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { suppliersApi, creditorsApi } from '@/lib/api';
@@ -26,6 +26,11 @@ import {
   MagnifyingGlassIcon,
   IdentificationIcon,
   TruckIcon,
+  CalendarIcon,
+  FunnelIcon,
+  XCircleIcon,
+  UserPlusIcon,
+  UserMinusIcon,
 } from '@heroicons/react/24/outline';
 
 interface Supplier {
@@ -69,6 +74,9 @@ export default function SuppliersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [balanceFilter, setBalanceFilter] = useState<'all' | 'has_debt' | 'no_debt'>('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [companyFilter, setCompanyFilter] = useState<'all' | 'has_company' | 'no_company'>('all');
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -234,35 +242,103 @@ export default function SuppliersPage() {
   };
 
   // Statistics
-  const totalSuppliers = suppliers.length;
-  const activeSuppliers = suppliers.filter(s => s.is_active).length;
-  const suppliersWithDebt = suppliers.filter(s => (Number(s.balance) || 0) > 0).length;
-  const totalDebt = suppliers.reduce((sum, s) => {
-    const balance = Number(s.balance) || 0;
-    return sum + (balance > 0 ? balance : 0);
-  }, 0);
+  const stats = useMemo(() => {
+    const totalSuppliers = suppliers.length;
+    const activeSuppliers = suppliers.filter(s => s.is_active).length;
+    const inactiveSuppliers = suppliers.filter(s => !s.is_active).length;
+    const suppliersWithDebt = suppliers.filter(s => (Number(s.balance) || 0) > 0).length;
+    const suppliersWithoutDebt = suppliers.filter(s => (Number(s.balance) || 0) <= 0).length;
+    const totalDebt = suppliers.reduce((sum, s) => {
+      const balance = Number(s.balance) || 0;
+      return sum + (balance > 0 ? balance : 0);
+    }, 0);
+    const avgDebt = suppliersWithDebt > 0 ? totalDebt / suppliersWithDebt : 0;
+
+    // New suppliers this month
+    const now = new Date();
+    const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const newThisMonth = suppliers.filter(s => {
+      if (!s.created_at) return false;
+      return new Date(s.created_at) >= thisMonth;
+    }).length;
+
+    // Suppliers with company name
+    const withCompanyName = suppliers.filter(s => s.company_name && s.company_name.trim()).length;
+
+    // Suppliers with tax number
+    const withTaxNumber = suppliers.filter(s => s.tax_number && s.tax_number.trim()).length;
+
+    return {
+      totalSuppliers,
+      activeSuppliers,
+      inactiveSuppliers,
+      suppliersWithDebt,
+      suppliersWithoutDebt,
+      totalDebt,
+      avgDebt,
+      newThisMonth,
+      withCompanyName,
+      withTaxNumber,
+    };
+  }, [suppliers]);
+
+  // Check if any filters are active
+  const hasActiveFilters = searchTerm || statusFilter !== 'all' || balanceFilter !== 'all' ||
+    dateFrom || dateTo || companyFilter !== 'all';
+
+  // Reset all filters
+  const resetFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setBalanceFilter('all');
+    setDateFrom('');
+    setDateTo('');
+    setCompanyFilter('all');
+  };
 
   // Filtered suppliers
-  const filteredSuppliers = suppliers.filter(supplier => {
-    const matchesSearch =
-      supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      supplier.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      supplier.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      supplier.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      supplier.tax_number?.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredSuppliers = useMemo(() => {
+    return suppliers.filter(supplier => {
+      const matchesSearch =
+        supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        supplier.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        supplier.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        supplier.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        supplier.tax_number?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus =
-      statusFilter === 'all' ||
-      (statusFilter === 'active' && supplier.is_active) ||
-      (statusFilter === 'inactive' && !supplier.is_active);
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'active' && supplier.is_active) ||
+        (statusFilter === 'inactive' && !supplier.is_active);
 
-    const matchesBalance =
-      balanceFilter === 'all' ||
-      (balanceFilter === 'has_debt' && (supplier.balance || 0) > 0) ||
-      (balanceFilter === 'no_debt' && (supplier.balance || 0) <= 0);
+      const matchesBalance =
+        balanceFilter === 'all' ||
+        (balanceFilter === 'has_debt' && (supplier.balance || 0) > 0) ||
+        (balanceFilter === 'no_debt' && (supplier.balance || 0) <= 0);
 
-    return matchesSearch && matchesStatus && matchesBalance;
-  });
+      // Date filter
+      let matchesDate = true;
+      if (dateFrom || dateTo) {
+        const createdAt = supplier.created_at ? new Date(supplier.created_at) : null;
+        if (createdAt) {
+          if (dateFrom && createdAt < new Date(dateFrom)) matchesDate = false;
+          if (dateTo && createdAt > new Date(dateTo + 'T23:59:59')) matchesDate = false;
+        } else {
+          matchesDate = false;
+        }
+      }
+
+      // Company filter
+      let matchesCompany = true;
+      if (companyFilter !== 'all') {
+        const hasCompany = supplier.company_name && supplier.company_name.trim();
+        if (companyFilter === 'has_company') matchesCompany = !!hasCompany;
+        else if (companyFilter === 'no_company') matchesCompany = !hasCompany;
+      }
+
+      return matchesSearch && matchesStatus && matchesBalance && matchesDate && matchesCompany;
+    });
+  }, [suppliers, searchTerm, statusFilter, balanceFilter, dateFrom, dateTo, companyFilter]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
@@ -298,93 +374,255 @@ export default function SuppliersPage() {
         </div>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Main KPI Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
         <div className="card bg-blue-50 border-blue-200">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-              <TruckIcon className="w-6 h-6 text-blue-600" />
+            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+              <TruckIcon className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">إجمالي الموردين</p>
-              <p className="text-2xl font-bold text-blue-600">{totalSuppliers}</p>
+              <p className="text-xs text-gray-600">إجمالي الموردين</p>
+              <p className="text-xl font-bold text-blue-600">{stats.totalSuppliers}</p>
             </div>
           </div>
         </div>
 
         <div className="card bg-green-50 border-green-200">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-              <CheckCircleIcon className="w-6 h-6 text-green-600" />
+            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+              <CheckCircleIcon className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">موردين نشطون</p>
-              <p className="text-2xl font-bold text-green-600">{activeSuppliers}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="card bg-orange-50 border-orange-200">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
-              <ExclamationTriangleIcon className="w-6 h-6 text-orange-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">موردين لهم ديون</p>
-              <p className="text-2xl font-bold text-orange-600">{suppliersWithDebt}</p>
+              <p className="text-xs text-gray-600">نشطون</p>
+              <p className="text-xl font-bold text-green-600">{stats.activeSuppliers}</p>
             </div>
           </div>
         </div>
 
         <div className="card bg-red-50 border-red-200">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
-              <BanknotesIcon className="w-6 h-6 text-red-600" />
+            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+              <BanknotesIcon className="w-5 h-5 text-red-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">إجمالي الديون</p>
-              <p className="text-2xl font-bold text-red-600">{formatCurrency(totalDebt)}</p>
+              <p className="text-xs text-gray-600">إجمالي الديون</p>
+              <p className="text-xl font-bold text-red-600">{formatCurrency(stats.totalDebt)}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="card bg-orange-50 border-orange-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+              <ExclamationTriangleIcon className="w-5 h-5 text-orange-600" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-600">لهم ديون علينا</p>
+              <p className="text-xl font-bold text-orange-600">{stats.suppliersWithDebt}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="card bg-purple-50 border-purple-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+              <UserPlusIcon className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-600">جدد هذا الشهر</p>
+              <p className="text-xl font-bold text-purple-600">{stats.newThisMonth}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="card bg-amber-50 border-amber-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+              <CurrencyDollarIcon className="w-5 h-5 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-600">متوسط الدين</p>
+              <p className="text-xl font-bold text-amber-600">{formatCurrency(stats.avgDebt)}</p>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Clickable Status Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <button
+          onClick={() => { setStatusFilter('all'); setBalanceFilter('all'); }}
+          className={`p-3 rounded-lg border-2 transition-all text-right ${
+            statusFilter === 'all' && balanceFilter === 'all'
+              ? 'border-blue-500 bg-blue-50'
+              : 'border-gray-200 bg-white hover:border-gray-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <TruckIcon className="w-5 h-5 text-blue-600" />
+            <span className="text-lg font-bold text-gray-800">{stats.totalSuppliers}</span>
+          </div>
+          <p className="text-xs text-gray-600 mt-1">الكل</p>
+        </button>
+
+        <button
+          onClick={() => { setStatusFilter('active'); setBalanceFilter('all'); }}
+          className={`p-3 rounded-lg border-2 transition-all text-right ${
+            statusFilter === 'active' && balanceFilter === 'all'
+              ? 'border-green-500 bg-green-50'
+              : 'border-gray-200 bg-white hover:border-gray-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <CheckCircleIcon className="w-5 h-5 text-green-600" />
+            <span className="text-lg font-bold text-gray-800">{stats.activeSuppliers}</span>
+          </div>
+          <p className="text-xs text-gray-600 mt-1">نشطون</p>
+        </button>
+
+        <button
+          onClick={() => { setStatusFilter('inactive'); setBalanceFilter('all'); }}
+          className={`p-3 rounded-lg border-2 transition-all text-right ${
+            statusFilter === 'inactive'
+              ? 'border-gray-500 bg-gray-50'
+              : 'border-gray-200 bg-white hover:border-gray-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <UserMinusIcon className="w-5 h-5 text-gray-600" />
+            <span className="text-lg font-bold text-gray-800">{stats.inactiveSuppliers}</span>
+          </div>
+          <p className="text-xs text-gray-600 mt-1">معطلون</p>
+        </button>
+
+        <button
+          onClick={() => { setStatusFilter('all'); setBalanceFilter('has_debt'); }}
+          className={`p-3 rounded-lg border-2 transition-all text-right ${
+            balanceFilter === 'has_debt'
+              ? 'border-red-500 bg-red-50'
+              : 'border-gray-200 bg-white hover:border-gray-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <ArrowTrendingUpIcon className="w-5 h-5 text-red-600" />
+            <span className="text-lg font-bold text-gray-800">{stats.suppliersWithDebt}</span>
+          </div>
+          <p className="text-xs text-gray-600 mt-1">لهم ديون علينا</p>
+        </button>
+
+        <button
+          onClick={() => { setStatusFilter('all'); setBalanceFilter('no_debt'); }}
+          className={`p-3 rounded-lg border-2 transition-all text-right ${
+            balanceFilter === 'no_debt'
+              ? 'border-teal-500 bg-teal-50'
+              : 'border-gray-200 bg-white hover:border-gray-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <CheckCircleIcon className="w-5 h-5 text-teal-600" />
+            <span className="text-lg font-bold text-gray-800">{stats.suppliersWithoutDebt}</span>
+          </div>
+          <p className="text-xs text-gray-600 mt-1">بدون دين</p>
+        </button>
+      </div>
+
       {/* Filters and Search */}
       <div className="card">
-        <div className="flex flex-wrap gap-4 mb-4">
-          <div className="flex-1 min-w-[250px] relative">
+        <div className="flex items-center gap-2 mb-4">
+          <FunnelIcon className="w-5 h-5 text-gray-500" />
+          <span className="font-medium text-gray-700">الفلاتر</span>
+          {hasActiveFilters && (
+            <button
+              onClick={resetFilters}
+              className="mr-auto flex items-center gap-1 text-sm text-red-600 hover:text-red-700"
+            >
+              <XCircleIcon className="w-4 h-4" />
+              إعادة تعيين
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+          {/* Search */}
+          <div className="relative">
             <MagnifyingGlassIcon className="w-5 h-5 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="بحث بالاسم، الشركة، الهاتف، أو الرقم الضريبي..."
+              placeholder="بحث بالاسم، الشركة، الهاتف..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="input w-full pr-10"
             />
           </div>
+
+          {/* Status Filter */}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-            className="select min-w-[150px]"
+            className="select"
           >
             <option value="all">جميع الحالات</option>
             <option value="active">نشط فقط</option>
             <option value="inactive">معطل فقط</option>
           </select>
+
+          {/* Balance Filter */}
           <select
             value={balanceFilter}
             onChange={(e) => setBalanceFilter(e.target.value as typeof balanceFilter)}
-            className="select min-w-[150px]"
+            className="select"
           >
             <option value="all">جميع الأرصدة</option>
             <option value="has_debt">له دين علينا</option>
             <option value="no_debt">بدون دين</option>
           </select>
+
+          {/* Company Filter */}
+          <select
+            value={companyFilter}
+            onChange={(e) => setCompanyFilter(e.target.value as typeof companyFilter)}
+            className="select"
+          >
+            <option value="all">اسم الشركة</option>
+            <option value="has_company">لديه اسم شركة ({stats.withCompanyName})</option>
+            <option value="no_company">بدون اسم شركة</option>
+          </select>
+        </div>
+
+        {/* Date Range */}
+        <div className="flex flex-wrap items-center gap-4 mb-4">
+          <div className="flex items-center gap-2">
+            <CalendarIcon className="w-5 h-5 text-gray-400" />
+            <span className="text-sm text-gray-600">تاريخ الإنشاء:</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="input text-sm"
+              placeholder="من"
+            />
+            <span className="text-gray-400">-</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="input text-sm"
+              placeholder="إلى"
+            />
+          </div>
         </div>
 
         {/* Results count */}
-        <div className="text-sm text-gray-500 mb-4">
-          عرض {filteredSuppliers.length} من {totalSuppliers} مورد
+        <div className="text-sm text-gray-500 mb-4 flex items-center justify-between">
+          <span>عرض {filteredSuppliers.length} من {stats.totalSuppliers} مورد</span>
+          {hasActiveFilters && (
+            <span className="text-blue-600">
+              ({stats.totalSuppliers - filteredSuppliers.length} مخفي بالفلاتر)
+            </span>
+          )}
         </div>
 
         {/* Suppliers Table */}
