@@ -1,7 +1,10 @@
 import axios from 'axios';
 
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://logistics-demo.symloop.com/api';
+console.log('API Base URL configured:', apiBaseUrl);
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://logistics-demo.symloop.com/api',
+  baseURL: apiBaseUrl,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',

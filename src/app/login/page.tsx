@@ -41,10 +41,13 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      console.log('Attempting login with:', email);
+      console.log('API URL:', process.env.NEXT_PUBLIC_API_URL);
       await login(email, password);
       toast.success('تم تسجيل الدخول بنجاح');
       router.push('/dashboard');
     } catch (error: unknown) {
+      console.error('Login error:', error);
       const err = error as { response?: { data?: { message?: string } } };
       toast.error(err.response?.data?.message || 'خطأ في تسجيل الدخول');
     } finally {
