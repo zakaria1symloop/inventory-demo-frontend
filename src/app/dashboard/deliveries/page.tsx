@@ -206,29 +206,83 @@ export default function DeliveriesPage() {
 
       {/* KPIs Row 1 - Main Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        <div className="card bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-          <div className="text-blue-100 text-sm">إجمالي التوصيلات</div>
-          <div className="text-3xl font-bold">{kpis.totalDeliveries}</div>
+        <div className="card bg-blue-50 border-2 border-blue-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-blue-600 text-sm font-medium">إجمالي التوصيلات</div>
+              <div className="text-3xl font-bold text-blue-700">{kpis.totalDeliveries}</div>
+            </div>
+            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
         </div>
-        <div className="card bg-gradient-to-br from-green-500 to-green-600 text-white">
-          <div className="text-green-100 text-sm">نسبة النجاح</div>
-          <div className="text-3xl font-bold">{kpis.successRate}%</div>
+        <div className="card bg-green-50 border-2 border-green-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-green-600 text-sm font-medium">نسبة النجاح</div>
+              <div className="text-3xl font-bold text-green-700">{kpis.successRate}%</div>
+            </div>
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
         </div>
-        <div className="card bg-gradient-to-br from-purple-500 to-purple-600 text-white">
-          <div className="text-purple-100 text-sm">إجمالي الطلبات</div>
-          <div className="text-3xl font-bold">{kpis.totalOrders}</div>
+        <div className="card bg-purple-50 border-2 border-purple-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-purple-600 text-sm font-medium">إجمالي الطلبات</div>
+              <div className="text-3xl font-bold text-purple-700">{kpis.totalOrders}</div>
+            </div>
+            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
+          </div>
         </div>
-        <div className="card bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
-          <div className="text-emerald-100 text-sm">تم التسليم</div>
-          <div className="text-3xl font-bold">{kpis.deliveredOrders}</div>
+        <div className="card bg-emerald-50 border-2 border-emerald-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-emerald-600 text-sm font-medium">تم التسليم</div>
+              <div className="text-3xl font-bold text-emerald-700">{kpis.deliveredOrders}</div>
+            </div>
+            <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+          </div>
         </div>
-        <div className="card bg-gradient-to-br from-red-500 to-red-600 text-white">
-          <div className="text-red-100 text-sm">فشل/مرجع</div>
-          <div className="text-3xl font-bold">{kpis.failedOrders}</div>
+        <div className="card bg-red-50 border-2 border-red-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-red-600 text-sm font-medium">فشل/مرجع</div>
+              <div className="text-3xl font-bold text-red-700">{kpis.failedOrders}</div>
+            </div>
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+          </div>
         </div>
-        <div className="card bg-gradient-to-br from-orange-500 to-orange-600 text-white">
-          <div className="text-orange-100 text-sm">طلبات جاهزة</div>
-          <div className="text-3xl font-bold">{kpis.unassignedOrders}</div>
+        <div className="card bg-orange-50 border-2 border-orange-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-orange-600 text-sm font-medium">طلبات جاهزة</div>
+              <div className="text-3xl font-bold text-orange-700">{kpis.unassignedOrders}</div>
+            </div>
+            <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
         </div>
       </div>
 
