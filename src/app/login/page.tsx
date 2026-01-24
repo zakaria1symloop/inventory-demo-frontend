@@ -95,6 +95,28 @@ export default function LoginPage() {
             <p className="text-gray-500 mt-2">مرحبا بك، قم بتسجيل الدخول</p>
           </div>
 
+          {/* Demo credentials info */}
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="font-bold text-blue-700">بيانات الدخول التجريبية</span>
+            </div>
+            <p className="text-sm text-gray-600 font-mono">البريد: admin@demo.com</p>
+            <p className="text-sm text-gray-600 font-mono">كلمة المرور: demo1234</p>
+            <button
+              type="button"
+              onClick={() => {
+                setEmail('admin@demo.com');
+                setPassword('demo1234');
+              }}
+              className="mt-2 text-sm text-blue-600 hover:text-blue-800 underline"
+            >
+              استخدام البيانات التجريبية
+            </button>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -139,10 +161,10 @@ export default function LoginPage() {
 
           {/* تحميل التطبيقات */}
           <div className="mt-8 pt-6 border-t border-gray-200">
-            <p className="text-center text-sm text-gray-500 mb-4">تحميل التطبيقات</p>
+            <p className="text-center text-sm text-gray-500 mb-4">تحميل التطبيقات التجريبية</p>
             <div className="flex gap-3">
               <a
-                href="https://rafik-biskra.symloop.com/seller.apk"
+                href="https://logistics-demo.symloop.com/seller-demo.apk"
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
                 download
               >
@@ -152,7 +174,7 @@ export default function LoginPage() {
                 <span className="text-sm font-medium">تطبيق البائع</span>
               </a>
               <a
-                href="https://rafik-biskra.symloop.com/livreur.apk"
+                href="https://logistics-demo.symloop.com/livreur-demo.apk"
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors"
                 download
               >
