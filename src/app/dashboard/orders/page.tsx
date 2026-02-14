@@ -144,12 +144,14 @@ export default function OrdersPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [router]);
 
-  const formatCurrency = (value: number) => {
+  const formatCurrency = (value: unknown) => {
+    const num = typeof value === 'string' ? parseFloat(value) : Number(value);
+    if (!isFinite(num)) return '0 د.ج';
     return new Intl.NumberFormat('ar-DZ', {
       style: 'currency',
       currency: 'DZD',
       minimumFractionDigits: 0,
-    }).format(value);
+    }).format(num);
   };
 
   const formatDate = (date: string) => {
@@ -166,10 +168,10 @@ export default function OrdersPage() {
     const today = new Date().toISOString().split('T')[0];
     const todayOrders = orders.filter((o: Order) => o.date === today);
 
-    const totalAmount = orders.reduce((sum: number, o: Order) => sum + (o.grand_total || 0), 0);
+    const totalAmount = orders.reduce((sum: number, o: Order) => sum + (parseFloat(String(o.grand_total)) || 0), 0);
     const deliveredAmount = orders
       .filter((o: Order) => o.status === 'delivered')
-      .reduce((sum: number, o: Order) => sum + (o.grand_total || 0), 0);
+      .reduce((sum: number, o: Order) => sum + (parseFloat(String(o.grand_total)) || 0), 0);
 
     const problemOrders = orders.filter((o: Order) => o.has_problem);
 

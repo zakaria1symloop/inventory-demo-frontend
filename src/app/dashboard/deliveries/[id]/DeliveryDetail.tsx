@@ -3,6 +3,7 @@
 import { useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { deliveriesApi, warehousesApi } from '@/lib/api';
+import { formatQty } from '@/lib/utils';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import {
@@ -553,15 +554,15 @@ export default function DeliveryDetail() {
                                     <div className="text-xs text-gray-400">{item.product.barcode}</div>
                                   )}
                                 </td>
-                                <td className="px-3 py-2 text-center">{item.quantity_confirmed}</td>
+                                <td className="px-3 py-2 text-center">{formatQty(item.quantity_confirmed, piecesPerPkg)}</td>
                                 <td className="px-3 py-2 text-center">
                                   <span className={item.quantity_delivered > 0 ? 'text-green-600 font-medium' : 'text-gray-400'}>
-                                    {item.quantity_delivered || 0}
+                                    {formatQty(item.quantity_delivered || 0, piecesPerPkg)}
                                   </span>
                                 </td>
                                 <td className="px-3 py-2 text-center">
                                   <span className={item.quantity_returned > 0 ? 'text-red-600 font-medium' : 'text-gray-400'}>
-                                    {item.quantity_returned || 0}
+                                    {formatQty(item.quantity_returned || 0, piecesPerPkg)}
                                   </span>
                                 </td>
                                 <td className="px-3 py-2">{formatCurrency(item.unit_price)}</td>
@@ -645,7 +646,7 @@ export default function DeliveryDetail() {
                 {delivery.returns.map((ret) => (
                   <tr key={ret.id} className="border-t">
                     <td className="px-3 py-2 font-medium">{ret.product?.name || '-'}</td>
-                    <td className="px-3 py-2 text-center">{ret.quantity}</td>
+                    <td className="px-3 py-2 text-center">{formatQty(ret.quantity, (ret.product as Record<string, unknown>)?.pieces_per_package as number | undefined)}</td>
                     <td className="px-3 py-2 text-center">
                       <span className={`badge ${ret.reason === 'damaged' ? 'badge-danger' : 'badge-warning'}`}>
                         {getReturnReasonLabel(ret.reason)}

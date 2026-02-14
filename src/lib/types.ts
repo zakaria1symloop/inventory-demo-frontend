@@ -13,7 +13,7 @@ export interface User {
   name: string;
   email: string;
   phone?: string;
-  role: 'admin' | 'manager' | 'seller' | 'livreur';
+  role: 'admin' | 'manager' | 'seller' | 'livreur' | 'cashvan';
   avatar?: string;
   is_active: boolean;
   created_at: string;
@@ -83,6 +83,7 @@ export interface Product {
   unit_buy?: Unit;
   unit_sale?: Unit;
   stocks?: Stock[];
+  category_prices?: ProductCategoryPrice[];
 }
 
 // Warehouse types
@@ -105,6 +106,25 @@ export interface Stock {
   warehouse?: Warehouse;
 }
 
+// Client Category types
+export interface ClientCategory {
+  id: number;
+  name: string;
+  description?: string;
+  is_default: boolean;
+  clients_count?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Product Category Price types
+export interface ProductCategoryPrice {
+  id: number;
+  product_id: number;
+  client_category_id: number;
+  price: number;
+}
+
 // Client types
 export interface Client {
   id: number;
@@ -117,6 +137,8 @@ export interface Client {
   credit_limit?: number;
   balance: number;
   is_active: boolean;
+  client_category_id?: number;
+  client_category?: ClientCategory;
 }
 
 // Supplier types
@@ -357,6 +379,156 @@ export interface Payment {
   notes?: string;
   user_id: number;
   user?: User;
+}
+
+// Caisse types
+export interface Caisse {
+  id: number;
+  user_id: number;
+  type: 'principale' | 'vendeur' | 'livreur';
+  balance: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  user?: User;
+}
+
+export interface CaisseTransaction {
+  id: number;
+  caisse_id: number;
+  type: 'in' | 'out';
+  amount: number;
+  balance_after: number;
+  source_type?: string;
+  source_id?: number;
+  description?: string;
+  created_by?: number;
+  created_at: string;
+  updated_at: string;
+  creator?: User;
+}
+
+export interface CaisseSettlement {
+  id: number;
+  caisse_id: number;
+  amount: number;
+  type: 'admin_collect' | 'seller_deposit';
+  balance_before: number;
+  balance_after: number;
+  notes?: string;
+  settled_by: number;
+  created_at: string;
+  updated_at: string;
+  settler?: User;
+}
+
+export interface CaisseTransfer {
+  id: number;
+  from_caisse_id: number;
+  to_caisse_id: number;
+  amount: number;
+  notes?: string;
+  created_by: number;
+  created_at: string;
+  from_caisse?: Caisse;
+  to_caisse?: Caisse;
+  creator?: User;
+}
+
+export interface CaisseSummary {
+  total_balance: number;
+  total_caisses: number;
+  by_type: Record<string, { count: number; total_balance: number }>;
+  today: {
+    total_in: number;
+    total_out: number;
+    total_settled: number;
+  };
+  caisses: Caisse[];
+}
+
+// Van Session types
+export interface VanSession {
+  id: number;
+  reference: string;
+  livreur_id: number;
+  vehicle_id?: number;
+  warehouse_id: number;
+  date: string;
+  status: 'preparing' | 'active' | 'completed' | 'cancelled';
+  notes?: string;
+  total_loaded_value: number;
+  total_sales: number;
+  total_collected: number;
+  total_credit: number;
+  total_returned_value: number;
+  sales_count: number;
+  started_at?: string;
+  completed_at?: string;
+  created_at: string;
+  updated_at: string;
+  livreur?: User;
+  vehicle?: Vehicle;
+  warehouse?: Warehouse;
+  items?: VanSessionItem[];
+  sales?: VanSale[];
+  returns?: VanReturn[];
+}
+
+export interface VanSessionItem {
+  id: number;
+  van_session_id: number;
+  product_id: number;
+  quantity_loaded: number;
+  quantity_sold: number;
+  quantity_returned: number;
+  unit_cost: number;
+  product?: Product;
+  available_quantity?: number;
+}
+
+export interface VanSale {
+  id: number;
+  reference?: string;
+  van_session_id: number;
+  client_id?: number;
+  sale_time?: string;
+  total_amount: number;
+  discount: number;
+  grand_total: number;
+  paid_amount: number;
+  due_amount: number;
+  payment_status: 'paid' | 'partial' | 'unpaid';
+  latitude?: number;
+  longitude?: number;
+  notes?: string;
+  created_at: string;
+  client?: Client;
+  items?: VanSaleItem[];
+}
+
+export interface VanSaleItem {
+  id: number;
+  van_sale_id: number;
+  product_id: number;
+  quantity: number;
+  unit_price: number;
+  discount: number;
+  subtotal: number;
+  product?: Product;
+}
+
+export interface VanReturn {
+  id: number;
+  van_session_id: number;
+  product_id: number;
+  quantity: number;
+  reason: 'unsold' | 'damaged' | 'expired' | 'other';
+  returnable_to_stock: boolean;
+  processed: boolean;
+  processed_at?: string;
+  notes?: string;
+  product?: Product;
 }
 
 // Dashboard types

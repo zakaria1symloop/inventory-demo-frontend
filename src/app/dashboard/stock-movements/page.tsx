@@ -1,8 +1,24 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { stockMovementsApi, productsApi, warehousesApi } from '@/lib/api';
 import toast from 'react-hot-toast';
+import {
+  ArrowPathIcon,
+  FunnelIcon,
+  XMarkIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ArrowDownIcon,
+  ArrowUpIcon,
+  ArrowsRightLeftIcon,
+  CubeIcon,
+  TruckIcon,
+  ShoppingCartIcon,
+  ClipboardDocumentCheckIcon,
+  BanknotesIcon,
+  ArchiveBoxIcon,
+} from '@heroicons/react/24/outline';
 
 interface StockMovement {
   id: number;
@@ -17,25 +33,15 @@ interface StockMovement {
   unit_cost: number;
   note: string;
   created_at: string;
-  product?: { id: number; name: string; barcode: string };
+  product?: { id: number; name: string; sku: string; barcode: string };
   warehouse?: { id: number; name: string };
   user?: { id: number; name: string };
-}
-
-interface Summary {
-  total_purchases: number;
-  total_purchase_returns: number;
-  total_sales: number;
-  total_sale_returns: number;
-  total_adjustments: number;
-  total_deliveries: number;
-  total_delivery_returns: number;
-  net_movement: number;
 }
 
 interface Product {
   id: number;
   name: string;
+  sku: string;
 }
 
 interface Warehouse {
@@ -43,31 +49,39 @@ interface Warehouse {
   name: string;
 }
 
-interface PaginatedResponse {
-  data: StockMovement[];
-  current_page: number;
-  last_page: number;
-  total: number;
-}
+const MOVEMENT_TYPES = {
+  purchase: { label: 'شراء', color: 'bg-green-100 text-green-800 border-green-200', icon: ArrowDownIcon, direction: 'in' },
+  purchase_return: { label: 'مرتجع شراء', color: 'bg-red-100 text-red-800 border-red-200', icon: ArrowUpIcon, direction: 'out' },
+  sale: { label: 'بيع', color: 'bg-blue-100 text-blue-800 border-blue-200', icon: ArrowUpIcon, direction: 'out' },
+  sale_return: { label: 'مرتجع بيع', color: 'bg-purple-100 text-purple-800 border-purple-200', icon: ArrowDownIcon, direction: 'in' },
+  adjustment: { label: 'تسوية', color: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: ArrowsRightLeftIcon, direction: 'both' },
+  transfer: { label: 'نقل', color: 'bg-gray-100 text-gray-800 border-gray-200', icon: ArrowsRightLeftIcon, direction: 'both' },
+  delivery: { label: 'توصيل', color: 'bg-orange-100 text-orange-800 border-orange-200', icon: TruckIcon, direction: 'out' },
+  delivery_out: { label: 'خروج للتوصيل', color: 'bg-orange-100 text-orange-800 border-orange-200', icon: TruckIcon, direction: 'out' },
+  delivery_return: { label: 'مرتجع توصيل', color: 'bg-pink-100 text-pink-800 border-pink-200', icon: ArrowDownIcon, direction: 'in' },
+  opening: { label: 'رصيد افتتاحي', color: 'bg-indigo-100 text-indigo-800 border-indigo-200', icon: ArchiveBoxIcon, direction: 'in' },
+  order: { label: 'طلب', color: 'bg-cyan-100 text-cyan-800 border-cyan-200', icon: ShoppingCartIcon, direction: 'out' },
+  van_out: { label: 'خروج للبيع المتنقل', color: 'bg-amber-100 text-amber-800 border-amber-200', icon: TruckIcon, direction: 'out' },
+  van_sale: { label: 'بيع متنقل', color: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: BanknotesIcon, direction: 'out' },
+  van_return: { label: 'مرتجع بيع متنقل', color: 'bg-teal-100 text-teal-800 border-teal-200', icon: ArrowDownIcon, direction: 'in' },
+} as const;
 
 export default function StockMovementsPage() {
   const [movements, setMovements] = useState<StockMovement[]>([]);
-  const [summary, setSummary] = useState<Summary | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pagination, setPagination] = useState({ currentPage: 1, lastPage: 1, total: 0 });
 
   // Filters
-  const [searchTerm, setSearchTerm] = useState('');
+  const [showFilters, setShowFilters] = useState(true);
   const [productFilter, setProductFilter] = useState('');
   const [warehouseFilter, setWarehouseFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [directionFilter, setDirectionFilter] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
-
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchProducts();
@@ -76,7 +90,6 @@ export default function StockMovementsPage() {
 
   useEffect(() => {
     fetchMovements();
-    fetchSummary();
   }, [productFilter, warehouseFilter, typeFilter, directionFilter, fromDate, toDate, pagination.currentPage]);
 
   const fetchProducts = async () => {
@@ -102,9 +115,8 @@ export default function StockMovementsPage() {
       setIsLoading(true);
       const params: Record<string, unknown> = {
         page: pagination.currentPage,
-        per_page: 20,
+        per_page: 25,
       };
-      if (searchTerm) params.search = searchTerm;
       if (productFilter) params.product_id = productFilter;
       if (warehouseFilter) params.warehouse_id = warehouseFilter;
       if (typeFilter) params.type = typeFilter;
@@ -113,12 +125,12 @@ export default function StockMovementsPage() {
       if (toDate) params.to_date = toDate;
 
       const response = await stockMovementsApi.getAll(params);
-      const data = response.data as PaginatedResponse;
+      const data = response.data;
       setMovements(data.data || []);
       setPagination({
-        currentPage: data.current_page,
-        lastPage: data.last_page,
-        total: data.total,
+        currentPage: data.current_page || 1,
+        lastPage: data.last_page || 1,
+        total: data.total || 0,
       });
     } catch (error) {
       toast.error('خطأ في تحميل حركات المخزون');
@@ -127,101 +139,37 @@ export default function StockMovementsPage() {
     }
   };
 
-  const fetchSummary = async () => {
-    try {
-      const params: Record<string, unknown> = {};
-      if (warehouseFilter) params.warehouse_id = warehouseFilter;
-      if (fromDate) params.from_date = fromDate;
-      if (toDate) params.to_date = toDate;
-
-      const response = await stockMovementsApi.getSummary(params);
-      setSummary(response.data);
-    } catch (error) {
-      console.error('Error fetching summary:', error);
-    }
-  };
-
-  const handleSearch = () => {
-    setPagination(prev => ({ ...prev, currentPage: 1 }));
-    fetchMovements();
-  };
-
   const resetFilters = () => {
-    setSearchTerm('');
     setProductFilter('');
     setWarehouseFilter('');
     setTypeFilter('');
     setDirectionFilter('');
     setFromDate('');
     setToDate('');
+    setSearchTerm('');
     setPagination(prev => ({ ...prev, currentPage: 1 }));
   };
 
-  const handleRefresh = () => {
-    fetchMovements();
-    fetchSummary();
-    toast.success('تم تحديث البيانات');
-  };
+  const hasActiveFilters = productFilter || warehouseFilter || typeFilter || directionFilter || fromDate || toDate;
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger shortcuts when typing in inputs
-      const target = e.target as HTMLElement;
-      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT';
+  // Filter movements by search term (client-side for current page)
+  const filteredMovements = useMemo(() => {
+    if (!searchTerm) return movements;
+    const term = searchTerm.toLowerCase();
+    return movements.filter(m =>
+      m.product?.name?.toLowerCase().includes(term) ||
+      m.product?.sku?.toLowerCase().includes(term) ||
+      m.reference?.toLowerCase().includes(term) ||
+      m.warehouse?.name?.toLowerCase().includes(term)
+    );
+  }, [movements, searchTerm]);
 
-      // Allow Escape to work even in inputs
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        resetFilters();
-        if (document.activeElement instanceof HTMLElement) {
-          document.activeElement.blur();
-        }
-        return;
-      }
-
-      // Focus search with / or Ctrl+K
-      if ((e.key === '/' || (e.ctrlKey && e.key === 'k')) && !isInput) {
-        e.preventDefault();
-        searchInputRef.current?.focus();
-        return;
-      }
-
-      if (isInput) return;
-
-      // Refresh with R
-      if (e.key === 'r' || e.key === 'R') {
-        e.preventDefault();
-        handleRefresh();
-        return;
-      }
-
-      // Previous page with [ or ArrowLeft
-      if (e.key === '[' || e.key === 'ArrowLeft') {
-        e.preventDefault();
-        if (pagination.currentPage > 1) {
-          setPagination(prev => ({ ...prev, currentPage: prev.currentPage - 1 }));
-        }
-        return;
-      }
-
-      // Next page with ] or ArrowRight
-      if (e.key === ']' || e.key === 'ArrowRight') {
-        e.preventDefault();
-        if (pagination.currentPage < pagination.lastPage) {
-          setPagination(prev => ({ ...prev, currentPage: prev.currentPage + 1 }));
-        }
-        return;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [pagination.currentPage, pagination.lastPage]);
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
-  };
+  // Calculate summary from current data
+  const summary = useMemo(() => {
+    const incoming = filteredMovements.filter(m => m.quantity_change > 0).reduce((sum, m) => sum + m.quantity_change, 0);
+    const outgoing = filteredMovements.filter(m => m.quantity_change < 0).reduce((sum, m) => sum + Math.abs(m.quantity_change), 0);
+    return { incoming, outgoing, net: incoming - outgoing };
+  }, [filteredMovements]);
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('ar-DZ', {
@@ -233,265 +181,331 @@ export default function StockMovementsPage() {
     });
   };
 
-  const formatNumber = (value: number) => {
-    return new Intl.NumberFormat('ar-DZ').format(value);
+  const formatNumber = (value: number | string | null | undefined) => {
+    const num = typeof value === 'string' ? parseFloat(value) : (value ?? 0);
+    if (isNaN(num)) return '0';
+    return new Intl.NumberFormat('ar-DZ').format(num);
   };
 
-  const getTypeBadge = (type: string) => {
-    const types: Record<string, { class: string; text: string; icon: string }> = {
-      purchase: { class: 'bg-green-100 text-green-800', text: 'شراء', icon: '↓' },
-      purchase_return: { class: 'bg-red-100 text-red-800', text: 'مرتجع شراء', icon: '↑' },
-      sale: { class: 'bg-blue-100 text-blue-800', text: 'بيع', icon: '↑' },
-      sale_return: { class: 'bg-purple-100 text-purple-800', text: 'مرتجع بيع', icon: '↓' },
-      adjustment: { class: 'bg-yellow-100 text-yellow-800', text: 'تسوية', icon: '⇄' },
-      transfer: { class: 'bg-gray-100 text-gray-800', text: 'نقل', icon: '⇆' },
-      delivery: { class: 'bg-orange-100 text-orange-800', text: 'تسليم', icon: '↑' },
-      delivery_return: { class: 'bg-pink-100 text-pink-800', text: 'مرتجع تسليم', icon: '↓' },
-      opening: { class: 'bg-indigo-100 text-indigo-800', text: 'رصيد افتتاحي', icon: '◉' },
+  const formatCurrency = (value: number | string | null | undefined) => {
+    const num = typeof value === 'string' ? parseFloat(value) : (value ?? 0);
+    if (isNaN(num)) return '0 د.ج.';
+    return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(num);
+  };
+
+  const getTypeInfo = (type: string) => {
+    return MOVEMENT_TYPES[type as keyof typeof MOVEMENT_TYPES] || {
+      label: type,
+      color: 'bg-gray-100 text-gray-800 border-gray-200',
+      icon: CubeIcon,
+      direction: 'both'
     };
-    return types[type] || { class: 'bg-gray-100 text-gray-800', text: type, icon: '?' };
   };
-
-  const getQuantityColor = (change: number) => {
-    if (change > 0) return 'text-green-600';
-    if (change < 0) return 'text-red-600';
-    return 'text-gray-600';
-  };
-
-  if (isLoading && movements.length === 0) {
-    return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
-  }
 
   return (
-    <div>
-      {/* Keyboard Shortcuts Hint Bar */}
-      <div className="bg-gray-100 dark:bg-gray-800 rounded-lg px-4 py-2 mb-4 flex items-center justify-center gap-6 text-sm text-gray-600 dark:text-gray-400">
-        <span className="flex items-center gap-1">
-          <kbd className="px-2 py-0.5 bg-white dark:bg-gray-700 rounded border border-gray-300 dark:border-gray-600 text-xs font-mono">/</kbd>
-          <span>بحث</span>
-        </span>
-        <span className="flex items-center gap-1">
-          <kbd className="px-2 py-0.5 bg-white dark:bg-gray-700 rounded border border-gray-300 dark:border-gray-600 text-xs font-mono">R</kbd>
-          <span>تحديث</span>
-        </span>
-        <span className="flex items-center gap-1">
-          <kbd className="px-2 py-0.5 bg-white dark:bg-gray-700 rounded border border-gray-300 dark:border-gray-600 text-xs font-mono">Esc</kbd>
-          <span>مسح الفلاتر</span>
-        </span>
-        <span className="flex items-center gap-1">
-          <kbd className="px-2 py-0.5 bg-white dark:bg-gray-700 rounded border border-gray-300 dark:border-gray-600 text-xs font-mono">[</kbd>
-          <kbd className="px-2 py-0.5 bg-white dark:bg-gray-700 rounded border border-gray-300 dark:border-gray-600 text-xs font-mono">]</kbd>
-          <span>تصفح الصفحات</span>
-        </span>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">حركات المخزون</h1>
+          <p className="text-gray-500 mt-1">سجل جميع حركات الدخول والخروج للمخزون</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`btn btn-outline inline-flex items-center gap-2 ${hasActiveFilters ? 'border-blue-500 text-blue-600' : ''}`}
+          >
+            <FunnelIcon className="w-5 h-5" />
+            الفلاتر
+            {hasActiveFilters && <span className="w-2 h-2 bg-blue-500 rounded-full"></span>}
+          </button>
+          <button onClick={fetchMovements} className="btn btn-outline inline-flex items-center gap-2">
+            <ArrowPathIcon className="w-5 h-5" />
+            تحديث
+          </button>
+        </div>
       </div>
 
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">حركات المخزون</h1>
+      {/* Quick Summary */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="card p-4 bg-green-50 border border-green-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+              <ArrowDownIcon className="w-5 h-5 text-green-600" />
+            </div>
+            <div>
+              <div className="text-sm text-green-600">وارد (الصفحة الحالية)</div>
+              <div className="text-xl font-bold text-green-700">+{formatNumber(summary.incoming)}</div>
+            </div>
+          </div>
+        </div>
+        <div className="card p-4 bg-red-50 border border-red-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+              <ArrowUpIcon className="w-5 h-5 text-red-600" />
+            </div>
+            <div>
+              <div className="text-sm text-red-600">صادر (الصفحة الحالية)</div>
+              <div className="text-xl font-bold text-red-700">-{formatNumber(summary.outgoing)}</div>
+            </div>
+          </div>
+        </div>
+        <div className="card p-4 bg-blue-50 border border-blue-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+              <ArrowsRightLeftIcon className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <div className="text-sm text-blue-600">صافي (الصفحة الحالية)</div>
+              <div className={`text-xl font-bold ${summary.net >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                {summary.net >= 0 ? '+' : ''}{formatNumber(summary.net)}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Summary Cards */}
-      {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-6">
-          <div className="card p-4 text-center">
-            <div className="text-sm text-gray-500">المشتريات</div>
-            <div className="text-lg font-bold text-green-600">+{formatNumber(summary.total_purchases)}</div>
+      {/* Filters */}
+      {showFilters && (
+        <div className="card p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-medium">تصفية النتائج</h3>
+            {hasActiveFilters && (
+              <button onClick={resetFilters} className="text-sm text-red-600 hover:text-red-800 flex items-center gap-1">
+                <XMarkIcon className="w-4 h-4" />
+                مسح الفلاتر
+              </button>
+            )}
           </div>
-          <div className="card p-4 text-center">
-            <div className="text-sm text-gray-500">مرتجع الشراء</div>
-            <div className="text-lg font-bold text-red-600">-{formatNumber(summary.total_purchase_returns)}</div>
-          </div>
-          <div className="card p-4 text-center">
-            <div className="text-sm text-gray-500">المبيعات</div>
-            <div className="text-lg font-bold text-blue-600">-{formatNumber(summary.total_sales)}</div>
-          </div>
-          <div className="card p-4 text-center">
-            <div className="text-sm text-gray-500">مرتجع المبيعات</div>
-            <div className="text-lg font-bold text-purple-600">+{formatNumber(summary.total_sale_returns)}</div>
-          </div>
-          <div className="card p-4 text-center">
-            <div className="text-sm text-gray-500">التسويات</div>
-            <div className="text-lg font-bold text-yellow-600">{formatNumber(summary.total_adjustments)}</div>
-          </div>
-          <div className="card p-4 text-center">
-            <div className="text-sm text-gray-500">التسليمات</div>
-            <div className="text-lg font-bold text-orange-600">-{formatNumber(summary.total_deliveries)}</div>
-          </div>
-          <div className="card p-4 text-center">
-            <div className="text-sm text-gray-500">مرتجع التسليم</div>
-            <div className="text-lg font-bold text-pink-600">+{formatNumber(summary.total_delivery_returns)}</div>
-          </div>
-          <div className="card p-4 text-center bg-gray-50">
-            <div className="text-sm text-gray-500">صافي الحركة</div>
-            <div className={`text-lg font-bold ${summary.net_movement >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {summary.net_movement >= 0 ? '+' : ''}{formatNumber(summary.net_movement)}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Search */}
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">بحث</label>
+              <input
+                type="text"
+                placeholder="بحث بالمنتج أو المرجع..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="input input-bordered w-full"
+              />
+            </div>
+
+            {/* Product Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">المنتج</label>
+              <select
+                value={productFilter}
+                onChange={(e) => { setProductFilter(e.target.value); setPagination(p => ({ ...p, currentPage: 1 })); }}
+                className="select select-bordered w-full"
+              >
+                <option value="">جميع المنتجات</option>
+                {products.map((product) => (
+                  <option key={product.id} value={product.id}>{product.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Warehouse Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">المستودع</label>
+              <select
+                value={warehouseFilter}
+                onChange={(e) => { setWarehouseFilter(e.target.value); setPagination(p => ({ ...p, currentPage: 1 })); }}
+                className="select select-bordered w-full"
+              >
+                <option value="">جميع المستودعات</option>
+                {warehouses.map((warehouse) => (
+                  <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Type Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">نوع الحركة</label>
+              <select
+                value={typeFilter}
+                onChange={(e) => { setTypeFilter(e.target.value); setPagination(p => ({ ...p, currentPage: 1 })); }}
+                className="select select-bordered w-full"
+              >
+                <option value="">جميع الأنواع</option>
+                {Object.entries(MOVEMENT_TYPES).map(([key, value]) => (
+                  <option key={key} value={key}>{value.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Direction Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">الاتجاه</label>
+              <select
+                value={directionFilter}
+                onChange={(e) => { setDirectionFilter(e.target.value); setPagination(p => ({ ...p, currentPage: 1 })); }}
+                className="select select-bordered w-full"
+              >
+                <option value="">الكل</option>
+                <option value="incoming">وارد (دخول)</option>
+                <option value="outgoing">صادر (خروج)</option>
+              </select>
+            </div>
+
+            {/* Date From */}
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">من تاريخ</label>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => { setFromDate(e.target.value); setPagination(p => ({ ...p, currentPage: 1 })); }}
+                className="input input-bordered w-full"
+              />
+            </div>
+
+            {/* Date To */}
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">إلى تاريخ</label>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => { setToDate(e.target.value); setPagination(p => ({ ...p, currentPage: 1 })); }}
+                className="input input-bordered w-full"
+              />
             </div>
           </div>
         </div>
       )}
 
-      <div className="card">
-        {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
-          <input
-            ref={searchInputRef}
-            type="text"
-            placeholder="بحث بالمرجع أو المنتج..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            className="input"
-          />
-          <select
-            value={productFilter}
-            onChange={(e) => setProductFilter(e.target.value)}
-            className="select"
-          >
-            <option value="">كل المنتجات</option>
-            {products.map((product) => (
-              <option key={product.id} value={product.id}>{product.name}</option>
-            ))}
-          </select>
-          <select
-            value={warehouseFilter}
-            onChange={(e) => setWarehouseFilter(e.target.value)}
-            className="select"
-          >
-            <option value="">كل المستودعات</option>
-            {warehouses.map((warehouse) => (
-              <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
-            ))}
-          </select>
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="select"
-          >
-            <option value="">كل الأنواع</option>
-            <option value="purchase">شراء</option>
-            <option value="purchase_return">مرتجع شراء</option>
-            <option value="sale">بيع</option>
-            <option value="sale_return">مرتجع بيع</option>
-            <option value="adjustment">تسوية</option>
-            <option value="delivery">تسليم</option>
-            <option value="delivery_return">مرتجع تسليم</option>
-          </select>
-          <select
-            value={directionFilter}
-            onChange={(e) => setDirectionFilter(e.target.value)}
-            className="select"
-          >
-            <option value="">كل الاتجاهات</option>
-            <option value="incoming">وارد</option>
-            <option value="outgoing">صادر</option>
-          </select>
-          <div className="flex gap-2">
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              className="input flex-1"
-              placeholder="من تاريخ"
-            />
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              className="input flex-1"
-              placeholder="إلى تاريخ"
-            />
-          </div>
-        </div>
-
-        {/* Table */}
+      {/* Table */}
+      <div className="card overflow-hidden">
         <div className="overflow-x-auto">
-          <table>
-            <thead>
-              <tr>
-                <th>التاريخ</th>
-                <th>المنتج</th>
-                <th>المستودع</th>
-                <th>النوع</th>
-                <th>المرجع</th>
-                <th>قبل</th>
-                <th>التغيير</th>
-                <th>بعد</th>
-                <th>سعر الوحدة</th>
-                <th>المستخدم</th>
-                <th>ملاحظات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {movements.length === 0 ? (
-                <tr>
-                  <td colSpan={11} className="text-center py-8 text-gray-500">
-                    لا توجد حركات مخزون
-                  </td>
+          {isLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="loading loading-spinner loading-lg"></div>
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">التاريخ</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">المنتج</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">المستودع</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">نوع الحركة</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">المرجع</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">قبل</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">التغيير</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">بعد</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">المستخدم</th>
                 </tr>
-              ) : (
-                movements.map((movement) => {
-                  const typeBadge = getTypeBadge(movement.type);
-                  return (
-                    <tr key={movement.id}>
-                      <td className="whitespace-nowrap text-sm">
-                        {formatDate(movement.created_at)}
-                      </td>
-                      <td>
-                        <div className="font-medium">{movement.product?.name}</div>
-                        <div className="text-xs text-gray-500">{movement.product?.barcode}</div>
-                      </td>
-                      <td>{movement.warehouse?.name}</td>
-                      <td>
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-sm font-medium ${typeBadge.class}`}>
-                          <span>{typeBadge.icon}</span>
-                          {typeBadge.text}
-                        </span>
-                      </td>
-                      <td className="font-mono text-sm">{movement.reference || '-'}</td>
-                      <td className="text-gray-600">{formatNumber(movement.quantity_before)}</td>
-                      <td className={`font-bold ${getQuantityColor(movement.quantity_change)}`}>
-                        {movement.quantity_change > 0 ? '+' : ''}{formatNumber(movement.quantity_change)}
-                      </td>
-                      <td className="font-medium">{formatNumber(movement.quantity_after)}</td>
-                      <td>{movement.unit_cost ? formatCurrency(movement.unit_cost) : '-'}</td>
-                      <td>{movement.user?.name || '-'}</td>
-                      <td className="max-w-xs truncate" title={movement.note}>
-                        {movement.note || '-'}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredMovements.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="px-4 py-12 text-center text-gray-500">
+                      <CubeIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                      <p className="text-lg font-medium">لا توجد حركات مخزون</p>
+                      <p className="text-sm">جرب تغيير الفلاتر أو إضافة حركات جديدة</p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredMovements.map((movement) => {
+                    const typeInfo = getTypeInfo(movement.type);
+                    const IconComponent = typeInfo.icon;
+                    const isIncoming = movement.quantity_change > 0;
+
+                    return (
+                      <tr key={movement.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
+                          {formatDate(movement.created_at)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-gray-900">{movement.product?.name || '-'}</div>
+                          <div className="text-xs text-gray-500">{movement.product?.sku}</div>
+                        </td>
+                        <td className="px-4 py-3 text-gray-600">
+                          {movement.warehouse?.name || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${typeInfo.color}`}>
+                            <IconComponent className="w-3.5 h-3.5" />
+                            {typeInfo.label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-sm font-mono text-gray-600">
+                            {movement.reference || '-'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center text-gray-500">
+                          {formatNumber(movement.quantity_before)}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`inline-flex items-center gap-1 font-bold ${isIncoming ? 'text-green-600' : 'text-red-600'}`}>
+                            {isIncoming ? (
+                              <ArrowDownIcon className="w-4 h-4" />
+                            ) : (
+                              <ArrowUpIcon className="w-4 h-4" />
+                            )}
+                            {isIncoming ? '+' : ''}{formatNumber(movement.quantity_change)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center font-medium text-gray-900">
+                          {formatNumber(movement.quantity_after)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {movement.user?.name || '-'}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {/* Pagination */}
         {pagination.lastPage > 1 && (
-          <div className="flex items-center justify-between mt-4 pt-4 border-t">
-            <div className="text-sm text-gray-500">
-              إجمالي {formatNumber(pagination.total)} حركة
+          <div className="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
+            <div className="text-sm text-gray-600">
+              عرض {filteredMovements.length} من إجمالي {formatNumber(pagination.total)} حركة
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage - 1 }))}
                 disabled={pagination.currentPage === 1}
-                className="btn btn-secondary"
+                className="btn btn-sm btn-ghost disabled:opacity-50"
               >
-                السابق
+                <ChevronRightIcon className="w-5 h-5" />
               </button>
-              <span className="flex items-center px-4">
-                صفحة {pagination.currentPage} من {pagination.lastPage}
+              <span className="px-3 py-1 text-sm font-medium">
+                {pagination.currentPage} / {pagination.lastPage}
               </span>
               <button
                 onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage + 1 }))}
                 disabled={pagination.currentPage === pagination.lastPage}
-                className="btn btn-secondary"
+                className="btn btn-sm btn-ghost disabled:opacity-50"
               >
-                التالي
+                <ChevronLeftIcon className="w-5 h-5" />
               </button>
             </div>
           </div>
         )}
+      </div>
+
+      {/* Movement Types Legend */}
+      <div className="card p-4">
+        <h3 className="font-medium mb-3">دليل أنواع الحركات</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+          {Object.entries(MOVEMENT_TYPES).map(([key, value]) => {
+            const IconComponent = value.icon;
+            return (
+              <div key={key} className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${value.color}`}>
+                <IconComponent className="w-4 h-4" />
+                <span className="text-sm font-medium">{value.label}</span>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

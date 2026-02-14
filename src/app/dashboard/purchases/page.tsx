@@ -414,11 +414,11 @@ export default function PurchasesPage() {
       {/* Tab Bar */}
       <div className="flex items-center gap-1 border-b border-gray-200 bg-gray-50 px-2 pt-2 overflow-x-auto">
         {tabs.map((tab) => (
-          <button
+          <div
             key={tab.id}
             onClick={() => setActiveTabId(tab.id)}
             className={`
-              flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-t-lg border border-b-0 transition-colors
+              flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-t-lg border border-b-0 transition-colors cursor-pointer
               ${activeTabId === tab.id
                 ? 'bg-white border-gray-200 text-blue-600'
                 : 'bg-gray-100 border-transparent text-gray-600 hover:bg-gray-200'
@@ -435,7 +435,7 @@ export default function PurchasesPage() {
                 <XMarkIcon className="w-4 h-4" />
               </button>
             )}
-          </button>
+          </div>
         ))}
 
         {/* Add New Tab Button */}

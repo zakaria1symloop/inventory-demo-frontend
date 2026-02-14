@@ -168,26 +168,36 @@ export default function LoginPage() {
           {/* تحميل التطبيقات */}
           <div className="mt-8 pt-6 border-t border-gray-200">
             <p className="text-center text-sm text-gray-500 mb-4">تحميل التطبيقات التجريبية</p>
-            <div className="flex gap-3">
+            <div className="grid grid-cols-3 gap-2">
               <a
                 href="https://logistics-demo.symloop.com/seller-demo.apk"
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+                className="flex flex-col items-center justify-center gap-1.5 px-3 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
                 download
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
                 </svg>
-                <span className="text-sm font-medium">تطبيق البائع</span>
+                <span className="text-xs font-medium">تطبيق البائع</span>
               </a>
               <a
                 href="https://logistics-demo.symloop.com/livreur-demo.apk"
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors"
+                className="flex flex-col items-center justify-center gap-1.5 px-3 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors"
                 download
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" />
                 </svg>
-                <span className="text-sm font-medium">تطبيق التوصيل</span>
+                <span className="text-xs font-medium">تطبيق التوصيل</span>
+              </a>
+              <a
+                href="https://logistics-demo.symloop.com/cashvan-demo.apk"
+                className="flex flex-col items-center justify-center gap-1.5 px-3 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                download
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-xs font-medium">البيع المتنقل</span>
               </a>
             </div>
           </div>

@@ -18,6 +18,8 @@ import {
   PencilSquareIcon,
   EyeIcon,
   TrashIcon,
+  DevicePhoneMobileIcon,
+  ComputerDesktopIcon,
 } from '@heroicons/react/24/outline';
 
 interface Sale {
@@ -35,8 +37,10 @@ interface Sale {
   status: 'pending' | 'completed' | 'cancelled';
   payment_status: 'unpaid' | 'partial' | 'paid';
   note?: string;
+  source?: 'web' | 'app';
   client?: { id: number; name: string };
   warehouse?: { id: number; name: string };
+  user?: { id: number; name: string };
 }
 
 interface Client {
@@ -76,6 +80,7 @@ export default function SalesPage() {
   const [warehouseFilter, setWarehouseFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [sourceFilter, setSourceFilter] = useState('');
 
   // Data for filters
   const [clients, setClients] = useState<Client[]>([]);
@@ -284,10 +289,11 @@ export default function SalesPage() {
       if (warehouseFilter && s.warehouse_id !== parseInt(warehouseFilter)) return false;
       if (dateFrom && new Date(s.date) < new Date(dateFrom)) return false;
       if (dateTo && new Date(s.date) > new Date(dateTo)) return false;
+      if (sourceFilter && s.source !== sourceFilter) return false;
 
       return true;
     });
-  }, [sales, searchTerm, statusFilter, paymentStatusFilter, clientFilter, warehouseFilter, dateFrom, dateTo]);
+  }, [sales, searchTerm, statusFilter, paymentStatusFilter, clientFilter, warehouseFilter, dateFrom, dateTo, sourceFilter]);
 
   // Calculate KPIs
   const kpis = useMemo(() => {
@@ -328,9 +334,10 @@ export default function SalesPage() {
     setWarehouseFilter('');
     setDateFrom('');
     setDateTo('');
+    setSourceFilter('');
   };
 
-  const hasActiveFilters = searchTerm || statusFilter || paymentStatusFilter || clientFilter || warehouseFilter || dateFrom || dateTo;
+  const hasActiveFilters = searchTerm || statusFilter || paymentStatusFilter || clientFilter || warehouseFilter || dateFrom || dateTo || sourceFilter;
 
   const getTabIcon = (type: Tab['type']) => {
     switch (type) {
@@ -497,12 +504,17 @@ export default function SalesPage() {
                 </select>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <select value={warehouseFilter} onChange={(e) => setWarehouseFilter(e.target.value)} className="select">
                   <option value="">كل المستودعات</option>
                   {warehouses.map(warehouse => (
                     <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
                   ))}
+                </select>
+                <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} className="select">
+                  <option value="">جميع المصادر</option>
+                  <option value="web">من المنصة</option>
+                  <option value="app">من التطبيق</option>
                 </select>
                 <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="input" placeholder="من تاريخ" />
                 <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="input" placeholder="إلى تاريخ" />
@@ -531,12 +543,16 @@ export default function SalesPage() {
                         <th>المتبقي</th>
                         <th>الحالة</th>
                         <th>الدفع</th>
+                        <th>
+                          المصدر
+                          <span className="inline-block mr-1 px-1.5 py-0.5 text-[10px] font-bold bg-emerald-500 text-white rounded-full leading-none">جديد</span>
+                        </th>
                         <th>الإجراءات</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredSales.length === 0 ? (
-                        <tr><td colSpan={10} className="text-center py-8 text-gray-500">لا توجد فواتير بيع</td></tr>
+                        <tr><td colSpan={11} className="text-center py-8 text-gray-500">لا توجد فواتير بيع</td></tr>
                       ) : (
                         filteredSales.map((sale) => {
                           const statusBadge = getStatusBadge(sale.status);
@@ -552,6 +568,30 @@ export default function SalesPage() {
                               <td className="text-red-600">{formatCurrency(sale.due_amount)}</td>
                               <td><span className={`badge ${statusBadge.class}`}>{statusBadge.text}</span></td>
                               <td><span className={`badge ${paymentBadge.class}`}>{paymentBadge.text}</span></td>
+                              <td className="text-center">
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                    sale.source === 'app'
+                                      ? 'bg-violet-100 text-violet-700'
+                                      : 'bg-sky-100 text-sky-700'
+                                  }`}>
+                                    {sale.source === 'app' ? (
+                                      <>
+                                        <DevicePhoneMobileIcon className="w-3 h-3" />
+                                        تطبيق
+                                      </>
+                                    ) : (
+                                      <>
+                                        <ComputerDesktopIcon className="w-3 h-3" />
+                                        منصة
+                                      </>
+                                    )}
+                                  </span>
+                                  {sale.user && (
+                                    <span className="text-[10px] text-gray-500">{sale.user.name}</span>
+                                  )}
+                                </div>
+                              </td>
                               <td>
                                 <div className="flex gap-2">
                                   <button
@@ -625,11 +665,11 @@ export default function SalesPage() {
       {/* Tab Bar */}
       <div className="flex items-center gap-1 border-b border-gray-200 bg-gray-50 px-2 pt-2 overflow-x-auto">
         {tabs.map((tab) => (
-          <button
+          <div
             key={tab.id}
             onClick={() => setActiveTabId(tab.id)}
             className={`
-              flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-t-lg border border-b-0 transition-colors
+              flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-t-lg border border-b-0 transition-colors cursor-pointer
               ${activeTabId === tab.id
                 ? 'bg-white border-gray-200 text-blue-600'
                 : 'bg-gray-100 border-transparent text-gray-600 hover:bg-gray-200'
@@ -646,7 +686,7 @@ export default function SalesPage() {
                 <XMarkIcon className="w-4 h-4" />
               </button>
             )}
-          </button>
+          </div>
         ))}
 
         {/* Add New Tab Button */}

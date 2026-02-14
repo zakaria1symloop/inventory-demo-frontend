@@ -3,12 +3,24 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { salesApi, productsApi, clientsApi, warehousesApi } from '@/lib/api';
+import { salesApi, productsApi, clientsApi, warehousesApi, clientCategoriesApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 interface StockItem {
   quantity: number;
   warehouse_id: number;
+}
+
+interface ProductCategoryPrice {
+  id: number;
+  product_id: number;
+  client_category_id: number;
+  price: number;
+}
+
+interface ClientCategory {
+  id: number;
+  name: string;
 }
 
 interface Product {
@@ -17,10 +29,12 @@ interface Product {
   barcode: string;
   cost_price: number;
   retail_price: number;
+  wholesale_price?: number;
   min_selling_price?: number;
   pieces_per_package?: number;
   unit_sale?: { id: number; name: string; short_name: string };
   stock?: StockItem[];
+  category_prices?: ProductCategoryPrice[];
 }
 
 interface Client {
@@ -52,15 +66,16 @@ interface SaleItem {
   product_id: number;
   product_name: string;
   barcode: string;
-  quantity: number; // Number of packages/units
+  quantity: number; // Number of packages/units (cartons)
+  extra_pieces: number; // Extra pieces (0 to pieces_per_package - 1)
   pieces_per_package: number; // Pieces per package
-  total_pieces: number; // Total pieces = quantity * pieces_per_package
+  total_pieces: number; // Total pieces = quantity * pieces_per_package + extra_pieces
   unit_price: number; // Price per 1 PIECE (not per package)
   original_price: number; // Original price per piece
   unit_name: string; // Unit name
   discount: number;
   tax: number;
-  subtotal: number; // = unit_price × pieces_per_package × quantity - discount + tax
+  subtotal: number; // = unit_price × total_pieces - discount + tax
   available_stock: number;
   min_selling_price: number;
 }
@@ -81,6 +96,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
   const [clients, setClients] = useState<Client[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [clientCategories, setClientCategories] = useState<ClientCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saleDataLoaded, setSaleDataLoaded] = useState(false);
@@ -208,14 +224,16 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
 
   const fetchData = async () => {
     try {
-      const [clientsRes, warehousesRes, productsRes] = await Promise.all([
+      const [clientsRes, warehousesRes, productsRes, catRes] = await Promise.all([
         clientsApi.getAll({ per_page: 1000 }),
         warehousesApi.getAll(),
         productsApi.getAll({ per_page: 1000 }),
+        clientCategoriesApi.getAll().catch(() => ({ data: { data: [] } })),
       ]);
       setClients(clientsRes.data.data || clientsRes.data);
       setWarehouses(warehousesRes.data.data || warehousesRes.data);
       setProducts(productsRes.data.data || productsRes.data);
+      setClientCategories(catRes.data.data || catRes.data || []);
 
       // Set default warehouse if only one
       const whs = warehousesRes.data.data || warehousesRes.data;
@@ -281,22 +299,31 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
 
       // Load items (read-only in edit mode)
       if (sale.items && Array.isArray(sale.items)) {
-        const loadedItems: SaleItem[] = sale.items.map((item: any) => ({
-          product_id: item.product_id,
-          product_name: item.product?.name || '',
-          barcode: item.product?.barcode || '',
-          quantity: item.quantity,
-          pieces_per_package: item.product?.pieces_per_package || 1,
-          total_pieces: item.quantity * (item.product?.pieces_per_package || 1),
-          unit_price: item.unit_price,
-          original_price: item.unit_price,
-          unit_name: item.product?.unit_sale?.short_name || 'وحدة',
-          discount: item.discount || 0,
-          tax: item.tax || 0,
-          subtotal: item.subtotal || 0,
-          available_stock: 0, // Not needed in edit mode
-          min_selling_price: item.product?.min_selling_price || 0,
-        }));
+        const loadedItems: SaleItem[] = sale.items.map((item: any) => {
+          const ppp = item.product?.pieces_per_package || 1;
+          const loadedQty = Number(item.quantity) || 0;
+          // Split decimal quantity back into cartons + extra pieces
+          const cartons = Math.floor(loadedQty);
+          const extraPieces = Math.round((loadedQty - cartons) * ppp);
+          const totalPieces = (cartons * ppp) + extraPieces;
+          return {
+            product_id: item.product_id,
+            product_name: item.product?.name || '',
+            barcode: item.product?.barcode || '',
+            quantity: cartons,
+            extra_pieces: extraPieces,
+            pieces_per_package: ppp,
+            total_pieces: totalPieces,
+            unit_price: item.unit_price,
+            original_price: item.unit_price,
+            unit_name: item.product?.unit_sale?.short_name || 'وحدة',
+            discount: item.discount || 0,
+            tax: item.tax || 0,
+            subtotal: item.subtotal || 0,
+            available_stock: 0, // Not needed in edit mode
+            min_selling_price: item.product?.min_selling_price || 0,
+          };
+        });
         setItems(loadedItems);
       }
 
@@ -321,8 +348,12 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
     if (e.key === 'Enter') {
       e.preventDefault();
 
-      // Define field order for navigation
-      const fieldOrder = ['quantity', 'unit_price', 'discount'];
+      // Build field order dynamically based on whether item has ppp > 1
+      const item = items[rowIndex];
+      const hasPieces = item && (item.pieces_per_package || 1) > 1;
+      const fieldOrder = hasPieces
+        ? ['quantity', 'extra_pieces', 'unit_price', 'discount']
+        : ['quantity', 'unit_price', 'discount'];
       const currentFieldIndex = fieldOrder.indexOf(field);
 
       if (currentFieldIndex < fieldOrder.length - 1) {
@@ -341,7 +372,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
         barcodeInputRef.current?.focus();
       }
     }
-  }, [items.length]);
+  }, [items]);
 
   const addProduct = (product: Product, quantity: number = 1) => {
     if (!warehouseId) {
@@ -362,7 +393,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       const updatedItem = {
         ...existingItem,
         quantity: newQty,
-        total_pieces: newQty * existingItem.pieces_per_package
+        total_pieces: (newQty * existingItem.pieces_per_package) + (existingItem.extra_pieces || 0)
       };
       updatedItem.subtotal = calculateSubtotal(updatedItem);
       const otherItems = items.filter((_, i) => i !== existingIndex);
@@ -373,7 +404,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
         return;
       }
       const piecesPerPkg = product.pieces_per_package || 1;
-      const unitPrice = Number(product.retail_price) || 0;
+      const unitPrice = getDefaultPrice(product);
       const minUnitPrice = Number(product.min_selling_price) || 0;
       const unitName = product.unit_sale?.name || 'وحدة';
 
@@ -382,6 +413,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
         product_name: product.name,
         barcode: product.barcode,
         quantity: quantity,
+        extra_pieces: 0,
         pieces_per_package: piecesPerPkg,
         total_pieces: quantity * piecesPerPkg,
         unit_price: unitPrice, // Price per 1 piece
@@ -402,6 +434,44 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
     barcodeInputRef.current?.focus();
   };
 
+  // Get all available prices for a product as labeled chips
+  const getProductPrices = (product: Product): Array<{ label: string; price: number; color: string }> => {
+    const prices: Array<{ label: string; price: number; color: string }> = [];
+    const seen = new Set<number>();
+
+    const retailPrice = Number(product.retail_price) || 0;
+    const wholesalePrice = Number(product.wholesale_price) || 0;
+
+    if (wholesalePrice > 0 && !seen.has(wholesalePrice)) {
+      prices.push({ label: 'جملة', price: wholesalePrice, color: 'green' });
+      seen.add(wholesalePrice);
+    }
+    if (retailPrice > 0 && !seen.has(retailPrice)) {
+      prices.push({ label: 'تجزئة', price: retailPrice, color: 'blue' });
+      seen.add(retailPrice);
+    }
+
+    // Category prices
+    if (product.category_prices && product.category_prices.length > 0) {
+      for (const cp of product.category_prices) {
+        if (cp.price > 0 && !seen.has(cp.price)) {
+          const catName = clientCategories.find(c => c.id === cp.client_category_id)?.name || `فئة ${cp.client_category_id}`;
+          prices.push({ label: catName, price: cp.price, color: 'amber' });
+          seen.add(cp.price);
+        }
+      }
+    }
+
+    return prices;
+  };
+
+  // Get best default price for a product
+  const getDefaultPrice = (product: Product): number => {
+    const wholesale = Number(product.wholesale_price) || 0;
+    if (wholesale > 0) return wholesale;
+    return Number(product.retail_price) || 0;
+  };
+
   // Open quick entry modal for product
   const openQuickEntryModal = (product: Product) => {
     if (!warehouseId) {
@@ -412,7 +482,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       show: true,
       product,
       quantity: 1,
-      unitPrice: Number(product.retail_price) || 0,
+      unitPrice: getDefaultPrice(product),
     });
     setShowProductSearch(false);
     setBarcodeInput('');
@@ -442,7 +512,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       const updatedItem = {
         ...existingItem,
         quantity: newQty,
-        total_pieces: newQty * existingItem.pieces_per_package,
+        total_pieces: (newQty * existingItem.pieces_per_package) + (existingItem.extra_pieces || 0),
         unit_price: unitPrice,
       };
       updatedItem.subtotal = calculateSubtotal(updatedItem);
@@ -462,10 +532,11 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
         product_name: product.name,
         barcode: product.barcode,
         quantity: quantity,
+        extra_pieces: 0,
         pieces_per_package: piecesPerPkg,
         total_pieces: quantity * piecesPerPkg,
         unit_price: unitPrice, // Price per 1 piece
-        original_price: Number(product.retail_price) || 0,
+        original_price: getDefaultPrice(product),
         unit_name: unitName,
         discount: 0,
         tax: 0,
@@ -491,17 +562,30 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
     }
   };
 
-  const updateItem = (index: number, field: 'quantity' | 'unit_price' | 'discount' | 'tax', value: number) => {
+  const updateItem = (index: number, field: 'quantity' | 'extra_pieces' | 'unit_price' | 'discount' | 'tax', value: number) => {
     const updated = [...items];
-    const numValue = Number(value) || 0;
+    let numValue = Number(value) || 0;
+    const ppp = updated[index].pieces_per_package || 1;
 
-    if (field === 'quantity') {
-      if (numValue > updated[index].available_stock) {
+    // Clamp extra_pieces to 0..ppp-1
+    if (field === 'extra_pieces') {
+      numValue = Math.max(0, Math.min(numValue, ppp - 1));
+    }
+
+    if (field === 'quantity' || field === 'extra_pieces') {
+      const newQty = field === 'quantity' ? numValue : updated[index].quantity;
+      const newExtra = field === 'extra_pieces' ? numValue : updated[index].extra_pieces;
+      const decimalQty = newQty + newExtra / ppp;
+      if (decimalQty > updated[index].available_stock) {
         toast.error(`الكمية المتوفرة: ${Math.round(updated[index].available_stock)} فقط`);
         return;
       }
-      updated[index].quantity = numValue;
-      updated[index].total_pieces = numValue * updated[index].pieces_per_package;
+      if (field === 'quantity') {
+        updated[index].quantity = numValue;
+      } else {
+        updated[index].extra_pieces = numValue;
+      }
+      updated[index].total_pieces = (updated[index].quantity * ppp) + updated[index].extra_pieces;
     } else if (field === 'unit_price') {
       updated[index].unit_price = numValue;
     } else if (field === 'discount') {
@@ -520,12 +604,15 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
 
   const calculateSubtotal = (item: SaleItem): number => {
     const qty = Number(item.quantity) || 0;
+    const extraPieces = Number(item.extra_pieces) || 0;
     const price = Number(item.unit_price) || 0; // Price per 1 piece
     const piecesPerPkg = Number(item.pieces_per_package) || 1;
     const disc = Number(item.discount) || 0;
     const itemTax = Number(item.tax) || 0;
-    // subtotal = price × pieces_per_package × quantity - discount + tax
-    return (price * piecesPerPkg * qty) - disc + itemTax;
+    // totalPieces = (qty × piecesPerPkg) + extraPieces
+    const totalPieces = (qty * piecesPerPkg) + extraPieces;
+    // subtotal = price × totalPieces - discount + tax
+    return (price * totalPieces) - disc + itemTax;
   };
 
   const totalAmount = items.reduce((sum, item) => sum + (Number(item.subtotal) || 0), 0);
@@ -585,8 +672,10 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
     }
 
     for (const item of items) {
-      if (item.quantity > item.available_stock) {
-        toast.error(`الكمية المطلوبة لـ "${item.product_name}" (${item.quantity}) أكبر من المتوفر (${Math.round(item.available_stock)})`);
+      const ppp = Number(item.pieces_per_package) || 1;
+      const decimalQty = item.quantity + (item.extra_pieces || 0) / ppp;
+      if (decimalQty > item.available_stock) {
+        toast.error(`الكمية المطلوبة لـ "${item.product_name}" (${decimalQty}) أكبر من المتوفر (${Math.round(item.available_stock)})`);
         return;
       }
     }
@@ -615,13 +704,17 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
         shipping,
         note,
         paid_amount: paidAmount,
-        items: items.map((item) => ({
-          product_id: item.product_id,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          discount: item.discount,
-          tax: item.tax,
-        })),
+        items: items.map((item) => {
+          const ppp = Number(item.pieces_per_package) || 1;
+          const decimalQty = item.quantity + (item.extra_pieces || 0) / ppp;
+          return {
+            product_id: item.product_id,
+            quantity: decimalQty,
+            unit_price: item.unit_price,
+            discount: item.discount,
+            tax: item.tax,
+          };
+        }),
       });
 
       toast.success('تم إنشاء فاتورة البيع بنجاح');
@@ -665,9 +758,17 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       </div>
 
       {/* Quick Entry Modal */}
-      {quickEntryModal.show && quickEntryModal.product && (
+      {quickEntryModal.show && quickEntryModal.product && (() => {
+        const ppp = quickEntryModal.product?.pieces_per_package || 1;
+        const availablePrices = getProductPrices(quickEntryModal.product!);
+        const colorMap: Record<string, { bg: string; border: string; text: string; activeBg: string }> = {
+          green: { bg: 'bg-green-50', border: 'border-green-300', text: 'text-green-700', activeBg: 'bg-green-200' },
+          blue: { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-700', activeBg: 'bg-blue-200' },
+          amber: { bg: 'bg-amber-50', border: 'border-amber-300', text: 'text-amber-700', activeBg: 'bg-amber-200' },
+        };
+        return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-96 max-w-full mx-4">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-[420px] max-w-full mx-4">
             <h3 className="text-lg font-bold mb-4 text-center">{quickEntryModal.product.name}</h3>
             <div className="space-y-4">
               <div>
@@ -692,8 +793,43 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                   autoFocus
                 />
               </div>
+
+              {/* Price chips */}
+              {availablePrices.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">اختر السعر</label>
+                  <div className="flex flex-wrap gap-2">
+                    {availablePrices.map((p, i) => {
+                      const isActive = quickEntryModal.unitPrice === p.price;
+                      const colors = colorMap[p.color] || colorMap.blue;
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => {
+                            setQuickEntryModal(prev => ({ ...prev, unitPrice: p.price }));
+                            quickPriceRef.current?.focus();
+                          }}
+                          className={`px-3 py-2 rounded-lg border-2 text-sm font-semibold transition-all ${
+                            isActive
+                              ? `${colors.activeBg} ${colors.border} ${colors.text} ring-2 ring-offset-1 ring-${p.color}-400`
+                              : `${colors.bg} ${colors.border} ${colors.text} hover:${colors.activeBg}`
+                          }`}
+                        >
+                          <div className="text-xs opacity-75">{p.label}</div>
+                          <div className="text-base">{p.price}</div>
+                          {ppp > 1 && (
+                            <div className="text-[10px] opacity-60">{(p.price * ppp).toFixed(0)} /كرتون</div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div>
-                <label className="block text-sm font-medium mb-1">سعر الوحدة</label>
+                <label className="block text-sm font-medium mb-1">سعر القطعة</label>
                 <input
                   ref={quickPriceRef}
                   type="number"
@@ -711,11 +847,16 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                   className="input w-full text-center text-xl"
                   min="0"
                 />
+                {ppp > 1 && (
+                  <div className="text-center text-sm text-blue-600 mt-1 font-medium">
+                    سعر الكرتون: {formatCurrency(quickEntryModal.unitPrice * ppp)}
+                  </div>
+                )}
               </div>
               <div className="text-center text-lg font-bold text-blue-600">
-                المجموع: {formatCurrency(quickEntryModal.unitPrice * (quickEntryModal.product?.pieces_per_package || 1) * quickEntryModal.quantity)}
+                المجموع: {formatCurrency(quickEntryModal.unitPrice * ppp * quickEntryModal.quantity)}
                 <div className="text-xs text-gray-500 font-normal">
-                  ({quickEntryModal.unitPrice} × {quickEntryModal.product?.pieces_per_package || 1} قطعة × {quickEntryModal.quantity})
+                  ({quickEntryModal.unitPrice} × {ppp} قطعة × {quickEntryModal.quantity})
                 </div>
               </div>
               <div className="flex gap-2">
@@ -740,7 +881,8 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
@@ -1086,7 +1228,12 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                                   </div>
                                   <div className="text-sm text-gray-500 flex justify-between">
                                     <span>{product.barcode}</span>
-                                    <span>{formatCurrency(Number(product.retail_price) || 0)} / قطعة</span>
+                                    <span>
+                                      {formatCurrency(Number(product.retail_price) || 0)} / قطعة
+                                      {(product.pieces_per_package || 1) > 1 && (
+                                        <span className="text-gray-400 mr-1">({formatCurrency((Number(product.retail_price) || 0) * (product.pieces_per_package || 1))} / كرتون)</span>
+                                      )}
+                                    </span>
                                   </div>
                                 </button>
                               );
@@ -1106,7 +1253,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                     <tr className="bg-gray-100">
                       <th className="px-2 py-2 text-center w-12">الرقم</th>
                       <th className="px-2 py-2 text-right">التعيين</th>
-                      <th className="px-2 py-2 text-center w-20">الكمية</th>
+                      <th className="px-2 py-2 text-center w-28">كرتون/قطعة</th>
                       <th className="px-2 py-2 text-center w-16">الوحدة</th>
                       <th className="px-2 py-2 text-center w-20">العدد</th>
                       <th className="px-2 py-2 text-center w-24">س. الوحدة</th>
@@ -1136,16 +1283,55 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                               )}
                             </td>
                             <td className="px-2 py-2">
-                              <input
-                                ref={(el) => { inputRefs.current[`${index}-quantity`] = el; }}
-                                type="number"
-                                value={item.quantity}
-                                onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                                onKeyDown={(e) => handleKeyDown(e, index, 'quantity')}
-                                className={`input w-full text-center ${item.quantity > item.available_stock ? 'border-red-500' : ''}`}
-                                min="0.01"
-                                step="0.01"
-                              />
+                              <div className="space-y-1">
+                                {/* Cartons row - blue */}
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => updateItem(index, 'quantity', Math.max(0, item.quantity - 1))}
+                                    className="w-6 h-6 flex items-center justify-center rounded border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold"
+                                  >-</button>
+                                  <input
+                                    ref={(el) => { inputRefs.current[`${index}-quantity`] = el; }}
+                                    type="number"
+                                    value={item.quantity}
+                                    onChange={(e) => updateItem(index, 'quantity', Math.max(0, parseInt(e.target.value) || 0))}
+                                    onKeyDown={(e) => handleKeyDown(e, index, 'quantity')}
+                                    className="input w-12 text-center text-sm py-0.5 border-blue-300"
+                                    min="0"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => updateItem(index, 'quantity', item.quantity + 1)}
+                                    className="w-6 h-6 flex items-center justify-center rounded border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold"
+                                  >+</button>
+                                </div>
+                                {/* Pieces row - orange (only if ppp > 1) */}
+                                {item.pieces_per_package > 1 && (
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => updateItem(index, 'extra_pieces', Math.max(0, item.extra_pieces - 1))}
+                                      className="w-6 h-6 flex items-center justify-center rounded border border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 text-xs font-bold"
+                                    >-</button>
+                                    <input
+                                      ref={(el) => { inputRefs.current[`${index}-extra_pieces`] = el; }}
+                                      type="number"
+                                      value={item.extra_pieces}
+                                      onChange={(e) => updateItem(index, 'extra_pieces', parseInt(e.target.value) || 0)}
+                                      onKeyDown={(e) => handleKeyDown(e, index, 'extra_pieces')}
+                                      className="input w-12 text-center text-sm py-0.5 border-orange-300"
+                                      min="0"
+                                      max={item.pieces_per_package - 1}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => updateItem(index, 'extra_pieces', item.extra_pieces + 1)}
+                                      className="w-6 h-6 flex items-center justify-center rounded border border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 text-xs font-bold"
+                                    >+</button>
+                                  </div>
+                                )}
+                              </div>
                             </td>
                             <td className="px-2 py-2 text-center text-sm">
                               <div className="text-blue-600 font-medium">{item.pieces_per_package}</div>
@@ -1165,6 +1351,11 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                                 min="0"
                                 step="0.01"
                               />
+                              {item.pieces_per_package > 1 && (
+                                <div className="text-[10px] text-blue-500 text-center mt-0.5">
+                                  {formatCurrency(item.unit_price * item.pieces_per_package)}/كرتون
+                                </div>
+                              )}
                             </td>
                             <td className="px-2 py-2">
                               <input

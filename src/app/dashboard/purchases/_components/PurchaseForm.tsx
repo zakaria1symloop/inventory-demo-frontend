@@ -662,6 +662,11 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                   className="input w-full text-center text-xl"
                   min="0"
                 />
+                {(quickEntryModal.product?.pieces_per_package || 1) > 1 && (
+                  <div className="text-center text-sm text-blue-600 mt-1 font-medium">
+                    سعر الكرتون: {formatCurrency(quickEntryModal.unitPrice * (quickEntryModal.product?.pieces_per_package || 1))}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">سعر البيع (اختياري)</label>
@@ -1032,7 +1037,9 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                                   <span>{product.barcode}</span>
                                   <span>
                                     {formatCurrency(unitPrice)} / قطعة
-                                    {piecesPerPkg > 1 && <span className="text-blue-500 mr-1">({piecesPerPkg} قطعة/وحدة)</span>}
+                                    {piecesPerPkg > 1 && (
+                                      <span className="text-blue-500 mr-1">({formatCurrency(unitPrice * piecesPerPkg)} / كرتون)</span>
+                                    )}
                                   </span>
                                 </div>
                               </button>
@@ -1107,6 +1114,11 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                               min="0"
                               step="0.01"
                             />
+                            {item.pieces_per_package > 1 && (
+                              <div className="text-[10px] text-blue-500 text-center mt-0.5">
+                                {formatCurrency(item.unit_price * item.pieces_per_package)}/كرتون
+                              </div>
+                            )}
                           </td>
                           <td className="px-2 py-2">
                             <input

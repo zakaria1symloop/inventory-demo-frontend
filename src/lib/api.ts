@@ -74,6 +74,8 @@ export const productsApi = {
     api.get(`/products/${id}/available-stock`, { params: { warehouse_id: warehouseId } }),
   getAvailableStockBulk: (warehouseId: number, productIds?: number[]) =>
     api.get('/products/available-stock/bulk', { params: { warehouse_id: warehouseId, product_ids: productIds } }),
+  getPricesForClient: (clientId: number) =>
+    api.get('/products/prices-for-client', { params: { client_id: clientId } }),
 };
 
 // Categories API
@@ -83,6 +85,15 @@ export const categoriesApi = {
   create: (data: Record<string, unknown>) => api.post('/categories', data),
   update: (id: number, data: Record<string, unknown>) => api.put(`/categories/${id}`, data),
   delete: (id: number) => api.delete(`/categories/${id}`),
+};
+
+// Client Categories API
+export const clientCategoriesApi = {
+  getAll: (params?: Record<string, unknown>) => api.get('/client-categories', { params }),
+  getOne: (id: number) => api.get(`/client-categories/${id}`),
+  create: (data: Record<string, unknown>) => api.post('/client-categories', data),
+  update: (id: number, data: Record<string, unknown>) => api.put(`/client-categories/${id}`, data),
+  delete: (id: number) => api.delete(`/client-categories/${id}`),
 };
 
 // Brands API
@@ -189,6 +200,7 @@ export const usersApi = {
   resetPassword: (id: number, data: { password: string; password_confirmation: string }) =>
     api.post(`/users/${id}/reset-password`, data),
   toggleActive: (id: number) => api.post(`/users/${id}/toggle-active`),
+  toggleCollectDebt: (id: number) => api.post(`/users/${id}/toggle-collect-debt`),
   getSellers: () => api.get('/sellers'),
   getLivreurs: () => api.get('/livreurs'),
 };
@@ -261,6 +273,36 @@ export const deliveriesApi = {
   // Livreur-specific endpoints
   getMyActiveDelivery: () => api.get('/my-active-delivery'),
   getMyDeliveries: (params?: Record<string, unknown>) => api.get('/my-deliveries', { params }),
+  getLivreurStock: () => api.get('/livreur-stock'),
+};
+
+// Van Sessions API (Selling from Van)
+export const vanSessionsApi = {
+  getAll: (params?: Record<string, unknown>) => api.get('/van-sessions', { params }),
+  getOne: (id: number) => api.get(`/van-sessions/${id}`),
+  create: (data: Record<string, unknown>) => api.post('/van-sessions', data),
+  update: (id: number, data: Record<string, unknown>) => api.put(`/van-sessions/${id}`, data),
+  delete: (id: number) => api.delete(`/van-sessions/${id}`),
+  start: (id: number) => api.post(`/van-sessions/${id}/start`),
+  complete: (id: number) => api.post(`/van-sessions/${id}/complete`),
+  cancel: (id: number) => api.post(`/van-sessions/${id}/cancel`),
+  createSale: (sessionId: number, data: Record<string, unknown>) =>
+    api.post(`/van-sessions/${sessionId}/sales`, data),
+  getSales: (sessionId: number) => api.get(`/van-sessions/${sessionId}/sales`),
+  getAvailableProducts: (sessionId: number) => api.get(`/van-sessions/${sessionId}/products`),
+  getStats: (sessionId: number) => api.get(`/van-sessions/${sessionId}/stats`),
+  getMyActiveSession: () => api.get('/my-active-van-session'),
+};
+
+// Product Requests API
+export const productRequestsApi = {
+  getAll: (params?: Record<string, unknown>) => api.get('/product-requests', { params }),
+  getOne: (id: number) => api.get(`/product-requests/${id}`),
+  create: (data: Record<string, unknown>) => api.post('/product-requests', data),
+  approve: (id: number, data?: Record<string, unknown>) => api.post(`/product-requests/${id}/approve`, data),
+  reject: (id: number, data?: Record<string, unknown>) => api.post(`/product-requests/${id}/reject`, data),
+  fulfill: (id: number) => api.post(`/product-requests/${id}/fulfill`),
+  pendingCount: () => api.get('/product-requests/pending-count'),
 };
 
 // Debtors API (Delivery-based only)
@@ -394,6 +436,20 @@ export const inventoryApi = {
     api.post('/inventory/count', data),
   transfer: (data: { product_id: number; from_warehouse_id: number; to_warehouse_id: number; quantity: number; notes?: string }) =>
     api.post('/inventory/transfer', data),
+};
+
+// Caisses API
+export const caissesApi = {
+  getAll: (params?: Record<string, unknown>) => api.get('/caisses', { params }),
+  getOne: (id: number) => api.get(`/caisses/${id}`),
+  getTransactions: (id: number, params?: Record<string, unknown>) =>
+    api.get(`/caisses/${id}/transactions`, { params }),
+  settle: (id: number, data: { amount: number; type: string; notes?: string }) =>
+    api.post(`/caisses/${id}/settle`, data),
+  transfer: (data: { from_caisse_id: number; to_caisse_id: number; amount: number; notes?: string }) =>
+    api.post('/caisses/transfer', data),
+  getMyCaisse: () => api.get('/caisses/my'),
+  getSummary: () => api.get('/caisses/summary'),
 };
 
 // Dispenses (Expenses) API

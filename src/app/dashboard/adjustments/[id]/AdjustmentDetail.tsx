@@ -3,6 +3,7 @@
 import { useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { adjustmentsApi } from '@/lib/api';
+import { formatQty } from '@/lib/utils';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 
@@ -89,7 +90,7 @@ export default function AdjustmentDetail() {
                       <div className="text-xs text-gray-400">{item.product.barcode}</div>
                     )}
                   </td>
-                  <td className="text-center font-semibold">{item.quantity}</td>
+                  <td className="text-center font-semibold">{formatQty(item.quantity, piecesPerPackage)}</td>
                   <td className="text-center">
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                       {piecesPerPackage}
@@ -99,7 +100,7 @@ export default function AdjustmentDetail() {
                   <td className="text-center font-semibold">
                     {formatCurrency(item.total)}
                     <div className="text-xs text-gray-400">
-                      {item.unit_price} × {piecesPerPackage} × {item.quantity}
+                      {item.unit_price} × {piecesPerPackage} × {formatQty(item.quantity, piecesPerPackage)}
                     </div>
                   </td>
                 </tr>

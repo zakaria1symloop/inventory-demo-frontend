@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { saleReturnsApi, clientsApi, warehousesApi } from '@/lib/api';
+import { formatQty } from '@/lib/utils';
 import toast from 'react-hot-toast';
 
 interface SaleReturnItem {
@@ -11,7 +12,7 @@ interface SaleReturnItem {
   quantity: number;
   unit_price: number;
   reason?: string;
-  product?: { id: number; name: string };
+  product?: { id: number; name: string; pieces_per_package?: number };
 }
 
 interface SaleReturn {
@@ -316,7 +317,7 @@ export default function SaleReturnsPage() {
                 {selectedReturn.items?.map((item) => (
                   <tr key={item.id}>
                     <td>{item.product?.name}</td>
-                    <td>{item.quantity}</td>
+                    <td>{formatQty(item.quantity, item.product?.pieces_per_package)}</td>
                     <td>{formatCurrency(item.unit_price)}</td>
                     <td>{formatCurrency(item.quantity * item.unit_price)}</td>
                     <td>{item.reason || '-'}</td>

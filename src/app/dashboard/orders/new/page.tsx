@@ -16,6 +16,8 @@ interface Client {
   name: string;
   phone?: string;
   address?: string;
+  client_category_id?: number;
+  client_category?: { id: number; name: string };
 }
 
 interface Product {
@@ -41,6 +43,7 @@ interface OrderItem {
   product_id: number;
   product_name: string;
   quantity: number;
+  extra_pieces: number;
   unit_price: number;
   pieces_per_package: number;
   discount: number;
@@ -71,6 +74,9 @@ export default function NewOrderPage() {
   // Available stock state (product_id -> available quantity)
   const [availableStockMap, setAvailableStockMap] = useState<Record<number, number>>({});
   const [isLoadingStock, setIsLoadingStock] = useState(false);
+
+  // Client category prices (product_id -> category price)
+  const [clientCategoryPrices, setClientCategoryPrices] = useState<Record<number, number>>({});
 
   // Search state
   const [productSearch, setProductSearch] = useState('');
@@ -146,7 +152,8 @@ export default function NewOrderPage() {
       return;
     }
 
-    const unitPrice = parseFloat(String(product.wholesale_price)) || parseFloat(String(product.retail_price)) || 0;
+    const categoryPrice = clientCategoryPrices[product.id];
+    const unitPrice = categoryPrice ?? (parseFloat(String(product.wholesale_price)) || parseFloat(String(product.retail_price)) || 0);
     const taxPercent = parseFloat(String(product.tax_percent)) || 0;
     const piecesPerPkg = Number(product.pieces_per_package) || 1;
     // Price per piece × pieces_per_package × quantity
@@ -158,6 +165,7 @@ export default function NewOrderPage() {
       product_id: product.id,
       product_name: product.name,
       quantity: 1,
+      extra_pieces: 0,
       unit_price: unitPrice,
       pieces_per_package: piecesPerPkg,
       discount: 0,
@@ -176,11 +184,19 @@ export default function NewOrderPage() {
   const updateOrderItem = (index: number, field: string, value: number) => {
     const newItems = [...orderItems];
     const currentItem = newItems[index];
+    const piecesPerPkg = Number(currentItem.pieces_per_package) || 1;
 
-    // Check stock availability when updating quantity
-    if (field === 'quantity') {
-      const newQty = Number(value) || 0;
-      if (newQty > currentItem.available_stock) {
+    // Clamp extra_pieces to 0..ppp-1
+    if (field === 'extra_pieces') {
+      value = Math.max(0, Math.min(value, piecesPerPkg - 1));
+    }
+
+    // Check stock availability when updating quantity or extra_pieces
+    if (field === 'quantity' || field === 'extra_pieces') {
+      const newQty = field === 'quantity' ? (Number(value) || 0) : currentItem.quantity;
+      const newExtra = field === 'extra_pieces' ? (Number(value) || 0) : currentItem.extra_pieces;
+      const decimalQty = newQty + newExtra / piecesPerPkg;
+      if (decimalQty > currentItem.available_stock) {
         toast.error(`الكمية المتوفرة: ${Math.round(currentItem.available_stock)} فقط`);
         return;
       }
@@ -188,14 +204,15 @@ export default function NewOrderPage() {
 
     const item = { ...currentItem, [field]: parseFloat(String(value)) || 0 };
 
-    // Recalculate: price per piece × pieces_per_package × quantity - discount
+    // Recalculate: price per piece × totalPieces - discount
     const qty = parseFloat(String(item.quantity)) || 0;
+    const extraPieces = Number(item.extra_pieces) || 0;
     const price = parseFloat(String(item.unit_price)) || 0;
-    const piecesPerPkg = Number(item.pieces_per_package) || 1;
     const disc = parseFloat(String(item.discount)) || 0;
     const taxPct = parseFloat(String(item.tax_percent)) || 0;
 
-    const subtotal = (price * piecesPerPkg * qty) - disc;
+    const totalPieces = (qty * piecesPerPkg) + extraPieces;
+    const subtotal = (price * totalPieces) - disc;
     const taxAmount = (subtotal * taxPct) / 100;
     item.subtotal = subtotal;
     item.tax_amount = taxAmount;
@@ -209,10 +226,41 @@ export default function NewOrderPage() {
     setOrderItems(orderItems.filter((_, i) => i !== index));
   };
 
-  const selectClient = (client: Client) => {
+  const selectClient = async (client: Client) => {
     setSelectedClient(client.id);
     setClientSearch(client.name);
     setShowClientDropdown(false);
+
+    // Fetch category prices for this client
+    try {
+      const response = await productsApi.getPricesForClient(client.id);
+      const prices: Record<number, number> = response.data.prices || {};
+      setClientCategoryPrices(prices);
+
+      // Re-price existing order items with category prices
+      if (Object.keys(prices).length > 0) {
+        setOrderItems(prev => prev.map(item => {
+          if (prices[item.product_id]) {
+            const newPrice = prices[item.product_id];
+            const piecesPerPkg = Number(item.pieces_per_package) || 1;
+            const totalPieces = (item.quantity * piecesPerPkg) + (item.extra_pieces || 0);
+            const subtotal = (newPrice * totalPieces) - item.discount;
+            const taxAmount = (subtotal * item.tax_percent) / 100;
+            return {
+              ...item,
+              unit_price: newPrice,
+              subtotal,
+              tax_amount: taxAmount,
+              total_with_tax: subtotal + taxAmount,
+            };
+          }
+          return item;
+        }));
+      }
+    } catch {
+      // Ignore - use default prices
+      setClientCategoryPrices({});
+    }
   };
 
   // Calculations - subtotal already includes quantity from updateOrderItem
@@ -240,8 +288,10 @@ export default function NewOrderPage() {
         toast.error(`سعر "${item.product_name}" أقل من الحد الأدنى (${item.min_price})`);
         return;
       }
-      if (item.quantity > item.available_stock) {
-        toast.error(`الكمية المطلوبة لـ "${item.product_name}" (${item.quantity}) أكبر من المتوفر (${Math.round(item.available_stock)})`);
+      const ppp = Number(item.pieces_per_package) || 1;
+      const decimalQty = item.quantity + (item.extra_pieces || 0) / ppp;
+      if (decimalQty > item.available_stock) {
+        toast.error(`الكمية المطلوبة لـ "${item.product_name}" (${decimalQty}) أكبر من المتوفر (${Math.round(item.available_stock)})`);
         return;
       }
     }
@@ -255,13 +305,17 @@ export default function NewOrderPage() {
         discount: orderDiscount,
         tax: totalTax,
         notes: orderNotes,
-        items: orderItems.map(item => ({
-          product_id: item.product_id,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          discount: item.discount,
-          tax_percent: item.tax_percent,
-        })),
+        items: orderItems.map(item => {
+          const ppp = Number(item.pieces_per_package) || 1;
+          const decimalQty = item.quantity + (item.extra_pieces || 0) / ppp;
+          return {
+            product_id: item.product_id,
+            quantity: decimalQty,
+            unit_price: item.unit_price,
+            discount: item.discount,
+            tax_percent: item.tax_percent,
+          };
+        }),
       });
       toast.success('تم إنشاء الطلب بنجاح');
       router.push('/dashboard/orders');
@@ -411,9 +465,14 @@ export default function NewOrderPage() {
                         <div className="flex justify-between">
                           <span className="font-medium">{product.name}</span>
                           <span className="text-green-600 font-bold">
-                            {formatCurrency(product.wholesale_price || product.retail_price)}
+                            {formatCurrency(product.wholesale_price || product.retail_price)} /قطعة
                           </span>
                         </div>
+                        {(product.pieces_per_package || 1) > 1 && (
+                          <div className="text-sm text-blue-600 font-medium text-left">
+                            {formatCurrency((product.wholesale_price || product.retail_price) * product.pieces_per_package)} /كرتون
+                          </div>
+                        )}
                         <div className="flex justify-between text-sm text-gray-500 mt-1">
                           <span>باركود: {product.barcode || '-'}</span>
                           <span className={availableStock > 0 ? 'text-green-600' : 'text-red-600'}>
@@ -457,13 +516,53 @@ export default function NewOrderPage() {
                           </div>
                         </td>
                         <td className="px-2 py-2">
-                          <input
-                            type="number"
-                            value={item.quantity}
-                            onChange={(e) => updateOrderItem(index, 'quantity', Math.max(1, Number(e.target.value)))}
-                            min={1}
-                            className="input w-full text-center text-sm py-1.5"
-                          />
+                          <div className="space-y-1">
+                            {/* Cartons row - blue */}
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => updateOrderItem(index, 'quantity', Math.max(0, item.quantity - 1))}
+                                className="w-7 h-7 flex items-center justify-center rounded border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 text-sm font-bold"
+                              >-</button>
+                              <input
+                                type="number"
+                                value={item.quantity}
+                                onChange={(e) => updateOrderItem(index, 'quantity', Math.max(0, Number(e.target.value)))}
+                                min={0}
+                                className="input w-14 text-center text-sm py-1 border-blue-300"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => updateOrderItem(index, 'quantity', item.quantity + 1)}
+                                className="w-7 h-7 flex items-center justify-center rounded border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 text-sm font-bold"
+                              >+</button>
+                              <span className="text-xs text-blue-600 font-medium">كرتون</span>
+                            </div>
+                            {/* Pieces row - orange (only if ppp > 1) */}
+                            {item.pieces_per_package > 1 && (
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => updateOrderItem(index, 'extra_pieces', Math.max(0, item.extra_pieces - 1))}
+                                  className="w-7 h-7 flex items-center justify-center rounded border border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 text-sm font-bold"
+                                >-</button>
+                                <input
+                                  type="number"
+                                  value={item.extra_pieces}
+                                  onChange={(e) => updateOrderItem(index, 'extra_pieces', Number(e.target.value))}
+                                  min={0}
+                                  max={item.pieces_per_package - 1}
+                                  className="input w-14 text-center text-sm py-1 border-orange-300"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => updateOrderItem(index, 'extra_pieces', item.extra_pieces + 1)}
+                                  className="w-7 h-7 flex items-center justify-center rounded border border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 text-sm font-bold"
+                                >+</button>
+                                <span className="text-xs text-orange-600 font-medium">قطعة</span>
+                              </div>
+                            )}
+                          </div>
                         </td>
                         <td className="px-2 py-2">
                           <input
@@ -473,6 +572,12 @@ export default function NewOrderPage() {
                             min={0}
                             className={`input w-full text-sm py-1.5 ${item.unit_price < item.min_price ? 'border-red-500 bg-red-50' : ''}`}
                           />
+                          <div className="text-[10px] text-gray-500 text-center">/قطعة</div>
+                          {item.pieces_per_package > 1 && (
+                            <div className="text-[10px] text-blue-500 text-center mt-0.5">
+                              {formatCurrency(item.unit_price * item.pieces_per_package)}/كرتون
+                            </div>
+                          )}
                         </td>
                         <td className="px-2 py-2 text-center">
                           <span className="text-sm font-medium">{item.pieces_per_package}</span>

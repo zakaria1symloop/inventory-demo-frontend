@@ -15,6 +15,7 @@ const roleLabels: Record<string, string> = {
   manager: 'مسؤول',
   seller: 'بائع',
   livreur: 'سائق توصيل',
+  cashvan: 'بائع متنقل',
 };
 
 export default function UsersPage() {
@@ -267,6 +268,7 @@ export default function UsersPage() {
             <option value="manager">مسؤول</option>
             <option value="seller">بائع</option>
             <option value="livreur">سائق توصيل</option>
+            <option value="cashvan">بائع متنقل</option>
           </select>
         </div>
 
@@ -355,6 +357,7 @@ export default function UsersPage() {
               <option value="manager">مسؤول</option>
               <option value="seller">بائع</option>
               <option value="livreur">سائق توصيل</option>
+              <option value="cashvan">بائع متنقل</option>
             </select>
           </div>
 

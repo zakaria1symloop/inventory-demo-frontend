@@ -43,6 +43,7 @@ interface MenuItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   roles?: string[];
+  badge?: string;
 }
 
 interface MenuSection {
@@ -72,7 +73,7 @@ const menuSections: MenuSection[] = [
     icon: ArrowTrendingDownIcon,
     items: [
       { name: 'فواتير الشراء', href: '/dashboard/purchases', icon: ArrowTrendingDownIcon },
-      { name: 'بونات الطلب', href: '/dashboard/purchase-orders', icon: DocumentDuplicateIcon },
+      { name: 'بونات الطلب', href: '/dashboard/purchase-orders', icon: DocumentDuplicateIcon, badge: 'جديد' },
       { name: 'الموردين', href: '/dashboard/suppliers', icon: TruckIcon },
       { name: 'مرتجعات الشراء', href: '/dashboard/purchase-returns', icon: ArrowUturnLeftIcon },
     ],
@@ -83,6 +84,7 @@ const menuSections: MenuSection[] = [
     items: [
       { name: 'فواتير البيع', href: '/dashboard/sales', icon: ArrowTrendingUpIcon },
       { name: 'العملاء', href: '/dashboard/clients', icon: UserGroupIcon },
+      { name: 'فئات العملاء', href: '/dashboard/client-categories', icon: TagIcon, badge: 'جديد' },
       { name: 'مرتجعات المبيعات', href: '/dashboard/sale-returns', icon: ArrowUturnLeftIcon },
     ],
   },
@@ -93,8 +95,12 @@ const menuSections: MenuSection[] = [
       { name: 'الطلبات', href: '/dashboard/orders', icon: ShoppingCartIcon },
       { name: 'الجولات', href: '/dashboard/trips', icon: MapPinIcon },
       { name: 'التوصيل', href: '/dashboard/deliveries', icon: TruckIcon },
+      { name: 'البيع المتنقل', href: '/dashboard/van-sales', icon: TruckIcon },
+      { name: 'جلسات البيع', href: '/dashboard/van-sessions', icon: ClipboardDocumentListIcon, badge: 'جديد' },
+      { name: 'طلبات المنتجات', href: '/dashboard/product-requests', icon: ClipboardDocumentListIcon, badge: 'جديد' },
+      { name: 'مخزون السائقين', href: '/dashboard/livreur-stock', icon: ArchiveBoxIcon, badge: 'جديد' },
       { name: 'السائقين', href: '/dashboard/drivers', icon: UsersIcon },
-      { name: 'خريطة السائقين', href: '/dashboard/drivers-map', icon: MapPinIcon },
+      { name: 'خريطة السائقين', href: '/dashboard/drivers-map', icon: MapPinIcon, badge: 'جديد' },
       { name: 'المركبات', href: '/dashboard/vehicles', icon: TruckIcon },
     ],
   },
@@ -102,8 +108,9 @@ const menuSections: MenuSection[] = [
     name: 'المالية',
     icon: BanknotesIcon,
     items: [
+      { name: 'الصناديق', href: '/dashboard/caisses', icon: BanknotesIcon, badge: 'جديد' },
       { name: 'المدفوعات', href: '/dashboard/payments', icon: CurrencyDollarIcon },
-      { name: 'المصروفات', href: '/dashboard/dispenses', icon: BanknotesIcon },
+      { name: 'المصروفات', href: '/dashboard/dispenses', icon: BanknotesIcon, badge: 'جديد' },
       { name: 'التقارير', href: '/dashboard/reports', icon: ChartBarIcon },
     ],
   },
@@ -112,7 +119,7 @@ const menuSections: MenuSection[] = [
     icon: WrenchScrewdriverIcon,
     roles: ['admin'],
     items: [
-      { name: 'الموظفين', href: '/dashboard/employees', icon: UsersIcon },
+      { name: 'الموظفين', href: '/dashboard/employees', icon: UsersIcon, badge: 'جديد' },
       { name: 'المستخدمين', href: '/dashboard/users', icon: UsersIcon },
       { name: 'الإعدادات', href: '/dashboard/settings', icon: Cog6ToothIcon },
     ],
@@ -427,7 +434,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                   }`}
                                 >
                                   <item.icon className="w-4 h-4" />
-                                  <span>{item.name}</span>
+                                  <span className="flex-1">{item.name}</span>
+                                  {item.badge && (
+                                    <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-emerald-500 text-white leading-none">
+                                      {item.badge}
+                                    </span>
+                                  )}
                                 </Link>
                               </li>
                             );

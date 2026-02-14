@@ -36,6 +36,10 @@ export default function SettingsPage() {
     low_stock_alert: '10',
     // Stock Management
     decrease_stock_on_order: 'false', // 'true' = decrease when order created, 'false' = decrease when confirmed
+    // Order management
+    auto_validate_orders: 'false',
+    // Seller visibility
+    seller_see_all_clients: 'false',
     // Invoice
     invoice_prefix_sale: 'VNT-',
     invoice_prefix_purchase: 'ACH-',
@@ -601,6 +605,96 @@ export default function SettingsPage() {
                           <div className="text-right">
                             <p className={`text-sm font-semibold ${settings.decrease_stock_on_order === 'false' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>عند التأكيد</p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">يخصم المخزون فقط بعد تأكيد الطلب</p>
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Auto-validate Orders Setting */}
+                  <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <h3 className="text-md font-semibold mb-3 dark:text-white flex items-center gap-2">
+                      التصديق التلقائي للطلبات
+                      <span className="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-500 text-white rounded-full leading-none">جديد</span>
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">هل يتم تأكيد الطلبات تلقائياً عند إنشائها من طرف البائع؟</p>
+                    <div className="flex gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setSettings({ ...settings, auto_validate_orders: 'false' })}
+                        className={`flex-1 p-4 rounded-lg border-2 transition-all cursor-pointer ${settings.auto_validate_orders === 'false' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.auto_validate_orders === 'false' ? 'bg-blue-100' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                            <svg className={`w-5 h-5 ${settings.auto_validate_orders === 'false' ? 'text-blue-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                          <div className="text-right">
+                            <p className={`text-sm font-semibold ${settings.auto_validate_orders === 'false' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>يدوي - يحتاج موافقة</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">الطلب يبقى معلقاً حتى يوافق عليه المدير</p>
+                          </div>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSettings({ ...settings, auto_validate_orders: 'true' })}
+                        className={`flex-1 p-4 rounded-lg border-2 transition-all cursor-pointer ${settings.auto_validate_orders === 'true' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.auto_validate_orders === 'true' ? 'bg-blue-100' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                            <svg className={`w-5 h-5 ${settings.auto_validate_orders === 'true' ? 'text-blue-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                          </div>
+                          <div className="text-right">
+                            <p className={`text-sm font-semibold ${settings.auto_validate_orders === 'true' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>تلقائي - مصادقة فورية</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">الطلب يُأكد تلقائياً فور إنشائه</p>
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Seller Client Visibility Setting */}
+                  <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <h3 className="text-md font-semibold mb-3 dark:text-white flex items-center gap-2">
+                      رؤية العملاء للبائعين
+                      <span className="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-500 text-white rounded-full leading-none">جديد</span>
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">هل يمكن للبائع رؤية عملاء البائعين الآخرين في التطبيق؟</p>
+                    <div className="flex gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setSettings({ ...settings, seller_see_all_clients: 'false' })}
+                        className={`flex-1 p-4 rounded-lg border-2 transition-all cursor-pointer ${settings.seller_see_all_clients === 'false' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.seller_see_all_clients === 'false' ? 'bg-blue-100' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                            <svg className={`w-5 h-5 ${settings.seller_see_all_clients === 'false' ? 'text-blue-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                          </div>
+                          <div className="text-right">
+                            <p className={`text-sm font-semibold ${settings.seller_see_all_clients === 'false' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>عملاؤه فقط</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">كل بائع يرى فقط العملاء الذين أضافهم</p>
+                          </div>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSettings({ ...settings, seller_see_all_clients: 'true' })}
+                        className={`flex-1 p-4 rounded-lg border-2 transition-all cursor-pointer ${settings.seller_see_all_clients === 'true' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.seller_see_all_clients === 'true' ? 'bg-blue-100' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                            <svg className={`w-5 h-5 ${settings.seller_see_all_clients === 'true' ? 'text-blue-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                          <div className="text-right">
+                            <p className={`text-sm font-semibold ${settings.seller_see_all_clients === 'true' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>جميع العملاء</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">البائعون يرون جميع العملاء</p>
                           </div>
                         </div>
                       </button>

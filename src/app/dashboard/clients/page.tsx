@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { clientsApi, salesApi } from '@/lib/api';
+import { clientsApi, clientCategoriesApi, salesApi, usersApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 import {
   PlusIcon,
@@ -32,7 +32,16 @@ import {
   ShoppingCartIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  DevicePhoneMobileIcon,
+  ComputerDesktopIcon,
 } from '@heroicons/react/24/outline';
+
+interface ClientCategory {
+  id: number;
+  name: string;
+  description?: string;
+  is_default: boolean;
+}
 
 interface Client {
   id: number;
@@ -48,6 +57,8 @@ interface Client {
   combined_debt?: number;
   credit_limit?: number;
   is_active: boolean;
+  client_category_id?: number;
+  client_category?: ClientCategory;
   rc?: string;
   nif?: string;
   ai?: string;
@@ -56,6 +67,14 @@ interface Client {
   created_at?: string;
   orders_count?: number;
   sales_count?: number;
+  source?: 'web' | 'app';
+  created_by?: number;
+  creator?: { id: number; name: string };
+}
+
+interface SellerUser {
+  id: number;
+  name: string;
 }
 
 interface ClientSale {
@@ -82,6 +101,7 @@ interface ClientDetails {
 export default function ClientsPage() {
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
+  const [clientCategories, setClientCategories] = useState<ClientCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
@@ -89,6 +109,9 @@ export default function ClientsPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [creditLimitFilter, setCreditLimitFilter] = useState<'all' | 'has_limit' | 'no_limit' | 'exceeded'>('all');
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'web' | 'app'>('all');
+  const [sellerFilter, setSellerFilter] = useState('');
+  const [sellers, setSellers] = useState<SellerUser[]>([]);
   const [showFilters, setShowFilters] = useState(false);
 
   // Modal states
@@ -109,6 +132,7 @@ export default function ClientsPage() {
     gps_lng: '',
     credit_limit: '',
     is_active: true,
+    client_category_id: '',
     rc: '',
     nif: '',
     ai: '',
@@ -137,8 +161,14 @@ export default function ClientsPage() {
 
   const fetchClients = async () => {
     try {
-      const response = await clientsApi.getAll({ per_page: 1000 });
-      setClients(response.data.data || response.data);
+      const [clientsRes, categoriesRes, sellersRes] = await Promise.all([
+        clientsApi.getAll({ per_page: 1000 }),
+        clientCategoriesApi.getAll(),
+        usersApi.getSellers().catch(() => ({ data: [] })),
+      ]);
+      setClients(clientsRes.data.data || clientsRes.data);
+      setClientCategories(categoriesRes.data);
+      setSellers(sellersRes.data || []);
     } catch (error) {
       toast.error('خطأ في تحميل البيانات');
     } finally {
@@ -177,6 +207,7 @@ export default function ClientsPage() {
       gps_lng: '',
       credit_limit: '',
       is_active: true,
+      client_category_id: '',
       rc: '',
       nif: '',
       ai: '',
@@ -197,6 +228,7 @@ export default function ClientsPage() {
       gps_lng: client.gps_lng?.toString() || '',
       credit_limit: client.credit_limit?.toString() || '',
       is_active: client.is_active,
+      client_category_id: client.client_category_id?.toString() || '',
       rc: client.rc || '',
       nif: client.nif || '',
       ai: client.ai || '',
@@ -232,6 +264,7 @@ export default function ClientsPage() {
       gps_lat: formData.gps_lat ? parseFloat(formData.gps_lat) : null,
       gps_lng: formData.gps_lng ? parseFloat(formData.gps_lng) : null,
       credit_limit: formData.credit_limit ? parseFloat(formData.credit_limit) : null,
+      client_category_id: formData.client_category_id ? parseInt(formData.client_category_id) : null,
     };
 
     try {
@@ -329,7 +362,7 @@ export default function ClientsPage() {
 
   // Check if any filters are active
   const hasActiveFilters = searchTerm || statusFilter !== 'all' || balanceFilter !== 'all' ||
-    dateFrom || dateTo || creditLimitFilter !== 'all';
+    dateFrom || dateTo || creditLimitFilter !== 'all' || sourceFilter !== 'all' || sellerFilter;
 
   // Reset all filters
   const resetFilters = () => {
@@ -339,6 +372,8 @@ export default function ClientsPage() {
     setDateFrom('');
     setDateTo('');
     setCreditLimitFilter('all');
+    setSourceFilter('all');
+    setSellerFilter('');
   };
 
   // Filtered clients
@@ -384,9 +419,15 @@ export default function ClientsPage() {
         else if (creditLimitFilter === 'exceeded') matchesCreditLimit = !!isExceeded;
       }
 
-      return matchesSearch && matchesStatus && matchesBalance && matchesDate && matchesCreditLimit;
+      // Source filter
+      const matchesSource = sourceFilter === 'all' || client.source === sourceFilter;
+
+      // Seller filter
+      const matchesSeller = !sellerFilter || client.created_by === parseInt(sellerFilter);
+
+      return matchesSearch && matchesStatus && matchesBalance && matchesDate && matchesCreditLimit && matchesSource && matchesSeller;
     });
-  }, [clients, searchTerm, statusFilter, balanceFilter, dateFrom, dateTo, creditLimitFilter]);
+  }, [clients, searchTerm, statusFilter, balanceFilter, dateFrom, dateTo, creditLimitFilter, sourceFilter, sellerFilter]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
@@ -615,7 +656,7 @@ export default function ClientsPage() {
         {/* Collapsible Filters */}
         {showFilters && (
           <div className="mt-4 pt-4 border-t">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
               {/* Search */}
               <div className="relative">
                 <MagnifyingGlassIcon className="w-5 h-5 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -649,7 +690,9 @@ export default function ClientsPage() {
                 <option value="has_debt">لديه دين</option>
                 <option value="no_debt">بدون دين</option>
               </select>
+            </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
               {/* Credit Limit Filter */}
               <select
                 value={creditLimitFilter}
@@ -660,6 +703,29 @@ export default function ClientsPage() {
                 <option value="has_limit">لديه حد ائتمان</option>
                 <option value="no_limit">بدون حد ائتمان</option>
                 <option value="exceeded">تجاوز الحد ({stats.exceededCreditLimit})</option>
+              </select>
+
+              {/* Source Filter */}
+              <select
+                value={sourceFilter}
+                onChange={(e) => setSourceFilter(e.target.value as typeof sourceFilter)}
+                className="select"
+              >
+                <option value="all">جميع المصادر</option>
+                <option value="web">من المنصة</option>
+                <option value="app">من التطبيق</option>
+              </select>
+
+              {/* Seller Filter */}
+              <select
+                value={sellerFilter}
+                onChange={(e) => setSellerFilter(e.target.value)}
+                className="select"
+              >
+                <option value="">جميع البائعين</option>
+                {sellers.map((seller) => (
+                  <option key={seller.id} value={seller.id}>{seller.name}</option>
+                ))}
               </select>
             </div>
 
@@ -701,13 +767,17 @@ export default function ClientsPage() {
                 <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">الرصيد</th>
                 <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">حد الائتمان</th>
                 <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">الحالة</th>
+                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">
+                  المصدر
+                  <span className="inline-block mr-1 px-1.5 py-0.5 text-[10px] font-bold bg-emerald-500 text-white rounded-full leading-none">جديد</span>
+                </th>
                 <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">الإجراءات</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredClients.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
+                  <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
                     <UserGroupIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                     <p>لا يوجد عملاء مطابقين للبحث</p>
                   </td>
@@ -722,7 +792,14 @@ export default function ClientsPage() {
                         </div>
                         <div>
                           <div className="font-medium text-gray-900">{client.name}</div>
-                          <div className="text-xs text-gray-500">#{client.id}</div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500">#{client.id}</span>
+                            {client.client_category && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                                {client.client_category.name}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -809,6 +886,30 @@ export default function ClientsPage() {
                           </>
                         )}
                       </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex flex-col items-center gap-1">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                          client.source === 'app'
+                            ? 'bg-violet-100 text-violet-700'
+                            : 'bg-sky-100 text-sky-700'
+                        }`}>
+                          {client.source === 'app' ? (
+                            <>
+                              <DevicePhoneMobileIcon className="w-3 h-3" />
+                              تطبيق
+                            </>
+                          ) : (
+                            <>
+                              <ComputerDesktopIcon className="w-3 h-3" />
+                              منصة
+                            </>
+                          )}
+                        </span>
+                        {client.creator && (
+                          <span className="text-[10px] text-gray-500">{client.creator.name}</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1">
@@ -958,6 +1059,23 @@ export default function ClientsPage() {
                   />
                 </div>
                 <p className="text-xs text-gray-500 mt-1">اتركه فارغاً لعدم تحديد حد</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">فئة العميل</label>
+                <select
+                  value={formData.client_category_id}
+                  onChange={(e) => setFormData(p => ({ ...p, client_category_id: e.target.value }))}
+                  className="select w-full"
+                >
+                  <option value="">بدون فئة</option>
+                  {clientCategories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name} {cat.description ? `- ${cat.description}` : ''} {cat.is_default ? '(افتراضي)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">تحدد الفئة أسعار المنتجات للعميل</p>
               </div>
 
               {/* Legal Information */}

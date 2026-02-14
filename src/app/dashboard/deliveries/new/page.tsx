@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ordersApi, deliveriesApi, usersApi, vehiclesApi } from '@/lib/api';
+import { formatQty, formatQtyLong } from '@/lib/utils';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import jsPDF from 'jspdf';
@@ -40,7 +41,7 @@ interface OrderItem {
   product?: {
     id: number;
     name: string;
-    pieces_per_unit?: number;
+    pieces_per_package?: number;
   };
 }
 
@@ -153,7 +154,7 @@ export default function NewDeliveryPage() {
               <tr>
                 <td>${idx + 1}</td>
                 <td>${item.product?.name || '-'}</td>
-                <td>${Number(item.quantity_confirmed)}</td>
+                <td>${formatQtyLong(item.quantity_confirmed, item.product?.pieces_per_package)}</td>
                 <td>${Number(item.unit_price).toLocaleString('fr-FR')}</td>
                 <td>${(Number(item.quantity_confirmed) * Number(item.unit_price)).toLocaleString('fr-FR')}</td>
               </tr>
@@ -250,7 +251,7 @@ export default function NewDeliveryPage() {
     // Products
     doc.setFontSize(8);
     order.items?.forEach((item) => {
-      const qty = item.quantity_confirmed.toString();
+      const qty = formatQtyLong(item.quantity_confirmed, item.product?.pieces_per_package);
       const name = (item.product?.name || '-').substring(0, 15);
       const total = (Number(item.quantity_confirmed) * Number(item.unit_price)).toFixed(0);
 
@@ -398,6 +399,146 @@ export default function NewDeliveryPage() {
     (sum, o) => sum + (o.items?.reduce((s, i) => s + (Number(i.quantity_confirmed) || 0), 0) || 0),
     0
   );
+
+  // Build merged products list from selected orders
+  const getMergedProducts = () => {
+    const merged: Record<number, { name: string; totalQty: number; piecesPerUnit: number; totalPieces: number }> = {};
+    selectedOrders.forEach((order) => {
+      order.items?.forEach((item) => {
+        const pid = item.product_id;
+        const ppu = item.product?.pieces_per_package || 1;
+        if (!merged[pid]) {
+          merged[pid] = { name: item.product?.name || '-', totalQty: 0, piecesPerUnit: ppu, totalPieces: 0 };
+        }
+        merged[pid].totalQty += Number(item.quantity_confirmed);
+        merged[pid].totalPieces += Number(item.quantity_confirmed) * ppu;
+      });
+    });
+    return Object.values(merged).sort((a, b) => a.name.localeCompare(b.name));
+  };
+
+  const printMergedProducts = () => {
+    const products = getMergedProducts();
+    const livreur = livreurs.find((l) => l.id === Number(formData.livreur_id));
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '-9999px';
+    iframe.style.top = '-9999px';
+    document.body.appendChild(iframe);
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html dir="rtl">
+      <head>
+        <meta charset="UTF-8">
+        <title>قائمة التحميل</title>
+        <style>
+          @media print { @page { size: A4; margin: 10mm; } }
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; padding: 15px; direction: rtl; }
+          h1 { text-align: center; font-size: 22px; margin-bottom: 5px; }
+          .subtitle { text-align: center; font-size: 14px; color: #666; margin-bottom: 15px; }
+          .info-bar { display: flex; justify-content: space-between; background: #f5f5f5; padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; font-size: 13px; }
+          .info-item { display: flex; gap: 5px; }
+          .info-label { color: #666; }
+          .info-value { font-weight: bold; }
+          table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+          th, td { border: 1px solid #ddd; padding: 10px 12px; text-align: center; font-size: 14px; }
+          th { background-color: #333; color: white; font-weight: bold; }
+          tr:nth-child(even) { background-color: #f9f9f9; }
+          .product-name { text-align: right; font-weight: 600; }
+          .qty { font-size: 18px; font-weight: bold; color: #1a56db; }
+          .pieces { font-size: 16px; font-weight: bold; color: #047857; }
+          .check-col { width: 50px; }
+          .total-row { background-color: #e8f4fd !important; font-weight: bold; font-size: 15px; }
+          .footer { text-align: center; margin-top: 20px; font-size: 11px; color: #999; border-top: 1px dashed #ccc; padding-top: 10px; }
+          .clients-list { margin-top: 20px; border-top: 2px solid #333; padding-top: 10px; }
+          .clients-list h3 { font-size: 16px; margin-bottom: 8px; }
+          .client-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dotted #ddd; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <h1>قائمة التحميل - Bon de Chargement</h1>
+        <div class="subtitle">${formData.date ? new Date(formData.date).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR')}</div>
+
+        <div class="info-bar">
+          <div class="info-item"><span class="info-label">السائق:</span> <span class="info-value">${livreur?.name || '-'}</span></div>
+          <div class="info-item"><span class="info-label">عدد الطلبات:</span> <span class="info-value">${selectedOrders.length}</span></div>
+          <div class="info-item"><span class="info-label">عدد العملاء:</span> <span class="info-value">${new Set(selectedOrders.map(o => o.client_id)).size}</span></div>
+          <div class="info-item"><span class="info-label">المبلغ:</span> <span class="info-value">${Number(totalAmount).toLocaleString('fr-FR')} DA</span></div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th style="width:40px">#</th>
+              <th>المنتج</th>
+              <th style="width:80px">الكمية</th>
+              <th style="width:60px">الوحدة</th>
+              <th style="width:80px">العدد</th>
+              <th class="check-col">&#x2713;</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${products.map((p, i) => `
+              <tr>
+                <td>${i + 1}</td>
+                <td class="product-name">${p.name}</td>
+                <td class="qty">${formatQtyLong(p.totalQty, p.piecesPerUnit)}</td>
+                <td>${p.piecesPerUnit > 1 ? p.piecesPerUnit : '-'}</td>
+                <td class="pieces">${p.piecesPerUnit > 1 ? Math.round(p.totalPieces) : '-'}</td>
+                <td class="check-col"></td>
+              </tr>
+            `).join('')}
+            <tr class="total-row">
+              <td colspan="2" style="text-align:right">المجموع</td>
+              <td>${products.reduce((s, p) => s + p.totalQty, 0)}</td>
+              <td></td>
+              <td>${products.reduce((s, p) => s + p.totalPieces, 0)}</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="clients-list">
+          <h3>تفصيل حسب العميل (${selectedOrders.length} طلب)</h3>
+          ${selectedOrders.map((o, i) => `
+            <div class="client-row">
+              <span><strong>${i + 1}.</strong> ${o.client?.name || '-'} (${o.reference})</span>
+              <span>${Number(o.grand_total).toLocaleString('fr-FR')} DA - ${o.items?.length || 0} منتج</span>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="footer">
+          <p>تم الطباعة في ${new Date().toLocaleDateString('fr-FR')} - ${new Date().toLocaleTimeString('fr-FR')}</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (iframeDoc) {
+      iframeDoc.open();
+      iframeDoc.write(printContent);
+      iframeDoc.close();
+
+      iframe.onload = () => {
+        setTimeout(() => {
+          iframe.contentWindow?.print();
+          setTimeout(() => { document.body.removeChild(iframe); }, 1000);
+        }, 250);
+      };
+
+      setTimeout(() => {
+        iframe.contentWindow?.print();
+        setTimeout(() => {
+          if (document.body.contains(iframe)) document.body.removeChild(iframe);
+        }, 1000);
+      }, 500);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -622,14 +763,14 @@ export default function NewDeliveryPage() {
                             <tbody>
                               {order.items && order.items.length > 0 ? (
                                 order.items.map((item, idx) => {
-                                  const piecesPerUnit = item.product?.pieces_per_unit || 1;
+                                  const piecesPerUnit = item.product?.pieces_per_package || 1;
                                   const totalPieces = item.quantity_confirmed * piecesPerUnit;
                                   const lineTotal = item.quantity_confirmed * item.unit_price;
                                   return (
                                     <tr key={idx} className="border-b last:border-0 hover:bg-gray-50">
                                       <td className="py-2 text-center text-gray-500">{idx + 1}</td>
                                       <td className="py-2 font-medium">{item.product?.name || '-'}</td>
-                                      <td className="py-2 text-center font-bold text-blue-600">{item.quantity_confirmed}</td>
+                                      <td className="py-2 text-center font-bold text-blue-600">{formatQty(item.quantity_confirmed, piecesPerUnit)}</td>
                                       <td className="py-2 text-center">{formatNumber(piecesPerUnit)}</td>
                                       <td className="py-2 text-center">{formatNumber(totalPieces)}</td>
                                       <td className="py-2 text-center">{formatNumber(item.unit_price)}</td>
@@ -683,6 +824,16 @@ export default function NewDeliveryPage() {
                 <span className="font-bold text-green-600">{formatCurrency(totalAmount)}</span>
               </div>
             </div>
+
+            {selectedOrders.length > 0 && (
+              <button
+                onClick={printMergedProducts}
+                className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-bold transition-colors"
+              >
+                <PrinterIcon className="w-5 h-5" />
+                طباعة قائمة التحميل (مجمّعة)
+              </button>
+            )}
           </div>
 
           {/* Selected Orders - Roadmap */}
@@ -829,14 +980,14 @@ export default function NewDeliveryPage() {
                             <tbody>
                               {order.items && order.items.length > 0 ? (
                                 order.items.map((item, idx) => {
-                                  const piecesPerUnit = item.product?.pieces_per_unit || 1;
+                                  const piecesPerUnit = item.product?.pieces_per_package || 1;
                                   const totalPieces = item.quantity_confirmed * piecesPerUnit;
                                   const lineTotal = item.quantity_confirmed * item.unit_price;
                                   return (
                                     <tr key={idx} className="border-b last:border-0">
                                       <td className="py-1 text-center text-gray-400">{idx + 1}</td>
                                       <td className="py-1 truncate max-w-[100px]">{item.product?.name}</td>
-                                      <td className="py-1 text-center font-bold text-blue-600">{item.quantity_confirmed}</td>
+                                      <td className="py-1 text-center font-bold text-blue-600">{formatQty(item.quantity_confirmed, piecesPerUnit)}</td>
                                       <td className="py-1 text-center">{piecesPerUnit}</td>
                                       <td className="py-1 text-center">{totalPieces}</td>
                                       <td className="py-1 text-left font-medium">{formatNumber(lineTotal)}</td>

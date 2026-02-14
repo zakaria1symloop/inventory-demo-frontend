@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { productsApi, categoriesApi, brandsApi, unitsApi } from '@/lib/api';
+import { productsApi, categoriesApi, brandsApi, unitsApi, clientCategoriesApi } from '@/lib/api';
 import { PlusIcon, PencilIcon, TrashIcon, DocumentArrowDownIcon } from '@heroicons/react/24/outline';
 import DataTable from '@/components/ui/DataTable';
 import Modal from '@/components/ui/Modal';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import toast from 'react-hot-toast';
-import type { Product, Category, Brand, Unit } from '@/lib/types';
+import type { Product, Category, Brand, Unit, ClientCategory } from '@/lib/types';
 
 interface StockItem {
   quantity: number;
@@ -30,6 +30,7 @@ export default function ProductsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [categoryPricesForm, setCategoryPricesForm] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState({
     name: '',
     category_id: '',
@@ -38,9 +39,6 @@ export default function ProductsPage() {
     unit_sale_id: '',
     barcode: '',
     cost_price: '',
-    retail_price: '',
-    wholesale_price: '',
-    min_selling_price: '',
     stock_alert: '',
     tax_percent: '',
     pieces_per_package: '1',
@@ -88,6 +86,14 @@ export default function ProductsPage() {
     queryKey: ['brands-list'],
     queryFn: async () => {
       const response = await brandsApi.getAll({ active_only: true });
+      return response.data;
+    },
+  });
+
+  const { data: clientCategories } = useQuery({
+    queryKey: ['client-categories-list'],
+    queryFn: async () => {
+      const response = await clientCategoriesApi.getAll();
       return response.data;
     },
   });
@@ -146,14 +152,12 @@ export default function ProductsPage() {
       unit_sale_id: '',
       barcode: '',
       cost_price: '',
-      retail_price: '',
-      wholesale_price: '',
-      min_selling_price: '',
       stock_alert: '',
       tax_percent: '',
       pieces_per_package: '1',
       is_active: true,
     });
+    setCategoryPricesForm({});
     setIsModalOpen(true);
   };
 
@@ -167,14 +171,19 @@ export default function ProductsPage() {
       unit_sale_id: product.unit_sale_id?.toString() || '',
       barcode: product.barcode || '',
       cost_price: product.cost_price?.toString() || '',
-      retail_price: product.retail_price?.toString() || '',
-      wholesale_price: product.wholesale_price?.toString() || '',
-      min_selling_price: product.min_selling_price?.toString() || '',
       stock_alert: product.stock_alert?.toString() || '',
       tax_percent: product.tax_percent?.toString() || '',
       pieces_per_package: (product.pieces_per_package || 1).toString(),
       is_active: product.is_active,
     });
+    // Load existing category prices
+    const pricesMap: Record<string, string> = {};
+    if (product.category_prices) {
+      product.category_prices.forEach((cp) => {
+        pricesMap[cp.client_category_id.toString()] = cp.price.toString();
+      });
+    }
+    setCategoryPricesForm(pricesMap);
     setIsModalOpen(true);
   };
 
@@ -185,6 +194,13 @@ export default function ProductsPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const categoryPrices = Object.entries(categoryPricesForm)
+      .filter(([, price]) => price !== '' && price !== null)
+      .map(([catId, price]) => ({
+        client_category_id: parseInt(catId),
+        price: parseFloat(price),
+      }));
+
     const data = {
       ...formData,
       category_id: parseInt(formData.category_id) || null,
@@ -192,12 +208,13 @@ export default function ProductsPage() {
       unit_buy_id: parseInt(formData.unit_buy_id) || null,
       unit_sale_id: parseInt(formData.unit_sale_id) || null,
       cost_price: parseFloat(formData.cost_price) || 0,
-      retail_price: parseFloat(formData.retail_price) || 0,
-      wholesale_price: parseFloat(formData.wholesale_price) || 0,
-      min_selling_price: formData.min_selling_price ? parseFloat(formData.min_selling_price) : null,
+      retail_price: 0,
+      wholesale_price: 0,
+      min_selling_price: 0,
       stock_alert: formData.stock_alert ? parseInt(formData.stock_alert) : null,
       tax_percent: formData.tax_percent ? parseFloat(formData.tax_percent) : 0,
       pieces_per_package: formData.pieces_per_package ? parseInt(formData.pieces_per_package) : 1,
+      category_prices: categoryPrices,
     };
 
     if (selectedProduct) {
@@ -264,6 +281,7 @@ export default function ProductsPage() {
             ${products.map((p: ProductWithStock) => {
               const qty = getTotalStock(p);
               const isLow = p.stock_alert && qty <= p.stock_alert;
+              const sellPrices = p.category_prices?.map(cp => `${cp.price}`).join(' / ') || '-';
               return `
                 <tr>
                   <td>${p.name}</td>
@@ -271,7 +289,7 @@ export default function ProductsPage() {
                   <td>${p.brand?.name || '-'}</td>
                   <td class="${isLow ? 'low-stock' : ''}">${qty}</td>
                   <td>${p.cost_price} DA</td>
-                  <td>${p.retail_price} DA</td>
+                  <td>${sellPrices} DA</td>
                   <td>${p.is_active ? 'Actif' : 'Inactif'}</td>
                 </tr>
               `;
@@ -295,7 +313,8 @@ export default function ProductsPage() {
     csv += 'Nom,Categorie,Marque,Quantite,Prix Achat,Prix Vente,Statut\n';
     products.forEach((p: ProductWithStock) => {
       const qty = getTotalStock(p);
-      csv += `"${p.name}","${p.category?.name || '-'}","${p.brand?.name || '-'}",${qty},${p.cost_price},${p.retail_price},"${p.is_active ? 'Actif' : 'Inactif'}"\n`;
+      const sellPrices = p.category_prices?.map(cp => cp.price).join(' / ') || '-';
+      csv += `"${p.name}","${p.category?.name || '-'}","${p.brand?.name || '-'}",${qty},${p.cost_price},"${sellPrices}","${p.is_active ? 'Actif' : 'Inactif'}"\n`;
     });
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -341,11 +360,26 @@ export default function ProductsPage() {
       },
     },
     {
-      key: 'retail_price',
-      title: 'سعر البيع',
+      key: 'category_prices',
+      title: 'أسعار البيع',
       render: (item: ProductWithStock) => {
-        const unitName = item.unit_sale?.short_name || 'وحدة';
-        return `${item.retail_price} د.ج/${unitName}`;
+        const prices = item.category_prices;
+        if (!prices || prices.length === 0) {
+          return <span className="text-gray-400">-</span>;
+        }
+        const ppp = item.pieces_per_package || 1;
+        return (
+          <div className="flex flex-wrap gap-1">
+            {prices.map((cp) => (
+              <span key={cp.id} className="inline-block px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded text-xs font-medium">
+                {cp.price} د.ج
+                {ppp > 1 && (
+                  <span className="text-[10px] text-amber-500 dark:text-amber-500 mr-1">({(Number(cp.price) * ppp).toFixed(0)} د.ج/كرتون)</span>
+                )}
+              </span>
+            ))}
+          </div>
+        );
       },
     },
     {
@@ -552,7 +586,7 @@ export default function ProductsPage() {
           {/* Price Section Header */}
           <div className="bg-blue-50 p-3 rounded-lg">
             <h3 className="font-semibold text-blue-800">الأسعار (سعر القطعة)</h3>
-            <p className="text-sm text-blue-600">جميع الأسعار للقطعة الواحدة</p>
+            <p className="text-sm text-blue-600">أسعار البيع تُحدد حسب فئة العميل في الأسفل</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -570,34 +604,6 @@ export default function ProductsPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">سعر البيع (للقطعة)</label>
-              <input
-                type="number"
-                value={formData.retail_price}
-                onChange={(e) => setFormData((p) => ({ ...p, retail_price: e.target.value }))}
-                className="input"
-                required
-                min="0"
-                step="0.01"
-                placeholder="سعر القطعة"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">الحد الأدنى للبيع (اختياري)</label>
-              <input
-                type="number"
-                value={formData.min_selling_price}
-                onChange={(e) => setFormData((p) => ({ ...p, min_selling_price: e.target.value }))}
-                className="input"
-                min="0"
-                step="0.01"
-                placeholder="اختياري"
-              />
-            </div>
-            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">نسبة الضريبة (TVA %)</label>
               <input
                 type="number"
@@ -611,6 +617,32 @@ export default function ProductsPage() {
               />
             </div>
           </div>
+
+          {/* Category Prices Section */}
+          {(clientCategories as ClientCategory[])?.length > 0 && (
+            <div className="border rounded-lg p-4 bg-amber-50">
+              <h3 className="font-semibold text-amber-800 mb-2">أسعار البيع حسب فئة العميل</h3>
+              <p className="text-sm text-amber-600 mb-3">حدد سعر البيع لكل فئة عملاء</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {(clientCategories as ClientCategory[])?.map((cat) => (
+                  <div key={cat.id}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {cat.name} {cat.description ? `(${cat.description})` : ''}
+                    </label>
+                    <input
+                      type="number"
+                      value={categoryPricesForm[cat.id.toString()] || ''}
+                      onChange={(e) => setCategoryPricesForm(prev => ({ ...prev, [cat.id.toString()]: e.target.value }))}
+                      className="input w-full"
+                      min="0"
+                      step="0.01"
+                      placeholder={`سعر ${cat.name}`}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>

@@ -9,7 +9,7 @@ import {
 
 interface Column<T> {
   key: string;
-  title: string;
+  title: string | React.ReactNode;
   render?: (item: T) => React.ReactNode;
 }
 

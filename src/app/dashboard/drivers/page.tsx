@@ -10,6 +10,7 @@ import {
   KeyIcon,
   CheckCircleIcon,
   XCircleIcon,
+  BanknotesIcon,
 } from '@heroicons/react/24/outline';
 import DataTable from '@/components/ui/DataTable';
 import Modal from '@/components/ui/Modal';
@@ -23,13 +24,20 @@ interface Driver {
   phone?: string;
   role: string;
   is_active: boolean;
+  can_collect_debt: boolean;
   created_at: string;
 }
+
+const roleLabels: Record<string, string> = {
+  livreur: 'سائق توصيل',
+  seller: 'بائع متجول',
+};
 
 export default function DriversPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState<string>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -39,6 +47,7 @@ export default function DriversPage() {
     email: '',
     phone: '',
     password: '',
+    role: 'livreur',
   });
   const [passwordData, setPasswordData] = useState({
     password: '',
@@ -46,9 +55,14 @@ export default function DriversPage() {
   });
 
   const { data, isLoading } = useQuery({
-    queryKey: ['drivers', page, search],
+    queryKey: ['drivers', page, search, roleFilter],
     queryFn: async () => {
-      const params: Record<string, unknown> = { page, per_page: 15, role: 'livreur' };
+      const params: Record<string, unknown> = { page, per_page: 15 };
+      if (roleFilter === 'all') {
+        params.roles = 'livreur,seller';
+      } else {
+        params.role = roleFilter;
+      }
       if (search) params.search = search;
       const response = await usersApi.getAll(params);
       return response.data;
@@ -56,7 +70,7 @@ export default function DriversPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: Record<string, unknown>) => usersApi.create({ ...data, role: 'livreur' }),
+    mutationFn: (data: Record<string, unknown>) => usersApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['drivers'] });
       toast.success('تم إضافة السائق بنجاح');
@@ -96,6 +110,15 @@ export default function DriversPage() {
     onError: () => toast.error('حدث خطأ'),
   });
 
+  const toggleCollectDebtMutation = useMutation({
+    mutationFn: (id: number) => usersApi.toggleCollectDebt(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['drivers'] });
+      toast.success('تم تحديث صلاحية تحصيل الديون');
+    },
+    onError: () => toast.error('حدث خطأ'),
+  });
+
   const resetPasswordMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: { password: string; password_confirmation: string } }) =>
       usersApi.resetPassword(id, data),
@@ -116,10 +139,11 @@ export default function DriversPage() {
         email: driver.email,
         phone: driver.phone || '',
         password: '',
+        role: driver.role,
       });
     } else {
       setSelectedDriver(null);
-      setFormData({ name: '', email: '', phone: '', password: '' });
+      setFormData({ name: '', email: '', phone: '', password: '', role: 'livreur' });
     }
     setIsModalOpen(true);
   };
@@ -127,7 +151,7 @@ export default function DriversPage() {
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedDriver(null);
-    setFormData({ name: '', email: '', phone: '', password: '' });
+    setFormData({ name: '', email: '', phone: '', password: '', role: 'livreur' });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -196,6 +220,19 @@ export default function DriversPage() {
 
   const columns = [
     { key: 'name', title: 'الاسم' },
+    {
+      key: 'role',
+      title: 'النوع',
+      render: (item: Driver) => (
+        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+          item.role === 'seller'
+            ? 'bg-purple-100 text-purple-700'
+            : 'bg-blue-100 text-blue-700'
+        }`}>
+          {roleLabels[item.role] || item.role}
+        </span>
+      ),
+    },
     { key: 'email', title: 'البريد الإلكتروني' },
     { key: 'phone', title: 'الهاتف', render: (item: Driver) => item.phone || '-' },
     {
@@ -221,6 +258,23 @@ export default function DriversPage() {
               معطل
             </>
           )}
+        </button>
+      ),
+    },
+    {
+      key: 'can_collect_debt',
+      title: (<span className="flex items-center gap-1">تحصيل الديون<span className="bg-emerald-100 text-emerald-700 text-[10px] px-1.5 py-0.5 rounded-full font-bold">جديد</span></span>),
+      render: (item: Driver) => (
+        <button
+          onClick={() => toggleCollectDebtMutation.mutate(item.id)}
+          className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+            item.can_collect_debt
+              ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+          }`}
+        >
+          <BanknotesIcon className="w-4 h-4" />
+          {item.can_collect_debt ? 'مفعّل' : 'معطّل'}
         </button>
       ),
     },
@@ -276,14 +330,35 @@ export default function DriversPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">السائقين</h1>
-          <p className="text-gray-500 mt-1">إدارة سائقي التوصيل</p>
+          <h1 className="text-2xl font-bold text-gray-800">الموظفين الميدانيين</h1>
+          <p className="text-gray-500 mt-1">إدارة سائقي التوصيل والبائعين المتجولين</p>
         </div>
         <button onClick={() => openModal()} className="btn btn-primary flex items-center gap-2">
           <PlusIcon className="w-5 h-5" />
           إضافة سائق
           <kbd className="bg-primary-600 px-1.5 py-0.5 rounded text-xs mr-1">Insert</kbd>
         </button>
+      </div>
+
+      {/* Role Filter Tabs */}
+      <div className="flex gap-2">
+        {[
+          { value: 'all', label: 'الكل' },
+          { value: 'livreur', label: 'سائقي التوصيل' },
+          { value: 'seller', label: 'البائعين المتجولين' },
+        ].map((tab) => (
+          <button
+            key={tab.value}
+            onClick={() => { setRoleFilter(tab.value); setPage(1); }}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              roleFilter === tab.value
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       <div className="card">
@@ -314,6 +389,20 @@ export default function DriversPage() {
         title={selectedDriver ? 'تعديل بيانات السائق' : 'إضافة سائق جديد'}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              النوع <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={formData.role}
+              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+              className="select"
+              disabled={!!selectedDriver}
+            >
+              <option value="livreur">سائق توصيل</option>
+              <option value="seller">بائع متجول</option>
+            </select>
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               الاسم <span className="text-red-500">*</span>

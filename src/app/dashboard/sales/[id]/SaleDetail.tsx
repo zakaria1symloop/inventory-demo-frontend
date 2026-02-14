@@ -3,6 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { salesApi } from '@/lib/api';
+import { formatQty, formatQtyLong } from '@/lib/utils';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import {
@@ -255,7 +256,7 @@ export default function SaleDetail() {
                   ${item.product?.name || '-'}
                   ${piecesPerPkg > 1 ? `<br><small style="color:#2563eb">(${piecesPerPkg} قطعة/${item.product?.unit_sale?.short_name || 'وحدة'})</small>` : ''}
                 </td>
-                <td>${item.quantity}</td>
+                <td>${formatQtyLong(item.quantity, piecesPerPkg)}</td>
                 <td>${formatCurrency(item.unit_price)}</td>
                 <td>${formatCurrency(item.discount)}</td>
                 <td>${formatCurrency(item.tax)}</td>
@@ -522,7 +523,7 @@ export default function SaleDetail() {
                     <th className="text-center w-12">#</th>
                     <th>المنتج</th>
                     <th className="text-center">الكمية</th>
-                    <th className="text-center">السعر/قطعة</th>
+                    <th className="text-center">السعر</th>
                     <th className="text-center">قطع/وحدة</th>
                     <th className="text-center">الخصم</th>
                     <th className="text-center">الضريبة</th>
@@ -541,8 +542,13 @@ export default function SaleDetail() {
                             <div className="text-xs text-gray-400">{item.product.barcode}</div>
                           )}
                         </td>
-                        <td className="text-center font-semibold">{item.quantity}</td>
-                        <td className="text-center">{formatCurrency(item.unit_price)}</td>
+                        <td className="text-center font-semibold">{formatQty(item.quantity, piecesPerPkg)}</td>
+                        <td className="text-center">
+                          {formatCurrency(item.unit_price)}
+                          {piecesPerPkg > 1 && (
+                            <div className="text-xs text-blue-500">({formatCurrency(item.unit_price * piecesPerPkg)}/كرتون)</div>
+                          )}
+                        </td>
                         <td className="text-center">
                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                             {piecesPerPkg}
@@ -553,7 +559,7 @@ export default function SaleDetail() {
                         <td className="text-center font-semibold">
                           {formatCurrency(item.subtotal)}
                           <div className="text-xs text-gray-400">
-                            {item.unit_price} × {piecesPerPkg} × {item.quantity}
+                            {item.unit_price} × {piecesPerPkg} × {formatQty(item.quantity, piecesPerPkg)}
                           </div>
                         </td>
                       </tr>
