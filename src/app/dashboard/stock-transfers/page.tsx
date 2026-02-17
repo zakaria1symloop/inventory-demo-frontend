@@ -47,7 +47,7 @@ interface StockTransfer {
 export default function StockTransfersPage() {
   const router = useRouter();
   const [transfers, setTransfers] = useState<StockTransfer[]>([]);
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [warehouses, setWarehouses] = useState<WarehouseWithUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
