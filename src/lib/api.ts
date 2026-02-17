@@ -184,6 +184,7 @@ export const salesApi = {
   create: (data: Record<string, unknown>) => api.post('/sales', data),
   update: (id: number, data: Record<string, unknown>) => api.put(`/sales/${id}`, data),
   delete: (id: number) => api.delete(`/sales/${id}`),
+  confirm: (id: number, data?: Record<string, unknown>) => api.post(`/sales/${id}/confirm`, data || {}),
   createReturn: (id: number, data: Record<string, unknown>) => api.post(`/sales/${id}/return`, data),
   addPayment: (id: number, data: Record<string, unknown>) => api.post(`/sales/${id}/payments`, data),
   downloadFacture: (id: number) => api.get(`/sales/${id}/facture/pdf`, { responseType: 'blob' }),
@@ -274,6 +275,8 @@ export const deliveriesApi = {
   getMyActiveDelivery: () => api.get('/my-active-delivery'),
   getMyDeliveries: (params?: Record<string, unknown>) => api.get('/my-deliveries', { params }),
   getLivreurStock: () => api.get('/livreur-stock'),
+  returnLivreurStock: (userId: number, data: { warehouse_id: number; items: Array<{ product_id: number; quantity: number; source_type: string; source_id: number | null }> }) =>
+    api.post(`/livreur-stock/${userId}/return`, data),
 };
 
 // Van Sessions API (Selling from Van)
@@ -450,6 +453,16 @@ export const caissesApi = {
     api.post('/caisses/transfer', data),
   getMyCaisse: () => api.get('/caisses/my'),
   getSummary: () => api.get('/caisses/summary'),
+};
+
+// Stock Transfers API (Cashvan)
+export const stockTransfersApi = {
+  getAll: (params?: Record<string, unknown>) => api.get('/stock-transfers', { params }),
+  getOne: (id: number) => api.get(`/stock-transfers/${id}`),
+  create: (data: Record<string, unknown>) => api.post('/stock-transfers', data),
+  delete: (id: number) => api.delete(`/stock-transfers/${id}`),
+  approve: (id: number) => api.post(`/stock-transfers/${id}/approve`),
+  collect: (id: number) => api.post(`/stock-transfers/${id}/collect`),
 };
 
 // Dispenses (Expenses) API

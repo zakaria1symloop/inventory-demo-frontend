@@ -20,6 +20,7 @@ import {
   TrashIcon,
   DevicePhoneMobileIcon,
   ComputerDesktopIcon,
+  CheckCircleIcon,
 } from '@heroicons/react/24/outline';
 
 interface Sale {
@@ -29,12 +30,13 @@ interface Sale {
   warehouse_id: number;
   date: string;
   total_amount: number;
+  total_cost?: number;
   discount: number;
   tax: number;
   grand_total: number;
   paid_amount: number;
   due_amount: number;
-  status: 'pending' | 'completed' | 'cancelled';
+  status: 'pending' | 'completed' | 'cancelled' | 'draft';
   payment_status: 'unpaid' | 'partial' | 'paid';
   note?: string;
   source?: 'web' | 'app';
@@ -210,7 +212,19 @@ export default function SalesPage() {
   };
 
   const canDelete = (sale: Sale) => {
-    return sale.payment_status === 'unpaid' && sale.paid_amount === 0;
+    return sale.status === 'draft' || (sale.payment_status === 'unpaid' && sale.paid_amount === 0);
+  };
+
+  const handleConfirmDraft = async (id: number) => {
+    if (!confirm('هل تريد تأكيد هذه الفاتورة؟ سيتم خصم المخزون وتسجيل العملية.')) return;
+    try {
+      await salesApi.confirm(id);
+      toast.success('تم تأكيد الفاتورة بنجاح');
+      fetchData();
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'خطأ في تأكيد الفاتورة';
+      toast.error(message);
+    }
   };
 
   const handleDownloadFacture = async (id: number) => {
@@ -257,6 +271,7 @@ export default function SalesPage() {
 
   const getStatusBadge = (status: string) => {
     const badges: Record<string, { class: string; text: string }> = {
+      draft: { class: 'badge-info', text: 'مسودة' },
       pending: { class: 'badge-warning', text: 'معلق' },
       completed: { class: 'badge-success', text: 'مكتمل' },
       cancelled: { class: 'badge-danger', text: 'ملغي' },
@@ -305,10 +320,16 @@ export default function SalesPage() {
       return isNaN(num) ? 0 : num;
     };
 
-    const totalAmount = filteredSales.reduce((sum, s) => sum + parseNum(s.grand_total), 0);
-    const paidAmount = filteredSales.reduce((sum, s) => sum + parseNum(s.paid_amount), 0);
-    const dueAmount = filteredSales.reduce((sum, s) => sum + parseNum(s.due_amount), 0);
-    const todayAmount = todaySales.reduce((sum, s) => sum + parseNum(s.grand_total), 0);
+    // Exclude drafts from financial KPIs
+    const countedSales = filteredSales.filter(s => s.status !== 'draft');
+    const countedTodaySales = todaySales.filter(s => s.status !== 'draft');
+
+    const totalAmount = countedSales.reduce((sum, s) => sum + parseNum(s.grand_total), 0);
+    const totalCost = countedSales.reduce((sum, s) => sum + parseNum(s.total_cost), 0);
+    const paidAmount = countedSales.reduce((sum, s) => sum + parseNum(s.paid_amount), 0);
+    const dueAmount = countedSales.reduce((sum, s) => sum + parseNum(s.due_amount), 0);
+    const todayAmount = countedTodaySales.reduce((sum, s) => sum + parseNum(s.grand_total), 0);
+    const profit = totalAmount - totalCost;
 
     return {
       totalSales: filteredSales.length,
@@ -319,9 +340,12 @@ export default function SalesPage() {
       partialCount: filteredSales.filter(s => s.payment_status === 'partial').length,
       paidCount: filteredSales.filter(s => s.payment_status === 'paid').length,
       totalAmount,
+      totalCost,
       paidAmount,
       dueAmount,
-      todaySales: todaySales.length,
+      profit,
+      draftCount: filteredSales.filter(s => s.status === 'draft').length,
+      todaySales: countedTodaySales.length,
       todayAmount,
     };
   }, [filteredSales, sales]);
@@ -380,82 +404,48 @@ export default function SalesPage() {
               </div>
             </div>
 
-            {/* KPIs Row 1 */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              <div className="card bg-blue-50 border-2 border-blue-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-blue-600 text-sm font-medium">إجمالي الفواتير</div>
-                    <div className="text-3xl font-bold text-blue-700">{kpis.totalSales}</div>
-                  </div>
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                    <DocumentTextIcon className="w-6 h-6 text-blue-600" />
-                  </div>
-                </div>
-              </div>
-              <div className="card bg-purple-50 border-2 border-purple-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-purple-600 text-sm font-medium">إجمالي المبيعات</div>
-                    <div className="text-lg font-bold text-purple-700">{formatCurrency(kpis.totalAmount)}</div>
-                  </div>
-                  <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                    <BanknotesIcon className="w-6 h-6 text-purple-600" />
-                  </div>
-                </div>
+            {/* Cost / Sell / Profit Summary */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="card bg-orange-50 border-2 border-orange-200">
+                <div className="text-orange-600 text-sm font-medium">إجمالي سعر الشراء</div>
+                <div className="text-2xl font-bold text-orange-700">{formatCurrency(kpis.totalCost)}</div>
               </div>
               <div className="card bg-green-50 border-2 border-green-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-green-600 text-sm font-medium">المحصل</div>
-                    <div className="text-lg font-bold text-green-700">{formatCurrency(kpis.paidAmount)}</div>
-                  </div>
-                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                </div>
+                <div className="text-green-600 text-sm font-medium">إجمالي سعر البيع</div>
+                <div className="text-2xl font-bold text-green-700">{formatCurrency(kpis.totalAmount)}</div>
+              </div>
+              <div className="card bg-blue-50 border-2 border-blue-200">
+                <div className="text-blue-600 text-sm font-medium">هامش الربح</div>
+                <div className={`text-2xl font-bold ${kpis.profit >= 0 ? 'text-blue-700' : 'text-red-700'}`}>{formatCurrency(kpis.profit)}</div>
+              </div>
+            </div>
+
+            {/* KPIs Row */}
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              <div className="card bg-blue-50 border-2 border-blue-200">
+                <div className="text-blue-600 text-sm font-medium">إجمالي الفواتير</div>
+                <div className="text-3xl font-bold text-blue-700">{kpis.totalSales}</div>
+              </div>
+              <div className="card bg-purple-50 border-2 border-purple-200">
+                <div className="text-purple-600 text-sm font-medium">إجمالي المبيعات</div>
+                <div className="text-lg font-bold text-purple-700">{formatCurrency(kpis.totalAmount)}</div>
+              </div>
+              <div className="card bg-green-50 border-2 border-green-200">
+                <div className="text-green-600 text-sm font-medium">المحصل</div>
+                <div className="text-lg font-bold text-green-700">{formatCurrency(kpis.paidAmount)}</div>
               </div>
               <div className="card bg-red-50 border-2 border-red-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-red-600 text-sm font-medium">الديون</div>
-                    <div className="text-lg font-bold text-red-700">{formatCurrency(kpis.dueAmount)}</div>
-                  </div>
-                  <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                    <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                  </div>
-                </div>
+                <div className="text-red-600 text-sm font-medium">الديون</div>
+                <div className="text-lg font-bold text-red-700">{formatCurrency(kpis.dueAmount)}</div>
               </div>
               <div className="card bg-indigo-50 border-2 border-indigo-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-indigo-600 text-sm font-medium">مبيعات اليوم</div>
-                    <div className="text-3xl font-bold text-indigo-700">{kpis.todaySales}</div>
-                    <div className="text-xs text-indigo-500">{formatCurrency(kpis.todayAmount)}</div>
-                  </div>
-                  <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-                    <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                </div>
+                <div className="text-indigo-600 text-sm font-medium">مبيعات اليوم</div>
+                <div className="text-3xl font-bold text-indigo-700">{kpis.todaySales}</div>
+                <div className="text-xs text-indigo-500">{formatCurrency(kpis.todayAmount)}</div>
               </div>
               <div className="card bg-amber-50 border-2 border-amber-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-amber-600 text-sm font-medium">غير مدفوع</div>
-                    <div className="text-3xl font-bold text-amber-700">{kpis.unpaidCount}</div>
-                  </div>
-                  <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
-                    <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                </div>
+                <div className="text-amber-600 text-sm font-medium">غير مدفوع</div>
+                <div className="text-3xl font-bold text-amber-700">{kpis.unpaidCount}</div>
               </div>
             </div>
 
@@ -486,6 +476,7 @@ export default function SalesPage() {
                 />
                 <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select">
                   <option value="">كل الحالات</option>
+                  <option value="draft">مسودة</option>
                   <option value="pending">معلق</option>
                   <option value="completed">مكتمل</option>
                   <option value="cancelled">ملغي</option>
@@ -538,7 +529,9 @@ export default function SalesPage() {
                         <th>العميل</th>
                         <th>المستودع</th>
                         <th>التاريخ</th>
+                        <th>التكلفة</th>
                         <th>الإجمالي</th>
+                        <th>الربح</th>
                         <th>المدفوع</th>
                         <th>المتبقي</th>
                         <th>الحالة</th>
@@ -552,7 +545,7 @@ export default function SalesPage() {
                     </thead>
                     <tbody>
                       {filteredSales.length === 0 ? (
-                        <tr><td colSpan={11} className="text-center py-8 text-gray-500">لا توجد فواتير بيع</td></tr>
+                        <tr><td colSpan={13} className="text-center py-8 text-gray-500">لا توجد فواتير بيع</td></tr>
                       ) : (
                         filteredSales.map((sale) => {
                           const statusBadge = getStatusBadge(sale.status);
@@ -563,7 +556,11 @@ export default function SalesPage() {
                               <td>{sale.client?.name || 'عميل نقدي'}</td>
                               <td>{sale.warehouse?.name || '-'}</td>
                               <td>{formatDate(sale.date)}</td>
+                              <td className="text-orange-600">{formatCurrency(sale.total_cost ?? 0)}</td>
                               <td>{formatCurrency(sale.grand_total)}</td>
+                              <td className={`font-medium ${(Number(sale.grand_total) - Number(sale.total_cost ?? 0)) >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                                {formatCurrency(Number(sale.grand_total) - Number(sale.total_cost ?? 0))}
+                              </td>
                               <td className="text-green-600 font-medium">{formatCurrency(sale.paid_amount)}</td>
                               <td className="text-red-600">{formatCurrency(sale.due_amount)}</td>
                               <td><span className={`badge ${statusBadge.class}`}>{statusBadge.text}</span></td>
@@ -594,6 +591,15 @@ export default function SalesPage() {
                               </td>
                               <td>
                                 <div className="flex gap-2">
+                                  {sale.status === 'draft' && (
+                                    <button
+                                      onClick={() => handleConfirmDraft(sale.id)}
+                                      className="text-green-600 hover:text-green-800"
+                                      title="تأكيد الفاتورة"
+                                    >
+                                      <CheckCircleIcon className="w-5 h-5" />
+                                    </button>
+                                  )}
                                   <button
                                     onClick={() => openEditTab(sale.id, sale.reference)}
                                     className="text-amber-600 hover:text-amber-800"

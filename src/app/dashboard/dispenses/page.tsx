@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { dispensesApi, employeesApi } from '@/lib/api';
+import { dispensesApi, employeesApi, usersApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 interface Dispense {
@@ -51,23 +51,30 @@ const initialFormData = {
   notes: '',
 };
 
+interface User {
+  id: number;
+  name: string;
+}
+
 export default function DispensesPage() {
   const [dispenses, setDispenses] = useState<Dispense[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [employeeFilter, setEmployeeFilter] = useState('');
+  const [userFilter, setUserFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState(initialFormData);
   const [isSaving, setIsSaving] = useState(false);
+  const [filteredTotal, setFilteredTotal] = useState(0);
 
   useEffect(() => {
     fetchData();
-  }, [categoryFilter, employeeFilter]);
+  }, [categoryFilter, userFilter]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -92,18 +99,22 @@ export default function DispensesPage() {
 
   const fetchData = async () => {
     try {
-      const [dispensesRes, employeesRes, summaryRes] = await Promise.all([
+      const [dispensesRes, employeesRes, summaryRes, usersRes] = await Promise.all([
         dispensesApi.getAll({
           per_page: 100,
           category: categoryFilter || undefined,
-          employee_id: employeeFilter || undefined,
+          user_id: userFilter || undefined,
         }),
         employeesApi.getActive(),
         dispensesApi.getSummary(),
+        usersApi.getAll({ per_page: 1000 }),
       ]);
       setDispenses(dispensesRes.data.data || dispensesRes.data);
       setEmployees(employeesRes.data);
       setSummary(summaryRes.data);
+      setFilteredTotal(dispensesRes.data.filtered_total ?? 0);
+      const users = usersRes.data.data || usersRes.data || [];
+      setAllUsers(users);
     } catch (error) {
       toast.error('خطأ في تحميل البيانات');
     } finally {
@@ -181,6 +192,8 @@ export default function DispensesPage() {
     d.employee?.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const hasActiveFilters = !!(categoryFilter || userFilter);
+
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
   }
@@ -251,6 +264,21 @@ export default function DispensesPage() {
         </div>
       )}
 
+      {/* Filtered Total */}
+      <div className="card bg-red-50 dark:bg-red-900/20 mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm text-red-600 dark:text-red-400 mb-1">
+              {hasActiveFilters ? 'إجمالي المصروفات (مفلتر)' : 'إجمالي المصروفات'}
+            </h3>
+            <p className="text-2xl font-bold text-red-700 dark:text-red-300">{formatCurrency(filteredTotal)}</p>
+          </div>
+          <div className="text-sm text-gray-500">
+            {filteredDispenses.length} مصروف
+          </div>
+        </div>
+      </div>
+
       <div className="card">
         <div className="flex flex-wrap gap-4 mb-4">
           <input
@@ -271,13 +299,13 @@ export default function DispensesPage() {
             ))}
           </select>
           <select
-            value={employeeFilter}
-            onChange={(e) => setEmployeeFilter(e.target.value)}
+            value={userFilter}
+            onChange={(e) => setUserFilter(e.target.value)}
             className="select max-w-xs"
           >
-            <option value="">كل الموظفين</option>
-            {employees.map((emp) => (
-              <option key={emp.id} value={emp.id}>{emp.name}</option>
+            <option value="">كل المستخدمين (بواسطة)</option>
+            {allUsers.map((u) => (
+              <option key={u.id} value={u.id}>{u.name}</option>
             ))}
           </select>
         </div>

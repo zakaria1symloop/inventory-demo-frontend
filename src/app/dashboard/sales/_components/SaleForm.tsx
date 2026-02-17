@@ -43,6 +43,8 @@ interface Client {
   phone?: string;
   balance?: number;
   credit_limit?: number;
+  client_category_id?: number;
+  client_category?: { id: number; name: string };
 }
 
 interface ClientDebtInfo {
@@ -352,8 +354,8 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       const item = items[rowIndex];
       const hasPieces = item && (item.pieces_per_package || 1) > 1;
       const fieldOrder = hasPieces
-        ? ['quantity', 'extra_pieces', 'unit_price', 'discount']
-        : ['quantity', 'unit_price', 'discount'];
+        ? ['quantity', 'extra_pieces', 'total_pieces', 'unit_price', 'discount']
+        : ['quantity', 'total_pieces', 'unit_price', 'discount'];
       const currentFieldIndex = fieldOrder.indexOf(field);
 
       if (currentFieldIndex < fieldOrder.length - 1) {
@@ -434,11 +436,30 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
     barcodeInputRef.current?.focus();
   };
 
-  // Get all available prices for a product as labeled chips
+  // Get available prices for a product as labeled chips
+  // If client has a category, only show that category's price
   const getProductPrices = (product: Product): Array<{ label: string; price: number; color: string }> => {
     const prices: Array<{ label: string; price: number; color: string }> = [];
     const seen = new Set<number>();
 
+    // If client has a category, show only the category price
+    if (clientId) {
+      const selectedClient = clients.find(c => c.id.toString() === clientId);
+      if (selectedClient?.client_category_id && product.category_prices) {
+        const categoryPrice = product.category_prices.find(
+          cp => cp.client_category_id === selectedClient.client_category_id
+        );
+        if (categoryPrice && categoryPrice.price > 0) {
+          const catName = selectedClient.client_category?.name ||
+            clientCategories.find(c => c.id === selectedClient.client_category_id)?.name ||
+            'فئة العميل';
+          prices.push({ label: catName, price: categoryPrice.price, color: 'amber' });
+          return prices;
+        }
+      }
+    }
+
+    // No client category - show all prices
     const retailPrice = Number(product.retail_price) || 0;
     const wholesalePrice = Number(product.wholesale_price) || 0;
 
@@ -451,7 +472,6 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       seen.add(retailPrice);
     }
 
-    // Category prices
     if (product.category_prices && product.category_prices.length > 0) {
       for (const cp of product.category_prices) {
         if (cp.price > 0 && !seen.has(cp.price)) {
@@ -465,8 +485,20 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
     return prices;
   };
 
-  // Get best default price for a product
+  // Get best default price for a product (uses client category price if available)
   const getDefaultPrice = (product: Product): number => {
+    // If client has a category, use that category's price
+    if (clientId) {
+      const selectedClient = clients.find(c => c.id.toString() === clientId);
+      if (selectedClient?.client_category_id && product.category_prices) {
+        const categoryPrice = product.category_prices.find(
+          cp => cp.client_category_id === selectedClient.client_category_id
+        );
+        if (categoryPrice && categoryPrice.price > 0) {
+          return categoryPrice.price;
+        }
+      }
+    }
     const wholesale = Number(product.wholesale_price) || 0;
     if (wholesale > 0) return wholesale;
     return Number(product.retail_price) || 0;
@@ -562,6 +594,26 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
     }
   };
 
+  const updateTotalPieces = (index: number, newTotalPieces: number) => {
+    const updated = [...items];
+    const ppp = updated[index].pieces_per_package || 1;
+    const newCartons = Math.floor(newTotalPieces / ppp);
+    const newExtra = newTotalPieces % ppp;
+
+    // Check stock
+    const decimalQty = newCartons + newExtra / ppp;
+    if (decimalQty > updated[index].available_stock) {
+      toast.error(`الكمية المتوفرة: ${Math.round(updated[index].available_stock)} فقط`);
+      return;
+    }
+
+    updated[index].quantity = newCartons;
+    updated[index].extra_pieces = newExtra;
+    updated[index].total_pieces = newTotalPieces;
+    updated[index].subtotal = calculateSubtotal(updated[index]);
+    setItems(updated);
+  };
+
   const updateItem = (index: number, field: 'quantity' | 'extra_pieces' | 'unit_price' | 'discount' | 'tax', value: number) => {
     const updated = [...items];
     let numValue = Number(value) || 0;
@@ -632,6 +684,32 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
   const remainingPreviousDebt = Math.max(0, previousDebt - appliedToPreviousDebt);
   const totalRemainingDebt = remainingFromSale + remainingPreviousDebt;
 
+  const buildSalePayload = (status: 'completed' | 'draft' = 'completed') => {
+    return {
+      client_id: clientId ? parseInt(clientId) : null,
+      warehouse_id: parseInt(warehouseId),
+      date,
+      discount,
+      tax: taxAmount,
+      tax_percentage: tax,
+      shipping,
+      note,
+      paid_amount: paidAmount,
+      status,
+      items: items.map((item) => {
+        const ppp = Number(item.pieces_per_package) || 1;
+        const decimalQty = item.quantity + (item.extra_pieces || 0) / ppp;
+        return {
+          product_id: item.product_id,
+          quantity: decimalQty,
+          unit_price: item.unit_price,
+          discount: item.discount,
+          tax: item.tax,
+        };
+      }),
+    };
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -694,28 +772,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
         }
       }
 
-      await salesApi.create({
-        client_id: clientId ? parseInt(clientId) : null,
-        warehouse_id: parseInt(warehouseId),
-        date,
-        discount,
-        tax: taxAmount,
-        tax_percentage: tax,
-        shipping,
-        note,
-        paid_amount: paidAmount,
-        items: items.map((item) => {
-          const ppp = Number(item.pieces_per_package) || 1;
-          const decimalQty = item.quantity + (item.extra_pieces || 0) / ppp;
-          return {
-            product_id: item.product_id,
-            quantity: decimalQty,
-            unit_price: item.unit_price,
-            discount: item.discount,
-            tax: item.tax,
-          };
-        }),
-      });
+      await salesApi.create(buildSalePayload('completed'));
 
       toast.success('تم إنشاء فاتورة البيع بنجاح');
       if (onSuccess) {
@@ -723,8 +780,35 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       } else {
         router.push('/dashboard/sales');
       }
-    } catch (error) {
-      toast.error('خطأ في إنشاء فاتورة البيع');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'خطأ في إنشاء فاتورة البيع');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!warehouseId) {
+      toast.error('الرجاء اختيار المستودع');
+      return;
+    }
+
+    if (items.length === 0) {
+      toast.error('الرجاء إضافة منتج واحد على الأقل');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await salesApi.create(buildSalePayload('draft'));
+      toast.success('تم حفظ المسودة بنجاح');
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.push('/dashboard/sales');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'خطأ في حفظ المسودة');
     } finally {
       setIsSaving(false);
     }
@@ -734,10 +818,26 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
     return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
   };
 
-  const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (p.barcode && p.barcode.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // Format stock quantity in pieces + cartons
+  const formatStockQty = (stock: number, piecesPerPackage: number): string => {
+    const ppp = piecesPerPackage || 1;
+    if (ppp <= 1) return `${Math.floor(stock)} قطعة`;
+    const totalPieces = Math.round(stock * ppp);
+    const cartons = Math.floor(totalPieces / ppp);
+    const pieces = totalPieces % ppp;
+    if (pieces === 0) return `${cartons} كرتون`;
+    if (cartons === 0) return `${totalPieces} قطعة`;
+    return `${cartons} كرتون + ${pieces} ق`;
+  };
+
+  // Only show products with available stock > 0
+  const filteredProducts = products.filter((p) => {
+    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.barcode && p.barcode.toLowerCase().includes(searchTerm.toLowerCase()));
+    if (!matchesSearch) return false;
+    const stock = getProductStock(p);
+    return stock > 0;
+  });
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
@@ -760,7 +860,9 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       {/* Quick Entry Modal */}
       {quickEntryModal.show && quickEntryModal.product && (() => {
         const ppp = quickEntryModal.product?.pieces_per_package || 1;
-        const availablePrices = getProductPrices(quickEntryModal.product!);
+        const selectedClient = clientId ? clients.find(c => c.id.toString() === clientId) : null;
+        const hasClientCategory = !!(selectedClient?.client_category_id);
+        const availablePrices = hasClientCategory ? [] : getProductPrices(quickEntryModal.product!);
         const colorMap: Record<string, { bg: string; border: string; text: string; activeBg: string }> = {
           green: { bg: 'bg-green-50', border: 'border-green-300', text: 'text-green-700', activeBg: 'bg-green-200' },
           blue: { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-700', activeBg: 'bg-blue-200' },
@@ -1015,7 +1117,12 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                               setClientHighlightIndex(-1);
                             }}
                           >
-                            <div className="font-medium">{client.name}</div>
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium">{client.name}</span>
+                              {client.client_category?.name && (
+                                <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[10px] font-medium">{client.client_category.name}</span>
+                              )}
+                            </div>
                             {client.phone && <div className="text-sm text-gray-500">{client.phone}</div>}
                           </div>
                         ))}
@@ -1074,12 +1181,16 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                           {formatCurrency(clientDebt.balance)}
                         </span>
                       </div>
-                      {clientDebt.credit_limit > 0 && (
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">حد الائتمان:</span>
-                          <span>{formatCurrency(clientDebt.credit_limit)}</span>
-                        </div>
-                      )}
+                      {(() => {
+                        const selectedClient = clients.find(c => c.id.toString() === clientId);
+                        const categoryName = selectedClient?.client_category?.name;
+                        return categoryName ? (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-600">فئة السعر:</span>
+                            <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">{categoryName}</span>
+                          </div>
+                        ) : null;
+                      })()}
                       {clientDebt.unpaid_orders && clientDebt.unpaid_orders.length > 0 && (
                         <div className="mt-3 pt-3 border-t border-orange-200">
                           <div className="text-sm font-medium text-orange-800 mb-2">الفواتير غير المسددة:</div>
@@ -1158,8 +1269,8 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                         setProductHighlightIndex(-1);
                       }}
                       onKeyDown={(e) => {
-                        const availableProducts = filteredProducts.slice(0, 10).filter(p => getProductStock(p) >= 1);
-                        const maxIndex = availableProducts.length - 1;
+                        const visibleProducts = filteredProducts.slice(0, 10);
+                        const maxIndex = visibleProducts.length - 1;
 
                         if (e.key === 'Escape') {
                           setShowProductSearch(false);
@@ -1169,7 +1280,6 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                           setShowProductSearch(true);
                           const newIndex = Math.min(productHighlightIndex + 1, maxIndex);
                           setProductHighlightIndex(newIndex);
-                          // Scroll to highlighted item
                           setTimeout(() => {
                             const item = productListRef.current?.querySelector(`[data-index="${newIndex}"]`);
                             item?.scrollIntoView({ block: 'nearest' });
@@ -1178,18 +1288,17 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                           e.preventDefault();
                           const newIndex = Math.max(productHighlightIndex - 1, 0);
                           setProductHighlightIndex(newIndex);
-                          // Scroll to highlighted item
                           setTimeout(() => {
                             const item = productListRef.current?.querySelector(`[data-index="${newIndex}"]`);
                             item?.scrollIntoView({ block: 'nearest' });
                           }, 0);
                         } else if (e.key === 'Enter') {
                           e.preventDefault();
-                          if (productHighlightIndex >= 0 && availableProducts[productHighlightIndex]) {
-                            openQuickEntryModal(availableProducts[productHighlightIndex]);
+                          if (productHighlightIndex >= 0 && visibleProducts[productHighlightIndex]) {
+                            openQuickEntryModal(visibleProducts[productHighlightIndex]);
                             setProductHighlightIndex(-1);
-                          } else if (availableProducts.length === 1) {
-                            openQuickEntryModal(availableProducts[0]);
+                          } else if (visibleProducts.length === 1) {
+                            openQuickEntryModal(visibleProducts[0]);
                             setProductHighlightIndex(-1);
                           }
                         }
@@ -1203,42 +1312,37 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                         {filteredProducts.length === 0 ? (
                           <div className="p-3 text-gray-500 text-center">لا توجد نتائج</div>
                         ) : (
-                          (() => {
-                            let availableIndex = -1;
-                            return filteredProducts.slice(0, 10).map((product) => {
-                              const stock = getProductStock(product);
-                              const isOutOfStock = stock < 1;
-                              if (!isOutOfStock) availableIndex++;
-                              const currentAvailableIndex = availableIndex;
-                              const isHighlighted = !isOutOfStock && productHighlightIndex === currentAvailableIndex;
-                              return (
-                                <button
-                                  key={product.id}
-                                  type="button"
-                                  data-index={isOutOfStock ? undefined : currentAvailableIndex}
-                                  onClick={() => openQuickEntryModal(product)}
-                                  className={`w-full p-3 text-right border-b last:border-b-0 ${isOutOfStock ? 'bg-red-50 opacity-60' : isHighlighted ? 'bg-blue-100' : 'hover:bg-gray-50'}`}
-                                  disabled={isOutOfStock}
-                                >
-                                  <div className="flex justify-between items-center">
-                                    <span className="font-medium">{product.name}</span>
-                                    <span className={`text-sm font-bold ${isOutOfStock ? 'text-red-600' : 'text-green-600'}`}>
-                                      {stock > 0 ? `متوفر: ${stock}` : 'غير متوفر'}
-                                    </span>
-                                  </div>
-                                  <div className="text-sm text-gray-500 flex justify-between">
-                                    <span>{product.barcode}</span>
-                                    <span>
-                                      {formatCurrency(Number(product.retail_price) || 0)} / قطعة
-                                      {(product.pieces_per_package || 1) > 1 && (
-                                        <span className="text-gray-400 mr-1">({formatCurrency((Number(product.retail_price) || 0) * (product.pieces_per_package || 1))} / كرتون)</span>
-                                      )}
-                                    </span>
-                                  </div>
-                                </button>
-                              );
-                            });
-                          })()
+                          filteredProducts.slice(0, 10).map((product, index) => {
+                            const stock = getProductStock(product);
+                            const ppp = product.pieces_per_package || 1;
+                            const price = getDefaultPrice(product);
+                            const isHighlighted = productHighlightIndex === index;
+                            return (
+                              <button
+                                key={product.id}
+                                type="button"
+                                data-index={index}
+                                onClick={() => openQuickEntryModal(product)}
+                                className={`w-full p-3 text-right border-b last:border-b-0 ${isHighlighted ? 'bg-blue-100' : 'hover:bg-gray-50'}`}
+                              >
+                                <div className="flex justify-between items-center">
+                                  <span className="font-medium">{product.name}</span>
+                                  <span className="text-sm font-bold text-green-600">
+                                    {formatStockQty(stock, ppp)}
+                                  </span>
+                                </div>
+                                <div className="text-sm text-gray-500 flex justify-between">
+                                  <span>{product.barcode}</span>
+                                  <span>
+                                    {formatCurrency(price)} / قطعة
+                                    {ppp > 1 && (
+                                      <span className="text-gray-400 mr-1">({formatCurrency(price * ppp)} / كرتون)</span>
+                                    )}
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          })
                         )}
                       </div>
                     )}
@@ -1337,8 +1441,23 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                               <div className="text-blue-600 font-medium">{item.pieces_per_package}</div>
                               <div className="text-xs text-gray-500">{item.unit_name}</div>
                             </td>
-                            <td className="px-2 py-2 text-center font-medium">
-                              {item.total_pieces}
+                            <td className="px-2 py-2 text-center">
+                              <input
+                                ref={(el) => { inputRefs.current[`${index}-total_pieces`] = el; }}
+                                type="number"
+                                value={item.total_pieces}
+                                onChange={(e) => updateTotalPieces(index, Math.max(0, parseInt(e.target.value) || 0))}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    const nextRef = inputRefs.current[`${index}-unit_price`];
+                                    nextRef?.focus();
+                                    nextRef?.select();
+                                  }
+                                }}
+                                className="input w-16 text-center text-sm py-0.5 font-medium"
+                                min="0"
+                              />
                             </td>
                             <td className="px-2 py-2">
                               <input
@@ -1585,6 +1704,17 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                 >
                   {isSaving ? 'جاري الحفظ...' : 'حفظ الفاتورة (F4)'}
                 </button>
+
+                {!isEditMode && (
+                  <button
+                    type="button"
+                    onClick={handleSaveDraft}
+                    disabled={isSaving || items.length === 0}
+                    className="w-full px-4 py-2 text-sm font-medium rounded-lg border-2 border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-50"
+                  >
+                    {isSaving ? 'جاري الحفظ...' : 'حفظ كمسودة (بدون خصم المخزون)'}
+                  </button>
+                )}
 
                 {onCancel ? (
                   <button type="button" onClick={onCancel} className="btn btn-secondary w-full text-center block">

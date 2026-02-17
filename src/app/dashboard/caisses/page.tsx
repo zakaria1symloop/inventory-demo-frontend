@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { caissesApi } from '@/lib/api';
+import { useState, useEffect, useMemo } from 'react';
+import { caissesApi, dispensesApi } from '@/lib/api';
 import { Caisse, CaisseTransaction, CaisseSettlement, CaisseSummary } from '@/lib/types';
 import toast from 'react-hot-toast';
 
@@ -53,6 +53,22 @@ export default function CaissesPage() {
   });
   const [isTransferring, setIsTransferring] = useState(false);
 
+  // Expense modal
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [expenseForm, setExpenseForm] = useState({
+    category: 'other',
+    amount: 0,
+    description: '',
+    notes: '',
+  });
+  const [isCreatingExpense, setIsCreatingExpense] = useState(false);
+
+  // Creator filter
+  const [creatorFilter, setCreatorFilter] = useState('');
+
+  // Totals from API
+  const [filteredTotals, setFilteredTotals] = useState<{ total_in: number; total_out: number; net: number } | null>(null);
+
   useEffect(() => {
     fetchSummary();
   }, []);
@@ -72,6 +88,8 @@ export default function CaissesPage() {
     setSelectedCaisse(caisse);
     setIsLoadingDetail(true);
     setTransactionPage(1);
+    setTransactionFilter('');
+    setCreatorFilter('');
     try {
       const [detailRes, txRes] = await Promise.all([
         caissesApi.getOne(caisse.id),
@@ -81,6 +99,9 @@ export default function CaissesPage() {
       setTransactions(txRes.data.data || []);
       setTransactionTotal(txRes.data.last_page || 1);
       setSettlements(detailRes.data.recent_settlements || []);
+      if (txRes.data.totals) {
+        setFilteredTotals(txRes.data.totals);
+      }
     } catch {
       toast.error('خطأ في تحميل تفاصيل الصندوق');
     } finally {
@@ -88,15 +109,19 @@ export default function CaissesPage() {
     }
   };
 
-  const loadTransactions = async (page: number, filter?: string) => {
+  const loadTransactions = async (page: number, filter?: string, creator?: string) => {
     if (!selectedCaisse) return;
     try {
       const params: Record<string, unknown> = { per_page: 20, page };
       if (filter) params.type = filter;
+      if (creator) params.created_by = creator;
       const res = await caissesApi.getTransactions(selectedCaisse.id, params);
       setTransactions(res.data.data || []);
       setTransactionTotal(res.data.last_page || 1);
       setTransactionPage(page);
+      if (res.data.totals) {
+        setFilteredTotals(res.data.totals);
+      }
     } catch {
       toast.error('خطأ في تحميل الحركات');
     }
@@ -149,6 +174,49 @@ export default function CaissesPage() {
       setIsTransferring(false);
     }
   };
+
+  const handleCreateExpense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCaisse || expenseForm.amount <= 0) {
+      toast.error('يرجى إدخال مبلغ صحيح');
+      return;
+    }
+
+    setIsCreatingExpense(true);
+    try {
+      await dispensesApi.create({
+        date: new Date().toISOString().split('T')[0],
+        category: expenseForm.category,
+        amount: expenseForm.amount,
+        description: expenseForm.description,
+        notes: expenseForm.notes,
+        caisse_id: selectedCaisse.id,
+      });
+      toast.success('تم إضافة المصروف بنجاح');
+      setShowExpenseModal(false);
+      setExpenseForm({ category: 'other', amount: 0, description: '', notes: '' });
+      await Promise.all([
+        fetchSummary(),
+        openCaisseDetail(selectedCaisse),
+      ]);
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'خطأ في إضافة المصروف');
+    } finally {
+      setIsCreatingExpense(false);
+    }
+  };
+
+  // Get unique creators from transactions
+  const uniqueCreators = useMemo(() => {
+    const creators = new Map<number, string>();
+    transactions.forEach(tx => {
+      if (tx.creator?.id && tx.creator?.name) {
+        creators.set(tx.creator.id, tx.creator.name);
+      }
+    });
+    return Array.from(creators.entries()).map(([id, name]) => ({ id, name }));
+  }, [transactions]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 2 }).format(value);
@@ -218,6 +286,18 @@ export default function CaissesPage() {
               </svg>
               تحصيل
             </button>
+            <button
+              onClick={() => {
+                setExpenseForm({ category: 'other', amount: 0, description: '', notes: '' });
+                setShowExpenseModal(true);
+              }}
+              className="btn bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              مصروف
+            </button>
           </div>
         </div>
 
@@ -225,22 +305,61 @@ export default function CaissesPage() {
           <div className="flex items-center justify-center h-32"><div className="spinner"></div></div>
         ) : (
           <>
+            {/* Transaction Totals */}
+            {filteredTotals && (
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="card bg-green-50 dark:bg-green-900/20 py-3">
+                  <p className="text-xs text-green-600 dark:text-green-400">الوارد</p>
+                  <p className="text-lg font-bold text-green-700 dark:text-green-300">
+                    {formatCurrency(filteredTotals.total_in)}
+                  </p>
+                </div>
+                <div className="card bg-red-50 dark:bg-red-900/20 py-3">
+                  <p className="text-xs text-red-600 dark:text-red-400">الصادر</p>
+                  <p className="text-lg font-bold text-red-700 dark:text-red-300">
+                    {formatCurrency(filteredTotals.total_out)}
+                  </p>
+                </div>
+                <div className="card bg-blue-50 dark:bg-blue-900/20 py-3">
+                  <p className="text-xs text-blue-600 dark:text-blue-400">الصافي</p>
+                  <p className="text-lg font-bold text-blue-700 dark:text-blue-300">
+                    {formatCurrency(filteredTotals.net)}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Transaction History */}
             <div className="card mb-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold dark:text-white">سجل الحركات</h2>
-                <select
-                  value={transactionFilter}
-                  onChange={(e) => {
-                    setTransactionFilter(e.target.value);
-                    loadTransactions(1, e.target.value);
-                  }}
-                  className="select max-w-xs"
-                >
-                  <option value="">كل الحركات</option>
-                  <option value="in">وارد</option>
-                  <option value="out">صادر</option>
-                </select>
+                <div className="flex items-center gap-3">
+                  <select
+                    value={creatorFilter}
+                    onChange={(e) => {
+                      setCreatorFilter(e.target.value);
+                      loadTransactions(1, transactionFilter, e.target.value);
+                    }}
+                    className="select max-w-xs"
+                  >
+                    <option value="">كل المستخدمين</option>
+                    {uniqueCreators.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={transactionFilter}
+                    onChange={(e) => {
+                      setTransactionFilter(e.target.value);
+                      loadTransactions(1, e.target.value, creatorFilter);
+                    }}
+                    className="select max-w-xs"
+                  >
+                    <option value="">كل الحركات</option>
+                    <option value="in">وارد</option>
+                    <option value="out">صادر</option>
+                  </select>
+                </div>
               </div>
 
               <div className="overflow-x-auto">
@@ -251,13 +370,14 @@ export default function CaissesPage() {
                       <th>النوع</th>
                       <th>المصدر</th>
                       <th>الوصف</th>
+                      <th>بواسطة</th>
                       <th>المبلغ</th>
                       <th>الرصيد بعد</th>
                     </tr>
                   </thead>
                   <tbody>
                     {transactions.length === 0 ? (
-                      <tr><td colSpan={6} className="text-center py-8 text-gray-500">لا توجد حركات</td></tr>
+                      <tr><td colSpan={7} className="text-center py-8 text-gray-500">لا توجد حركات</td></tr>
                     ) : (
                       transactions.map((tx) => (
                         <tr key={tx.id}>
@@ -273,6 +393,7 @@ export default function CaissesPage() {
                             </span>
                           </td>
                           <td className="text-sm">{tx.description || '-'}</td>
+                          <td className="text-sm text-gray-600 dark:text-gray-400">{tx.creator?.name || '-'}</td>
                           <td className={`font-medium ${tx.type === 'in' ? 'text-green-600' : 'text-red-600'}`}>
                             {tx.type === 'in' ? '+' : '-'}{formatCurrency(tx.amount)}
                           </td>
@@ -288,7 +409,7 @@ export default function CaissesPage() {
               {transactionTotal > 1 && (
                 <div className="flex items-center justify-center gap-2 mt-4">
                   <button
-                    onClick={() => loadTransactions(transactionPage - 1, transactionFilter)}
+                    onClick={() => loadTransactions(transactionPage - 1, transactionFilter, creatorFilter)}
                     disabled={transactionPage <= 1}
                     className="btn btn-secondary btn-sm"
                   >
@@ -298,7 +419,7 @@ export default function CaissesPage() {
                     صفحة {transactionPage} من {transactionTotal}
                   </span>
                   <button
-                    onClick={() => loadTransactions(transactionPage + 1, transactionFilter)}
+                    onClick={() => loadTransactions(transactionPage + 1, transactionFilter, creatorFilter)}
                     disabled={transactionPage >= transactionTotal}
                     className="btn btn-secondary btn-sm"
                   >
@@ -347,6 +468,80 @@ export default function CaissesPage() {
               </div>
             )}
           </>
+        )}
+
+        {/* Expense Modal */}
+        {showExpenseModal && selectedCaisse && (
+          <div className="modal-overlay" onClick={() => setShowExpenseModal(false)}>
+            <div className="modal-content p-6" onClick={(e) => e.stopPropagation()}>
+              <h2 className="text-lg font-semibold mb-4 dark:text-white">
+                مصروف من صندوق {selectedCaisse.user?.name}
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                الرصيد الحالي: <span className="font-bold text-green-600">{formatCurrency(selectedCaisse.balance)}</span>
+              </p>
+              <form onSubmit={handleCreateExpense} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">التصنيف *</label>
+                  <select
+                    value={expenseForm.category}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })}
+                    className="select"
+                    required
+                  >
+                    <option value="salary">رواتب</option>
+                    <option value="transport">نقل</option>
+                    <option value="maintenance">صيانة</option>
+                    <option value="supplies">لوازم</option>
+                    <option value="other">أخرى</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">المبلغ *</label>
+                  <input
+                    type="number"
+                    value={expenseForm.amount || ''}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, amount: parseFloat(e.target.value) || 0 })}
+                    className="input"
+                    min="0.01"
+                    step="0.01"
+                    placeholder="0.00"
+                    required
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">الوصف *</label>
+                  <input
+                    type="text"
+                    value={expenseForm.description}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })}
+                    className="input"
+                    placeholder="وصف المصروف..."
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">ملاحظات</label>
+                  <textarea
+                    value={expenseForm.notes}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, notes: e.target.value })}
+                    className="input"
+                    rows={2}
+                    placeholder="ملاحظات اختيارية..."
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button type="submit" disabled={isCreatingExpense} className="btn bg-red-600 text-white hover:bg-red-700 flex-1">
+                    {isCreatingExpense ? 'جاري الإضافة...' : 'تأكيد المصروف'}
+                  </button>
+                  <button type="button" onClick={() => setShowExpenseModal(false)} className="btn btn-secondary">
+                    إلغاء
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         )}
 
         {/* Settlement Modal */}

@@ -383,15 +383,6 @@ export default function ProductsPage() {
       },
     },
     {
-      key: 'is_active',
-      title: 'الحالة',
-      render: (item: ProductWithStock) => (
-        <span className={`badge ${item.is_active ? 'badge-success' : 'badge-danger'}`}>
-          {item.is_active ? 'نشط' : 'معطل'}
-        </span>
-      ),
-    },
-    {
       key: 'actions',
       title: 'الإجراءات',
       render: (item: ProductWithStock) => (

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { deliveriesApi } from '@/lib/api';
+import { deliveriesApi, warehousesApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 interface Product {
@@ -10,6 +10,7 @@ interface Product {
   barcode?: string;
   retail_price?: number;
   cost_price?: number;
+  pieces_per_package?: number;
 }
 
 interface DeliveryStockItem {
@@ -63,10 +64,19 @@ interface LivreurVanSession {
   items: VanSessionStockItem[];
 }
 
+interface WarehouseStock {
+  warehouse: { id: number; name: string };
+  items: VanSessionStockItem[];
+  sales_count: number;
+  total_sales: number;
+  total_collected: number;
+}
+
 interface LivreurEntry {
   user: { id: number; name: string; phone?: string; role: string };
   deliveries: LivreurDelivery[];
   van_sessions: LivreurVanSession[];
+  warehouse_stock?: WarehouseStock;
   totals: { total_loaded: number; total_remaining: number };
 }
 
@@ -81,6 +91,23 @@ interface LivreurStockData {
   };
 }
 
+interface Warehouse {
+  id: number;
+  name: string;
+}
+
+interface ReturnItem {
+  product_id: number;
+  product_name: string;
+  pieces_per_package: number;
+  source_type: 'delivery' | 'van_session' | 'warehouse_stock';
+  source_id: number | null;
+  source_label: string;
+  available: number;
+  cartons: string;
+  pieces: string;
+}
+
 const statusLabels: Record<string, string> = {
   preparing: 'تحضير',
   in_progress: 'قيد التوصيل',
@@ -93,11 +120,33 @@ const statusColors: Record<string, string> = {
   active: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
 };
 
+const sourceTypeLabels: Record<string, string> = {
+  delivery: 'توصيل',
+  van_session: 'بيع متنقل',
+  warehouse_stock: 'مخزون مستودع',
+};
+
+const sourceTypeColors: Record<string, string> = {
+  delivery: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  van_session: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  warehouse_stock: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+};
+
 export default function LivreurStockPage() {
   const [data, setData] = useState<LivreurStockData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedLivreur, setExpandedLivreur] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState<'all' | 'delivery' | 'van_session' | 'warehouse_stock'>('all');
+  const [filterHasRemaining, setFilterHasRemaining] = useState(false);
+
+  // Return modal state
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [returnLivreur, setReturnLivreur] = useState<LivreurEntry | null>(null);
+  const [returnItems, setReturnItems] = useState<ReturnItem[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [selectedWarehouse, setSelectedWarehouse] = useState<number | ''>('');
+  const [isReturning, setIsReturning] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -122,14 +171,233 @@ export default function LivreurStockPage() {
     return new Intl.NumberFormat('ar-DZ').format(value);
   };
 
+  const formatQty = (qty: number, piecesPerPackage?: number) => {
+    const ppp = piecesPerPackage || 1;
+    if (ppp <= 1) return `${qty}`;
+    const cartons = Math.floor(qty);
+    const pieces = Math.round((qty - cartons) * ppp);
+    if (cartons > 0 && pieces > 0) return `${cartons} كرتون ${pieces} قطعة`;
+    if (cartons > 0) return `${cartons} كرتون`;
+    if (pieces > 0) return `${pieces} قطعة`;
+    return '0';
+  };
+
   const getProgressPercent = (delivered: number, total: number) => {
     if (total === 0) return 0;
     return Math.round((delivered / total) * 100);
   };
 
-  const filteredLivreurs = data?.livreurs.filter((l) =>
-    !searchTerm || l.user.name.toLowerCase().includes(searchTerm.toLowerCase())
-  ) ?? [];
+  // Collect all product items for a livreur with their qty info
+  const collectItems = (livreur: LivreurEntry) => {
+    const loaded: { qty: number; ppp: number }[] = [];
+    const remaining: { qty: number; ppp: number }[] = [];
+
+    for (const d of livreur.deliveries) {
+      for (const s of d.stock) {
+        const ppp = s.product?.pieces_per_package || 1;
+        if (s.quantity_loaded > 0) loaded.push({ qty: s.quantity_loaded, ppp });
+        if (s.remaining > 0) remaining.push({ qty: s.remaining, ppp });
+      }
+    }
+    for (const v of livreur.van_sessions) {
+      for (const i of v.items) {
+        const ppp = i.product?.pieces_per_package || 1;
+        if (i.quantity_loaded > 0) loaded.push({ qty: i.quantity_loaded, ppp });
+        if (i.available > 0) remaining.push({ qty: i.available, ppp });
+      }
+    }
+    if (livreur.warehouse_stock) {
+      for (const i of livreur.warehouse_stock.items) {
+        const ppp = i.product?.pieces_per_package || 1;
+        if (i.quantity_loaded > 0) loaded.push({ qty: i.quantity_loaded, ppp });
+        if (i.available > 0) remaining.push({ qty: i.available, ppp });
+      }
+    }
+
+    return { loaded, remaining };
+  };
+
+  // Format a list of items: if 1 product show cartons+pieces, if multiple show product count
+  const formatItemsList = (items: { qty: number; ppp: number }[]) => {
+    if (items.length === 0) return '0';
+    if (items.length === 1) return formatQty(items[0].qty, items[0].ppp);
+    return `${items.length} منتج`;
+  };
+
+  const openReturnModal = async (livreur: LivreurEntry) => {
+    setReturnLivreur(livreur);
+
+    // Build return items from all sources
+    const items: ReturnItem[] = [];
+
+    for (const delivery of livreur.deliveries) {
+      for (const s of delivery.stock) {
+        if (s.remaining > 0) {
+          items.push({
+            product_id: s.product_id,
+            product_name: s.product?.name || `منتج #${s.product_id}`,
+            pieces_per_package: s.product?.pieces_per_package || 1,
+            source_type: 'delivery',
+            source_id: delivery.id,
+            source_label: delivery.reference,
+            available: s.remaining,
+            cartons: '',
+            pieces: '',
+          });
+        }
+      }
+    }
+
+    for (const session of livreur.van_sessions) {
+      for (const item of session.items) {
+        if (item.available > 0) {
+          items.push({
+            product_id: item.product_id,
+            product_name: item.product?.name || `منتج #${item.product_id}`,
+            pieces_per_package: item.product?.pieces_per_package || 1,
+            source_type: 'van_session',
+            source_id: session.id,
+            source_label: session.reference,
+            available: item.available,
+            cartons: '',
+            pieces: '',
+          });
+        }
+      }
+    }
+
+    if (livreur.warehouse_stock) {
+      for (const item of livreur.warehouse_stock.items) {
+        if (item.available > 0) {
+          items.push({
+            product_id: item.product_id,
+            product_name: item.product?.name || `منتج #${item.product_id}`,
+            pieces_per_package: item.product?.pieces_per_package || 1,
+            source_type: 'warehouse_stock',
+            source_id: null,
+            source_label: livreur.warehouse_stock!.warehouse.name,
+            available: item.available,
+            cartons: '',
+            pieces: '',
+          });
+        }
+      }
+    }
+
+    setReturnItems(items);
+    setSelectedWarehouse('');
+
+    // Fetch warehouses
+    try {
+      const res = await warehousesApi.getAll();
+      setWarehouses(res.data.data || res.data);
+    } catch {
+      toast.error('خطأ في تحميل المستودعات');
+    }
+
+    setShowReturnModal(true);
+  };
+
+  const closeReturnModal = () => {
+    setShowReturnModal(false);
+    setReturnLivreur(null);
+    setReturnItems([]);
+    setSelectedWarehouse('');
+  };
+
+  const updateReturnItem = (index: number, field: 'cartons' | 'pieces', value: string) => {
+    setReturnItems(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  const getReturnQty = (item: ReturnItem): number => {
+    const ppp = item.pieces_per_package || 1;
+    const cartons = parseFloat(item.cartons) || 0;
+    const pieces = parseFloat(item.pieces) || 0;
+    if (ppp <= 1) return cartons;
+    return cartons + (pieces / ppp);
+  };
+
+  const handleReturnSubmit = async () => {
+    if (!selectedWarehouse) {
+      toast.error('يرجى اختيار المستودع المستلم');
+      return;
+    }
+
+    if (!returnLivreur) return;
+
+    // Validate by comparing piece counts (not raw decimals) to avoid floating point issues
+    const itemsToReturn: { product_id: number; quantity: number; source_type: string; source_id: number | null }[] = [];
+
+    for (const item of returnItems) {
+      const ppp = item.pieces_per_package || 1;
+      const enteredCartons = parseFloat(item.cartons) || 0;
+      const enteredPieces = parseFloat(item.pieces) || 0;
+
+      // Total entered in piece units
+      const enteredTotalPieces = enteredCartons * ppp + enteredPieces;
+      if (enteredTotalPieces <= 0) continue;
+
+      // Available in piece units (what formatQty displays)
+      const availableCartons = Math.floor(item.available);
+      const availablePieces = ppp > 1 ? Math.round((item.available - availableCartons) * ppp) : 0;
+      const availableTotalPieces = availableCartons * ppp + availablePieces;
+
+      if (enteredTotalPieces > availableTotalPieces) {
+        toast.error(`الكمية المدخلة لـ ${item.product_name} أكبر من المتاح (${formatQty(item.available, ppp)})`);
+        return;
+      }
+
+      // Clamp the decimal value to available to avoid DB precision issues
+      const computed = enteredCartons + (ppp > 1 ? enteredPieces / ppp : 0);
+      const quantity = Math.min(computed, item.available);
+
+      itemsToReturn.push({
+        product_id: item.product_id,
+        quantity: parseFloat(quantity.toFixed(6)),
+        source_type: item.source_type,
+        source_id: item.source_id,
+      });
+    }
+
+    if (itemsToReturn.length === 0) {
+      toast.error('يرجى إدخال كمية واحدة على الأقل');
+      return;
+    }
+
+    setIsReturning(true);
+
+    try {
+      await deliveriesApi.returnLivreurStock(returnLivreur.user.id, {
+        warehouse_id: selectedWarehouse as number,
+        items: itemsToReturn,
+      });
+      toast.success('تم إرجاع المنتجات بنجاح');
+      closeReturnModal();
+      setIsLoading(true);
+      fetchData();
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      toast.error(error.response?.data?.message || 'خطأ في إرجاع المنتجات');
+    } finally {
+      setIsReturning(false);
+    }
+  };
+
+  const filteredLivreurs = data?.livreurs.filter((l) => {
+    // Search filter
+    if (searchTerm && !l.user.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    // Source type filter
+    if (filterType === 'delivery' && l.deliveries.length === 0) return false;
+    if (filterType === 'van_session' && l.van_sessions.length === 0) return false;
+    if (filterType === 'warehouse_stock' && !l.warehouse_stock) return false;
+    // Has remaining filter
+    if (filterHasRemaining && l.totals.total_remaining <= 0) return false;
+    return true;
+  }) ?? [];
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
@@ -167,25 +435,76 @@ export default function LivreurStockPage() {
           </div>
           <div className="card bg-green-50 dark:bg-green-900/20">
             <h3 className="text-xs text-green-600 dark:text-green-400 mb-1">إجمالي محمّل</h3>
-            <p className="text-2xl font-bold text-green-700 dark:text-green-300">{formatNumber(data.summary.total_products_loaded)}</p>
+            <p className="text-2xl font-bold text-green-700 dark:text-green-300">{(() => { const all = data!.livreurs.flatMap(l => collectItems(l).loaded); return formatItemsList(all); })()}</p>
           </div>
           <div className="card bg-red-50 dark:bg-red-900/20">
             <h3 className="text-xs text-red-600 dark:text-red-400 mb-1">متبقي في الشاحنات</h3>
-            <p className="text-2xl font-bold text-red-700 dark:text-red-300">{formatNumber(data.summary.total_products_remaining)}</p>
+            <p className="text-2xl font-bold text-red-700 dark:text-red-300">{(() => { const all = data!.livreurs.flatMap(l => collectItems(l).remaining); return formatItemsList(all); })()}</p>
           </div>
         </div>
       )}
 
-      {/* Search */}
+      {/* Filters */}
       {data && data.livreurs.length > 0 && (
-        <div className="mb-4">
+        <div className="mb-4 flex flex-wrap items-center gap-3">
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="بحث بالاسم..."
-            className="input max-w-xs"
+            className="input w-48"
           />
+
+          {/* Source type filter */}
+          <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
+            {([
+              { value: 'all', label: 'الكل' },
+              { value: 'delivery', label: 'توصيل' },
+              { value: 'van_session', label: 'بيع متنقل' },
+              { value: 'warehouse_stock', label: 'مستودع' },
+            ] as const).map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setFilterType(opt.value)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  filterType === opt.value
+                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Has remaining toggle */}
+          <button
+            onClick={() => setFilterHasRemaining(!filterHasRemaining)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+              filterHasRemaining
+                ? 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-700'
+                : 'bg-white text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+            لديه متبقي
+          </button>
+
+          {/* Active filter count + reset */}
+          {(searchTerm || filterType !== 'all' || filterHasRemaining) && (
+            <button
+              onClick={() => { setSearchTerm(''); setFilterType('all'); setFilterHasRemaining(false); }}
+              className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+            >
+              مسح الفلاتر
+            </button>
+          )}
+
+          <span className="text-xs text-gray-400 dark:text-gray-500 mr-auto">
+            {filteredLivreurs.length} / {data.livreurs.length} سائق
+          </span>
         </div>
       )}
 
@@ -205,6 +524,7 @@ export default function LivreurStockPage() {
             const progressPercent = livreur.totals.total_loaded > 0
               ? getProgressPercent(livreur.totals.total_loaded - livreur.totals.total_remaining, livreur.totals.total_loaded)
               : 0;
+            const items = collectItems(livreur);
 
             return (
               <div key={livreur.user.id} className="card">
@@ -238,21 +558,40 @@ export default function LivreurStockPage() {
                               {livreur.van_sessions.length} بيع متنقل
                             </span>
                           )}
+                          {livreur.warehouse_stock && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                              {livreur.warehouse_stock.warehouse.name}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-4">
+                    {/* Return button */}
+                    {livreur.totals.total_remaining > 0 && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openReturnModal(livreur); }}
+                        className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:hover:bg-orange-900/50 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                        </svg>
+                        إرجاع
+                      </button>
+                    )}
+
                     {/* Summary stats */}
                     <div className="hidden md:flex items-center gap-6">
                       <div className="text-center">
                         <p className="text-xs text-gray-500 dark:text-gray-400">محمّل</p>
-                        <p className="font-bold text-gray-800 dark:text-gray-200">{formatNumber(livreur.totals.total_loaded)}</p>
+                        <p className="font-bold text-gray-800 dark:text-gray-200">{formatItemsList(items.loaded)}</p>
                       </div>
                       <div className="text-center">
                         <p className="text-xs text-gray-500 dark:text-gray-400">متبقي</p>
-                        <p className="font-bold text-orange-600 dark:text-orange-400">{formatNumber(livreur.totals.total_remaining)}</p>
+                        <p className="font-bold text-orange-600 dark:text-orange-400">{formatItemsList(items.remaining)}</p>
                       </div>
                       <div className="w-24">
                         <div className="flex items-center justify-between text-xs mb-1">
@@ -278,11 +617,11 @@ export default function LivreurStockPage() {
                 <div className="flex md:hidden items-center gap-4 mt-3 pt-3 border-t dark:border-gray-700">
                   <div className="flex-1 text-center">
                     <p className="text-xs text-gray-500 dark:text-gray-400">محمّل</p>
-                    <p className="font-bold text-gray-800 dark:text-gray-200">{formatNumber(livreur.totals.total_loaded)}</p>
+                    <p className="font-bold text-gray-800 dark:text-gray-200">{formatItemsList(items.loaded)}</p>
                   </div>
                   <div className="flex-1 text-center">
                     <p className="text-xs text-gray-500 dark:text-gray-400">متبقي</p>
-                    <p className="font-bold text-orange-600 dark:text-orange-400">{formatNumber(livreur.totals.total_remaining)}</p>
+                    <p className="font-bold text-orange-600 dark:text-orange-400">{formatItemsList(items.remaining)}</p>
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center justify-between text-xs mb-1">
@@ -296,6 +635,17 @@ export default function LivreurStockPage() {
                       />
                     </div>
                   </div>
+                  {livreur.totals.total_remaining > 0 && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openReturnModal(livreur); }}
+                      className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                      </svg>
+                      إرجاع
+                    </button>
+                  )}
                 </div>
 
                 {/* Expanded Detail */}
@@ -342,6 +692,7 @@ export default function LivreurStockPage() {
                               <tbody>
                                 {delivery.stock.map((s) => {
                                   const pct = getProgressPercent(s.quantity_delivered, s.quantity_loaded);
+                                  const ppp = s.product?.pieces_per_package;
                                   return (
                                     <tr key={s.product_id} className="border-b dark:border-gray-700/50 last:border-0">
                                       <td className="py-2">
@@ -350,12 +701,12 @@ export default function LivreurStockPage() {
                                           <span className="text-xs text-gray-400 mr-2">({s.product.barcode})</span>
                                         )}
                                       </td>
-                                      <td className="text-center text-sm dark:text-gray-300">{formatNumber(s.quantity_loaded)}</td>
-                                      <td className="text-center text-sm text-green-600 font-medium">{formatNumber(s.quantity_delivered)}</td>
-                                      <td className="text-center text-sm text-red-500">{formatNumber(s.quantity_returned)}</td>
+                                      <td className="text-center text-sm dark:text-gray-300">{formatQty(s.quantity_loaded, ppp)}</td>
+                                      <td className="text-center text-sm text-green-600 font-medium">{formatQty(s.quantity_delivered, ppp)}</td>
+                                      <td className="text-center text-sm text-red-500">{formatQty(s.quantity_returned, ppp)}</td>
                                       <td className="text-center">
                                         <span className={`text-sm font-bold ${s.remaining > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600'}`}>
-                                          {formatNumber(s.remaining)}
+                                          {formatQty(s.remaining, ppp)}
                                         </span>
                                       </td>
                                       <td className="text-center">
@@ -423,6 +774,7 @@ export default function LivreurStockPage() {
                               <tbody>
                                 {session.items.map((item) => {
                                   const pct = getProgressPercent(item.quantity_sold, item.quantity_loaded);
+                                  const ppp = item.product?.pieces_per_package;
                                   return (
                                     <tr key={item.product_id} className="border-b dark:border-gray-700/50 last:border-0">
                                       <td className="py-2">
@@ -431,12 +783,12 @@ export default function LivreurStockPage() {
                                           <span className="text-xs text-gray-400 mr-2">({item.product.barcode})</span>
                                         )}
                                       </td>
-                                      <td className="text-center text-sm dark:text-gray-300">{formatNumber(item.quantity_loaded)}</td>
-                                      <td className="text-center text-sm text-green-600 font-medium">{formatNumber(item.quantity_sold)}</td>
-                                      <td className="text-center text-sm text-red-500">{formatNumber(item.quantity_returned)}</td>
+                                      <td className="text-center text-sm dark:text-gray-300">{formatQty(item.quantity_loaded, ppp)}</td>
+                                      <td className="text-center text-sm text-green-600 font-medium">{formatQty(item.quantity_sold, ppp)}</td>
+                                      <td className="text-center text-sm text-red-500">{formatQty(item.quantity_returned, ppp)}</td>
                                       <td className="text-center">
                                         <span className={`text-sm font-bold ${item.available > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600'}`}>
-                                          {formatNumber(item.available)}
+                                          {formatQty(item.available, ppp)}
                                         </span>
                                       </td>
                                       <td className="text-center">
@@ -459,11 +811,234 @@ export default function LivreurStockPage() {
                         )}
                       </div>
                     ))}
+
+                    {/* Warehouse Stock (cashvan drivers) */}
+                    {livreur.warehouse_stock && (
+                      <div className="bg-emerald-50/50 dark:bg-emerald-900/10 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-medium dark:text-white">{livreur.warehouse_stock.warehouse.name}</span>
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                              مخزون مستودع
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm">
+                            <span className="text-gray-500 dark:text-gray-400">
+                              مبيعات اليوم: <span className="font-medium text-gray-800 dark:text-gray-200">{livreur.warehouse_stock.sales_count}</span>
+                            </span>
+                            <span className="text-gray-500 dark:text-gray-400">
+                              إجمالي: <span className="font-medium text-green-600">{formatCurrency(livreur.warehouse_stock.total_sales)}</span>
+                            </span>
+                            <span className="text-gray-500 dark:text-gray-400">
+                              محصّل: <span className="font-medium text-green-600">{formatCurrency(livreur.warehouse_stock.total_collected)}</span>
+                            </span>
+                          </div>
+                        </div>
+
+                        {livreur.warehouse_stock.items.length > 0 && (
+                          <div className="overflow-x-auto">
+                            <table className="w-full">
+                              <thead>
+                                <tr className="text-xs text-gray-500 dark:text-gray-400 border-b dark:border-gray-700">
+                                  <th className="text-right py-2 font-medium">المنتج</th>
+                                  <th className="text-center py-2 font-medium">المحمّل</th>
+                                  <th className="text-center py-2 font-medium">مباع</th>
+                                  <th className="text-center py-2 font-medium">متاح</th>
+                                  <th className="text-center py-2 font-medium">%</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {livreur.warehouse_stock.items.map((item) => {
+                                  const ppp = item.product?.pieces_per_package;
+                                  const pct = getProgressPercent(item.quantity_sold, item.quantity_loaded);
+                                  return (
+                                    <tr key={item.product_id} className="border-b dark:border-gray-700/50 last:border-0">
+                                      <td className="py-2">
+                                        <span className="text-sm font-medium dark:text-white">{item.product?.name}</span>
+                                        {item.product?.barcode && (
+                                          <span className="text-xs text-gray-400 mr-2">({item.product.barcode})</span>
+                                        )}
+                                      </td>
+                                      <td className="text-center text-sm dark:text-gray-300">{formatQty(item.quantity_loaded, ppp)}</td>
+                                      <td className="text-center text-sm text-green-600 font-medium">{formatQty(item.quantity_sold, ppp)}</td>
+                                      <td className="text-center">
+                                        <span className={`text-sm font-bold ${item.available > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600'}`}>
+                                          {formatQty(item.available, ppp)}
+                                        </span>
+                                      </td>
+                                      <td className="text-center">
+                                        <div className="inline-flex items-center gap-1">
+                                          <div className="w-12 bg-gray-200 dark:bg-gray-600 rounded-full h-1.5">
+                                            <div
+                                              className={`h-1.5 rounded-full ${pct >= 80 ? 'bg-green-500' : pct >= 50 ? 'bg-blue-500' : 'bg-orange-500'}`}
+                                              style={{ width: `${pct}%` }}
+                                            />
+                                          </div>
+                                          <span className="text-xs text-gray-500 dark:text-gray-400 w-8">{pct}%</span>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Return Modal */}
+      {showReturnModal && returnLivreur && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={closeReturnModal}>
+          <div
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col"
+            dir="rtl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-5 border-b dark:border-gray-700">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
+                  <svg className="w-5 h-5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold dark:text-white">إرجاع منتجات</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{returnLivreur.user.name}</p>
+                </div>
+              </div>
+              <button onClick={closeReturnModal} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-5">
+              {/* Warehouse selector */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">المستودع المستلم</label>
+                <select
+                  value={selectedWarehouse}
+                  onChange={(e) => setSelectedWarehouse(e.target.value ? parseInt(e.target.value) : '')}
+                  className="input w-full"
+                >
+                  <option value="">اختر المستودع...</option>
+                  {warehouses.map((w) => (
+                    <option key={w.id} value={w.id}>{w.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Products table */}
+              {returnItems.length === 0 ? (
+                <p className="text-center text-gray-500 dark:text-gray-400 py-8">لا توجد منتجات متاحة للإرجاع</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="text-xs text-gray-500 dark:text-gray-400 border-b dark:border-gray-700">
+                        <th className="text-right py-2.5 font-medium">المنتج</th>
+                        <th className="text-center py-2.5 font-medium">المصدر</th>
+                        <th className="text-center py-2.5 font-medium">المتاح</th>
+                        <th className="text-center py-2.5 font-medium">كمية الإرجاع</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {returnItems.map((item, index) => {
+                        const ppp = item.pieces_per_package || 1;
+                        const hasPackaging = ppp > 1;
+                        return (
+                          <tr key={`${item.source_type}-${item.source_id}-${item.product_id}`} className="border-b dark:border-gray-700/50 last:border-0">
+                            <td className="py-2.5">
+                              <span className="text-sm font-medium dark:text-white">{item.product_name}</span>
+                            </td>
+                            <td className="text-center py-2.5">
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${sourceTypeColors[item.source_type]}`}>
+                                {sourceTypeLabels[item.source_type]}
+                              </span>
+                              <span className="block text-xs text-gray-400 mt-0.5">{item.source_label}</span>
+                            </td>
+                            <td className="text-center py-2.5">
+                              <span className="text-sm font-medium text-orange-600 dark:text-orange-400">
+                                {formatQty(item.available, ppp)}
+                              </span>
+                            </td>
+                            <td className="text-center py-2.5">
+                              <div className="flex items-center justify-center gap-2">
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    value={item.cartons}
+                                    onChange={(e) => updateReturnItem(index, 'cartons', e.target.value)}
+                                    placeholder="0"
+                                    className="input w-16 text-center text-sm py-1"
+                                  />
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">{hasPackaging ? 'كرتون' : 'وحدة'}</span>
+                                </div>
+                                {hasPackaging && (
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="1"
+                                      max={ppp - 1}
+                                      value={item.pieces}
+                                      onChange={(e) => updateReturnItem(index, 'pieces', e.target.value)}
+                                      placeholder="0"
+                                      className="input w-16 text-center text-sm py-1"
+                                    />
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">قطعة</span>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between p-5 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-b-xl">
+              <button onClick={closeReturnModal} className="btn btn-secondary">
+                إلغاء
+              </button>
+              <button
+                onClick={handleReturnSubmit}
+                disabled={isReturning || !selectedWarehouse || returnItems.length === 0}
+                className="btn bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isReturning ? (
+                  <span className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    جاري الإرجاع...
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                    </svg>
+                    تأكيد الإرجاع
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

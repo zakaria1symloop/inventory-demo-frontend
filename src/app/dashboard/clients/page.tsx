@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { clientsApi, clientCategoriesApi, salesApi, usersApi } from '@/lib/api';
+
+const ClientsMap = lazy(() => import('./ClientsMap'));
 import toast from 'react-hot-toast';
 import {
   PlusIcon,
@@ -34,6 +36,8 @@ import {
   ChevronUpIcon,
   DevicePhoneMobileIcon,
   ComputerDesktopIcon,
+  MapIcon,
+  TableCellsIcon,
 } from '@heroicons/react/24/outline';
 
 interface ClientCategory {
@@ -113,6 +117,7 @@ export default function ClientsPage() {
   const [sellerFilter, setSellerFilter] = useState('');
   const [sellers, setSellers] = useState<SellerUser[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [viewMode, setViewMode] = useState<'table' | 'map'>('table');
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -198,6 +203,7 @@ export default function ClientsPage() {
 
   const handleOpenCreate = () => {
     setSelectedClient(null);
+    const defaultCategory = clientCategories.find(c => c.is_default);
     setFormData({
       name: '',
       phone: '',
@@ -207,7 +213,7 @@ export default function ClientsPage() {
       gps_lng: '',
       credit_limit: '',
       is_active: true,
-      client_category_id: '',
+      client_category_id: defaultCategory ? defaultCategory.id.toString() : '',
       rc: '',
       nif: '',
       ai: '',
@@ -447,7 +453,28 @@ export default function ClientsPage() {
           <h1 className="text-2xl font-bold text-gray-800">العملاء</h1>
           <p className="text-gray-500 mt-1">إدارة بيانات العملاء وحساباتهم</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center">
+          {/* View toggle */}
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('table')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                viewMode === 'table' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <TableCellsIcon className="w-4 h-4" />
+              جدول
+            </button>
+            <button
+              onClick={() => setViewMode('map')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                viewMode === 'map' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <MapIcon className="w-4 h-4" />
+              خريطة
+            </button>
+          </div>
           <Link
             href="/dashboard/sales/debtors"
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors"
@@ -756,8 +783,23 @@ export default function ClientsPage() {
           </div>
         )}
 
+        {/* Map View */}
+        {viewMode === 'map' && (
+          <div className={showFilters ? '' : 'mt-4'}>
+            <Suspense fallback={<div className="h-[550px] rounded-lg bg-gray-100 flex items-center justify-center"><div className="spinner"></div></div>}>
+              <ClientsMap
+                clients={filteredClients}
+                onClientClick={(id) => {
+                  const client = filteredClients.find(c => c.id === id);
+                  if (client) handleOpenDetails(client);
+                }}
+              />
+            </Suspense>
+          </div>
+        )}
+
         {/* Clients Table */}
-        <div className={`overflow-x-auto ${showFilters ? '' : 'mt-4'}`}>
+        <div className={`overflow-x-auto ${showFilters ? '' : 'mt-4'} ${viewMode === 'map' ? 'hidden' : ''}`}>
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50">

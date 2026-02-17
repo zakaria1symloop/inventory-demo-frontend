@@ -35,6 +35,7 @@ interface SaleItem {
     id: number;
     name: string;
     barcode?: string;
+    cost_price?: number;
     pieces_per_package?: number;
     unit_sale?: { id: number; name: string; short_name: string };
   };
@@ -65,7 +66,7 @@ interface Sale {
   grand_total: number;
   paid_amount: number;
   due_amount: number;
-  status: 'pending' | 'completed' | 'cancelled';
+  status: 'pending' | 'completed' | 'cancelled' | 'draft';
   payment_status: 'unpaid' | 'partial' | 'paid';
   note?: string;
   client?: { id: number; name: string; phone?: string; address?: string };
@@ -85,6 +86,7 @@ export default function SaleDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   // Payment modal state
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
@@ -139,8 +141,23 @@ export default function SaleDetail() {
     });
   };
 
+  const handleConfirmDraft = async () => {
+    if (!sale) return;
+    setIsConfirming(true);
+    try {
+      await salesApi.confirm(sale.id);
+      toast.success('تم تأكيد الفاتورة بنجاح');
+      fetchSale();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'خطأ في تأكيد الفاتورة');
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { bg: string; text: string; icon: any; label: string }> = {
+      draft: { bg: 'bg-blue-100', text: 'text-blue-800', icon: ClockIcon, label: 'مسودة' },
       pending: { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: ClockIcon, label: 'قيد الانتظار' },
       completed: { bg: 'bg-green-100', text: 'text-green-800', icon: CheckCircleIcon, label: 'مكتمل' },
       cancelled: { bg: 'bg-red-100', text: 'text-red-800', icon: XCircleIcon, label: 'ملغي' },
@@ -240,31 +257,59 @@ export default function SaleDetail() {
               <th>#</th>
               <th>المنتج</th>
               <th>الكمية</th>
-              <th>السعر</th>
+              <th>القطع</th>
+              <th>سعر الشراء</th>
+              <th>إجمالي الشراء</th>
+              <th>سعر البيع</th>
+              <th>إجمالي البيع</th>
               <th>الخصم</th>
-              <th>الضريبة</th>
-              <th>المجموع</th>
             </tr>
           </thead>
           <tbody>
             ${sale?.items?.map((item, index) => {
               const piecesPerPkg = item.product?.pieces_per_package || 1;
+              const totalPieces = Math.round(item.quantity * piecesPerPkg);
+              const costPrice = Number(item.product?.cost_price) || 0;
+              const totalCost = costPrice * totalPieces;
               return `
               <tr>
                 <td>${index + 1}</td>
-                <td>
-                  ${item.product?.name || '-'}
-                  ${piecesPerPkg > 1 ? `<br><small style="color:#2563eb">(${piecesPerPkg} قطعة/${item.product?.unit_sale?.short_name || 'وحدة'})</small>` : ''}
-                </td>
+                <td>${item.product?.name || '-'}</td>
                 <td>${formatQtyLong(item.quantity, piecesPerPkg)}</td>
+                <td>${totalPieces}</td>
+                <td>${formatCurrency(costPrice)}</td>
+                <td style="color:#c2410c">${formatCurrency(totalCost)}</td>
                 <td>${formatCurrency(item.unit_price)}</td>
-                <td>${formatCurrency(item.discount)}</td>
-                <td>${formatCurrency(item.tax)}</td>
-                <td>${formatCurrency(item.subtotal)}</td>
+                <td style="color:#15803d;font-weight:bold">${formatCurrency(item.subtotal)}</td>
+                <td>${item.discount > 0 ? formatCurrency(item.discount) : '-'}</td>
               </tr>
             `}).join('')}
           </tbody>
         </table>
+
+        ${(() => {
+          const totalCostAll = sale?.items?.reduce((sum, item) => {
+            const ppp = item.product?.pieces_per_package || 1;
+            const tp = Math.round(item.quantity * ppp);
+            return sum + ((Number(item.product?.cost_price) || 0) * tp);
+          }, 0) || 0;
+          const totalSellAll = sale?.items?.reduce((sum, item) => sum + (Number(item.subtotal) || 0), 0) || 0;
+          return `
+          <div style="display:flex;gap:20px;margin-top:10px;margin-bottom:10px">
+            <div style="flex:1;background:#fff7ed;border:1px solid #fed7aa;padding:10px;border-radius:8px;text-align:center">
+              <div style="font-size:12px;color:#c2410c">إجمالي الشراء</div>
+              <div style="font-size:18px;font-weight:bold;color:#9a3412">${formatCurrency(totalCostAll)}</div>
+            </div>
+            <div style="flex:1;background:#f0fdf4;border:1px solid #bbf7d0;padding:10px;border-radius:8px;text-align:center">
+              <div style="font-size:12px;color:#15803d">إجمالي البيع</div>
+              <div style="font-size:18px;font-weight:bold;color:#166534">${formatCurrency(totalSellAll)}</div>
+            </div>
+            <div style="flex:1;background:#eff6ff;border:1px solid #bfdbfe;padding:10px;border-radius:8px;text-align:center">
+              <div style="font-size:12px;color:#1d4ed8">الربح</div>
+              <div style="font-size:18px;font-weight:bold;color:#1e40af">${formatCurrency(totalSellAll - totalCostAll)}</div>
+            </div>
+          </div>`;
+        })()}
 
         <div class="totals">
           <div class="row"><span>المجموع الفرعي:</span><span>${formatCurrency(sale?.total_amount || 0)}</span></div>
@@ -456,6 +501,16 @@ export default function SaleDetail() {
               </button>
             </>
           )}
+          {sale.status === 'draft' && (
+            <button
+              onClick={handleConfirmDraft}
+              disabled={isConfirming}
+              className="btn bg-green-600 text-white hover:bg-green-700"
+            >
+              <CheckCircleIcon className="w-5 h-5" />
+              {isConfirming ? 'جاري التأكيد...' : 'تأكيد الفاتورة'}
+            </button>
+          )}
           <button
             onClick={handlePrint}
             className="btn btn-secondary"
@@ -515,24 +570,56 @@ export default function SaleDetail() {
         {/* Items Table */}
         <div className="lg:col-span-2">
           <div className="card">
+            {/* Summary totals at top */}
+            {(() => {
+              const totalCost = sale.items?.reduce((sum, item) => {
+                const ppp = item.product?.pieces_per_package || 1;
+                const totalPieces = Math.round(item.quantity * ppp);
+                const costPrice = Number(item.product?.cost_price) || 0;
+                return sum + (costPrice * totalPieces);
+              }, 0) || 0;
+              const totalSell = sale.items?.reduce((sum, item) => sum + (Number(item.subtotal) || 0), 0) || 0;
+              const profit = totalSell - totalCost;
+              return (
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-center">
+                    <p className="text-xs text-orange-600">إجمالي سعر الشراء</p>
+                    <p className="text-lg font-bold text-orange-700">{formatCurrency(totalCost)}</p>
+                  </div>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                    <p className="text-xs text-green-600">إجمالي سعر البيع</p>
+                    <p className="text-lg font-bold text-green-700">{formatCurrency(totalSell)}</p>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                    <p className="text-xs text-blue-600">هامش الربح</p>
+                    <p className={`text-lg font-bold ${profit >= 0 ? 'text-blue-700' : 'text-red-700'}`}>{formatCurrency(profit)}</p>
+                  </div>
+                </div>
+              );
+            })()}
+
             <h3 className="text-lg font-semibold mb-4">المنتجات ({sale.items?.length || 0})</h3>
             <div className="overflow-x-auto">
               <table>
                 <thead>
                   <tr>
-                    <th className="text-center w-12">#</th>
+                    <th className="text-center w-10">#</th>
                     <th>المنتج</th>
                     <th className="text-center">الكمية</th>
-                    <th className="text-center">السعر</th>
-                    <th className="text-center">قطع/وحدة</th>
+                    <th className="text-center">القطع</th>
+                    <th className="text-center">سعر الشراء</th>
+                    <th className="text-center">إجمالي الشراء</th>
+                    <th className="text-center">سعر البيع</th>
+                    <th className="text-center">إجمالي البيع</th>
                     <th className="text-center">الخصم</th>
-                    <th className="text-center">الضريبة</th>
-                    <th className="text-center">المجموع</th>
                   </tr>
                 </thead>
                 <tbody>
                   {sale.items?.map((item, index) => {
                     const piecesPerPkg = item.product?.pieces_per_package || 1;
+                    const totalPieces = Math.round(item.quantity * piecesPerPkg);
+                    const costPrice = Number(item.product?.cost_price) || 0;
+                    const totalCost = costPrice * totalPieces;
                     return (
                       <tr key={item.id}>
                         <td className="text-center text-gray-500">{index + 1}</td>
@@ -544,24 +631,25 @@ export default function SaleDetail() {
                         </td>
                         <td className="text-center font-semibold">{formatQty(item.quantity, piecesPerPkg)}</td>
                         <td className="text-center">
-                          {formatCurrency(item.unit_price)}
-                          {piecesPerPkg > 1 && (
-                            <div className="text-xs text-blue-500">({formatCurrency(item.unit_price * piecesPerPkg)}/كرتون)</div>
-                          )}
+                          <span className="font-medium">{totalPieces}</span>
+                          <div className="text-[10px] text-gray-400">قطعة</div>
+                        </td>
+                        <td className="text-center text-gray-600">
+                          {formatCurrency(costPrice)}
+                        </td>
+                        <td className="text-center font-medium text-orange-600">
+                          {formatCurrency(totalCost)}
                         </td>
                         <td className="text-center">
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {piecesPerPkg}
-                          </span>
+                          {formatCurrency(item.unit_price)}
+                          {piecesPerPkg > 1 && (
+                            <div className="text-[10px] text-blue-500">({formatCurrency(item.unit_price * piecesPerPkg)}/كرتون)</div>
+                          )}
+                        </td>
+                        <td className="text-center font-semibold text-green-600">
+                          {formatCurrency(item.subtotal)}
                         </td>
                         <td className="text-center text-red-600">{item.discount > 0 ? `-${formatCurrency(item.discount)}` : '-'}</td>
-                        <td className="text-center text-blue-600">{item.tax > 0 ? formatCurrency(item.tax) : '-'}</td>
-                        <td className="text-center font-semibold">
-                          {formatCurrency(item.subtotal)}
-                          <div className="text-xs text-gray-400">
-                            {item.unit_price} × {piecesPerPkg} × {formatQty(item.quantity, piecesPerPkg)}
-                          </div>
-                        </td>
                       </tr>
                     );
                   })}
