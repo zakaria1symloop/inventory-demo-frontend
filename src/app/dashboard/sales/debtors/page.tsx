@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { allDebtorsApi, deliveriesApi, salesApi } from '@/lib/api';
+import { allDebtorsApi, deliveriesApi, salesApi, warehousesApi, usersApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 import {
   BanknotesIcon,
@@ -101,6 +101,10 @@ export default function DebtorsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [debtTypeFilter, setDebtTypeFilter] = useState<'all' | 'sales' | 'delivery'>('all');
+  const [warehouseFilter, setWarehouseFilter] = useState('');
+  const [sellerFilter, setSellerFilter] = useState('');
+  const [warehouses, setWarehouses] = useState<{ id: number; name: string }[]>([]);
+  const [sellers, setSellers] = useState<{ id: number; name: string }[]>([]);
   const [expandedClient, setExpandedClient] = useState<number | null>(null);
   const [clientDebt, setClientDebt] = useState<ClientDebtDetails | null>(null);
   const [loadingClientDebt, setLoadingClientDebt] = useState(false);
@@ -114,11 +118,28 @@ export default function DebtorsPage() {
 
   useEffect(() => {
     fetchDebtors();
+  }, [warehouseFilter, sellerFilter]);
+
+  useEffect(() => {
+    const fetchFilters = async () => {
+      try {
+        const [wRes, uRes] = await Promise.all([
+          warehousesApi.getAll(),
+          usersApi.getAll(),
+        ]);
+        setWarehouses(wRes.data.data || wRes.data || []);
+        setSellers(uRes.data.data || uRes.data || []);
+      } catch { /* ignore */ }
+    };
+    fetchFilters();
   }, []);
 
   const fetchDebtors = async () => {
     try {
-      const response = await allDebtorsApi.getAll();
+      const params: Record<string, unknown> = {};
+      if (warehouseFilter) params.warehouse_id = warehouseFilter;
+      if (sellerFilter) params.seller_id = sellerFilter;
+      const response = await allDebtorsApi.getAll(params);
       setDebtors(response.data.data || []);
       setTotals(response.data.totals);
     } catch (error) {
@@ -335,22 +356,42 @@ export default function DebtorsPage() {
       )}
 
       <div className="card">
-        <div className="flex gap-4 mb-4">
+        <div className="flex flex-wrap gap-4 mb-4">
           <input
             type="text"
             placeholder="بحث بالاسم أو الهاتف أو العنوان..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="input flex-1"
+            className="input flex-1 min-w-[200px]"
           />
           <select
             value={debtTypeFilter}
             onChange={(e) => setDebtTypeFilter(e.target.value as 'all' | 'sales' | 'delivery')}
-            className="select max-w-xs"
+            className="select"
           >
             <option value="all">جميع الديون</option>
             <option value="sales">ديون المبيعات فقط</option>
             <option value="delivery">ديون التوصيل فقط</option>
+          </select>
+          <select
+            value={warehouseFilter}
+            onChange={(e) => setWarehouseFilter(e.target.value)}
+            className="select"
+          >
+            <option value="">كل المستودعات</option>
+            {warehouses.map((w) => (
+              <option key={w.id} value={w.id}>{w.name}</option>
+            ))}
+          </select>
+          <select
+            value={sellerFilter}
+            onChange={(e) => setSellerFilter(e.target.value)}
+            className="select"
+          >
+            <option value="">كل البائعين</option>
+            {sellers.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
           </select>
         </div>
 

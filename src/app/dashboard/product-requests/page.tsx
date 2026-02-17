@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { productRequestsApi } from '@/lib/api';
+import { useRouter } from 'next/navigation';
+import { productRequestsApi, warehousesApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 interface ProductRequestItem {
@@ -10,23 +11,30 @@ interface ProductRequestItem {
   quantity_requested: number;
   quantity_approved: number;
   notes?: string;
-  product?: { id: number; name: string; retail_price: number; barcode?: string };
+  product?: { id: number; name: string; retail_price: number; cost_price?: number; barcode?: string; pieces_per_package?: number; unit_buy?: { name: string; short_name: string } };
 }
 
 interface ProductRequest {
   id: number;
   reference: string;
-  van_session_id: number;
+  van_session_id: number | null;
+  warehouse_id: number | null;
   status: 'pending' | 'approved' | 'rejected' | 'fulfilled';
   notes?: string;
   admin_notes?: string;
   created_at: string;
   processed_at?: string;
-  requester?: { id: number; name: string };
+  requested_by?: number;
+  requester?: { id: number; name: string; warehouse_id?: number; warehouse?: { id: number; name: string } };
   van_session?: { id: number; reference: string; status: string };
   warehouse?: { id: number; name: string };
   processor?: { id: number; name: string };
   items: ProductRequestItem[];
+}
+
+interface StockItem {
+  product_id: number;
+  quantity: number;
 }
 
 const statusLabels: Record<string, { class: string; text: string }> = {
@@ -37,6 +45,7 @@ const statusLabels: Record<string, { class: string; text: string }> = {
 };
 
 export default function ProductRequestsPage() {
+  const router = useRouter();
   const [requests, setRequests] = useState<ProductRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('pending');
@@ -44,10 +53,26 @@ export default function ProductRequestsPage() {
   const [isActioning, setIsActioning] = useState(false);
   const [adminNotes, setAdminNotes] = useState('');
   const [editedQuantities, setEditedQuantities] = useState<Record<number, number>>({});
+  const [editingRequestId, setEditingRequestId] = useState<number | null>(null);
+  const [editItems, setEditItems] = useState<Record<number, number>>({});
+
+  // Stock availability per warehouse
+  const [warehouseStock, setWarehouseStock] = useState<Record<number, StockItem[]>>({});
+  const [loadingStock, setLoadingStock] = useState<number | null>(null);
 
   useEffect(() => {
     fetchRequests();
   }, [statusFilter]);
+
+  // Fetch warehouse stock when expanding a pending request
+  useEffect(() => {
+    if (expandedId) {
+      const req = requests.find(r => r.id === expandedId);
+      if (req && req.status === 'pending' && req.warehouse_id && !warehouseStock[req.warehouse_id]) {
+        fetchWarehouseStock(req.warehouse_id);
+      }
+    }
+  }, [expandedId]);
 
   const fetchRequests = async () => {
     setIsLoading(true);
@@ -63,6 +88,63 @@ export default function ProductRequestsPage() {
     }
   };
 
+  const fetchWarehouseStock = async (warehouseId: number) => {
+    setLoadingStock(warehouseId);
+    try {
+      const response = await warehousesApi.getStock(warehouseId);
+      const stockData: StockItem[] = (response.data || []).map((s: Record<string, unknown>) => ({
+        product_id: s.product_id as number,
+        quantity: Number(s.quantity) || 0,
+      }));
+      setWarehouseStock(prev => ({ ...prev, [warehouseId]: stockData }));
+    } catch {
+      // Silent fail - stock info is supplementary
+    } finally {
+      setLoadingStock(null);
+    }
+  };
+
+  const getAvailableStock = (warehouseId: number | null, productId: number): number | null => {
+    if (!warehouseId || !warehouseStock[warehouseId]) return null;
+    const stockItem = warehouseStock[warehouseId].find(s => s.product_id === productId);
+    return stockItem ? stockItem.quantity : 0;
+  };
+
+  const getStockStatus = (req: ProductRequest): { allAvailable: boolean; shortItems: Array<{ item: ProductRequestItem; available: number; needed: number }> } => {
+    if (!req.warehouse_id || !warehouseStock[req.warehouse_id]) {
+      return { allAvailable: true, shortItems: [] };
+    }
+    const shortItems: Array<{ item: ProductRequestItem; available: number; needed: number }> = [];
+    for (const item of req.items) {
+      const available = getAvailableStock(req.warehouse_id, item.product_id) ?? 0;
+      const needed = editedQuantities[item.id] ?? item.quantity_requested;
+      if (available < needed) {
+        shortItems.push({ item, available, needed });
+      }
+    }
+    return { allAvailable: shortItems.length === 0, shortItems };
+  };
+
+  const handleCreatePurchase = (req: ProductRequest) => {
+    const { shortItems } = getStockStatus(req);
+    // Store pre-fill data in sessionStorage for the purchase form
+    const preFillData = {
+      warehouse_id: req.warehouse_id,
+      note: `شراء لتلبية طلب منتجات ${req.reference}`,
+      items: shortItems.map(si => ({
+        product_id: si.item.product_id,
+        product_name: si.item.product?.name || '',
+        barcode: si.item.product?.barcode || '',
+        quantity: Math.ceil(si.needed - si.available),
+        pieces_per_package: si.item.product?.pieces_per_package || 1,
+        unit_price: si.item.product?.cost_price || 0,
+        unit_name: si.item.product?.unit_buy?.short_name || 'وحدة',
+      })),
+    };
+    sessionStorage.setItem('purchasePreFill', JSON.stringify(preFillData));
+    router.push('/dashboard/purchases/new');
+  };
+
   const handleApprove = async (req: ProductRequest) => {
     setIsActioning(true);
     try {
@@ -74,7 +156,8 @@ export default function ProductRequestsPage() {
         items: itemsData,
         admin_notes: adminNotes || null,
       });
-      toast.success('تمت الموافقة على الطلب');
+      const isCashvan = !req.van_session_id;
+      toast.success(isCashvan ? 'تمت الموافقة وإنشاء تحويل مخزون' : 'تمت الموافقة على الطلب');
       setAdminNotes('');
       setEditedQuantities({});
       setExpandedId(null);
@@ -121,13 +204,84 @@ export default function ProductRequestsPage() {
     }
   };
 
+  const handleDelete = async (req: ProductRequest) => {
+    if (!confirm(`هل تريد حذف الطلب ${req.reference}؟`)) return;
+    setIsActioning(true);
+    try {
+      await productRequestsApi.delete(req.id);
+      toast.success('تم حذف الطلب');
+      setExpandedId(null);
+      fetchRequests();
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'خطأ في الحذف');
+    } finally {
+      setIsActioning(false);
+    }
+  };
+
+  const startEditing = (req: ProductRequest) => {
+    setEditingRequestId(req.id);
+    const quantities: Record<number, number> = {};
+    req.items.forEach(item => {
+      quantities[item.id] = item.quantity_requested;
+    });
+    setEditItems(quantities);
+  };
+
+  const cancelEditing = () => {
+    setEditingRequestId(null);
+    setEditItems({});
+  };
+
+  const handleSaveEdit = async (req: ProductRequest) => {
+    setIsActioning(true);
+    try {
+      const items = req.items.map(item => ({
+        product_id: item.product_id,
+        quantity: editItems[item.id] ?? item.quantity_requested,
+      }));
+      await productRequestsApi.update(req.id, { items });
+      toast.success('تم تعديل الطلب');
+      setEditingRequestId(null);
+      setEditItems({});
+      fetchRequests();
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'خطأ في التعديل');
+    } finally {
+      setIsActioning(false);
+    }
+  };
+
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString('ar-DZ', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
+  const fmtQty = (val: unknown, piecesPerPkg?: number): string => {
+    const n = Number(val);
+    if (isNaN(n) || n === 0) return '0';
+    const ppp = piecesPerPkg && piecesPerPkg > 1 ? piecesPerPkg : 0;
+    if (!ppp) return String(n);
+    const cartons = Math.floor(n);
+    const pieces = Math.round((n - cartons) * ppp);
+    if (cartons > 0 && pieces > 0) return `${cartons} كرتون ${pieces} قطعة`;
+    if (cartons > 0) return `${cartons} كرتون`;
+    if (pieces > 0) return `${pieces} قطعة`;
+    return '0';
+  };
+
+  const splitQty = (decimal: number, ppp: number) => {
+    const cartons = Math.floor(decimal);
+    const pieces = Math.round((decimal - cartons) * ppp);
+    return { cartons, pieces };
+  };
+
+  const combineQty = (cartons: number, pieces: number, ppp: number) => {
+    return cartons + (ppp > 1 ? pieces / ppp : 0);
+  };
 
   const pendingCount = requests.filter(r => r.status === 'pending').length;
+  const isCashvanRequest = (req: ProductRequest) => !req.van_session_id;
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
@@ -192,6 +346,11 @@ export default function ProductRequestsPage() {
           {requests.map(req => {
             const badge = statusLabels[req.status] || { class: 'badge-secondary', text: req.status };
             const isExpanded = expandedId === req.id;
+            const cashvan = isCashvanRequest(req);
+            const isEditing = editingRequestId === req.id;
+            const stockStatus = isExpanded && req.status === 'pending' ? getStockStatus(req) : null;
+            const hasStock = req.warehouse_id ? !!warehouseStock[req.warehouse_id] : false;
+            const isLoadingThisStock = loadingStock === req.warehouse_id;
 
             return (
               <div key={req.id} className="card !p-0 overflow-hidden">
@@ -201,6 +360,7 @@ export default function ProductRequestsPage() {
                     setExpandedId(isExpanded ? null : req.id);
                     setAdminNotes('');
                     setEditedQuantities({});
+                    if (isEditing) cancelEditing();
                   }}
                   className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors text-right"
                 >
@@ -224,9 +384,12 @@ export default function ProductRequestsPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-sm dark:text-white">{req.reference}</span>
                         <span className={`badge ${badge.class} text-xs`}>{badge.text}</span>
+                        {cashvan && (
+                          <span className="badge bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs">مستودع متنقل</span>
+                        )}
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        {req.requester?.name || '-'} - الجلسة {req.van_session?.reference || `#${req.van_session_id}`} - {req.items.length} منتج
+                        {req.requester?.name || '-'} - {cashvan ? (req.warehouse?.name || 'مستودع متنقل') : `الجلسة ${req.van_session?.reference || `#${req.van_session_id}`}`} - {req.items.length} منتج
                       </div>
                     </div>
                   </div>
@@ -248,11 +411,11 @@ export default function ProductRequestsPage() {
                         <div className="font-bold dark:text-white">{req.requester?.name || '-'}</div>
                       </div>
                       <div>
-                        <span className="text-gray-500 dark:text-gray-400 text-xs">الجلسة</span>
-                        <div className="font-bold dark:text-white">{req.van_session?.reference || '-'}</div>
+                        <span className="text-gray-500 dark:text-gray-400 text-xs">{cashvan ? 'النوع' : 'الجلسة'}</span>
+                        <div className="font-bold dark:text-white">{cashvan ? 'مستودع متنقل' : (req.van_session?.reference || '-')}</div>
                       </div>
                       <div>
-                        <span className="text-gray-500 dark:text-gray-400 text-xs">المستودع</span>
+                        <span className="text-gray-500 dark:text-gray-400 text-xs">{cashvan ? 'المستودع المصدر' : 'المستودع'}</span>
                         <div className="font-bold dark:text-white">{req.warehouse?.name || '-'}</div>
                       </div>
                       <div>
@@ -261,6 +424,52 @@ export default function ProductRequestsPage() {
                       </div>
                     </div>
 
+                    {/* Stock availability warning */}
+                    {req.status === 'pending' && isLoadingThisStock && (
+                      <div className="px-4 py-2 border-b dark:border-gray-700 text-sm text-gray-500 flex items-center gap-2">
+                        <span className="spinner w-4 h-4" /> جاري التحقق من المخزون...
+                      </div>
+                    )}
+                    {req.status === 'pending' && hasStock && stockStatus && !stockStatus.allAvailable && (
+                      <div className="px-4 py-3 border-b dark:border-gray-700 bg-red-50 dark:bg-red-900/20">
+                        <div className="flex items-center gap-2 text-red-700 dark:text-red-400 font-bold text-sm mb-2">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                          </svg>
+                          المخزون غير كافٍ لبعض المنتجات
+                        </div>
+                        <div className="space-y-1 mb-3">
+                          {stockStatus.shortItems.map(si => (
+                            <div key={si.item.id} className="flex justify-between text-sm">
+                              <span className="text-red-600 dark:text-red-400">{si.item.product?.name || `منتج #${si.item.product_id}`}</span>
+                              <span className="text-red-600 dark:text-red-400">
+                                متوفر: <strong>{fmtQty(si.available, si.item.product?.pieces_per_package)}</strong> | مطلوب: <strong>{fmtQty(si.needed, si.item.product?.pieces_per_package)}</strong> | ينقص: <strong>{fmtQty(si.needed - si.available, si.item.product?.pieces_per_package)}</strong>
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        <button
+                          onClick={() => handleCreatePurchase(req)}
+                          className="btn bg-amber-500 hover:bg-amber-600 text-white w-full flex items-center justify-center gap-2"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
+                          </svg>
+                          إنشاء فاتورة شراء للكميات الناقصة
+                        </button>
+                      </div>
+                    )}
+                    {req.status === 'pending' && hasStock && stockStatus && stockStatus.allAvailable && (
+                      <div className="px-4 py-2 border-b dark:border-gray-700 bg-green-50 dark:bg-green-900/20">
+                        <div className="flex items-center gap-2 text-green-700 dark:text-green-400 text-sm font-medium">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          جميع الكميات متوفرة في المستودع
+                        </div>
+                      </div>
+                    )}
+
                     {/* Items */}
                     <div className="px-4 py-3">
                       <table className="w-full text-sm">
@@ -268,40 +477,129 @@ export default function ProductRequestsPage() {
                           <tr className="text-gray-500 dark:text-gray-400">
                             <th className="text-right pb-2 font-medium">المنتج</th>
                             <th className="text-center pb-2 font-medium">الكمية المطلوبة</th>
-                            {req.status === 'pending' && <th className="text-center pb-2 font-medium">الكمية المعتمدة</th>}
+                            {req.status === 'pending' && hasStock && <th className="text-center pb-2 font-medium">المتوفر</th>}
+                            {req.status === 'pending' && !isEditing && <th className="text-center pb-2 font-medium">الكمية المعتمدة</th>}
+                            {isEditing && <th className="text-center pb-2 font-medium">تعديل الكمية</th>}
                             {(req.status === 'approved' || req.status === 'fulfilled') && <th className="text-center pb-2 font-medium">الكمية المعتمدة</th>}
                           </tr>
                         </thead>
                         <tbody>
-                          {req.items.map(item => (
-                            <tr key={item.id} className="border-t dark:border-gray-700">
-                              <td className="py-2 font-medium dark:text-white">
-                                {item.product?.name || `منتج #${item.product_id}`}
-                                {item.product?.barcode && <span className="text-xs text-gray-400 mr-2">({item.product.barcode})</span>}
-                              </td>
-                              <td className="py-2 text-center font-bold">{item.quantity_requested}</td>
-                              {req.status === 'pending' && (
-                                <td className="py-2 text-center">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    defaultValue={editedQuantities[item.id] ?? item.quantity_requested}
-                                    onChange={(e) => setEditedQuantities(prev => ({
-                                      ...prev,
-                                      [item.id]: parseFloat(e.target.value) || 0,
-                                    }))}
-                                    className="input w-24 text-center text-sm"
-                                  />
+                          {req.items.map(item => {
+                            const available = getAvailableStock(req.warehouse_id, item.product_id);
+                            const needed = editedQuantities[item.id] ?? item.quantity_requested;
+                            const isShort = available !== null && available < needed;
+
+                            return (
+                              <tr key={item.id} className={`border-t dark:border-gray-700 ${isShort ? 'bg-red-50/50 dark:bg-red-900/10' : ''}`}>
+                                <td className="py-2 font-medium dark:text-white">
+                                  {item.product?.name || `منتج #${item.product_id}`}
+                                  {item.product?.barcode && <span className="text-xs text-gray-400 mr-2">({item.product.barcode})</span>}
                                 </td>
-                              )}
-                              {(req.status === 'approved' || req.status === 'fulfilled') && (
-                                <td className="py-2 text-center font-bold text-green-600 dark:text-green-400">
-                                  {item.quantity_approved}
-                                </td>
-                              )}
-                            </tr>
-                          ))}
+                                <td className="py-2 text-center font-bold">{fmtQty(item.quantity_requested, item.product?.pieces_per_package)}</td>
+                                {req.status === 'pending' && hasStock && (
+                                  <td className={`py-2 text-center font-bold ${isShort ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                                    {available !== null ? fmtQty(available, item.product?.pieces_per_package) : '-'}
+                                    {isShort && (
+                                      <div className="text-[10px] text-red-500">ينقص {fmtQty(needed - (available ?? 0), item.product?.pieces_per_package)}</div>
+                                    )}
+                                  </td>
+                                )}
+                                {req.status === 'pending' && !isEditing && (() => {
+                                  const ppp = item.product?.pieces_per_package || 1;
+                                  const val = editedQuantities[item.id] ?? item.quantity_requested;
+                                  const { cartons, pieces } = splitQty(val, ppp);
+                                  return (
+                                    <td className="py-2 text-center">
+                                      <div className="flex items-center justify-center gap-1">
+                                        <div className="flex flex-col items-center">
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            step="1"
+                                            defaultValue={cartons}
+                                            onChange={(e) => {
+                                              const c = parseInt(e.target.value) || 0;
+                                              const curVal = editedQuantities[item.id] ?? item.quantity_requested;
+                                              const curPcs = splitQty(curVal, ppp).pieces;
+                                              setEditedQuantities(prev => ({ ...prev, [item.id]: combineQty(c, curPcs, ppp) }));
+                                            }}
+                                            className="input w-14 text-center text-sm"
+                                          />
+                                          <span className="text-[10px] text-blue-600">كرتون</span>
+                                        </div>
+                                        {ppp > 1 && (
+                                          <div className="flex flex-col items-center">
+                                            <input
+                                              type="number"
+                                              min="0"
+                                              max={ppp - 1}
+                                              step="1"
+                                              defaultValue={pieces}
+                                              onChange={(e) => {
+                                                const p = parseInt(e.target.value) || 0;
+                                                const curVal = editedQuantities[item.id] ?? item.quantity_requested;
+                                                const curCartons = splitQty(curVal, ppp).cartons;
+                                                setEditedQuantities(prev => ({ ...prev, [item.id]: combineQty(curCartons, p, ppp) }));
+                                              }}
+                                              className="input w-14 text-center text-sm"
+                                            />
+                                            <span className="text-[10px] text-orange-600">قطعة</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </td>
+                                  );
+                                })()}
+                                {isEditing && (() => {
+                                  const ppp = item.product?.pieces_per_package || 1;
+                                  const val = editItems[item.id] ?? item.quantity_requested;
+                                  const { cartons, pieces } = splitQty(val, ppp);
+                                  return (
+                                    <td className="py-2 text-center">
+                                      <div className="flex items-center justify-center gap-1">
+                                        <div className="flex flex-col items-center">
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            step="1"
+                                            value={cartons}
+                                            onChange={(e) => {
+                                              const c = parseInt(e.target.value) || 0;
+                                              setEditItems(prev => ({ ...prev, [item.id]: combineQty(c, pieces, ppp) }));
+                                            }}
+                                            className="input w-14 text-center text-sm border-blue-400"
+                                          />
+                                          <span className="text-[10px] text-blue-600">كرتون</span>
+                                        </div>
+                                        {ppp > 1 && (
+                                          <div className="flex flex-col items-center">
+                                            <input
+                                              type="number"
+                                              min="0"
+                                              max={ppp - 1}
+                                              step="1"
+                                              value={pieces}
+                                              onChange={(e) => {
+                                                const p = parseInt(e.target.value) || 0;
+                                                setEditItems(prev => ({ ...prev, [item.id]: combineQty(cartons, p, ppp) }));
+                                              }}
+                                              className="input w-14 text-center text-sm border-orange-400"
+                                            />
+                                            <span className="text-[10px] text-orange-600">قطعة</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </td>
+                                  );
+                                })()}
+                                {(req.status === 'approved' || req.status === 'fulfilled') && (
+                                  <td className="py-2 text-center font-bold text-green-600 dark:text-green-400">
+                                    {fmtQty(item.quantity_approved, item.product?.pieces_per_package)}
+                                  </td>
+                                )}
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -314,8 +612,34 @@ export default function ProductRequestsPage() {
                       </div>
                     )}
 
-                    {/* Admin Actions */}
-                    {req.status === 'pending' && (
+                    {/* Edit mode save/cancel */}
+                    {isEditing && (
+                      <div className="px-4 py-3 border-t dark:border-gray-700 flex gap-2">
+                        <button
+                          onClick={() => handleSaveEdit(req)}
+                          disabled={isActioning}
+                          className="btn btn-primary flex-1 flex items-center justify-center gap-2"
+                        >
+                          {isActioning ? <span className="spinner w-4 h-4" /> : (
+                            <>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              حفظ التعديلات
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={cancelEditing}
+                          className="btn bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 flex-1"
+                        >
+                          إلغاء
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Admin Actions for pending requests */}
+                    {req.status === 'pending' && !isEditing && (
                       <div className="px-4 py-3 border-t dark:border-gray-700 space-y-3">
                         <textarea
                           value={adminNotes}
@@ -335,7 +659,7 @@ export default function ProductRequestsPage() {
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                 </svg>
-                                موافقة
+                                {cashvan ? 'موافقة (إنشاء تحويل)' : 'موافقة'}
                               </>
                             )}
                           </button>
@@ -350,11 +674,33 @@ export default function ProductRequestsPage() {
                             رفض
                           </button>
                         </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => startEditing(req)}
+                            disabled={isActioning}
+                            className="btn bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex-1 flex items-center justify-center gap-2 text-sm"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            تعديل
+                          </button>
+                          <button
+                            onClick={() => handleDelete(req)}
+                            disabled={isActioning}
+                            className="btn bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 flex-1 flex items-center justify-center gap-2 text-sm"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            حذف
+                          </button>
+                        </div>
                       </div>
                     )}
 
-                    {/* Fulfill button for approved */}
-                    {req.status === 'approved' && (
+                    {/* Fulfill button for approved (van session requests only) */}
+                    {req.status === 'approved' && !cashvan && (
                       <div className="px-4 py-3 border-t dark:border-gray-700">
                         <button
                           onClick={() => handleFulfill(req)}
@@ -373,6 +719,18 @@ export default function ProductRequestsPage() {
                         {req.admin_notes && (
                           <p className="text-xs text-gray-500 mt-2">ملاحظات: {req.admin_notes}</p>
                         )}
+                      </div>
+                    )}
+
+                    {/* Cashvan approved info (auto-fulfilled, stock transfer created) */}
+                    {req.status === 'fulfilled' && cashvan && (
+                      <div className="px-4 py-2 border-t dark:border-gray-700">
+                        <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span>تم إنشاء تحويل مخزون تلقائياً (بانتظار استلام السائق)</span>
+                        </div>
                       </div>
                     )}
 

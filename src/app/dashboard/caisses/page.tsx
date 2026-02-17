@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { caissesApi, dispensesApi } from '@/lib/api';
+import { caissesApi, dispensesApi, usersApi } from '@/lib/api';
 import { Caisse, CaisseTransaction, CaisseSettlement, CaisseSummary } from '@/lib/types';
 import toast from 'react-hot-toast';
 
@@ -9,12 +9,14 @@ const typeLabels: Record<string, string> = {
   principale: 'رئيسية',
   vendeur: 'بائع',
   livreur: 'سائق',
+  cashvan: 'متنقل',
 };
 
 const typeBadgeColors: Record<string, string> = {
   principale: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
   vendeur: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
   livreur: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  cashvan: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
 };
 
 const sourceTypeLabels: Record<string, string> = {
@@ -63,6 +65,13 @@ export default function CaissesPage() {
   });
   const [isCreatingExpense, setIsCreatingExpense] = useState(false);
 
+  // Create caisse modal
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [usersWithoutCaisse, setUsersWithoutCaisse] = useState<{ id: number; name: string; role: string }[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState(0);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+
   // Creator filter
   const [creatorFilter, setCreatorFilter] = useState('');
 
@@ -81,6 +90,51 @@ export default function CaissesPage() {
       toast.error('خطأ في تحميل البيانات');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const roleLabels: Record<string, string> = {
+    admin: 'مدير',
+    manager: 'مسير',
+    seller: 'بائع',
+    livreur: 'سائق',
+    cashvan: 'متنقل',
+  };
+
+  const openCreateModal = async () => {
+    setShowCreateModal(true);
+    setSelectedUserId(0);
+    setIsLoadingUsers(true);
+    try {
+      const usersRes = await usersApi.getAll({ per_page: 1000 });
+      const allUsers = usersRes.data.data || usersRes.data || [];
+      const caisseUserIds = new Set((summary?.caisses || []).map((c: Caisse) => c.user_id));
+      const available = allUsers.filter((u: { id: number; role: string }) => !caisseUserIds.has(u.id) && u.role !== 'manager');
+      setUsersWithoutCaisse(available);
+    } catch {
+      toast.error('خطأ في تحميل المستخدمين');
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
+
+  const handleCreateCaisse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUserId) {
+      toast.error('يرجى اختيار مستخدم');
+      return;
+    }
+    setIsCreating(true);
+    try {
+      await caissesApi.create({ user_id: selectedUserId });
+      toast.success('تم إنشاء الصندوق بنجاح');
+      setShowCreateModal(false);
+      await fetchSummary();
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'خطأ في إنشاء الصندوق');
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -611,18 +665,29 @@ export default function CaissesPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold dark:text-white">الصناديق</h1>
-        <button
-          onClick={() => {
-            setTransferForm({ from_caisse_id: 0, to_caisse_id: 0, amount: 0, notes: '' });
-            setShowTransferModal(true);
-          }}
-          className="btn btn-primary"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-          </svg>
-          تحويل بين الصناديق
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={openCreateModal}
+            className="btn bg-green-600 text-white hover:bg-green-700"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            إضافة صندوق
+          </button>
+          <button
+            onClick={() => {
+              setTransferForm({ from_caisse_id: 0, to_caisse_id: 0, amount: 0, notes: '' });
+              setShowTransferModal(true);
+            }}
+            className="btn btn-primary"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+            تحويل بين الصناديق
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -688,6 +753,51 @@ export default function CaissesPage() {
       {(!summary || summary.caisses.length === 0) && (
         <div className="text-center py-12 text-gray-500 dark:text-gray-400">
           لا توجد صناديق
+        </div>
+      )}
+
+      {/* Create Caisse Modal */}
+      {showCreateModal && (
+        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+          <div className="modal-content p-6" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold mb-4 dark:text-white">إضافة صندوق جديد</h2>
+            {isLoadingUsers ? (
+              <div className="flex items-center justify-center py-8"><div className="spinner"></div></div>
+            ) : usersWithoutCaisse.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p>جميع المستخدمين لديهم صناديق</p>
+                <button onClick={() => setShowCreateModal(false)} className="btn btn-secondary mt-4">إغلاق</button>
+              </div>
+            ) : (
+              <form onSubmit={handleCreateCaisse} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">المستخدم *</label>
+                  <select
+                    value={selectedUserId}
+                    onChange={(e) => setSelectedUserId(parseInt(e.target.value) || 0)}
+                    className="select"
+                    required
+                  >
+                    <option value={0}>اختر المستخدم</option>
+                    {usersWithoutCaisse.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} ({roleLabels[u.role] || u.role})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">سيتم تحديد نوع الصندوق تلقائياً حسب دور المستخدم</p>
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button type="submit" disabled={isCreating || !selectedUserId} className="btn btn-primary flex-1">
+                    {isCreating ? 'جاري الإنشاء...' : 'إنشاء الصندوق'}
+                  </button>
+                  <button type="button" onClick={() => setShowCreateModal(false)} className="btn btn-secondary">
+                    إلغاء
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
         </div>
       )}
 

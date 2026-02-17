@@ -306,6 +306,8 @@ export const productRequestsApi = {
   reject: (id: number, data?: Record<string, unknown>) => api.post(`/product-requests/${id}/reject`, data),
   fulfill: (id: number) => api.post(`/product-requests/${id}/fulfill`),
   pendingCount: () => api.get('/product-requests/pending-count'),
+  update: (id: number, data: Record<string, unknown>) => api.put(`/product-requests/${id}`, data),
+  delete: (id: number) => api.delete(`/product-requests/${id}`),
 };
 
 // Debtors API (Delivery-based only)
@@ -316,7 +318,7 @@ export const debtorsApi = {
 
 // All Debtors API (Combined: Sales + Deliveries)
 export const allDebtorsApi = {
-  getAll: () => api.get('/all-debtors'),
+  getAll: (params?: Record<string, unknown>) => api.get('/all-debtors', { params }),
   getClientDebt: (clientId: number) => api.get(`/all-debtors/${clientId}`),
 };
 
@@ -445,6 +447,7 @@ export const inventoryApi = {
 export const caissesApi = {
   getAll: (params?: Record<string, unknown>) => api.get('/caisses', { params }),
   getOne: (id: number) => api.get(`/caisses/${id}`),
+  create: (data: { user_id: number }) => api.post('/caisses', data),
   getTransactions: (id: number, params?: Record<string, unknown>) =>
     api.get(`/caisses/${id}/transactions`, { params }),
   settle: (id: number, data: { amount: number; type: string; notes?: string }) =>

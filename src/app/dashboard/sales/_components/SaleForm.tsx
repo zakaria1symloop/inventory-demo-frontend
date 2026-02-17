@@ -389,7 +389,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       const existingItem = items[existingIndex];
       const newQty = existingItem.quantity + quantity;
       if (newQty > availableStock) {
-        toast.error(`الكمية المتوفرة: ${Math.round(availableStock)} فقط`);
+        toast.error(`الكمية المتوفرة: ${formatStockQty(availableStock, product.pieces_per_package || 1)} فقط`);
         return;
       }
       const updatedItem = {
@@ -538,7 +538,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       const existingItem = items[existingIndex];
       const newQty = existingItem.quantity + quantity;
       if (newQty > availableStock) {
-        toast.error(`الكمية المتوفرة: ${Math.round(availableStock)} فقط`);
+        toast.error(`الكمية المتوفرة: ${formatStockQty(availableStock, product.pieces_per_package || 1)} فقط`);
         return;
       }
       const updatedItem = {
@@ -552,7 +552,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       setItems([updatedItem, ...otherItems]);
     } else {
       if (availableStock < quantity) {
-        toast.error(`الكمية المتوفرة: ${Math.round(availableStock)} فقط`);
+        toast.error(`الكمية المتوفرة: ${formatStockQty(availableStock, product.pieces_per_package || 1)} فقط`);
         return;
       }
       const piecesPerPkg = product.pieces_per_package || 1;
@@ -603,7 +603,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
     // Check stock
     const decimalQty = newCartons + newExtra / ppp;
     if (decimalQty > updated[index].available_stock) {
-      toast.error(`الكمية المتوفرة: ${Math.round(updated[index].available_stock)} فقط`);
+      toast.error(`الكمية المتوفرة: ${formatStockQty(updated[index].available_stock, ppp)} فقط`);
       return;
     }
 
@@ -629,7 +629,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       const newExtra = field === 'extra_pieces' ? numValue : updated[index].extra_pieces;
       const decimalQty = newQty + newExtra / ppp;
       if (decimalQty > updated[index].available_stock) {
-        toast.error(`الكمية المتوفرة: ${Math.round(updated[index].available_stock)} فقط`);
+        toast.error(`الكمية المتوفرة: ${formatStockQty(updated[index].available_stock, ppp)} فقط`);
         return;
       }
       if (field === 'quantity') {
@@ -753,7 +753,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       const ppp = Number(item.pieces_per_package) || 1;
       const decimalQty = item.quantity + (item.extra_pieces || 0) / ppp;
       if (decimalQty > item.available_stock) {
-        toast.error(`الكمية المطلوبة لـ "${item.product_name}" (${decimalQty}) أكبر من المتوفر (${Math.round(item.available_stock)})`);
+        toast.error(`الكمية المطلوبة لـ "${item.product_name}" أكبر من المتوفر (${formatStockQty(item.available_stock, ppp)})`);
         return;
       }
     }
@@ -1360,6 +1360,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                       <th className="px-2 py-2 text-center w-28">كرتون/قطعة</th>
                       <th className="px-2 py-2 text-center w-16">الوحدة</th>
                       <th className="px-2 py-2 text-center w-20">العدد</th>
+                      <th className="px-2 py-2 text-center w-20">المتوفر</th>
                       <th className="px-2 py-2 text-center w-24">س. الوحدة</th>
                       <th className="px-2 py-2 text-center w-20">الخصم</th>
                       <th className="px-2 py-2 text-center w-24">المبلغ</th>
@@ -1369,7 +1370,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                   <tbody>
                     {items.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="text-center py-8 text-gray-500">
+                        <td colSpan={10} className="text-center py-8 text-gray-500">
                           لم يتم إضافة منتجات بعد
                         </td>
                       </tr>
@@ -1458,6 +1459,18 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                                 className="input w-16 text-center text-sm py-0.5 font-medium"
                                 min="0"
                               />
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              {(() => {
+                                const ppp = item.pieces_per_package || 1;
+                                const decimalQty = item.quantity + (item.extra_pieces || 0) / ppp;
+                                const overStock = decimalQty > item.available_stock;
+                                return (
+                                  <span className={`text-sm font-bold ${overStock ? 'text-red-600' : 'text-green-600'}`}>
+                                    {formatStockQty(item.available_stock, ppp)}
+                                  </span>
+                                );
+                              })()}
                             </td>
                             <td className="px-2 py-2">
                               <input

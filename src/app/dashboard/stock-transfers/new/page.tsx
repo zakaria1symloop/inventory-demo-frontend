@@ -258,7 +258,7 @@ export default function NewStockTransferPage() {
 
     const stock = getStock(item.product_id);
     if (fromWarehouseId && item.decimal_qty > stock) {
-      toast.error(`${item.product.name}: المتوفر ${stock} فقط`);
+      toast.error(`${item.product.name}: المتوفر ${fmtStock(stock, ppp)} فقط`);
     }
     setItems(newItems);
   };
@@ -314,6 +314,16 @@ export default function NewStockTransferPage() {
     return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
   };
 
+  const fmtStock = (qty: number, ppp: number): string => {
+    if (!ppp || ppp <= 1) return Math.round(qty).toString();
+    const cartons = Math.floor(qty);
+    const pieces = Math.round((qty - cartons) * ppp);
+    if (cartons > 0 && pieces > 0) return `${cartons} كرتون ${pieces} قطعة`;
+    if (cartons > 0) return `${cartons} كرتون`;
+    if (pieces > 0) return `${pieces} قطعة`;
+    return '0';
+  };
+
   const hasStockErrors = () => {
     if (!fromWarehouseId) return false;
     return items.some(item => item.decimal_qty > getStock(item.product_id));
@@ -340,7 +350,7 @@ export default function NewStockTransferPage() {
     for (const item of items) {
       const available = getStock(item.product_id);
       if (item.decimal_qty > available) {
-        errors.push(`${item.product.name}: المطلوب ${item.decimal_qty.toFixed(2)}، المتوفر ${available}`);
+        errors.push(`${item.product.name}: المطلوب ${fmtStock(item.decimal_qty, item.pieces_per_package)}، المتوفر ${fmtStock(available, item.pieces_per_package)}`);
       }
     }
     if (errors.length > 0) {
@@ -602,7 +612,7 @@ export default function NewStockTransferPage() {
                                   )}
                                   {fromWarehouseId ? (
                                     <span className={`text-sm font-bold ${isOutOfStock ? 'text-red-600' : 'text-green-600'}`}>
-                                      {stock > 0 ? `متوفر: ${stock}` : 'غير متوفر'}
+                                      {stock > 0 ? `متوفر: ${fmtStock(stock, product.pieces_per_package || 1)}` : 'غير متوفر'}
                                     </span>
                                   ) : (
                                     <span className="text-sm text-gray-500">{product.unit?.name || ''}</span>
@@ -733,7 +743,7 @@ export default function NewStockTransferPage() {
                           <td className="px-2 py-2 text-center">
                             {fromWarehouseId ? (
                               <span className={`font-bold text-sm ${overStock ? 'text-red-600' : 'text-green-600'}`}>
-                                {stock}
+                                {fmtStock(stock, item.pieces_per_package)}
                               </span>
                             ) : '-'}
                             {overStock && (

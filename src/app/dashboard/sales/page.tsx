@@ -199,8 +199,11 @@ export default function SalesPage() {
     fetchFilterData();
   }, []);
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('هل أنت متأكد من حذف هذه الفاتورة؟')) return;
+  const handleDelete = async (id: number, isDraft: boolean = false) => {
+    const msg = isDraft
+      ? 'هل أنت متأكد من حذف هذه المسودة؟'
+      : 'هل أنت متأكد من إلغاء هذه الفاتورة؟ سيتم إرجاع المخزون وعكس المبالغ المالية.';
+    if (!confirm(msg)) return;
     try {
       await salesApi.delete(id);
       toast.success('تم حذف الفاتورة بنجاح');
@@ -212,7 +215,7 @@ export default function SalesPage() {
   };
 
   const canDelete = (sale: Sale) => {
-    return sale.status === 'draft' || (sale.payment_status === 'unpaid' && sale.paid_amount === 0);
+    return sale.status !== 'cancelled';
   };
 
   const handleConfirmDraft = async (id: number) => {
@@ -617,7 +620,7 @@ export default function SalesPage() {
                                     <TruckIcon className="w-5 h-5" />
                                   </button>
                                   {canDelete(sale) && (
-                                    <button onClick={() => handleDelete(sale.id)} className="text-red-600 hover:text-red-800" title="حذف">
+                                    <button onClick={() => handleDelete(sale.id, sale.status === 'draft')} className="text-red-600 hover:text-red-800" title={sale.status === 'draft' ? 'حذف' : 'إلغاء الفاتورة'}>
                                       <TrashIcon className="w-5 h-5" />
                                     </button>
                                   )}

@@ -108,6 +108,9 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
   // Search mode toggle (barcode or name) - saved to localStorage
   const [searchMode, setSearchMode] = useState<'barcode' | 'name'>('barcode');
 
+  // Warehouse stock
+  const [warehouseStock, setWarehouseStock] = useState<Record<number, number>>({});
+
   // Quick product entry modal
   const [quickEntryModal, setQuickEntryModal] = useState<{
     show: boolean;
@@ -132,6 +135,52 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
       setSearchMode(savedSearchMode);
     }
   }, []);
+
+  // Pre-fill from product request (sessionStorage)
+  useEffect(() => {
+    if (isEditMode || products.length === 0) return;
+    const preFillJson = sessionStorage.getItem('purchasePreFill');
+    if (!preFillJson) return;
+    sessionStorage.removeItem('purchasePreFill');
+    try {
+      const preFill = JSON.parse(preFillJson);
+      if (preFill.warehouse_id) {
+        setWarehouseId(preFill.warehouse_id.toString());
+      }
+      if (preFill.note) {
+        setNote(preFill.note);
+      }
+      if (preFill.items && Array.isArray(preFill.items)) {
+        const preFillItems: PurchaseItem[] = preFill.items.map((pi: Record<string, unknown>) => {
+          const piecesPerPkg = Number(pi.pieces_per_package) || 1;
+          const unitPrice = Number(pi.unit_price) || 0;
+          const qty = Number(pi.quantity) || 1;
+          const baseAmount = unitPrice * piecesPerPkg * qty;
+          return {
+            product_id: Number(pi.product_id),
+            product_name: String(pi.product_name || ''),
+            barcode: String(pi.barcode || ''),
+            quantity: qty,
+            pieces_per_package: piecesPerPkg,
+            total_pieces: qty * piecesPerPkg,
+            unit_price: unitPrice,
+            original_price: unitPrice,
+            unit_name: String(pi.unit_name || 'وحدة'),
+            discount: 0,
+            tax_percent: 0,
+            tax: 0,
+            subtotal: baseAmount,
+          };
+        });
+        if (preFillItems.length > 0) {
+          setItems(preFillItems);
+          toast.success(`تم تحميل ${preFillItems.length} منتج من طلب المنتجات`);
+        }
+      }
+    } catch {
+      // Silent fail
+    }
+  }, [products.length, isEditMode]);
 
   // Load purchase data in edit mode - wait for suppliers to be loaded first
   useEffect(() => {
@@ -187,6 +236,21 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [quickEntryModal.show]);
+
+  // Fetch warehouse stock when warehouse changes
+  useEffect(() => {
+    if (warehouseId) {
+      warehousesApi.getStock(parseInt(warehouseId)).then((res) => {
+        const stockMap: Record<number, number> = {};
+        (res.data || []).forEach((s: { product_id: number; quantity: number }) => {
+          stockMap[s.product_id] = Number(s.quantity) || 0;
+        });
+        setWarehouseStock(stockMap);
+      }).catch(() => setWarehouseStock({}));
+    } else {
+      setWarehouseStock({});
+    }
+  }, [warehouseId]);
 
   // Fetch supplier debt when supplier changes
   useEffect(() => {
@@ -565,6 +629,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
         shipping,
         note,
         paid_amount: paidAmount,
+        status: 'received',
         items: items.map((item) => ({
           product_id: item.product_id,
           quantity: item.quantity,
@@ -585,6 +650,58 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!warehouseId) {
+      toast.error('الرجاء اختيار المستودع');
+      return;
+    }
+    if (items.length === 0) {
+      toast.error('الرجاء إضافة منتج واحد على الأقل');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await purchasesApi.create({
+        supplier_id: supplierId ? parseInt(supplierId) : null,
+        warehouse_id: parseInt(warehouseId),
+        date,
+        discount,
+        tax,
+        shipping,
+        note,
+        paid_amount: paidAmount,
+        status: 'pending',
+        items: items.map((item) => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          discount: item.discount,
+          tax: item.tax,
+        })),
+      });
+      toast.success('تم حفظ المسودة بنجاح');
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.push('/dashboard/purchases');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'خطأ في حفظ المسودة');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const formatStockQty = (qty: number, ppp: number): string => {
+    if (!ppp || ppp <= 1) return String(qty);
+    const cartons = Math.floor(qty);
+    const pieces = Math.round((qty - cartons) * ppp);
+    if (cartons > 0 && pieces > 0) return `${cartons} كرتون ${pieces} قطعة`;
+    if (cartons > 0) return `${cartons} كرتون`;
+    if (pieces > 0) return `${pieces} قطعة`;
+    return '0';
   };
 
   const formatCurrency = (value: number) => {
@@ -1042,6 +1159,11 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                                     )}
                                   </span>
                                 </div>
+                                {warehouseId && (
+                                  <div className="text-xs text-blue-600">
+                                    متوفر: {formatStockQty(warehouseStock[product.id] || 0, piecesPerPkg)}
+                                  </div>
+                                )}
                               </button>
                             );
                           })
@@ -1059,6 +1181,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                     <tr className="bg-gray-100">
                       <th className="px-2 py-2 text-center w-12">الرقم</th>
                       <th className="px-2 py-2 text-right">التعيين</th>
+                      <th className="px-2 py-2 text-center w-24">المتوفر</th>
                       <th className="px-2 py-2 text-center w-20">الكمية</th>
                       <th className="px-2 py-2 text-center w-16">الوحدة</th>
                       <th className="px-2 py-2 text-center w-20">العدد</th>
@@ -1072,7 +1195,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                   <tbody>
                     {items.length === 0 ? (
                       <tr>
-                        <td colSpan={10} className="text-center py-8 text-gray-500">
+                        <td colSpan={11} className="text-center py-8 text-gray-500">
                           لم يتم إضافة منتجات بعد
                         </td>
                       </tr>
@@ -1083,6 +1206,15 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                           <td className="px-2 py-2">
                             <div className="font-medium">{item.product_name}</div>
                             <div className="text-xs text-gray-500">{item.barcode}</div>
+                          </td>
+                          <td className="px-2 py-2 text-center text-sm">
+                            {warehouseId ? (
+                              <span className="text-blue-600 font-medium">
+                                {formatStockQty(warehouseStock[item.product_id] || 0, item.pieces_per_package)}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
                           </td>
                           <td className="px-2 py-2">
                             <input
@@ -1336,6 +1468,17 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                 >
                   {isSaving ? 'جاري الحفظ...' : 'حفظ الفاتورة'}
                 </button>
+
+                {!isEditMode && (
+                  <button
+                    type="button"
+                    onClick={handleSaveDraft}
+                    disabled={isSaving || items.length === 0}
+                    className="btn w-full bg-yellow-500 hover:bg-yellow-600 text-white"
+                  >
+                    {isSaving ? 'جاري الحفظ...' : 'حفظ كمسودة'}
+                  </button>
+                )}
 
                 {onCancel ? (
                   <button type="button" onClick={onCancel} className="btn btn-secondary w-full text-center block">
