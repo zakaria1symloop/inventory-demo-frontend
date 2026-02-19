@@ -76,6 +76,7 @@ export default function InventoryPage() {
     lowStock: 0,
     outOfStock: 0,
     totalValue: 0,
+    totalRetailValue: 0,
   });
 
   // Ref for search input
@@ -204,17 +205,24 @@ export default function InventoryPage() {
 
       // Calculate stats
       const allProducts = data.data || [];
-      const inStock = allProducts.filter((p: Product) => p.total_stock > p.stock_alert).length;
-      const lowStock = allProducts.filter((p: Product) => p.total_stock > 0 && p.total_stock <= p.stock_alert).length;
-      const outOfStock = allProducts.filter((p: Product) => p.total_stock <= 0).length;
-      const totalValue = allProducts.reduce((sum: number, p: Product) => sum + (p.total_stock * p.cost_price), 0);
+      const inStock = allProducts.filter((p: Product) => Number(p.total_stock) > Number(p.stock_alert)).length;
+      const lowStock = allProducts.filter((p: Product) => Number(p.total_stock) > 0 && Number(p.total_stock) <= Number(p.stock_alert)).length;
+      const outOfStock = allProducts.filter((p: Product) => Number(p.total_stock) <= 0).length;
+      const totalCostValue = allProducts.reduce((sum: number, p: Product) => sum + (Number(p.total_stock) || 0) * (Number(p.cost_price) || 0), 0);
+      const totalRetailValue = allProducts.reduce((sum: number, p: Product) => {
+        const ppp = Number(p.pieces_per_package) || 1;
+        const pieces = Math.round((Number(p.total_stock) || 0) * ppp);
+        const sellPerPiece = ppp > 0 ? (Number(p.retail_price) || 0) / ppp : (Number(p.retail_price) || 0);
+        return sum + pieces * sellPerPiece;
+      }, 0);
 
       setStats({
         totalProducts: data.total || allProducts.length,
         inStock,
         lowStock,
         outOfStock,
-        totalValue,
+        totalValue: totalCostValue,
+        totalRetailValue,
       });
     } catch (error) {
       toast.error('خطأ في تحميل البيانات');
@@ -388,7 +396,7 @@ export default function InventoryPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <div className="card p-3">
           <div className="flex items-center gap-2">
             <CubeIcon className="w-5 h-5 text-blue-600" />
@@ -429,8 +437,17 @@ export default function InventoryPage() {
           <div className="flex items-center gap-2">
             <ChartBarIcon className="w-5 h-5 text-purple-600" />
             <div>
-              <p className="text-xs text-gray-500">القيمة</p>
+              <p className="text-xs text-gray-500">إجمالي الشراء</p>
               <p className="text-sm font-bold text-purple-600">{formatCurrency(stats.totalValue)}</p>
+            </div>
+          </div>
+        </div>
+        <div className="card p-3">
+          <div className="flex items-center gap-2">
+            <ChartBarIcon className="w-5 h-5 text-indigo-600" />
+            <div>
+              <p className="text-xs text-gray-500">إجمالي البيع</p>
+              <p className="text-sm font-bold text-indigo-600">{formatCurrency(stats.totalRetailValue)}</p>
             </div>
           </div>
         </div>
@@ -493,20 +510,25 @@ export default function InventoryPage() {
                 <th className="text-right px-4 py-3 text-sm">الفئة</th>
                 <th className="text-center px-4 py-3 text-sm">الوحدة</th>
                 {selectedWarehouse ? (
-                  <th className="text-center px-4 py-3 text-sm">الكمية</th>
+                  <th className="text-center px-4 py-3 text-sm">مخزون المستودع</th>
                 ) : (
                   warehouses.slice(0, 3).map(wh => (
                     <th key={wh.id} className="text-center px-4 py-3 text-sm">{wh.name}</th>
                   ))
                 )}
-                <th className="text-center px-4 py-3 text-sm">الإجمالي</th>
+                <th className="text-center px-4 py-3 text-sm">الكمية (قطعة)</th>
+                <th className="text-center px-4 py-3 text-sm">الكمية (وحدة)</th>
+                <th className="text-center px-4 py-3 text-sm">سعر الشراء/وحدة</th>
+                <th className="text-center px-4 py-3 text-sm">إجمالي الشراء</th>
+                <th className="text-center px-4 py-3 text-sm">سعر البيع/قطعة</th>
+                <th className="text-center px-4 py-3 text-sm">إجمالي البيع</th>
                 <th className="text-center px-4 py-3 text-sm">الحالة</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
               {products.length === 0 ? (
                 <tr>
-                  <td colSpan={selectedWarehouse ? 6 : 5 + Math.min(3, warehouses.length)} className="text-center py-8 text-gray-500">
+                  <td colSpan={selectedWarehouse ? 11 : 10 + Math.min(3, warehouses.length)} className="text-center py-8 text-gray-500">
                     لا توجد منتجات
                   </td>
                 </tr>
@@ -710,13 +732,59 @@ export default function InventoryPage() {
                         })
                       )}
 
-                      <td className="px-4 py-2 text-center font-bold text-lg">{product.total_stock || 0}</td>
+                      {(() => {
+                        const qty = Number(product.total_stock) || 0;
+                        const ppp = Number(product.pieces_per_package) || 1;
+                        const totalPieces = Math.round(qty * ppp);
+                        const costPerUnit = Number(product.cost_price) || 0;
+                        const retailPrice = Number(product.retail_price) || 0;
+                        const totalCost = qty * costPerUnit;
+                        const sellPerPiece = ppp > 0 ? retailPrice / ppp : retailPrice;
+                        const totalSell = totalPieces * sellPerPiece;
+                        return (
+                          <>
+                            <td className="px-4 py-2 text-center font-bold">{totalPieces}</td>
+                            <td className="px-4 py-2 text-center text-sm">{qty}</td>
+                            <td className="px-4 py-2 text-center text-sm">{formatCurrency(costPerUnit)}</td>
+                            <td className="px-4 py-2 text-center text-sm font-medium text-purple-700">{formatCurrency(totalCost)}</td>
+                            <td className="px-4 py-2 text-center text-sm">{formatCurrency(sellPerPiece)}</td>
+                            <td className="px-4 py-2 text-center text-sm font-medium text-indigo-700">{formatCurrency(totalSell)}</td>
+                          </>
+                        );
+                      })()}
                       <td className="px-4 py-2 text-center">{getStockStatusBadge(product)}</td>
                     </tr>
                   );
                 })
               )}
             </tbody>
+            {products.length > 0 && (
+              <tfoot className="bg-gray-100 dark:bg-gray-800 font-bold">
+                <tr>
+                  <td className="px-4 py-3 text-sm" colSpan={selectedWarehouse ? 4 : 3 + Math.min(3, warehouses.length)}>الإجمالي</td>
+                  <td className="px-4 py-3 text-center text-sm">
+                    {products.reduce((s, p) => s + Math.round((Number(p.total_stock) || 0) * (Number(p.pieces_per_package) || 1)), 0)}
+                  </td>
+                  <td className="px-4 py-3 text-center text-sm">
+                    {products.reduce((s, p) => s + (Number(p.total_stock) || 0), 0)}
+                  </td>
+                  <td className="px-4 py-3 text-center text-sm">-</td>
+                  <td className="px-4 py-3 text-center text-sm text-purple-700">
+                    {formatCurrency(products.reduce((s, p) => s + (Number(p.total_stock) || 0) * (Number(p.cost_price) || 0), 0))}
+                  </td>
+                  <td className="px-4 py-3 text-center text-sm">-</td>
+                  <td className="px-4 py-3 text-center text-sm text-indigo-700">
+                    {formatCurrency(products.reduce((s, p) => {
+                      const ppp = Number(p.pieces_per_package) || 1;
+                      const pieces = Math.round((Number(p.total_stock) || 0) * ppp);
+                      const sellPerPiece = ppp > 0 ? (Number(p.retail_price) || 0) / ppp : (Number(p.retail_price) || 0);
+                      return s + pieces * sellPerPiece;
+                    }, 0))}
+                  </td>
+                  <td className="px-4 py-3"></td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
 

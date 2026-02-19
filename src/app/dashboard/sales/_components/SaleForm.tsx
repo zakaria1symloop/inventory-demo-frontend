@@ -860,14 +860,6 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       {/* Quick Entry Modal */}
       {quickEntryModal.show && quickEntryModal.product && (() => {
         const ppp = quickEntryModal.product?.pieces_per_package || 1;
-        const selectedClient = clientId ? clients.find(c => c.id.toString() === clientId) : null;
-        const hasClientCategory = !!(selectedClient?.client_category_id);
-        const availablePrices = hasClientCategory ? [] : getProductPrices(quickEntryModal.product!);
-        const colorMap: Record<string, { bg: string; border: string; text: string; activeBg: string }> = {
-          green: { bg: 'bg-green-50', border: 'border-green-300', text: 'text-green-700', activeBg: 'bg-green-200' },
-          blue: { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-700', activeBg: 'bg-blue-200' },
-          amber: { bg: 'bg-amber-50', border: 'border-amber-300', text: 'text-amber-700', activeBg: 'bg-amber-200' },
-        };
         return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white rounded-lg shadow-xl p-6 w-[420px] max-w-full mx-4">
@@ -883,8 +875,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
-                      quickPriceRef.current?.focus();
-                      quickPriceRef.current?.select();
+                      confirmQuickEntry();
                     } else if (e.key === 'Escape') {
                       setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0 });
                       barcodeInputRef.current?.focus();
@@ -896,65 +887,6 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                 />
               </div>
 
-              {/* Price chips */}
-              {availablePrices.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium mb-2">اختر السعر</label>
-                  <div className="flex flex-wrap gap-2">
-                    {availablePrices.map((p, i) => {
-                      const isActive = quickEntryModal.unitPrice === p.price;
-                      const colors = colorMap[p.color] || colorMap.blue;
-                      return (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => {
-                            setQuickEntryModal(prev => ({ ...prev, unitPrice: p.price }));
-                            quickPriceRef.current?.focus();
-                          }}
-                          className={`px-3 py-2 rounded-lg border-2 text-sm font-semibold transition-all ${
-                            isActive
-                              ? `${colors.activeBg} ${colors.border} ${colors.text} ring-2 ring-offset-1 ring-${p.color}-400`
-                              : `${colors.bg} ${colors.border} ${colors.text} hover:${colors.activeBg}`
-                          }`}
-                        >
-                          <div className="text-xs opacity-75">{p.label}</div>
-                          <div className="text-base">{p.price}</div>
-                          {ppp > 1 && (
-                            <div className="text-[10px] opacity-60">{(p.price * ppp).toFixed(0)} /كرتون</div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium mb-1">سعر القطعة</label>
-                <input
-                  ref={quickPriceRef}
-                  type="number"
-                  value={quickEntryModal.unitPrice}
-                  onChange={(e) => setQuickEntryModal(prev => ({ ...prev, unitPrice: Number(e.target.value) || 0 }))}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      confirmQuickEntry();
-                    } else if (e.key === 'Escape') {
-                      setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0 });
-                      barcodeInputRef.current?.focus();
-                    }
-                  }}
-                  className="input w-full text-center text-xl"
-                  min="0"
-                />
-                {ppp > 1 && (
-                  <div className="text-center text-sm text-blue-600 mt-1 font-medium">
-                    سعر الكرتون: {formatCurrency(quickEntryModal.unitPrice * ppp)}
-                  </div>
-                )}
-              </div>
               <div className="text-center text-lg font-bold text-blue-600">
                 المجموع: {formatCurrency(quickEntryModal.unitPrice * ppp * quickEntryModal.quantity)}
                 <div className="text-xs text-gray-500 font-normal">

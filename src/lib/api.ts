@@ -463,6 +463,7 @@ export const stockTransfersApi = {
   getAll: (params?: Record<string, unknown>) => api.get('/stock-transfers', { params }),
   getOne: (id: number) => api.get(`/stock-transfers/${id}`),
   create: (data: Record<string, unknown>) => api.post('/stock-transfers', data),
+  update: (id: number, data: Record<string, unknown>) => api.put(`/stock-transfers/${id}`, data),
   delete: (id: number) => api.delete(`/stock-transfers/${id}`),
   approve: (id: number) => api.post(`/stock-transfers/${id}/approve`),
   collect: (id: number) => api.post(`/stock-transfers/${id}/collect`),

@@ -484,6 +484,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Bars3Icon className="w-5 h-5 flex-shrink-0" />
               {!sidebarCollapsed && 'تصغير القائمة'}
             </button>
+            {!sidebarCollapsed && (
+              <div className="text-center text-[10px] text-gray-400 dark:text-gray-500 mt-2">v1.0.0</div>
+            )}
           </div>
         </div>
       </aside>

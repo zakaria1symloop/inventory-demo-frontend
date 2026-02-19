@@ -20,7 +20,7 @@ interface StockTransferItem {
   id: number;
   product_id: number;
   quantity: number;
-  product?: { id: number; name: string; barcode?: string; pieces_per_package?: number };
+  product?: { id: number; name: string; barcode?: string; pieces_per_package?: number; cost_price?: number; retail_price?: number };
 }
 
 interface StockTransfer {
@@ -184,6 +184,177 @@ export default function StockTransfersPage() {
       collected: { class: 'badge-success', text: 'تم التسليم' },
     };
     return badges[status] || { class: 'badge-secondary', text: status };
+  };
+
+  const handlePrint = (transfer: StockTransfer) => {
+    const items = transfer.items || [];
+    let totalCartons = 0;
+    let totalExtraPieces = 0;
+    let totalPieces = 0;
+
+    const itemRows = items.map((item, index) => {
+      const ppp = item.product?.pieces_per_package || 1;
+      const tp = Math.round(Number(item.quantity) * ppp);
+      const cartons = Math.floor(tp / ppp);
+      const extra = tp % ppp;
+
+      totalCartons += cartons;
+      totalExtraPieces += extra;
+      totalPieces += tp;
+
+      return `<tr>
+        <td class="text-center">${index + 1}</td>
+        <td>${item.product?.name || '-'}${ppp > 1 ? ` <span style="font-size:11px;color:#888">(${ppp} ق/كرتون)</span>` : ''}</td>
+        <td class="text-center text-blue">${cartons}</td>
+        <td class="text-center text-orange">${extra || '-'}</td>
+        <td class="text-center" style="font-weight:bold">${tp}</td>
+      </tr>`;
+    }).join('');
+
+    const statusText = transfer.status === 'pending' ? 'طلب جديد' : transfer.status === 'loading' ? 'جاري التحميل' : 'تم التسليم';
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="UTF-8">
+        <title>تحويل مخزون - ${transfer.reference}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 20px; font-size: 14px; }
+          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+          .header h1 { font-size: 24px; margin-bottom: 5px; }
+          .header .ref { font-size: 18px; color: #666; }
+          .header .status { display: inline-block; padding: 4px 16px; border-radius: 20px; font-size: 14px; font-weight: bold; margin-top: 8px; }
+          .status-pending { background: #fef3c7; color: #92400e; }
+          .status-loading { background: #dbeafe; color: #1e40af; }
+          .status-collected { background: #dcfce7; color: #166534; }
+          .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+          .info-box { background: #f9f9f9; padding: 15px; border-radius: 8px; }
+          .info-box h3 { font-size: 14px; color: #666; margin-bottom: 8px; }
+          .info-box p { font-size: 16px; font-weight: bold; }
+          .info-box .sub { font-size: 12px; color: #888; font-weight: normal; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          th, td { padding: 10px 8px; text-align: right; border-bottom: 1px solid #ddd; }
+          th { background: #f5f5f5; font-weight: bold; font-size: 13px; }
+          .text-center { text-align: center; }
+          .text-blue { color: #1d4ed8; }
+          .text-orange { color: #c2410c; }
+          tfoot td { background: #f5f5f5; font-weight: bold; }
+          .summary { display: flex; gap: 20px; margin-top: 10px; }
+          .summary-item { flex: 1; background: #f0f9ff; border: 1px solid #bae6fd; padding: 12px; border-radius: 8px; text-align: center; }
+          .summary-item .label { font-size: 12px; color: #0369a1; margin-bottom: 4px; }
+          .summary-item .value { font-size: 20px; font-weight: bold; color: #0c4a6e; }
+          .footer { margin-top: 40px; text-align: center; color: #666; font-size: 12px; }
+          .notes { margin-top: 20px; padding: 15px; background: #f9f9f9; border-radius: 8px; }
+          .signature { display: flex; justify-content: space-between; margin-top: 50px; padding-top: 20px; }
+          .signature-box { text-align: center; width: 200px; }
+          .signature-box .line { border-top: 1px solid #333; margin-top: 50px; padding-top: 5px; }
+          @media print { body { padding: 0; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>وصل تحويل مخزون</h1>
+          <div class="ref">${transfer.reference}</div>
+          <div class="status status-${transfer.status}">${statusText}</div>
+        </div>
+
+        <div class="info-grid">
+          <div class="info-box">
+            <h3>المستودع المصدر</h3>
+            <p>${transfer.from_warehouse?.name || '-'}</p>
+            ${transfer.from_warehouse?.assigned_user ? `<p class="sub">المسؤول: ${transfer.from_warehouse.assigned_user.name}</p>` : ''}
+          </div>
+          <div class="info-box">
+            <h3>المستودع الوجهة</h3>
+            <p>${transfer.to_warehouse?.name || '-'}</p>
+            ${transfer.to_warehouse?.assigned_user ? `<p class="sub">السائق: ${transfer.to_warehouse.assigned_user.name}</p>` : ''}
+          </div>
+          <div class="info-box">
+            <h3>تاريخ الإنشاء</h3>
+            <p>${formatDate(transfer.created_at)}</p>
+            <p class="sub">بواسطة: ${transfer.creator?.name || '-'}</p>
+          </div>
+          <div class="info-box">
+            <h3>${transfer.collected_at ? 'تاريخ التسليم' : 'تاريخ الموافقة'}</h3>
+            <p>${transfer.collected_at ? formatDate(transfer.collected_at) : transfer.approved_at ? formatDate(transfer.approved_at) : '-'}</p>
+            ${transfer.approver ? `<p class="sub">وافق: ${transfer.approver.name}</p>` : ''}
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th class="text-center">#</th>
+              <th>المنتج</th>
+              <th class="text-center">كرتون</th>
+              <th class="text-center">قطع إضافية</th>
+              <th class="text-center">إجمالي القطع</th>
+            </tr>
+          </thead>
+          <tbody>${itemRows}</tbody>
+          <tfoot>
+            <tr>
+              <td colspan="2" class="text-center">الإجمالي (${items.length} منتج)</td>
+              <td class="text-center text-blue">${totalCartons}</td>
+              <td class="text-center text-orange">${totalExtraPieces || '-'}</td>
+              <td class="text-center" style="font-weight:bold">${totalPieces}</td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <div class="summary">
+          <div class="summary-item">
+            <div class="label">عدد المنتجات</div>
+            <div class="value">${items.length}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">إجمالي الكراتين</div>
+            <div class="value">${totalCartons}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">إجمالي القطع</div>
+            <div class="value">${totalPieces}</div>
+          </div>
+        </div>
+
+        ${transfer.notes ? `<div class="notes"><strong>ملاحظات:</strong><p>${transfer.notes}</p></div>` : ''}
+
+        <div class="signature">
+          <div class="signature-box">
+            <div class="line">توقيع المسؤول (المستودع)</div>
+          </div>
+          <div class="signature-box">
+            <div class="line">توقيع السائق</div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <p>تم الطباعة بتاريخ ${new Date().toLocaleDateString('ar-DZ')}</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    document.body.appendChild(iframe);
+
+    const iframeDoc = iframe.contentWindow?.document;
+    if (iframeDoc) {
+      iframeDoc.open();
+      iframeDoc.write(printContent);
+      iframeDoc.close();
+      iframe.contentWindow?.focus();
+      setTimeout(() => {
+        iframe.contentWindow?.print();
+        setTimeout(() => document.body.removeChild(iframe), 100);
+      }, 250);
+    }
   };
 
   const filteredTransfers = transfers.filter(t => {
@@ -414,8 +585,26 @@ export default function StockTransfersPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
                           </button>
+                          <button
+                            onClick={() => handlePrint(transfer)}
+                            className="text-gray-600 hover:text-gray-800"
+                            title="طباعة"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                            </svg>
+                          </button>
                           {transfer.status === 'pending' && (
                             <>
+                              <button
+                                onClick={() => router.push(`/dashboard/stock-transfers/${transfer.id}/edit`)}
+                                className="text-amber-600 hover:text-amber-800"
+                                title="تعديل"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
                               <button
                                 onClick={() => handleApprove(transfer.id)}
                                 className="text-green-600 hover:text-green-800"

@@ -3,8 +3,20 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { purchasesApi, productsApi, suppliersApi, warehousesApi, creditorsApi } from '@/lib/api';
+import { purchasesApi, productsApi, suppliersApi, warehousesApi, creditorsApi, clientCategoriesApi } from '@/lib/api';
 import toast from 'react-hot-toast';
+
+interface ProductCategoryPrice {
+  id: number;
+  product_id: number;
+  client_category_id: number;
+  price: number;
+}
+
+interface ClientCategory {
+  id: number;
+  name: string;
+}
 
 interface Product {
   id: number;
@@ -12,9 +24,11 @@ interface Product {
   barcode: string;
   cost_price: number;
   retail_price: number;
+  wholesale_price?: number;
   tax_percent: number;
   pieces_per_package: number;
   unit_buy?: { id: number; name: string; short_name: string };
+  category_prices?: ProductCategoryPrice[];
 }
 
 interface Supplier {
@@ -72,6 +86,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [clientCategories, setClientCategories] = useState<ClientCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [purchaseDataLoaded, setPurchaseDataLoaded] = useState(false);
@@ -118,9 +133,12 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
     quantity: number;
     unitPrice: number;
     sellingPrice: number;
-  }>({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0 });
+    categoryPrices: Record<number, number>;
+  }>({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0, categoryPrices: {} });
   const quickQtyRef = useRef<HTMLInputElement>(null);
   const quickPriceRef = useRef<HTMLInputElement>(null);
+  const quickSellingRef = useRef<HTMLInputElement>(null);
+  const catPriceRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const paidAmountRef = useRef<HTMLInputElement>(null);
   const submitBtnRef = useRef<HTMLButtonElement>(null);
 
@@ -263,14 +281,16 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
 
   const fetchData = async () => {
     try {
-      const [suppliersRes, warehousesRes, productsRes] = await Promise.all([
+      const [suppliersRes, warehousesRes, productsRes, catRes] = await Promise.all([
         suppliersApi.getAll({ per_page: 1000 }),
         warehousesApi.getAll(),
         productsApi.getAll({ per_page: 1000 }),
+        clientCategoriesApi.getAll().catch(() => ({ data: { data: [] } })),
       ]);
       setSuppliers(suppliersRes.data.data || suppliersRes.data);
       setWarehouses(warehousesRes.data.data || warehousesRes.data);
       setProducts(productsRes.data.data || productsRes.data);
+      setClientCategories(catRes.data.data || catRes.data || []);
 
       // Set default warehouse if only one
       const whs = warehousesRes.data.data || warehousesRes.data;
@@ -445,12 +465,26 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
       toast.error('الرجاء اختيار المستودع أولاً');
       return;
     }
+    // Build category prices map from existing product data
+    const catPrices: Record<number, number> = {};
+    if (product.category_prices) {
+      for (const cp of product.category_prices) {
+        catPrices[cp.client_category_id] = Number(cp.price) || 0;
+      }
+    }
+    // Ensure all categories have an entry
+    for (const cat of clientCategories) {
+      if (!(cat.id in catPrices)) {
+        catPrices[cat.id] = 0;
+      }
+    }
     setQuickEntryModal({
       show: true,
       product,
       quantity: 1,
       unitPrice: Number(product.cost_price) || 0,
-      sellingPrice: Number(product.cost_price) || 0,
+      sellingPrice: Number(product.retail_price) || 0,
+      categoryPrices: catPrices,
     });
     setShowProductSearch(false);
     setBarcodeInput('');
@@ -460,11 +494,28 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
   // Confirm quick entry and add product
   const confirmQuickEntry = () => {
     if (!quickEntryModal.product) return;
-    const { product, quantity, unitPrice, sellingPrice } = quickEntryModal;
+    const { product, quantity, unitPrice, sellingPrice, categoryPrices } = quickEntryModal;
 
     if (quantity <= 0) {
       toast.error('الكمية يجب أن تكون أكبر من صفر');
       return;
+    }
+
+    // Save category prices + selling price to product in background
+    const priceUpdates: Record<string, unknown> = {};
+    const catPricesArray = Object.entries(categoryPrices)
+      .filter(([, price]) => price > 0)
+      .map(([catId, price]) => ({ client_category_id: Number(catId), price }));
+    if (catPricesArray.length > 0) {
+      priceUpdates.category_prices = catPricesArray;
+    }
+    if (sellingPrice > 0 && sellingPrice !== Number(product.retail_price)) {
+      priceUpdates.retail_price = sellingPrice;
+    }
+    if (Object.keys(priceUpdates).length > 0) {
+      productsApi.update(product.id, priceUpdates).catch((err: unknown) => {
+        console.error('Failed to update product prices:', err);
+      });
     }
 
     const existingIndex = items.findIndex((item) => item.product_id === product.id);
@@ -474,13 +525,12 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
       const newQty = existingItem.quantity + quantity;
       const taxPercent = existingItem.tax_percent;
       const piecesPerPkg = existingItem.pieces_per_package;
-      // baseAmount = price × pieces × qty - discount
       const baseAmount = (unitPrice * piecesPerPkg * newQty) - existingItem.discount;
       const updatedItem = {
         ...existingItem,
         quantity: newQty,
         total_pieces: newQty * piecesPerPkg,
-        unit_price: unitPrice, // Price per 1 piece
+        unit_price: unitPrice,
         tax: (baseAmount * taxPercent) / 100,
         subtotal: baseAmount + (baseAmount * taxPercent) / 100,
       };
@@ -489,7 +539,6 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
     } else {
       const piecesPerPkg = product.pieces_per_package || 1;
       const taxPercent = parseFloat(String(product.tax_percent)) || 0;
-      // baseAmount = price × pieces × qty
       const baseAmount = unitPrice * piecesPerPkg * quantity;
       const taxAmount = (baseAmount * taxPercent) / 100;
       const unitName = product.unit_buy?.name || 'وحدة';
@@ -501,7 +550,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
         quantity: quantity,
         pieces_per_package: piecesPerPkg,
         total_pieces: quantity * piecesPerPkg,
-        unit_price: unitPrice, // Price per 1 piece
+        unit_price: unitPrice,
         original_price: Number(product.cost_price) || 0,
         selling_price: sellingPrice > 0 ? sellingPrice : undefined,
         unit_name: unitName,
@@ -513,7 +562,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
       setItems([newItem, ...items]);
     }
 
-    setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0 });
+    setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0, categoryPrices: {} });
     barcodeInputRef.current?.focus();
   };
 
@@ -733,9 +782,12 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
       </div>
 
       {/* Quick Entry Modal */}
-      {quickEntryModal.show && quickEntryModal.product && (
+      {quickEntryModal.show && quickEntryModal.product && (() => {
+        const ppp = quickEntryModal.product?.pieces_per_package || 1;
+        const sortedCats = clientCategories.slice().sort((a, b) => a.id - b.id);
+        return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-96 max-w-full mx-4">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-[480px] max-w-full mx-4 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold mb-4 text-center">{quickEntryModal.product.name}</h3>
             <div className="space-y-4">
               <div>
@@ -751,7 +803,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                       quickPriceRef.current?.focus();
                       quickPriceRef.current?.select();
                     } else if (e.key === 'Escape') {
-                      setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0 });
+                      setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0, categoryPrices: {} });
                       barcodeInputRef.current?.focus();
                     }
                   }}
@@ -761,7 +813,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">سعر الشراء</label>
+                <label className="block text-sm font-medium mb-1">سعر الشراء (القطعة)</label>
                 <input
                   ref={quickPriceRef}
                   type="number"
@@ -770,47 +822,99 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
-                      document.getElementById('selling-price-input')?.focus();
+                      quickSellingRef.current?.focus();
+                      quickSellingRef.current?.select();
                     } else if (e.key === 'Escape') {
-                      setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0 });
+                      setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0, categoryPrices: {} });
                       barcodeInputRef.current?.focus();
                     }
                   }}
                   className="input w-full text-center text-xl"
                   min="0"
                 />
-                {(quickEntryModal.product?.pieces_per_package || 1) > 1 && (
+                {ppp > 1 && (
                   <div className="text-center text-sm text-blue-600 mt-1 font-medium">
-                    سعر الكرتون: {formatCurrency(quickEntryModal.unitPrice * (quickEntryModal.product?.pieces_per_package || 1))}
+                    سعر الكرتون: {formatCurrency(quickEntryModal.unitPrice * ppp)}
                   </div>
                 )}
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">سعر البيع (اختياري)</label>
-                <input
-                  id="selling-price-input"
-                  type="number"
-                  value={quickEntryModal.sellingPrice}
-                  onChange={(e) => setQuickEntryModal(prev => ({ ...prev, sellingPrice: Number(e.target.value) || 0 }))}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      confirmQuickEntry();
-                    } else if (e.key === 'Escape') {
-                      setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0 });
-                      barcodeInputRef.current?.focus();
-                    }
-                  }}
-                  className="input w-full text-center text-xl"
-                  min="0"
-                  placeholder="سعر البيع للقطعة"
-                />
-                <p className="text-xs text-gray-500 mt-1">سيتم تحديث سعر بيع المنتج</p>
+
+              {/* Selling price + category prices */}
+              <div className="border border-gray-200 rounded-lg p-3 space-y-3">
+                <div className="text-sm font-semibold text-gray-700 mb-1">أسعار البيع (القطعة)</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-blue-600 font-medium mb-0.5">تجزئة</label>
+                    <input
+                      ref={quickSellingRef}
+                      type="number"
+                      value={quickEntryModal.sellingPrice}
+                      onChange={(e) => setQuickEntryModal(prev => ({ ...prev, sellingPrice: Number(e.target.value) || 0 }))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          // Focus first category price or confirm
+                          if (sortedCats.length > 0) {
+                            catPriceRefs.current[sortedCats[0].id]?.focus();
+                            catPriceRefs.current[sortedCats[0].id]?.select();
+                          } else {
+                            confirmQuickEntry();
+                          }
+                        } else if (e.key === 'Escape') {
+                          setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0, categoryPrices: {} });
+                          barcodeInputRef.current?.focus();
+                        }
+                      }}
+                      className="input w-full text-center text-sm"
+                      min="0"
+                      placeholder="0"
+                    />
+                  </div>
+                  {sortedCats.map((cat, catIdx) => (
+                    <div key={cat.id}>
+                      <label className="block text-xs text-amber-600 font-medium mb-0.5">{cat.name}</label>
+                      <input
+                        ref={(el) => { catPriceRefs.current[cat.id] = el; }}
+                        type="number"
+                        value={quickEntryModal.categoryPrices[cat.id] || ''}
+                        onChange={(e) => setQuickEntryModal(prev => ({
+                          ...prev,
+                          categoryPrices: { ...prev.categoryPrices, [cat.id]: Number(e.target.value) || 0 }
+                        }))}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            // Focus next category or confirm
+                            const nextCat = sortedCats[catIdx + 1];
+                            if (nextCat) {
+                              catPriceRefs.current[nextCat.id]?.focus();
+                              catPriceRefs.current[nextCat.id]?.select();
+                            } else {
+                              confirmQuickEntry();
+                            }
+                          } else if (e.key === 'Escape') {
+                            setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0, categoryPrices: {} });
+                            barcodeInputRef.current?.focus();
+                          }
+                        }}
+                        className="input w-full text-center text-sm"
+                        min="0"
+                        placeholder="0"
+                      />
+                    </div>
+                  ))}
+                </div>
+                {ppp > 1 && quickEntryModal.sellingPrice > 0 && (
+                  <div className="text-center text-xs text-gray-500">
+                    تجزئة/كرتون: {formatCurrency(quickEntryModal.sellingPrice * ppp)}
+                  </div>
+                )}
               </div>
+
               <div className="text-center text-lg font-bold text-blue-600">
-                المجموع: {formatCurrency(quickEntryModal.unitPrice * (quickEntryModal.product?.pieces_per_package || 1) * quickEntryModal.quantity)}
+                المجموع: {formatCurrency(quickEntryModal.unitPrice * ppp * quickEntryModal.quantity)}
                 <div className="text-xs text-gray-500 font-normal">
-                  ({quickEntryModal.unitPrice} × {quickEntryModal.product?.pieces_per_package || 1} قطعة × {quickEntryModal.quantity})
+                  ({quickEntryModal.unitPrice} × {ppp} قطعة × {quickEntryModal.quantity})
                 </div>
               </div>
               <div className="flex gap-2">
@@ -824,7 +928,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                 <button
                   type="button"
                   onClick={() => {
-                    setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0 });
+                    setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0, categoryPrices: {} });
                     barcodeInputRef.current?.focus();
                   }}
                   className="btn btn-secondary flex-1"
@@ -835,7 +939,8 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
