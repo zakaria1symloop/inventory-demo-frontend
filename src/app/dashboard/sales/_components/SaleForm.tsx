@@ -80,6 +80,7 @@ interface SaleItem {
   subtotal: number; // = unit_price × total_pieces - discount + tax
   available_stock: number;
   min_selling_price: number;
+  cost_price: number;
 }
 
 interface SaleFormProps {
@@ -324,6 +325,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
             subtotal: item.subtotal || 0,
             available_stock: 0, // Not needed in edit mode
             min_selling_price: item.product?.min_selling_price || 0,
+            cost_price: item.product?.cost_price || 0,
           };
         });
         setItems(loadedItems);
@@ -426,6 +428,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
         subtotal: unitPrice * piecesPerPkg * quantity, // price × pieces × qty
         available_stock: availableStock,
         min_selling_price: minUnitPrice,
+        cost_price: Number(product.cost_price) || 0,
       };
       setItems([newItem, ...items]);
     }
@@ -487,20 +490,6 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
 
   // Get best default price for a product (uses client category price if available)
   const getDefaultPrice = (product: Product): number => {
-    // If client has a category, use that category's price
-    if (clientId) {
-      const selectedClient = clients.find(c => c.id.toString() === clientId);
-      if (selectedClient?.client_category_id && product.category_prices) {
-        const categoryPrice = product.category_prices.find(
-          cp => cp.client_category_id === selectedClient.client_category_id
-        );
-        if (categoryPrice && categoryPrice.price > 0) {
-          return categoryPrice.price;
-        }
-      }
-    }
-    const wholesale = Number(product.wholesale_price) || 0;
-    if (wholesale > 0) return wholesale;
     return Number(product.retail_price) || 0;
   };
 
@@ -528,6 +517,13 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
 
     if (quantity <= 0) {
       toast.error('الكمية يجب أن تكون أكبر من صفر');
+      return;
+    }
+
+    // Block if price is below cost price
+    const costPrice = Number(product.cost_price) || 0;
+    if (unitPrice > 0 && unitPrice < costPrice) {
+      toast.error(`لا يمكن البيع بأقل من سعر الشراء (${costPrice} د.ج)`);
       return;
     }
 
@@ -575,8 +571,15 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
         subtotal: unitPrice * piecesPerPkg * quantity, // price × pieces × qty
         available_stock: availableStock,
         min_selling_price: minUnitPrice,
+        cost_price: costPrice,
       };
       setItems([newItem, ...items]);
+    }
+
+    // If price was changed from the default, update product's retail_price in background
+    const originalRetailPrice = Number(product.retail_price) || 0;
+    if (unitPrice > 0 && unitPrice !== originalRetailPrice) {
+      productsApi.update(product.id, { retail_price: unitPrice }).catch(() => {});
     }
 
     setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0 });
@@ -639,6 +642,10 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       }
       updated[index].total_pieces = (updated[index].quantity * ppp) + updated[index].extra_pieces;
     } else if (field === 'unit_price') {
+      if (updated[index].cost_price > 0 && numValue > 0 && numValue < updated[index].cost_price) {
+        toast.error(`لا يمكن البيع بأقل من سعر الشراء (${updated[index].cost_price} د.ج)`);
+        return;
+      }
       updated[index].unit_price = numValue;
     } else if (field === 'discount') {
       updated[index].discount = numValue;
@@ -756,6 +763,10 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
         toast.error(`الكمية المطلوبة لـ "${item.product_name}" أكبر من المتوفر (${formatStockQty(item.available_stock, ppp)})`);
         return;
       }
+      if (item.cost_price > 0 && item.unit_price > 0 && item.unit_price < item.cost_price) {
+        toast.error(`لا يمكن البيع بأقل من سعر الشراء للمنتج "${item.product_name}" (${item.cost_price} د.ج)`);
+        return;
+      }
     }
 
     setIsSaving(true);
@@ -860,13 +871,15 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       {/* Quick Entry Modal */}
       {quickEntryModal.show && quickEntryModal.product && (() => {
         const ppp = quickEntryModal.product?.pieces_per_package || 1;
+        const costPrice = Number(quickEntryModal.product?.cost_price) || 0;
+        const isBelowCost = quickEntryModal.unitPrice > 0 && quickEntryModal.unitPrice < costPrice;
         return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-[420px] max-w-full mx-4">
-            <h3 className="text-lg font-bold mb-4 text-center">{quickEntryModal.product.name}</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-[420px] max-w-full mx-4">
+            <h3 className="text-lg font-bold mb-4 text-center dark:text-white">{quickEntryModal.product.name}</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">الكمية</label>
+                <label className="block text-sm font-medium mb-1 dark:text-gray-300">الكمية</label>
                 <input
                   ref={quickQtyRef}
                   type="number"
@@ -875,7 +888,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
-                      confirmQuickEntry();
+                      quickPriceRef.current?.select();
                     } else if (e.key === 'Escape') {
                       setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0 });
                       barcodeInputRef.current?.focus();
@@ -887,7 +900,36 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                 />
               </div>
 
-              <div className="text-center text-lg font-bold text-blue-600">
+              <div>
+                <label className="block text-sm font-medium mb-1 dark:text-gray-300">سعر البيع (للقطعة)</label>
+                <input
+                  ref={quickPriceRef}
+                  type="number"
+                  value={quickEntryModal.unitPrice}
+                  onChange={(e) => setQuickEntryModal(prev => ({ ...prev, unitPrice: Number(e.target.value) || 0 }))}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (!isBelowCost) {
+                        confirmQuickEntry();
+                      }
+                    } else if (e.key === 'Escape') {
+                      setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0 });
+                      barcodeInputRef.current?.focus();
+                    }
+                  }}
+                  className={`input w-full text-center text-xl ${isBelowCost ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : ''}`}
+                  min="0"
+                  step="0.01"
+                />
+                {isBelowCost && (
+                  <p className="text-red-500 text-xs mt-1 text-center">
+                    لا يمكن البيع بأقل من سعر الشراء ({costPrice} د.ج)
+                  </p>
+                )}
+              </div>
+
+              <div className="text-center text-lg font-bold text-blue-600 dark:text-blue-400">
                 المجموع: {formatCurrency(quickEntryModal.unitPrice * ppp * quickEntryModal.quantity)}
                 <div className="text-xs text-gray-500 font-normal">
                   ({quickEntryModal.unitPrice} × {ppp} قطعة × {quickEntryModal.quantity})
@@ -897,7 +939,8 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                 <button
                   type="button"
                   onClick={confirmQuickEntry}
-                  className="btn btn-primary flex-1"
+                  disabled={isBelowCost}
+                  className={`btn btn-primary flex-1 ${isBelowCost ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   إضافة (Enter)
                 </button>
@@ -1308,15 +1351,15 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                       </tr>
                     ) : (
                       items.map((item, index) => {
-                        const isBelowMinPrice = item.min_selling_price > 0 && item.unit_price < item.min_selling_price;
+                        const isBelowCostPrice = item.cost_price > 0 && item.unit_price > 0 && item.unit_price < item.cost_price;
                         return (
-                          <tr key={index} className="border-b hover:bg-gray-50">
+                          <tr key={index} className={`border-b hover:bg-gray-50 ${isBelowCostPrice ? 'bg-red-50' : ''}`}>
                             <td className="px-2 py-2 text-center font-medium text-gray-500">{index + 1}</td>
                             <td className="px-2 py-2">
                               <div className="font-medium">{item.product_name}</div>
                               <div className="text-xs text-gray-500">{item.barcode}</div>
-                              {isBelowMinPrice && (
-                                <div className="text-xs text-red-600">الحد الأدنى: {formatCurrency(item.min_selling_price)}</div>
+                              {isBelowCostPrice && (
+                                <div className="text-xs text-red-600 font-bold">أقل من سعر الشراء: {formatCurrency(item.cost_price)}</div>
                               )}
                             </td>
                             <td className="px-2 py-2">
@@ -1411,7 +1454,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                                 value={item.unit_price}
                                 onChange={(e) => updateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
                                 onKeyDown={(e) => handleKeyDown(e, index, 'unit_price')}
-                                className={`input w-full text-center ${isBelowMinPrice ? 'border-red-500 bg-red-50' : ''}`}
+                                className={`input w-full text-center ${isBelowCostPrice ? 'border-red-500 bg-red-50' : ''}`}
                                 min="0"
                                 step="0.01"
                               />
