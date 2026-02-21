@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { clientsApi, clientCategoriesApi, salesApi, usersApi } from '@/lib/api';
+import { clientsApi, clientCategoriesApi, salesApi, usersApi, warehousesApi } from '@/lib/api';
 
 const ClientsMap = lazy(() => import('./ClientsMap'));
 import toast from 'react-hot-toast';
@@ -74,11 +74,16 @@ interface Client {
   source?: 'web' | 'app';
   created_by?: number;
   creator?: { id: number; name: string };
+  warehouse_id?: number;
+  warehouse?: { id: number; name: string };
+  copied_from?: number;
+  original_client?: { id: number; name: string };
 }
 
 interface SellerUser {
   id: number;
   name: string;
+  role: string;
 }
 
 interface ClientSale {
@@ -116,8 +121,20 @@ export default function ClientsPage() {
   const [sourceFilter, setSourceFilter] = useState<'all' | 'web' | 'app'>('all');
   const [sellerFilter, setSellerFilter] = useState('');
   const [sellers, setSellers] = useState<SellerUser[]>([]);
+  const [warehouseFilter, setWarehouseFilter] = useState('');
+  const [warehousesList, setWarehousesList] = useState<{ id: number; name: string }[]>([]);
+  const [copyFilter, setCopyFilter] = useState<'all' | 'copies' | 'originals'>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'map'>('table');
+
+  // Transfer, copy & selection
+  const [selectedClientIds, setSelectedClientIds] = useState<Set<number>>(new Set());
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferWarehouseId, setTransferWarehouseId] = useState('');
+  const [isTransferring, setIsTransferring] = useState(false);
+  const [showCopyModal, setShowCopyModal] = useState(false);
+  const [copyWarehouseId, setCopyWarehouseId] = useState('');
+  const [isCopying, setIsCopying] = useState(false);
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -138,6 +155,7 @@ export default function ClientsPage() {
     credit_limit: '',
     is_active: true,
     client_category_id: '',
+    warehouse_id: '',
     rc: '',
     nif: '',
     ai: '',
@@ -166,14 +184,16 @@ export default function ClientsPage() {
 
   const fetchClients = async () => {
     try {
-      const [clientsRes, categoriesRes, sellersRes] = await Promise.all([
+      const [clientsRes, categoriesRes, sellersRes, warehousesRes] = await Promise.all([
         clientsApi.getAll({ per_page: 1000 }),
         clientCategoriesApi.getAll(),
-        usersApi.getSellers().catch(() => ({ data: [] })),
+        usersApi.getAll({ per_page: 1000 }).catch(() => ({ data: { data: [] } })),
+        warehousesApi.getAll().catch(() => ({ data: [] })),
       ]);
       setClients(clientsRes.data.data || clientsRes.data);
       setClientCategories(categoriesRes.data);
-      setSellers(sellersRes.data || []);
+      setSellers(sellersRes.data.data || sellersRes.data || []);
+      setWarehousesList(warehousesRes.data.data || warehousesRes.data || []);
     } catch (error) {
       toast.error('خطأ في تحميل البيانات');
     } finally {
@@ -214,6 +234,7 @@ export default function ClientsPage() {
       credit_limit: '',
       is_active: true,
       client_category_id: defaultCategory ? defaultCategory.id.toString() : '',
+      warehouse_id: '',
       rc: '',
       nif: '',
       ai: '',
@@ -235,6 +256,7 @@ export default function ClientsPage() {
       credit_limit: client.credit_limit?.toString() || '',
       is_active: client.is_active,
       client_category_id: client.client_category_id?.toString() || '',
+      warehouse_id: client.warehouse_id?.toString() || '',
       rc: client.rc || '',
       nif: client.nif || '',
       ai: client.ai || '',
@@ -271,6 +293,7 @@ export default function ClientsPage() {
       gps_lng: formData.gps_lng ? parseFloat(formData.gps_lng) : null,
       credit_limit: formData.credit_limit ? parseFloat(formData.credit_limit) : null,
       client_category_id: formData.client_category_id ? parseInt(formData.client_category_id) : null,
+      warehouse_id: formData.warehouse_id ? parseInt(formData.warehouse_id) : null,
     };
 
     try {
@@ -301,6 +324,63 @@ export default function ClientsPage() {
     } catch (error: any) {
       const message = error.response?.data?.message || 'حدث خطأ أثناء الحذف';
       toast.error(message);
+    }
+  };
+
+  const handleTransfer = async () => {
+    if (!transferWarehouseId || selectedClientIds.size === 0) return;
+    setIsTransferring(true);
+    try {
+      const res = await clientsApi.transferWarehouse(
+        Array.from(selectedClientIds),
+        parseInt(transferWarehouseId)
+      );
+      toast.success(res.data.message);
+      setShowTransferModal(false);
+      setSelectedClientIds(new Set());
+      setTransferWarehouseId('');
+      fetchClients();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'خطأ في نقل العملاء');
+    } finally {
+      setIsTransferring(false);
+    }
+  };
+
+  const handleCopy = async () => {
+    if (!copyWarehouseId || selectedClientIds.size === 0) return;
+    setIsCopying(true);
+    try {
+      const res = await clientsApi.copyToWarehouse(
+        Array.from(selectedClientIds),
+        parseInt(copyWarehouseId)
+      );
+      toast.success(res.data.message);
+      setShowCopyModal(false);
+      setSelectedClientIds(new Set());
+      setCopyWarehouseId('');
+      fetchClients();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'خطأ في نسخ العملاء');
+    } finally {
+      setIsCopying(false);
+    }
+  };
+
+  const toggleClientSelection = (id: number) => {
+    setSelectedClientIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedClientIds.size === filteredClients.length) {
+      setSelectedClientIds(new Set());
+    } else {
+      setSelectedClientIds(new Set(filteredClients.map(c => c.id)));
     }
   };
 
@@ -368,7 +448,7 @@ export default function ClientsPage() {
 
   // Check if any filters are active
   const hasActiveFilters = searchTerm || statusFilter !== 'all' || balanceFilter !== 'all' ||
-    dateFrom || dateTo || creditLimitFilter !== 'all' || sourceFilter !== 'all' || sellerFilter;
+    dateFrom || dateTo || creditLimitFilter !== 'all' || sourceFilter !== 'all' || sellerFilter || warehouseFilter || copyFilter !== 'all';
 
   // Reset all filters
   const resetFilters = () => {
@@ -380,6 +460,8 @@ export default function ClientsPage() {
     setCreditLimitFilter('all');
     setSourceFilter('all');
     setSellerFilter('');
+    setWarehouseFilter('');
+    setCopyFilter('all');
   };
 
   // Filtered clients
@@ -431,9 +513,18 @@ export default function ClientsPage() {
       // Seller filter
       const matchesSeller = !sellerFilter || client.created_by === parseInt(sellerFilter);
 
-      return matchesSearch && matchesStatus && matchesBalance && matchesDate && matchesCreditLimit && matchesSource && matchesSeller;
+      // Warehouse filter
+      const matchesWarehouse = !warehouseFilter ||
+        (warehouseFilter === 'none' ? !client.warehouse_id : client.warehouse_id === parseInt(warehouseFilter));
+
+      // Copy filter
+      const matchesCopy = copyFilter === 'all' ||
+        (copyFilter === 'copies' && !!client.copied_from) ||
+        (copyFilter === 'originals' && !client.copied_from);
+
+      return matchesSearch && matchesStatus && matchesBalance && matchesDate && matchesCreditLimit && matchesSource && matchesSeller && matchesWarehouse && matchesCopy;
     });
-  }, [clients, searchTerm, statusFilter, balanceFilter, dateFrom, dateTo, creditLimitFilter, sourceFilter, sellerFilter]);
+  }, [clients, searchTerm, statusFilter, balanceFilter, dateFrom, dateTo, creditLimitFilter, sourceFilter, sellerFilter, warehouseFilter, copyFilter]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
@@ -482,6 +573,22 @@ export default function ClientsPage() {
             <BanknotesIcon className="w-5 h-5" />
             الديون المستحقة
           </Link>
+          {selectedClientIds.size > 0 && (
+            <>
+              <button
+                onClick={() => setShowTransferModal(true)}
+                className="btn bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                نقل {selectedClientIds.size} عميل
+              </button>
+              <button
+                onClick={() => setShowCopyModal(true)}
+                className="btn bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                نسخ {selectedClientIds.size} عميل
+              </button>
+            </>
+          )}
           <button onClick={handleOpenCreate} className="btn btn-primary">
             <PlusIcon className="w-5 h-5" />
             إضافة عميل
@@ -743,16 +850,40 @@ export default function ClientsPage() {
                 <option value="app">من التطبيق</option>
               </select>
 
-              {/* Seller Filter */}
+              {/* Creator Filter */}
               <select
                 value={sellerFilter}
                 onChange={(e) => setSellerFilter(e.target.value)}
                 className="select"
               >
-                <option value="">جميع البائعين</option>
+                <option value="">جميع المستخدمين</option>
                 {sellers.map((seller) => (
-                  <option key={seller.id} value={seller.id}>{seller.name}</option>
+                  <option key={seller.id} value={seller.id}>{seller.name} ({seller.role === 'admin' ? 'مدير' : seller.role === 'seller' ? 'بائع' : seller.role === 'livreur' ? 'سائق' : seller.role === 'cashvan' ? 'كاشفان' : seller.role})</option>
                 ))}
+              </select>
+
+              {/* Warehouse Filter */}
+              <select
+                value={warehouseFilter}
+                onChange={(e) => setWarehouseFilter(e.target.value)}
+                className="select"
+              >
+                <option value="">جميع المستودعات</option>
+                <option value="none">بدون مستودع</option>
+                {warehousesList.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </select>
+
+              {/* Copy Filter */}
+              <select
+                value={copyFilter}
+                onChange={(e) => setCopyFilter(e.target.value as typeof copyFilter)}
+                className="select"
+              >
+                <option value="all">الكل (أصلي + نسخ)</option>
+                <option value="copies">النسخ فقط</option>
+                <option value="originals">الأصلي فقط</option>
               </select>
             </div>
 
@@ -803,9 +934,17 @@ export default function ClientsPage() {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50">
+                <th className="px-2 py-3 text-center w-10">
+                  <input
+                    type="checkbox"
+                    checked={filteredClients.length > 0 && selectedClientIds.size === filteredClients.length}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 text-blue-600 rounded"
+                  />
+                </th>
                 <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">العميل</th>
                 <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">التواصل</th>
-                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">العنوان</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">المستودع</th>
                 <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">الرصيد</th>
                 <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">حد الائتمان</th>
                 <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">الحالة</th>
@@ -819,14 +958,22 @@ export default function ClientsPage() {
             <tbody className="divide-y divide-gray-100">
               {filteredClients.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
+                  <td colSpan={9} className="px-4 py-12 text-center text-gray-500">
                     <UserGroupIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                     <p>لا يوجد عملاء مطابقين للبحث</p>
                   </td>
                 </tr>
               ) : (
                 filteredClients.map((client) => (
-                  <tr key={client.id} className="hover:bg-gray-50">
+                  <tr key={client.id} className={`hover:bg-gray-50 ${selectedClientIds.has(client.id) ? 'bg-blue-50' : ''}`}>
+                    <td className="px-2 py-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedClientIds.has(client.id)}
+                        onChange={() => toggleClientSelection(client.id)}
+                        className="w-4 h-4 text-blue-600 rounded"
+                      />
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
@@ -834,11 +981,16 @@ export default function ClientsPage() {
                         </div>
                         <div>
                           <div className="font-medium text-gray-900">{client.name}</div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-xs text-gray-500">#{client.id}</span>
                             {client.client_category && (
                               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
                                 {client.client_category.name}
+                              </span>
+                            )}
+                            {client.copied_from && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700" title={`نسخة من: ${client.original_client?.name || `#${client.copied_from}`}`}>
+                                نسخة
                               </span>
                             )}
                           </div>
@@ -865,11 +1017,10 @@ export default function ClientsPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      {client.address ? (
-                        <div className="flex items-start gap-1 text-sm text-gray-600 max-w-[200px]">
-                          <MapPinIcon className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                          <span className="line-clamp-2">{client.address}</span>
-                        </div>
+                      {client.warehouse ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700">
+                          {client.warehouse.name}
+                        </span>
                       ) : (
                         <span className="text-gray-400 text-sm">-</span>
                       )}
@@ -979,6 +1130,41 @@ export default function ClientsPage() {
                         >
                           <TrashIcon className="w-5 h-5" />
                         </button>
+                        {client.copied_from && (
+                          <>
+                            <button
+                              onClick={async () => {
+                                if (!confirm(`إلغاء نسخة "${client.name}"؟`)) return;
+                                try {
+                                  await clientsApi.cancelCopy(client.id);
+                                  toast.success('تم إلغاء النسخة');
+                                  fetchClients();
+                                } catch (err: any) {
+                                  toast.error(err.response?.data?.message || 'خطأ');
+                                }
+                              }}
+                              className="p-2 hover:bg-orange-50 text-orange-600 rounded-lg transition-colors"
+                              title="إلغاء النسخة (حذف)"
+                            >
+                              <XCircleIcon className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await clientsApi.removeCopyFlag(client.id);
+                                  toast.success('تم تحويل العميل إلى عادي');
+                                  fetchClients();
+                                } catch (err: any) {
+                                  toast.error(err.response?.data?.message || 'خطأ');
+                                }
+                              }}
+                              className="p-2 hover:bg-teal-50 text-teal-600 rounded-lg transition-colors"
+                              title="تحويل إلى عميل عادي"
+                            >
+                              <CheckCircleIcon className="w-5 h-5" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1113,11 +1299,26 @@ export default function ClientsPage() {
                   <option value="">بدون فئة</option>
                   {clientCategories.map((cat) => (
                     <option key={cat.id} value={cat.id}>
-                      {cat.name} {cat.description ? `- ${cat.description}` : ''} {cat.is_default ? '(افتراضي)' : ''}
+                      {cat.name} {cat.description ? `- ${cat.description}` : ''} {cat.is_default ? '(سعر البيع)' : ''}
                     </option>
                   ))}
                 </select>
                 <p className="text-xs text-gray-500 mt-1">تحدد الفئة أسعار المنتجات للعميل</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">المستودع</label>
+                <select
+                  value={formData.warehouse_id}
+                  onChange={(e) => setFormData(p => ({ ...p, warehouse_id: e.target.value }))}
+                  className="select w-full"
+                >
+                  <option value="">بدون مستودع</option>
+                  {warehousesList.map((w) => (
+                    <option key={w.id} value={w.id}>{w.name}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">المستودع الذي ينتمي إليه العميل (يحدد رؤية السائقين)</p>
               </div>
 
               {/* Legal Information */}
@@ -1474,6 +1675,113 @@ export default function ClientsPage() {
                   نعم، حذف العميل
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Transfer Modal */}
+      {showTransferModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">نقل العملاء إلى مستودع</h3>
+              <button onClick={() => setShowTransferModal(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-gray-600 mb-4">
+              سيتم نقل <span className="font-bold text-blue-600">{selectedClientIds.size}</span> عميل إلى المستودع المحدد
+            </p>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-1">المستودع الوجهة</label>
+              <select
+                value={transferWarehouseId}
+                onChange={(e) => setTransferWarehouseId(e.target.value)}
+                className="select w-full"
+              >
+                <option value="">اختر المستودع</option>
+                {warehousesList.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowTransferModal(false)}
+                className="btn btn-secondary"
+              >
+                إلغاء
+              </button>
+              <button
+                onClick={handleTransfer}
+                disabled={!transferWarehouseId || isTransferring}
+                className="btn bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
+              >
+                {isTransferring ? (
+                  <>
+                    <span className="spinner w-4 h-4"></span>
+                    جاري النقل...
+                  </>
+                ) : (
+                  'نقل العملاء'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Copy Modal */}
+      {showCopyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">نسخ العملاء إلى مستودع</h3>
+              <button onClick={() => setShowCopyModal(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-gray-600 mb-2">
+              سيتم نسخ <span className="font-bold text-indigo-600">{selectedClientIds.size}</span> عميل إلى المستودع المحدد
+            </p>
+            <p className="text-xs text-gray-500 mb-4">
+              سيتم إنشاء نسخة جديدة من كل عميل في المستودع الوجهة مع رصيد صفر
+            </p>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-1">المستودع الوجهة</label>
+              <select
+                value={copyWarehouseId}
+                onChange={(e) => setCopyWarehouseId(e.target.value)}
+                className="select w-full"
+              >
+                <option value="">اختر المستودع</option>
+                {warehousesList.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowCopyModal(false)}
+                className="btn btn-secondary"
+              >
+                إلغاء
+              </button>
+              <button
+                onClick={handleCopy}
+                disabled={!copyWarehouseId || isCopying}
+                className="btn bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {isCopying ? (
+                  <>
+                    <span className="spinner w-4 h-4"></span>
+                    جاري النسخ...
+                  </>
+                ) : (
+                  'نسخ العملاء'
+                )}
+              </button>
             </div>
           </div>
         </div>

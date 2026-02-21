@@ -509,9 +509,6 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
     if (catPricesArray.length > 0) {
       priceUpdates.category_prices = catPricesArray;
     }
-    if (sellingPrice > 0 && sellingPrice !== Number(product.retail_price)) {
-      priceUpdates.retail_price = sellingPrice;
-    }
     if (Object.keys(priceUpdates).length > 0) {
       productsApi.update(product.id, priceUpdates).catch((err: unknown) => {
         console.error('Failed to update product prices:', err);
@@ -822,8 +819,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
-                      quickSellingRef.current?.focus();
-                      quickSellingRef.current?.select();
+                      confirmQuickEntry();
                     } else if (e.key === 'Escape') {
                       setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0, categoryPrices: {} });
                       barcodeInputRef.current?.focus();
@@ -839,42 +835,16 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                 )}
               </div>
 
-              {/* Selling price + category prices */}
+              {/* Category prices */}
+              {sortedCats.length > 0 && (
               <div className="border border-gray-200 rounded-lg p-3 space-y-3">
                 <div className="text-sm font-semibold text-gray-700 mb-1">أسعار البيع (القطعة)</div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs text-blue-600 font-medium mb-0.5">تجزئة</label>
-                    <input
-                      ref={quickSellingRef}
-                      type="number"
-                      value={quickEntryModal.sellingPrice}
-                      onChange={(e) => setQuickEntryModal(prev => ({ ...prev, sellingPrice: Number(e.target.value) || 0 }))}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          // Focus first category price or confirm
-                          if (sortedCats.length > 0) {
-                            catPriceRefs.current[sortedCats[0].id]?.focus();
-                            catPriceRefs.current[sortedCats[0].id]?.select();
-                          } else {
-                            confirmQuickEntry();
-                          }
-                        } else if (e.key === 'Escape') {
-                          setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0, categoryPrices: {} });
-                          barcodeInputRef.current?.focus();
-                        }
-                      }}
-                      className="input w-full text-center text-sm"
-                      min="0"
-                      placeholder="0"
-                    />
-                  </div>
                   {sortedCats.map((cat, catIdx) => (
                     <div key={cat.id}>
                       <label className="block text-xs text-amber-600 font-medium mb-0.5">{cat.name}</label>
                       <input
-                        ref={(el) => { catPriceRefs.current[cat.id] = el; }}
+                        ref={(el) => { catPriceRefs.current[cat.id] = el; if (catIdx === 0 && !quickSellingRef.current) quickSellingRef.current = el; }}
                         type="number"
                         value={quickEntryModal.categoryPrices[cat.id] || ''}
                         onChange={(e) => setQuickEntryModal(prev => ({
@@ -884,14 +854,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             e.preventDefault();
-                            // Focus next category or confirm
-                            const nextCat = sortedCats[catIdx + 1];
-                            if (nextCat) {
-                              catPriceRefs.current[nextCat.id]?.focus();
-                              catPriceRefs.current[nextCat.id]?.select();
-                            } else {
-                              confirmQuickEntry();
-                            }
+                            confirmQuickEntry();
                           } else if (e.key === 'Escape') {
                             setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0, categoryPrices: {} });
                             barcodeInputRef.current?.focus();
@@ -904,12 +867,8 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                     </div>
                   ))}
                 </div>
-                {ppp > 1 && quickEntryModal.sellingPrice > 0 && (
-                  <div className="text-center text-xs text-gray-500">
-                    تجزئة/كرتون: {formatCurrency(quickEntryModal.sellingPrice * ppp)}
-                  </div>
-                )}
               </div>
+              )}
 
               <div className="text-center text-lg font-bold text-blue-600">
                 المجموع: {formatCurrency(quickEntryModal.unitPrice * ppp * quickEntryModal.quantity)}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { usersApi } from '@/lib/api';
+import { usersApi, warehousesApi } from '@/lib/api';
 import { PlusIcon, PencilIcon, TrashIcon, KeyIcon } from '@heroicons/react/24/outline';
 import DataTable from '@/components/ui/DataTable';
 import Modal from '@/components/ui/Modal';
@@ -34,7 +34,9 @@ export default function UsersPage() {
     phone: '',
     role: 'seller',
     is_active: true,
+    warehouse_id: '' as number | '',
   });
+  const [warehousesList, setWarehousesList] = useState<Array<{ id: number; name: string; assigned_user?: { id: number; name: string } }>>([]);
   const [passwordData, setPasswordData] = useState({
     password: '',
     password_confirmation: '',
@@ -55,7 +57,10 @@ export default function UsersPage() {
       toast.success('تم إضافة المستخدم بنجاح');
       handleCloseModal();
     },
-    onError: () => toast.error('حدث خطأ أثناء الإضافة'),
+    onError: (error: unknown) => {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'حدث خطأ أثناء الإضافة');
+    },
   });
 
   const updateMutation = useMutation({
@@ -66,7 +71,10 @@ export default function UsersPage() {
       toast.success('تم تحديث بيانات المستخدم بنجاح');
       handleCloseModal();
     },
-    onError: () => toast.error('حدث خطأ أثناء التحديث'),
+    onError: (error: unknown) => {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'حدث خطأ أثناء التحديث');
+    },
   });
 
   const deleteMutation = useMutation({
@@ -101,6 +109,15 @@ export default function UsersPage() {
     onError: () => toast.error('حدث خطأ'),
   });
 
+  const fetchWarehouses = async () => {
+    try {
+      const response = await warehousesApi.getAll();
+      setWarehousesList(response.data.data || response.data);
+    } catch {
+      // ignore
+    }
+  };
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -129,7 +146,9 @@ export default function UsersPage() {
       phone: '',
       role: 'seller',
       is_active: true,
+      warehouse_id: '',
     });
+    fetchWarehouses();
     setIsModalOpen(true);
   };
 
@@ -142,7 +161,9 @@ export default function UsersPage() {
       phone: user.phone || '',
       role: user.role,
       is_active: user.is_active,
+      warehouse_id: user.warehouse_id || '',
     });
+    fetchWarehouses();
     setIsModalOpen(true);
   };
 
@@ -159,6 +180,7 @@ export default function UsersPage() {
       phone: formData.phone || null,
       role: formData.role,
       is_active: formData.is_active,
+      warehouse_id: formData.warehouse_id === '' ? null : formData.warehouse_id,
     };
 
     if (!selectedUser) {
@@ -188,6 +210,17 @@ export default function UsersPage() {
       title: 'الدور',
       render: (item: User) => (
         <span className="badge badge-info">{roleLabels[item.role]}</span>
+      ),
+    },
+    {
+      key: 'warehouse',
+      title: 'المستودع',
+      render: (item: User) => (
+        item.warehouse ? (
+          <span className="text-sm text-gray-700 dark:text-gray-300">{item.warehouse.name}</span>
+        ) : (
+          <span className="text-gray-400">-</span>
+        )
       ),
     },
     {
@@ -358,6 +391,27 @@ export default function UsersPage() {
               <option value="seller">بائع</option>
               <option value="livreur">سائق توصيل</option>
               <option value="cashvan">بائع متنقل</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">المستودع</label>
+            <select
+              value={formData.warehouse_id}
+              onChange={(e) => setFormData((p) => ({ ...p, warehouse_id: e.target.value === '' ? '' : Number(e.target.value) }))}
+              className="select"
+            >
+              <option value="">-- بدون مستودع --</option>
+              {warehousesList
+                .filter(w => {
+                  // Show warehouses that are either unassigned or assigned to the current user
+                  if (!w.assigned_user) return true;
+                  if (selectedUser && w.assigned_user.id === selectedUser.id) return true;
+                  return false;
+                })
+                .map(w => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
             </select>
           </div>
 

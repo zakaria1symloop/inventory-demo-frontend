@@ -16,6 +16,8 @@ export interface User {
   role: 'admin' | 'manager' | 'seller' | 'livreur' | 'cashvan';
   avatar?: string;
   is_active: boolean;
+  warehouse_id?: number;
+  warehouse?: { id: number; name: string };
   created_at: string;
   updated_at: string;
 }
@@ -94,6 +96,7 @@ export interface Warehouse {
   phone?: string;
   is_main: boolean;
   is_active: boolean;
+  assigned_user?: { id: number; name: string; email: string; role: string; warehouse_id: number };
 }
 
 // Stock types
@@ -139,6 +142,8 @@ export interface Client {
   is_active: boolean;
   client_category_id?: number;
   client_category?: ClientCategory;
+  warehouse_id?: number;
+  warehouse?: { id: number; name: string };
 }
 
 // Supplier types
@@ -384,6 +389,7 @@ export interface Payment {
 // Caisse types
 export interface Caisse {
   id: number;
+  name?: string;
   user_id: number;
   type: 'principale' | 'vendeur' | 'livreur';
   balance: number;

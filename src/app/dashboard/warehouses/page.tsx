@@ -1,8 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { warehousesApi } from '@/lib/api';
+import { warehousesApi, usersApi } from '@/lib/api';
 import toast from 'react-hot-toast';
+
+interface AssignedUser {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+}
 
 interface Warehouse {
   id: number;
@@ -11,7 +18,15 @@ interface Warehouse {
   phone?: string;
   is_main: boolean;
   is_active: boolean;
+  assigned_user?: AssignedUser;
   created_at: string;
+}
+
+interface UserOption {
+  id: number;
+  name: string;
+  role: string;
+  warehouse_id?: number;
 }
 
 export default function WarehousesPage() {
@@ -28,6 +43,11 @@ export default function WarehousesPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assigningWarehouse, setAssigningWarehouse] = useState<Warehouse | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<number | ''>('');
+  const [users, setUsers] = useState<UserOption[]>([]);
+  const [isAssigning, setIsAssigning] = useState(false);
 
   useEffect(() => {
     fetchWarehouses();
@@ -62,6 +82,43 @@ export default function WarehousesPage() {
       toast.error('خطأ في تحميل المستودعات');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const response = await usersApi.getAll({ per_page: 100 });
+      const allUsers = response.data.data || response.data;
+      setUsers(allUsers);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleOpenAssign = (warehouse: Warehouse) => {
+    setAssigningWarehouse(warehouse);
+    setSelectedUserId(warehouse.assigned_user?.id || '');
+    fetchUsers();
+    setShowAssignModal(true);
+  };
+
+  const handleAssignUser = async () => {
+    if (!assigningWarehouse) return;
+    setIsAssigning(true);
+    try {
+      await warehousesApi.assignUser(
+        assigningWarehouse.id,
+        selectedUserId === '' ? null : Number(selectedUserId)
+      );
+      toast.success('تم تحديث المسؤول عن المستودع');
+      setShowAssignModal(false);
+      setAssigningWarehouse(null);
+      fetchWarehouses();
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'خطأ في تعيين المسؤول');
+    } finally {
+      setIsAssigning(false);
     }
   };
 
@@ -179,6 +236,7 @@ export default function WarehousesPage() {
               <th>الاسم</th>
               <th>العنوان</th>
               <th>الهاتف</th>
+              <th>المسؤول</th>
               <th>رئيسي</th>
               <th>الحالة</th>
               <th>الإجراءات</th>
@@ -187,7 +245,7 @@ export default function WarehousesPage() {
           <tbody>
             {filteredWarehouses.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center py-8 text-gray-500">
+                <td colSpan={8} className="text-center py-8 text-gray-500">
                   لا توجد مستودعات
                 </td>
               </tr>
@@ -198,6 +256,23 @@ export default function WarehousesPage() {
                   <td className="font-medium">{warehouse.name}</td>
                   <td>{warehouse.address || '-'}</td>
                   <td dir="ltr">{warehouse.phone || '-'}</td>
+                  <td>
+                    {warehouse.assigned_user ? (
+                      <button
+                        onClick={() => handleOpenAssign(warehouse)}
+                        className="text-sm text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                      >
+                        {warehouse.assigned_user.name}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleOpenAssign(warehouse)}
+                        className="text-xs text-gray-400 hover:text-blue-600 cursor-pointer"
+                      >
+                        + تعيين
+                      </button>
+                    )}
+                  </td>
                   <td>
                     {warehouse.is_main ? (
                       <span className="badge badge-info">رئيسي</span>
@@ -324,6 +399,53 @@ export default function WarehousesPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign User Modal */}
+      {showAssignModal && assigningWarehouse && (
+        <div className="modal-overlay" onClick={() => setShowAssignModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6">
+              <h2 className="text-xl font-bold mb-4">
+                تعيين مسؤول - {assigningWarehouse.name}
+              </h2>
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  المستخدم
+                </label>
+                <select
+                  value={selectedUserId}
+                  onChange={(e) => setSelectedUserId(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="select w-full"
+                >
+                  <option value="">-- بدون مسؤول --</option>
+                  {users
+                    .filter(u => !u.warehouse_id || u.warehouse_id === assigningWarehouse.id)
+                    .map(u => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} ({u.role === 'admin' ? 'مدير' : u.role === 'manager' ? 'مسؤول' : u.role === 'seller' ? 'بائع' : u.role === 'livreur' ? 'سائق توصيل' : 'بائع متنقل'})
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleAssignUser}
+                  disabled={isAssigning}
+                  className="btn btn-primary flex-1"
+                >
+                  {isAssigning ? 'جاري الحفظ...' : 'حفظ'}
+                </button>
+                <button
+                  onClick={() => setShowAssignModal(false)}
+                  className="btn btn-secondary flex-1"
+                >
+                  إلغاء
+                </button>
+              </div>
             </div>
           </div>
         </div>

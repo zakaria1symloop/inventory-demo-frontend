@@ -6,7 +6,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { productsApi, categoriesApi, brandsApi, unitsApi, clientCategoriesApi } from '@/lib/api';
 import { PlusIcon, PencilIcon, TrashIcon, DocumentArrowDownIcon } from '@heroicons/react/24/outline';
 import DataTable from '@/components/ui/DataTable';
-import Modal from '@/components/ui/Modal';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import toast from 'react-hot-toast';
 import type { Product, Category, Brand, Unit, ClientCategory } from '@/lib/types';
@@ -208,7 +207,6 @@ export default function ProductsPage() {
       unit_buy_id: parseInt(formData.unit_buy_id) || null,
       unit_sale_id: parseInt(formData.unit_sale_id) || null,
       cost_price: parseFloat(formData.cost_price) || 0,
-      retail_price: 0,
       wholesale_price: 0,
       min_selling_price: 0,
       stock_alert: formData.stock_alert ? parseInt(formData.stock_alert) : null,
@@ -360,8 +358,18 @@ export default function ProductsPage() {
       },
     },
     {
+      key: 'retail_price',
+      title: 'سعر البيع',
+      render: (item: ProductWithStock) => {
+        const price = Number(item.retail_price);
+        if (!price) return <span className="text-red-500 font-medium">غير محدد</span>;
+        const unitName = item.unit_sale?.short_name || 'وحدة';
+        return <span className="font-medium text-green-700 dark:text-green-400">{item.retail_price} د.ج/{unitName}</span>;
+      },
+    },
+    {
       key: 'category_prices',
-      title: 'أسعار البيع',
+      title: 'أسعار الفئات',
       render: (item: ProductWithStock) => {
         const prices = item.category_prices;
         if (!prices || prices.length === 0) {
@@ -458,227 +466,222 @@ export default function ProductsPage() {
         />
       </div>
 
-      <Modal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        title={selectedProduct ? 'تعديل المنتج' : 'إضافة منتج جديد'}
-        size="lg"
-      >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">اسم المنتج</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
-              className="input"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">الصنف</label>
-              <select
-                value={formData.category_id}
-                onChange={(e) => setFormData((p) => ({ ...p, category_id: e.target.value }))}
-                className="select"
-                required
-              >
-                <option value="">اختر الصنف</option>
-                {(categories as Category[])?.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">العلامة التجارية</label>
-              <select
-                value={formData.brand_id}
-                onChange={(e) => setFormData((p) => ({ ...p, brand_id: e.target.value }))}
-                className="select"
-              >
-                <option value="">اختر العلامة</option>
-                {(brands as Brand[])?.map((brand) => (
-                  <option key={brand.id} value={brand.id}>
-                    {brand.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">وحدة الشراء (الكرتون/العلبة)</label>
-              <select
-                value={formData.unit_buy_id}
-                onChange={(e) => setFormData((p) => ({ ...p, unit_buy_id: e.target.value }))}
-                className="select"
-                required
-              >
-                <option value="">اختر الوحدة</option>
-                {(units as Unit[])?.map((unit) => (
-                  <option key={unit.id} value={unit.id}>
-                    {unit.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                عدد القطع في {(units as Unit[])?.find(u => u.id.toString() === formData.unit_buy_id)?.name || 'الوحدة'} (للمعلومات)
-              </label>
-              <input
-                type="number"
-                value={formData.pieces_per_package}
-                onChange={(e) => setFormData((p) => ({ ...p, pieces_per_package: e.target.value }))}
-                className="input"
-                min="1"
-                placeholder="1"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">وحدة البيع</label>
-              <select
-                value={formData.unit_sale_id}
-                onChange={(e) => setFormData((p) => ({ ...p, unit_sale_id: e.target.value }))}
-                className="select"
-                required
-              >
-                <option value="">اختر الوحدة</option>
-                {(units as Unit[])?.map((unit) => (
-                  <option key={unit.id} value={unit.id}>
-                    {unit.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">الباركود</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={formData.barcode}
-                onChange={(e) => setFormData((p) => ({ ...p, barcode: e.target.value }))}
-                className="input flex-1"
-              />
-              <button type="button" onClick={handleGenerateBarcode} className="btn btn-secondary">
-                توليد
+      {/* Floating Side Panel */}
+      {isModalOpen && (
+        <>
+          {/* Backdrop */}
+          <div className="fixed inset-0 bg-black/40 z-40" onClick={handleCloseModal} />
+          {/* Panel */}
+          <div className="fixed top-4 left-4 bottom-4 z-50 w-[460px] max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-left duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0">
+              <h2 className="text-lg font-bold dark:text-white">{selectedProduct ? 'تعديل المنتج' : 'إضافة منتج جديد'}</h2>
+              <button onClick={handleCloseModal} className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg">
+                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
-          </div>
+            {/* Scrollable Form */}
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">اسم المنتج</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
+                    className="input w-full"
+                    required
+                    autoFocus
+                  />
+                </div>
 
-          {/* Price Section Header */}
-          <div className="bg-blue-50 p-3 rounded-lg">
-            <h3 className="font-semibold text-blue-800">الأسعار (سعر القطعة)</h3>
-            <p className="text-sm text-blue-600">أسعار البيع تُحدد حسب فئة العميل في الأسفل</p>
-          </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">الصنف</label>
+                    <select
+                      value={formData.category_id}
+                      onChange={(e) => setFormData((p) => ({ ...p, category_id: e.target.value }))}
+                      className="select w-full"
+                      required
+                    >
+                      <option value="">اختر الصنف</option>
+                      {(categories as Category[])?.map((cat) => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">العلامة التجارية</label>
+                    <select
+                      value={formData.brand_id}
+                      onChange={(e) => setFormData((p) => ({ ...p, brand_id: e.target.value }))}
+                      className="select w-full"
+                    >
+                      <option value="">اختر العلامة</option>
+                      {(brands as Brand[])?.map((brand) => (
+                        <option key={brand.id} value={brand.id}>{brand.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">سعر الشراء (للقطعة)</label>
-              <input
-                type="number"
-                value={formData.cost_price}
-                onChange={(e) => setFormData((p) => ({ ...p, cost_price: e.target.value }))}
-                className="input"
-                required
-                min="0"
-                step="0.01"
-                placeholder="سعر القطعة"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">نسبة الضريبة (TVA %)</label>
-              <input
-                type="number"
-                value={formData.tax_percent}
-                onChange={(e) => setFormData((p) => ({ ...p, tax_percent: e.target.value }))}
-                className="input"
-                min="0"
-                max="100"
-                step="0.01"
-                placeholder="0"
-              />
-            </div>
-          </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">وحدة الشراء</label>
+                    <select
+                      value={formData.unit_buy_id}
+                      onChange={(e) => setFormData((p) => ({ ...p, unit_buy_id: e.target.value }))}
+                      className="select w-full"
+                      required
+                    >
+                      <option value="">اختر الوحدة</option>
+                      {(units as Unit[])?.map((unit) => (
+                        <option key={unit.id} value={unit.id}>{unit.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">وحدة البيع</label>
+                    <select
+                      value={formData.unit_sale_id}
+                      onChange={(e) => setFormData((p) => ({ ...p, unit_sale_id: e.target.value }))}
+                      className="select w-full"
+                      required
+                    >
+                      <option value="">اختر الوحدة</option>
+                      {(units as Unit[])?.map((unit) => (
+                        <option key={unit.id} value={unit.id}>{unit.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
-          {/* Category Prices Section */}
-          {(clientCategories as ClientCategory[])?.length > 0 && (
-            <div className="border rounded-lg p-4 bg-amber-50">
-              <h3 className="font-semibold text-amber-800 mb-2">أسعار البيع حسب فئة العميل</h3>
-              <p className="text-sm text-amber-600 mb-3">حدد سعر البيع لكل فئة عملاء</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {(clientCategories as ClientCategory[])?.map((cat) => (
-                  <div key={cat.id}>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {cat.name} {cat.description ? `(${cat.description})` : ''}
-                    </label>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    عدد القطع في {(units as Unit[])?.find(u => u.id.toString() === formData.unit_buy_id)?.name || 'الوحدة'}
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.pieces_per_package}
+                    onChange={(e) => setFormData((p) => ({ ...p, pieces_per_package: e.target.value }))}
+                    className="input w-full"
+                    min="1"
+                    placeholder="1"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">الباركود</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={formData.barcode}
+                      onChange={(e) => setFormData((p) => ({ ...p, barcode: e.target.value }))}
+                      className="input flex-1"
+                    />
+                    <button type="button" onClick={handleGenerateBarcode} className="btn btn-secondary text-sm">
+                      توليد
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">سعر الشراء (للقطعة)</label>
                     <input
                       type="number"
-                      value={categoryPricesForm[cat.id.toString()] || ''}
-                      onChange={(e) => setCategoryPricesForm(prev => ({ ...prev, [cat.id.toString()]: e.target.value }))}
+                      value={formData.cost_price}
+                      onChange={(e) => setFormData((p) => ({ ...p, cost_price: e.target.value }))}
                       className="input w-full"
+                      required
                       min="0"
                       step="0.01"
-                      placeholder={`سعر ${cat.name}`}
+                      placeholder="0.00"
                     />
                   </div>
-                ))}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">نسبة الضريبة %</label>
+                    <input
+                      type="number"
+                      value={formData.tax_percent}
+                      onChange={(e) => setFormData((p) => ({ ...p, tax_percent: e.target.value }))}
+                      className="input w-full"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+
+                {/* Category Prices */}
+                {(clientCategories as ClientCategory[])?.length > 0 && (
+                  <div className="border dark:border-gray-600 rounded-lg p-3 bg-amber-50 dark:bg-amber-900/20">
+                    <h4 className="font-semibold text-amber-800 dark:text-amber-400 text-sm mb-2">أسعار البيع حسب فئة العميل</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(clientCategories as ClientCategory[])?.map((cat) => (
+                        <div key={cat.id}>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">{cat.name}</label>
+                          <input
+                            type="number"
+                            value={categoryPricesForm[cat.id.toString()] || ''}
+                            onChange={(e) => setCategoryPricesForm(prev => ({ ...prev, [cat.id.toString()]: e.target.value }))}
+                            className="input w-full text-sm"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">حد التنبيه للمخزون</label>
+                    <input
+                      type="number"
+                      value={formData.stock_alert}
+                      onChange={(e) => setFormData((p) => ({ ...p, stock_alert: e.target.value }))}
+                      className="input w-full"
+                      min="0"
+                    />
+                  </div>
+                  <div className="flex items-end pb-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.is_active}
+                        onChange={(e) => setFormData((p) => ({ ...p, is_active: e.target.checked }))}
+                        className="w-4 h-4 text-blue-600 rounded"
+                      />
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">منتج نشط</span>
+                    </label>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">حد التنبيه للمخزون</label>
-              <input
-                type="number"
-                value={formData.stock_alert}
-                onChange={(e) => setFormData((p) => ({ ...p, stock_alert: e.target.value }))}
-                className="input"
-                min="0"
-              />
-            </div>
-            <div className="flex items-center">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.is_active}
-                  onChange={(e) => setFormData((p) => ({ ...p, is_active: e.target.checked }))}
-                  className="w-4 h-4 text-blue-600 rounded"
-                />
-                <span className="text-sm font-medium text-gray-700">منتج نشط</span>
-              </label>
-            </div>
+              {/* Fixed bottom buttons */}
+              <div className="flex gap-3 px-5 py-3 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0">
+                <button
+                  type="submit"
+                  disabled={createMutation.isPending || updateMutation.isPending}
+                  className="btn btn-primary flex-1"
+                >
+                  {createMutation.isPending || updateMutation.isPending ? (
+                    <span className="spinner w-4 h-4"></span>
+                  ) : selectedProduct ? 'تحديث' : 'إضافة'}
+                </button>
+                <button type="button" onClick={handleCloseModal} className="btn btn-secondary flex-1">
+                  إلغاء
+                </button>
+              </div>
+            </form>
           </div>
-
-          <div className="flex justify-end gap-3 pt-4">
-            <button type="button" onClick={handleCloseModal} className="btn btn-secondary">
-              إلغاء
-            </button>
-            <button
-              type="submit"
-              disabled={createMutation.isPending || updateMutation.isPending}
-              className="btn btn-primary"
-            >
-              {createMutation.isPending || updateMutation.isPending ? (
-                <span className="spinner w-4 h-4"></span>
-              ) : selectedProduct ? (
-                'تحديث'
-              ) : (
-                'إضافة'
-              )}
-            </button>
-          </div>
-        </form>
-      </Modal>
+        </>
+      )}
 
       <ConfirmDialog
         isOpen={isDeleteOpen}

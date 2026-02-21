@@ -67,10 +67,15 @@ export default function CaissesPage() {
 
   // Create caisse modal
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [usersWithoutCaisse, setUsersWithoutCaisse] = useState<{ id: number; name: string; role: string }[]>([]);
+  const [usersWithoutCaisse, setUsersWithoutCaisse] = useState<{ id: number; name: string; role: string; hasCaisse?: boolean }[]>([]);
   const [selectedUserId, setSelectedUserId] = useState(0);
   const [isCreating, setIsCreating] = useState(false);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [newCaisseName, setNewCaisseName] = useState('');
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [renameCaisse, setRenameCaisse] = useState<Caisse | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [isRenaming, setIsRenaming] = useState(false);
 
   // Creator filter
   const [creatorFilter, setCreatorFilter] = useState('');
@@ -109,7 +114,13 @@ export default function CaissesPage() {
       const usersRes = await usersApi.getAll({ per_page: 1000 });
       const allUsers = usersRes.data.data || usersRes.data || [];
       const caisseUserIds = new Set((summary?.caisses || []).map((c: Caisse) => c.user_id));
-      const available = allUsers.filter((u: { id: number; role: string }) => !caisseUserIds.has(u.id) && u.role !== 'manager');
+      // Show all users, mark those who already have a caisse
+      const available = allUsers
+        .filter((u: { id: number; role: string }) => u.role !== 'manager')
+        .map((u: { id: number; name: string; role: string }) => ({
+          ...u,
+          hasCaisse: caisseUserIds.has(u.id),
+        }));
       setUsersWithoutCaisse(available);
     } catch {
       toast.error('خطأ في تحميل المستخدمين');
@@ -126,7 +137,7 @@ export default function CaissesPage() {
     }
     setIsCreating(true);
     try {
-      await caissesApi.create({ user_id: selectedUserId });
+      await caissesApi.create({ user_id: selectedUserId, name: newCaisseName || undefined });
       toast.success('تم إنشاء الصندوق بنجاح');
       setShowCreateModal(false);
       await fetchSummary();
@@ -135,6 +146,23 @@ export default function CaissesPage() {
       toast.error(err.response?.data?.message || 'خطأ في إنشاء الصندوق');
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleRename = async () => {
+    if (!renameCaisse) return;
+    setIsRenaming(true);
+    try {
+      await caissesApi.update(renameCaisse.id, { name: renameValue || null });
+      toast.success('تم تحديث الاسم بنجاح');
+      setShowRenameModal(false);
+      setRenameCaisse(null);
+      await fetchSummary();
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'خطأ في تحديث الاسم');
+    } finally {
+      setIsRenaming(false);
     }
   };
 
@@ -309,7 +337,7 @@ export default function CaissesPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold dark:text-white mb-1">
-                صندوق {selectedCaisse.user?.name}
+                {selectedCaisse.name || `صندوق ${selectedCaisse.user?.name}`}
               </h1>
               <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${typeBadgeColors[selectedCaisse.type]}`}>
                 {typeLabels[selectedCaisse.type]}
@@ -728,17 +756,31 @@ export default function CaissesPage() {
                   </span>
                 </div>
                 <div>
-                  <h3 className="font-semibold dark:text-white">{caisse.user?.name}</h3>
-                  <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${typeBadgeColors[caisse.type]}`}>
-                    {typeLabels[caisse.type]}
-                  </span>
+                  <h3 className="font-semibold dark:text-white">{caisse.name || caisse.user?.name}</h3>
+                  <div className="flex items-center gap-1">
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${typeBadgeColors[caisse.type]}`}>
+                      {typeLabels[caisse.type]}
+                    </span>
+                    {caisse.name && (
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{caisse.user?.name}</span>
+                    )}
+                  </div>
                 </div>
               </div>
-              {caisse.is_active ? (
-                <span className="w-3 h-3 bg-green-500 rounded-full" title="نشط"></span>
-              ) : (
-                <span className="w-3 h-3 bg-gray-400 rounded-full" title="غير نشط"></span>
-              )}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setRenameCaisse(caisse); setRenameValue(caisse.name || ''); setShowRenameModal(true); }}
+                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-400 hover:text-gray-600"
+                  title="تغيير الاسم"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                </button>
+                {caisse.is_active ? (
+                  <span className="w-3 h-3 bg-green-500 rounded-full" title="نشط"></span>
+                ) : (
+                  <span className="w-3 h-3 bg-gray-400 rounded-full" title="غير نشط"></span>
+                )}
+              </div>
             </div>
             <div className="border-t dark:border-gray-700 pt-3">
               <p className="text-sm text-gray-500 dark:text-gray-400">الرصيد</p>
@@ -763,11 +805,6 @@ export default function CaissesPage() {
             <h2 className="text-lg font-semibold mb-4 dark:text-white">إضافة صندوق جديد</h2>
             {isLoadingUsers ? (
               <div className="flex items-center justify-center py-8"><div className="spinner"></div></div>
-            ) : usersWithoutCaisse.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <p>جميع المستخدمين لديهم صناديق</p>
-                <button onClick={() => setShowCreateModal(false)} className="btn btn-secondary mt-4">إغلاق</button>
-              </div>
             ) : (
               <form onSubmit={handleCreateCaisse} className="space-y-4">
                 <div>
@@ -779,13 +816,36 @@ export default function CaissesPage() {
                     required
                   >
                     <option value={0}>اختر المستخدم</option>
-                    {usersWithoutCaisse.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name} ({roleLabels[u.role] || u.role})
-                      </option>
-                    ))}
+                    {usersWithoutCaisse.filter(u => !u.hasCaisse).length > 0 && (
+                      <optgroup label="بدون صندوق">
+                        {usersWithoutCaisse.filter(u => !u.hasCaisse).map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.name} ({roleLabels[u.role] || u.role})
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {usersWithoutCaisse.filter(u => u.hasCaisse).length > 0 && (
+                      <optgroup label="لديهم صندوق">
+                        {usersWithoutCaisse.filter(u => u.hasCaisse).map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.name} ({roleLabels[u.role] || u.role})
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                   <p className="text-xs text-gray-500 mt-1">سيتم تحديد نوع الصندوق تلقائياً حسب دور المستخدم</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">اسم الصندوق</label>
+                  <input
+                    type="text"
+                    value={newCaisseName}
+                    onChange={(e) => setNewCaisseName(e.target.value)}
+                    className="input w-full"
+                    placeholder="اختياري - مثال: صندوق المبيعات"
+                  />
                 </div>
                 <div className="flex gap-3 pt-4">
                   <button type="submit" disabled={isCreating || !selectedUserId} className="btn btn-primary flex-1">
@@ -818,7 +878,7 @@ export default function CaissesPage() {
                   <option value={0}>اختر الصندوق المصدر</option>
                   {summary.caisses.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.user?.name} ({typeLabels[c.type]}) - {formatCurrency(c.balance)}
+                      {c.name || c.user?.name} ({typeLabels[c.type]}) - {formatCurrency(c.balance)}
                     </option>
                   ))}
                 </select>
@@ -836,7 +896,7 @@ export default function CaissesPage() {
                     .filter((c) => c.id !== transferForm.from_caisse_id)
                     .map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.user?.name} ({typeLabels[c.type]}) - {formatCurrency(c.balance)}
+                        {c.name || c.user?.name} ({typeLabels[c.type]}) - {formatCurrency(c.balance)}
                       </option>
                     ))}
                 </select>
@@ -878,6 +938,38 @@ export default function CaissesPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Rename Caisse Modal */}
+      {showRenameModal && renameCaisse && (
+        <div className="modal-overlay" onClick={() => setShowRenameModal(false)}>
+          <div className="modal-content p-6" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold mb-4 dark:text-white">تغيير اسم الصندوق</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{renameCaisse.user?.name} - {typeLabels[renameCaisse.type]}</p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1 dark:text-gray-300">الاسم الجديد</label>
+                <input
+                  type="text"
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  className="input w-full"
+                  placeholder="اسم الصندوق"
+                  autoFocus
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleRename(); } }}
+                />
+              </div>
+              <div className="flex gap-3">
+                <button onClick={handleRename} disabled={isRenaming} className="btn btn-primary flex-1">
+                  {isRenaming ? 'جاري الحفظ...' : 'حفظ'}
+                </button>
+                <button onClick={() => setShowRenameModal(false)} className="btn btn-secondary">
+                  إلغاء
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

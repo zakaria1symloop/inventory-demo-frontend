@@ -124,6 +124,7 @@ export const warehousesApi = {
   update: (id: number, data: Record<string, unknown>) => api.put(`/warehouses/${id}`, data),
   delete: (id: number) => api.delete(`/warehouses/${id}`),
   getStock: (id: number) => api.get(`/warehouses/${id}/stock`),
+  assignUser: (id: number, userId: number | null) => api.post(`/warehouses/${id}/assign`, { user_id: userId }),
 };
 
 // Clients API
@@ -137,6 +138,12 @@ export const clientsApi = {
   getOrders: (id: number) => api.get(`/clients/${id}/orders`),
   getSales: (id: number) => api.get(`/clients/${id}/sales`),
   getSalesDebt: (id: number) => api.get(`/clients/${id}/sales-debt`),
+  transferWarehouse: (clientIds: number[], warehouseId: number) =>
+    api.post('/clients/transfer-warehouse', { client_ids: clientIds, warehouse_id: warehouseId }),
+  copyToWarehouse: (clientIds: number[], warehouseId: number) =>
+    api.post('/clients/copy-warehouse', { client_ids: clientIds, warehouse_id: warehouseId }),
+  cancelCopy: (id: number) => api.delete(`/clients/${id}/cancel-copy`),
+  removeCopyFlag: (id: number) => api.post(`/clients/${id}/remove-copy-flag`),
 };
 
 // Suppliers API
@@ -447,7 +454,8 @@ export const inventoryApi = {
 export const caissesApi = {
   getAll: (params?: Record<string, unknown>) => api.get('/caisses', { params }),
   getOne: (id: number) => api.get(`/caisses/${id}`),
-  create: (data: { user_id: number }) => api.post('/caisses', data),
+  create: (data: { user_id: number; name?: string }) => api.post('/caisses', data),
+  update: (id: number, data: Record<string, unknown>) => api.put(`/caisses/${id}`, data),
   getTransactions: (id: number, params?: Record<string, unknown>) =>
     api.get(`/caisses/${id}/transactions`, { params }),
   settle: (id: number, data: { amount: number; type: string; notes?: string }) =>

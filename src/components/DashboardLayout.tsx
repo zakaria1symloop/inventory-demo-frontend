@@ -485,7 +485,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {!sidebarCollapsed && 'تصغير القائمة'}
             </button>
             {!sidebarCollapsed && (
-              <div className="text-center text-[10px] text-gray-400 dark:text-gray-500 mt-2">v1.0.0</div>
+              <Link href="/dashboard/changelog" className="block text-center text-[10px] text-gray-400 dark:text-gray-500 mt-2 hover:text-blue-500 dark:hover:text-blue-400 transition-colors">
+                v1.0.1
+              </Link>
             )}
           </div>
         </div>

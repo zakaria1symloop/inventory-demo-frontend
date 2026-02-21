@@ -142,9 +142,11 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
     product: Product | null;
     quantity: number;
     unitPrice: number;
-  }>({ show: false, product: null, quantity: 1, unitPrice: 0 });
+    categoryPrices: Record<number, number>;
+  }>({ show: false, product: null, quantity: 1, unitPrice: 0, categoryPrices: {} });
   const quickQtyRef = useRef<HTMLInputElement>(null);
   const quickPriceRef = useRef<HTMLInputElement>(null);
+  const catPriceRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const paidAmountRef = useRef<HTMLInputElement>(null);
   const submitBtnRef = useRef<HTMLButtonElement>(null);
 
@@ -499,11 +501,18 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       toast.error('الرجاء اختيار المستودع أولاً');
       return;
     }
+    const existingCatPrices: Record<number, number> = {};
+    if (product.category_prices) {
+      for (const cp of product.category_prices) {
+        existingCatPrices[cp.client_category_id] = cp.price;
+      }
+    }
     setQuickEntryModal({
       show: true,
       product,
       quantity: 1,
       unitPrice: getDefaultPrice(product),
+      categoryPrices: existingCatPrices,
     });
     setShowProductSearch(false);
     setBarcodeInput('');
@@ -513,7 +522,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
   // Confirm quick entry and add product
   const confirmQuickEntry = () => {
     if (!quickEntryModal.product) return;
-    const { product, quantity, unitPrice } = quickEntryModal;
+    const { product, quantity, unitPrice, categoryPrices } = quickEntryModal;
 
     if (quantity <= 0) {
       toast.error('الكمية يجب أن تكون أكبر من صفر');
@@ -576,13 +585,23 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       setItems([newItem, ...items]);
     }
 
-    // If price was changed from the default, update product's retail_price in background
+    // Save price updates in background
+    const priceUpdates: Record<string, unknown> = {};
     const originalRetailPrice = Number(product.retail_price) || 0;
     if (unitPrice > 0 && unitPrice !== originalRetailPrice) {
-      productsApi.update(product.id, { retail_price: unitPrice }).catch(() => {});
+      priceUpdates.retail_price = unitPrice;
+    }
+    const catPricesArray = Object.entries(categoryPrices)
+      .filter(([, price]) => price > 0)
+      .map(([catId, price]) => ({ client_category_id: Number(catId), price }));
+    if (catPricesArray.length > 0) {
+      priceUpdates.category_prices = catPricesArray;
+    }
+    if (Object.keys(priceUpdates).length > 0) {
+      productsApi.update(product.id, priceUpdates).catch(() => {});
     }
 
-    setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0 });
+    setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, categoryPrices: {} });
     barcodeInputRef.current?.focus();
   };
 
@@ -873,9 +892,10 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
         const ppp = quickEntryModal.product?.pieces_per_package || 1;
         const costPrice = Number(quickEntryModal.product?.cost_price) || 0;
         const isBelowCost = quickEntryModal.unitPrice > 0 && quickEntryModal.unitPrice < costPrice;
+        const sortedCats = clientCategories.slice().sort((a, b) => a.id - b.id);
         return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-[420px] max-w-full mx-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-[480px] max-w-full mx-4 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold mb-4 text-center dark:text-white">{quickEntryModal.product.name}</h3>
             <div className="space-y-4">
               <div>
@@ -888,9 +908,10 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
+                      quickPriceRef.current?.focus();
                       quickPriceRef.current?.select();
                     } else if (e.key === 'Escape') {
-                      setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0 });
+                      setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, categoryPrices: {} });
                       barcodeInputRef.current?.focus();
                     }
                   }}
@@ -914,7 +935,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                         confirmQuickEntry();
                       }
                     } else if (e.key === 'Escape') {
-                      setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0 });
+                      setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, categoryPrices: {} });
                       barcodeInputRef.current?.focus();
                     }
                   }}
@@ -928,6 +949,41 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                   </p>
                 )}
               </div>
+
+              {/* Category prices */}
+              {sortedCats.length > 0 && (
+              <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-3 space-y-3">
+                <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">أسعار الفئات (القطعة)</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {sortedCats.map((cat) => (
+                    <div key={cat.id}>
+                      <label className="block text-xs text-amber-600 font-medium mb-0.5">{cat.name}</label>
+                      <input
+                        ref={(el) => { catPriceRefs.current[cat.id] = el; }}
+                        type="number"
+                        value={quickEntryModal.categoryPrices[cat.id] || ''}
+                        onChange={(e) => setQuickEntryModal(prev => ({
+                          ...prev,
+                          categoryPrices: { ...prev.categoryPrices, [cat.id]: Number(e.target.value) || 0 }
+                        }))}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            confirmQuickEntry();
+                          } else if (e.key === 'Escape') {
+                            setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, categoryPrices: {} });
+                            barcodeInputRef.current?.focus();
+                          }
+                        }}
+                        className="input w-full text-center text-sm"
+                        min="0"
+                        placeholder="0"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              )}
 
               <div className="text-center text-lg font-bold text-blue-600 dark:text-blue-400">
                 المجموع: {formatCurrency(quickEntryModal.unitPrice * ppp * quickEntryModal.quantity)}
@@ -947,7 +1003,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                 <button
                   type="button"
                   onClick={() => {
-                    setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0 });
+                    setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, categoryPrices: {} });
                     barcodeInputRef.current?.focus();
                   }}
                   className="btn btn-secondary flex-1"

@@ -147,7 +147,7 @@ export default function ClientCategoriesPage() {
                       {category.is_default && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400">
                           <CheckCircleIcon className="w-3 h-3" />
-                          افتراضي
+                          سعر البيع
                         </span>
                       )}
                     </div>
@@ -238,8 +238,8 @@ export default function ClientCategoriesPage() {
                     className="w-5 h-5 text-blue-600 rounded"
                   />
                   <div>
-                    <span className="font-medium text-gray-700 dark:text-gray-300">فئة افتراضية</span>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">تُستخدم كفئة تلقائية للعملاء الجدد</p>
+                    <span className="font-medium text-gray-700 dark:text-gray-300">سعر البيع (التجزئة)</span>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">سعر هذه الفئة يُستخدم كسعر بيع افتراضي، ويتم تعيينها تلقائياً للعملاء الجدد</p>
                   </div>
                 </label>
               </div>
@@ -277,7 +277,15 @@ export default function ClientCategoriesPage() {
               <h3 className="text-lg font-bold mb-2 dark:text-white">حذف الفئة</h3>
               <p className="text-gray-600 dark:text-gray-400 mb-6">
                 هل أنت متأكد من حذف الفئة &quot;{selectedCategory.name}&quot;؟
-                {(selectedCategory.clients_count ?? 0) > 0 && (
+                {selectedCategory.is_default && (
+                  <>
+                    <br />
+                    <span className="text-sm text-red-600">
+                      هذه الفئة معيّنة كسعر بيع. قم بتعيين فئة أخرى كسعر بيع أولاً
+                    </span>
+                  </>
+                )}
+                {!selectedCategory.is_default && (selectedCategory.clients_count ?? 0) > 0 && (
                   <>
                     <br />
                     <span className="text-sm text-red-600">
@@ -295,7 +303,8 @@ export default function ClientCategoriesPage() {
                 </button>
                 <button
                   onClick={handleDelete}
-                  className="btn bg-red-600 text-white hover:bg-red-700"
+                  disabled={selectedCategory.is_default}
+                  className={`btn ${selectedCategory.is_default ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'} text-white`}
                 >
                   نعم، حذف الفئة
                 </button>
