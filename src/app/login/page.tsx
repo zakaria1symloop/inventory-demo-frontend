@@ -170,7 +170,7 @@ export default function LoginPage() {
             <p className="text-center text-sm text-gray-500 mb-4">تحميل التطبيقات التجريبية</p>
             <div className="grid grid-cols-3 gap-2">
               <a
-                href="https://logistics-demo.symloop.com/seller-demo.apk"
+                href="https://logistics-demo.symloop.com/Seller V0.1.apk"
                 className="flex flex-col items-center justify-center gap-1.5 px-3 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
                 download
               >
@@ -180,7 +180,7 @@ export default function LoginPage() {
                 <span className="text-xs font-medium">تطبيق البائع</span>
               </a>
               <a
-                href="https://logistics-demo.symloop.com/livreur-demo.apk"
+                href="https://logistics-demo.symloop.com/Livreur V0.1.apk"
                 className="flex flex-col items-center justify-center gap-1.5 px-3 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors"
                 download
               >
@@ -190,7 +190,7 @@ export default function LoginPage() {
                 <span className="text-xs font-medium">تطبيق التوصيل</span>
               </a>
               <a
-                href="https://logistics-demo.symloop.com/cashvan-demo.apk"
+                href="https://logistics-demo.symloop.com/Cashvan V0.1.apk"
                 className="flex flex-col items-center justify-center gap-1.5 px-3 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
                 download
               >
