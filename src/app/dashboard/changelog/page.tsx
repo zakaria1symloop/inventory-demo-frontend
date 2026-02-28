@@ -2,6 +2,26 @@
 
 const changelog = [
   {
+    version: 'v1.0.2',
+    date: '2026-02-28',
+    changes: [
+      { type: 'feature', text: 'إنشاء سجل بيع تلقائي عند توصيل الطلبات من تطبيق السائق (يظهر في صفحة المبيعات بمصدر "توصيل")' },
+      { type: 'feature', text: 'نقل المخزون تلقائياً من المستودع الرئيسي إلى مستودع السائق عند بدء التوصيل' },
+      { type: 'feature', text: 'إمكانية إنشاء مستودع خاص بالسائق أو البائع المتنقل عند إنشاء المستخدم' },
+      { type: 'feature', text: 'عرض معلومات مستودع السائق (الاسم وعدد المنتجات) عند اختياره في إنشاء التوصيل' },
+      { type: 'feature', text: 'إضافة فلتر "من التوصيل" في صفحة المبيعات مع شارة خاصة بلون برتقالي' },
+      { type: 'feature', text: 'عرض إجمالي القطع في نموذج الطلبات الجديدة (كراتين + قطع = المجموع)' },
+      { type: 'improvement', text: 'تحسين عرض الكميات في تفاصيل التوصيل: عرض القطع الإجمالية وسعر الكرتون بجانب القطعة' },
+      { type: 'improvement', text: 'تحسين حساب المبلغ الإجمالي للتوصيل (الكمية بالقطع وليس بالكراتين)' },
+      { type: 'improvement', text: 'المرتجعات تبقى في مستودع السائق حتى معالجتها من المسؤول' },
+      { type: 'improvement', text: 'البيع من مستودع السائق بدلاً من المستودع الرئيسي عند التوصيل' },
+      { type: 'fix', text: 'إصلاح خطأ حساب إجمالي التوصيل (كان يضرب بعدد القطع في الكرتون مرتين)' },
+      { type: 'fix', text: 'إصلاح التوصيل الجزئي: إرسال الكميات كقطع صحيحة بدلاً من أرقام عشرية' },
+      { type: 'fix', text: 'إصلاح التوافق بين المخزون القديم (كراتين) والجديد (قطع) مع تحويل تلقائي' },
+      { type: 'fix', text: 'إصلاح عرض أسعار فئات العملاء في نموذج البيع السريع' },
+    ],
+  },
+  {
     version: 'v1.0.1',
     date: '2026-02-21',
     changes: [
@@ -59,7 +79,7 @@ export default function ChangelogPage() {
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{release.version}</span>
-                {release.version === 'v1.0.1' && (
+                {release.version === 'v1.0.2' && (
                   <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-emerald-500 text-white">الأحدث</span>
                 )}
               </div>
