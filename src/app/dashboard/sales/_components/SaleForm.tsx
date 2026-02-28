@@ -146,7 +146,6 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
   }>({ show: false, product: null, quantity: 1, unitPrice: 0, categoryPrices: {} });
   const quickQtyRef = useRef<HTMLInputElement>(null);
   const quickPriceRef = useRef<HTMLInputElement>(null);
-  const catPriceRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const paidAmountRef = useRef<HTMLInputElement>(null);
   const submitBtnRef = useRef<HTMLButtonElement>(null);
 
@@ -306,11 +305,10 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       if (sale.items && Array.isArray(sale.items)) {
         const loadedItems: SaleItem[] = sale.items.map((item: any) => {
           const ppp = item.product?.pieces_per_package || 1;
-          const loadedQty = Number(item.quantity) || 0;
-          // Split decimal quantity back into cartons + extra pieces
-          const cartons = Math.floor(loadedQty);
-          const extraPieces = Math.round((loadedQty - cartons) * ppp);
-          const totalPieces = (cartons * ppp) + extraPieces;
+          const totalPieces = Math.floor(Number(item.quantity) || 0);
+          // Split integer pieces back into cartons + extra pieces
+          const cartons = Math.floor(totalPieces / ppp);
+          const extraPieces = totalPieces % ppp;
           return {
             product_id: item.product_id,
             product_name: item.product?.name || '',
@@ -391,25 +389,28 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
 
     if (existingIndex >= 0) {
       const existingItem = items[existingIndex];
+      const ppp = existingItem.pieces_per_package || 1;
       const newQty = existingItem.quantity + quantity;
-      if (newQty > availableStock) {
-        toast.error(`الكمية المتوفرة: ${formatStockQty(availableStock, product.pieces_per_package || 1)} فقط`);
+      const newTotalPieces = (newQty * ppp) + (existingItem.extra_pieces || 0);
+      if (newTotalPieces > availableStock) {
+        toast.error(`الكمية المتوفرة: ${formatStockQty(availableStock, ppp)} فقط`);
         return;
       }
       const updatedItem = {
         ...existingItem,
         quantity: newQty,
-        total_pieces: (newQty * existingItem.pieces_per_package) + (existingItem.extra_pieces || 0)
+        total_pieces: newTotalPieces
       };
       updatedItem.subtotal = calculateSubtotal(updatedItem);
       const otherItems = items.filter((_, i) => i !== existingIndex);
       setItems([updatedItem, ...otherItems]);
     } else {
-      if (availableStock < quantity) {
+      const piecesPerPkg = product.pieces_per_package || 1;
+      const totalPieces = quantity * piecesPerPkg;
+      if (availableStock < totalPieces) {
         toast.error(`المنتج "${product.name}" غير متوفر في المخزون`);
         return;
       }
-      const piecesPerPkg = product.pieces_per_package || 1;
       const unitPrice = getDefaultPrice(product);
       const minUnitPrice = Number(product.min_selling_price) || 0;
       const unitName = product.unit_sale?.name || 'وحدة';
@@ -421,13 +422,13 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
         quantity: quantity,
         extra_pieces: 0,
         pieces_per_package: piecesPerPkg,
-        total_pieces: quantity * piecesPerPkg,
+        total_pieces: totalPieces,
         unit_price: unitPrice, // Price per 1 piece
         original_price: unitPrice,
         unit_name: unitName,
         discount: 0,
         tax: 0,
-        subtotal: unitPrice * piecesPerPkg * quantity, // price × pieces × qty
+        subtotal: unitPrice * totalPieces, // price × totalPieces
         available_stock: availableStock,
         min_selling_price: minUnitPrice,
         cost_price: Number(product.cost_price) || 0,
@@ -492,6 +493,18 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
 
   // Get best default price for a product (uses client category price if available)
   const getDefaultPrice = (product: Product): number => {
+    // If a client is selected and has a category, use that category's price
+    if (clientId) {
+      const selectedClient = clients.find(c => c.id.toString() === clientId);
+      if (selectedClient?.client_category_id && product.category_prices) {
+        const categoryPrice = product.category_prices.find(
+          cp => cp.client_category_id === selectedClient.client_category_id
+        );
+        if (categoryPrice && categoryPrice.price > 0) {
+          return categoryPrice.price;
+        }
+      }
+    }
     return Number(product.retail_price) || 0;
   };
 
@@ -501,18 +514,12 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       toast.error('الرجاء اختيار المستودع أولاً');
       return;
     }
-    const existingCatPrices: Record<number, number> = {};
-    if (product.category_prices) {
-      for (const cp of product.category_prices) {
-        existingCatPrices[cp.client_category_id] = cp.price;
-      }
-    }
     setQuickEntryModal({
       show: true,
       product,
       quantity: 1,
       unitPrice: getDefaultPrice(product),
-      categoryPrices: existingCatPrices,
+      categoryPrices: {},
     });
     setShowProductSearch(false);
     setBarcodeInput('');
@@ -522,7 +529,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
   // Confirm quick entry and add product
   const confirmQuickEntry = () => {
     if (!quickEntryModal.product) return;
-    const { product, quantity, unitPrice, categoryPrices } = quickEntryModal;
+    const { product, quantity, unitPrice } = quickEntryModal;
 
     if (quantity <= 0) {
       toast.error('الكمية يجب أن تكون أكبر من صفر');
@@ -541,26 +548,29 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
 
     if (existingIndex >= 0) {
       const existingItem = items[existingIndex];
+      const ppp = existingItem.pieces_per_package || 1;
       const newQty = existingItem.quantity + quantity;
-      if (newQty > availableStock) {
-        toast.error(`الكمية المتوفرة: ${formatStockQty(availableStock, product.pieces_per_package || 1)} فقط`);
+      const newTotalPieces = (newQty * ppp) + (existingItem.extra_pieces || 0);
+      if (newTotalPieces > availableStock) {
+        toast.error(`الكمية المتوفرة: ${formatStockQty(availableStock, ppp)} فقط`);
         return;
       }
       const updatedItem = {
         ...existingItem,
         quantity: newQty,
-        total_pieces: (newQty * existingItem.pieces_per_package) + (existingItem.extra_pieces || 0),
+        total_pieces: newTotalPieces,
         unit_price: unitPrice,
       };
       updatedItem.subtotal = calculateSubtotal(updatedItem);
       const otherItems = items.filter((_, i) => i !== existingIndex);
       setItems([updatedItem, ...otherItems]);
     } else {
-      if (availableStock < quantity) {
-        toast.error(`الكمية المتوفرة: ${formatStockQty(availableStock, product.pieces_per_package || 1)} فقط`);
+      const piecesPerPkg = product.pieces_per_package || 1;
+      const totalPieces = quantity * piecesPerPkg;
+      if (availableStock < totalPieces) {
+        toast.error(`الكمية المتوفرة: ${formatStockQty(availableStock, piecesPerPkg)} فقط`);
         return;
       }
-      const piecesPerPkg = product.pieces_per_package || 1;
       const minUnitPrice = Number(product.min_selling_price) || 0;
       const unitName = product.unit_sale?.name || 'وحدة';
 
@@ -571,34 +581,18 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
         quantity: quantity,
         extra_pieces: 0,
         pieces_per_package: piecesPerPkg,
-        total_pieces: quantity * piecesPerPkg,
+        total_pieces: totalPieces,
         unit_price: unitPrice, // Price per 1 piece
         original_price: getDefaultPrice(product),
         unit_name: unitName,
         discount: 0,
         tax: 0,
-        subtotal: unitPrice * piecesPerPkg * quantity, // price × pieces × qty
+        subtotal: unitPrice * totalPieces, // price × totalPieces
         available_stock: availableStock,
         min_selling_price: minUnitPrice,
         cost_price: costPrice,
       };
       setItems([newItem, ...items]);
-    }
-
-    // Save price updates in background
-    const priceUpdates: Record<string, unknown> = {};
-    const originalRetailPrice = Number(product.retail_price) || 0;
-    if (unitPrice > 0 && unitPrice !== originalRetailPrice) {
-      priceUpdates.retail_price = unitPrice;
-    }
-    const catPricesArray = Object.entries(categoryPrices)
-      .filter(([, price]) => price > 0)
-      .map(([catId, price]) => ({ client_category_id: Number(catId), price }));
-    if (catPricesArray.length > 0) {
-      priceUpdates.category_prices = catPricesArray;
-    }
-    if (Object.keys(priceUpdates).length > 0) {
-      productsApi.update(product.id, priceUpdates).catch(() => {});
     }
 
     setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, categoryPrices: {} });
@@ -622,9 +616,8 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
     const newCartons = Math.floor(newTotalPieces / ppp);
     const newExtra = newTotalPieces % ppp;
 
-    // Check stock
-    const decimalQty = newCartons + newExtra / ppp;
-    if (decimalQty > updated[index].available_stock) {
+    // Check stock (both in pieces)
+    if (newTotalPieces > updated[index].available_stock) {
       toast.error(`الكمية المتوفرة: ${formatStockQty(updated[index].available_stock, ppp)} فقط`);
       return;
     }
@@ -649,8 +642,8 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
     if (field === 'quantity' || field === 'extra_pieces') {
       const newQty = field === 'quantity' ? numValue : updated[index].quantity;
       const newExtra = field === 'extra_pieces' ? numValue : updated[index].extra_pieces;
-      const decimalQty = newQty + newExtra / ppp;
-      if (decimalQty > updated[index].available_stock) {
+      const totalPieces = (newQty * ppp) + newExtra;
+      if (totalPieces > updated[index].available_stock) {
         toast.error(`الكمية المتوفرة: ${formatStockQty(updated[index].available_stock, ppp)} فقط`);
         return;
       }
@@ -724,10 +717,10 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       status,
       items: items.map((item) => {
         const ppp = Number(item.pieces_per_package) || 1;
-        const decimalQty = item.quantity + (item.extra_pieces || 0) / ppp;
+        const totalPieces = (item.quantity * ppp) + (item.extra_pieces || 0);
         return {
           product_id: item.product_id,
-          quantity: decimalQty,
+          quantity: totalPieces,
           unit_price: item.unit_price,
           discount: item.discount,
           tax: item.tax,
@@ -777,8 +770,8 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
 
     for (const item of items) {
       const ppp = Number(item.pieces_per_package) || 1;
-      const decimalQty = item.quantity + (item.extra_pieces || 0) / ppp;
-      if (decimalQty > item.available_stock) {
+      const totalPieces = (item.quantity * ppp) + (item.extra_pieces || 0);
+      if (totalPieces > item.available_stock) {
         toast.error(`الكمية المطلوبة لـ "${item.product_name}" أكبر من المتوفر (${formatStockQty(item.available_stock, ppp)})`);
         return;
       }
@@ -848,15 +841,15 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
     return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
   };
 
-  // Format stock quantity in pieces + cartons
-  const formatStockQty = (stock: number, piecesPerPackage: number): string => {
+  // Format stock quantity (already in pieces) as cartons + pieces
+  const formatStockQty = (stockPieces: number, piecesPerPackage: number): string => {
     const ppp = piecesPerPackage || 1;
-    if (ppp <= 1) return `${Math.floor(stock)} قطعة`;
-    const totalPieces = Math.round(stock * ppp);
-    const cartons = Math.floor(totalPieces / ppp);
-    const pieces = totalPieces % ppp;
+    const total = Math.floor(stockPieces);
+    if (ppp <= 1) return `${total} قطعة`;
+    const cartons = Math.floor(total / ppp);
+    const pieces = total % ppp;
     if (pieces === 0) return `${cartons} كرتون`;
-    if (cartons === 0) return `${totalPieces} قطعة`;
+    if (cartons === 0) return `${total} قطعة`;
     return `${cartons} كرتون + ${pieces} ق`;
   };
 
@@ -892,7 +885,6 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
         const ppp = quickEntryModal.product?.pieces_per_package || 1;
         const costPrice = Number(quickEntryModal.product?.cost_price) || 0;
         const isBelowCost = quickEntryModal.unitPrice > 0 && quickEntryModal.unitPrice < costPrice;
-        const sortedCats = clientCategories.slice().sort((a, b) => a.id - b.id);
         return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-[480px] max-w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -950,40 +942,6 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                 )}
               </div>
 
-              {/* Category prices */}
-              {sortedCats.length > 0 && (
-              <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-3 space-y-3">
-                <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">أسعار الفئات (القطعة)</div>
-                <div className="grid grid-cols-2 gap-2">
-                  {sortedCats.map((cat) => (
-                    <div key={cat.id}>
-                      <label className="block text-xs text-amber-600 font-medium mb-0.5">{cat.name}</label>
-                      <input
-                        ref={(el) => { catPriceRefs.current[cat.id] = el; }}
-                        type="number"
-                        value={quickEntryModal.categoryPrices[cat.id] || ''}
-                        onChange={(e) => setQuickEntryModal(prev => ({
-                          ...prev,
-                          categoryPrices: { ...prev.categoryPrices, [cat.id]: Number(e.target.value) || 0 }
-                        }))}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            confirmQuickEntry();
-                          } else if (e.key === 'Escape') {
-                            setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, categoryPrices: {} });
-                            barcodeInputRef.current?.focus();
-                          }
-                        }}
-                        className="input w-full text-center text-sm"
-                        min="0"
-                        placeholder="0"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-              )}
 
               <div className="text-center text-lg font-bold text-blue-600 dark:text-blue-400">
                 المجموع: {formatCurrency(quickEntryModal.unitPrice * ppp * quickEntryModal.quantity)}
@@ -1494,8 +1452,8 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                             <td className="px-2 py-2 text-center">
                               {(() => {
                                 const ppp = item.pieces_per_package || 1;
-                                const decimalQty = item.quantity + (item.extra_pieces || 0) / ppp;
-                                const overStock = decimalQty > item.available_stock;
+                                const totalPieces = (item.quantity * ppp) + (item.extra_pieces || 0);
+                                const overStock = totalPieces > item.available_stock;
                                 return (
                                   <span className={`text-sm font-bold ${overStock ? 'text-red-600' : 'text-green-600'}`}>
                                     {formatStockQty(item.available_stock, ppp)}

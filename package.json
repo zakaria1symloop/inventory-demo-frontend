@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -19,6 +19,7 @@
     "jspdf-autotable": "^5.0.2",
     "leaflet": "^1.9.4",
     "next": "^15",
+    "qrcode.react": "^4.2.0",
     "react": "^19",
     "react-dom": "^19",
     "react-hook-form": "^7.68.0",

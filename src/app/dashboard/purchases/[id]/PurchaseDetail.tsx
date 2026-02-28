@@ -87,6 +87,7 @@ export default function PurchaseDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   // Payment modal state
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
@@ -381,7 +382,7 @@ export default function PurchaseDetail() {
     setIsProcessingPayment(true);
     try {
       await purchasesApi.addPayment(purchase.id, {
-        amount: purchase.due_amount,
+        amount: parseFloat(String(purchase.due_amount)),
         payment_method: 'cash',
         notes: 'دفع كامل',
         date: new Date().toISOString().split('T')[0],
@@ -393,6 +394,21 @@ export default function PurchaseDetail() {
       toast.error(message);
     } finally {
       setIsProcessingPayment(false);
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (!purchase || purchase.status !== 'pending') return;
+    setIsConfirming(true);
+    try {
+      await purchasesApi.confirm(purchase.id);
+      toast.success('تم تأكيد الفاتورة بنجاح');
+      fetchPurchase();
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'خطأ في تأكيد الفاتورة';
+      toast.error(message);
+    } finally {
+      setIsConfirming(false);
     }
   };
 
@@ -439,41 +455,78 @@ export default function PurchaseDetail() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {purchase.due_amount > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {purchase.status === 'pending' && (
             <>
               <button
-                onClick={openPaymentModal}
-                className="btn btn-primary"
-                disabled={isProcessingPayment}
-              >
-                <CreditCardIcon className="w-5 h-5" />
-                إضافة دفعة
-              </button>
-              <button
-                onClick={handlePayFull}
-                className="btn bg-green-600 text-white hover:bg-green-700"
-                disabled={isProcessingPayment}
+                onClick={handleConfirm}
+                className="btn bg-green-600 text-white hover:bg-green-700 shadow-sm"
+                disabled={isConfirming}
               >
                 <CheckCircleIcon className="w-5 h-5" />
-                دفع الكل
+                {isConfirming ? 'جاري التأكيد...' : 'تأكيد الاستلام'}
+              </button>
+              <Link
+                href={`/dashboard/purchases/edit/${purchase.id}`}
+                className="btn btn-secondary"
+              >
+                <PencilIcon className="w-5 h-5" />
+                تعديل
+              </Link>
+              <button
+                onClick={handlePrint}
+                className="btn btn-secondary"
+              >
+                <PrinterIcon className="w-5 h-5" />
+                طباعة
+              </button>
+              <button
+                onClick={() => setIsDeleteOpen(true)}
+                className="btn bg-red-50 text-red-600 hover:bg-red-100"
+              >
+                <TrashIcon className="w-5 h-5" />
+                حذف
               </button>
             </>
           )}
-          <button
-            onClick={handlePrint}
-            className="btn btn-secondary"
-          >
-            <PrinterIcon className="w-5 h-5" />
-            طباعة
-          </button>
-          <button
-            onClick={() => setIsDeleteOpen(true)}
-            className="btn bg-red-50 text-red-600 hover:bg-red-100"
-          >
-            <TrashIcon className="w-5 h-5" />
-            حذف
-          </button>
+          {purchase.status === 'received' && (
+            <>
+              {purchase.due_amount > 0 && (
+                <>
+                  <button
+                    onClick={openPaymentModal}
+                    className="btn btn-primary"
+                    disabled={isProcessingPayment}
+                  >
+                    <CreditCardIcon className="w-5 h-5" />
+                    إضافة دفعة
+                  </button>
+                  <button
+                    onClick={handlePayFull}
+                    className="btn bg-green-600 text-white hover:bg-green-700"
+                    disabled={isProcessingPayment}
+                  >
+                    <BanknotesIcon className="w-5 h-5" />
+                    دفع الكل
+                  </button>
+                </>
+              )}
+              <Link
+                href={`/dashboard/purchases/edit/${purchase.id}`}
+                className="btn btn-secondary"
+              >
+                <PencilIcon className="w-5 h-5" />
+                تعديل
+              </Link>
+              <button
+                onClick={handlePrint}
+                className="btn btn-secondary"
+              >
+                <PrinterIcon className="w-5 h-5" />
+                طباعة
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -510,7 +563,14 @@ export default function PurchaseDetail() {
 
         <div className="card">
           <p className="text-sm text-gray-500 mb-2">حالة الدفع</p>
-          {getPaymentStatusBadge(purchase.payment_status)}
+          {purchase.status === 'pending' ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+              <ClockIcon className="w-4 h-4" />
+              في انتظار التأكيد
+            </span>
+          ) : (
+            getPaymentStatusBadge(purchase.payment_status)
+          )}
         </div>
       </div>
 
@@ -657,17 +717,26 @@ export default function PurchaseDetail() {
                 <span>المجموع النهائي</span>
                 <span className="text-green-600">{formatCurrency(purchase.grand_total)}</span>
               </div>
-              <hr />
-              <div className="flex justify-between text-gray-600">
-                <span>المدفوع</span>
-                <span className="text-green-600">{formatCurrency(purchase.paid_amount)}</span>
-              </div>
-              <div className="flex justify-between font-semibold">
-                <span>المتبقي</span>
-                <span className={purchase.due_amount > 0 ? 'text-red-600' : 'text-green-600'}>
-                  {formatCurrency(purchase.due_amount)}
-                </span>
-              </div>
+              {purchase.status === 'pending' ? (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center">
+                  <p className="text-yellow-700 text-sm font-medium">فاتورة غير مؤكدة</p>
+                  <p className="text-yellow-600 text-xs mt-1">لن يتم احتساب الدين إلا بعد التأكيد</p>
+                </div>
+              ) : (
+                <>
+                  <hr />
+                  <div className="flex justify-between text-gray-600">
+                    <span>المدفوع</span>
+                    <span className="text-green-600">{formatCurrency(purchase.paid_amount)}</span>
+                  </div>
+                  <div className="flex justify-between font-semibold">
+                    <span>المتبقي</span>
+                    <span className={purchase.due_amount > 0 ? 'text-red-600' : 'text-green-600'}>
+                      {formatCurrency(purchase.due_amount)}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 

@@ -194,9 +194,9 @@ export default function StockTransfersPage() {
 
     const itemRows = items.map((item, index) => {
       const ppp = item.product?.pieces_per_package || 1;
-      const tp = Math.round(Number(item.quantity) * ppp);
-      const cartons = Math.floor(tp / ppp);
-      const extra = tp % ppp;
+      const tp = Math.round(Number(item.quantity));
+      const cartons = ppp > 1 ? Math.floor(tp / ppp) : tp;
+      const extra = ppp > 1 ? tp % ppp : 0;
 
       totalCartons += cartons;
       totalExtraPieces += extra;
@@ -375,7 +375,7 @@ export default function StockTransfersPage() {
   const getTotalPieces = (transfer: StockTransfer) => {
     return transfer.items?.reduce((sum, item) => {
       const ppp = item.product?.pieces_per_package || 1;
-      return sum + Math.round(Number(item.quantity) * ppp);
+      return sum + Math.round(Number(item.quantity));
     }, 0) || 0;
   };
 

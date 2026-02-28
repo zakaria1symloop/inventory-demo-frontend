@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ordersApi, deliveriesApi, usersApi, vehiclesApi } from '@/lib/api';
+import { ordersApi, deliveriesApi, usersApi, vehiclesApi, warehousesApi } from '@/lib/api';
 import { formatQty, formatQtyLong } from '@/lib/utils';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
@@ -22,6 +22,7 @@ import {
   EyeIcon,
   PhoneIcon,
   DocumentArrowDownIcon,
+  BuildingStorefrontIcon,
 } from '@heroicons/react/24/outline';
 
 interface Client {
@@ -60,6 +61,8 @@ interface User {
   name: string;
   phone?: string;
   role: string;
+  warehouse_id?: number;
+  warehouse?: { id: number; name: string; stock_count?: number };
 }
 
 interface Vehicle {
@@ -76,6 +79,14 @@ export default function NewDeliveryPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCreatingWarehouse, setIsCreatingWarehouse] = useState(false);
+
+  const [autoStart, setAutoStart] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('delivery_auto_start') === 'true';
+    }
+    return false;
+  });
 
   const [formData, setFormData] = useState({
     livreur_id: '',
@@ -83,6 +94,11 @@ export default function NewDeliveryPage() {
     date: new Date().toISOString().split('T')[0],
     notes: '',
   });
+
+  const handleAutoStartToggle = (checked: boolean) => {
+    setAutoStart(checked);
+    localStorage.setItem('delivery_auto_start', checked ? 'true' : 'false');
+  };
 
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [expandedOrders, setExpandedOrders] = useState<number[]>([]);
@@ -364,9 +380,38 @@ export default function NewDeliveryPage() {
     setSelectedOrders(newOrders);
   };
 
+  const handleCreateWarehouse = async (driver: User) => {
+    setIsCreatingWarehouse(true);
+    try {
+      const warehouseRes = await warehousesApi.create({
+        name: 'مستودع ' + driver.name,
+        is_main: false,
+        is_active: true,
+      });
+      const warehouse = warehouseRes.data;
+      await warehousesApi.assignUser(warehouse.id, driver.id);
+      // Update the driver in local state
+      setLivreurs(prev => prev.map(l =>
+        l.id === driver.id
+          ? { ...l, warehouse_id: warehouse.id, warehouse: { id: warehouse.id, name: warehouse.name, stock_count: 0 } }
+          : l
+      ));
+      toast.success('تم إنشاء المستودع بنجاح');
+    } catch {
+      toast.error('فشل في إنشاء المستودع');
+    } finally {
+      setIsCreatingWarehouse(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!formData.livreur_id) {
       toast.error('يرجى اختيار السائق');
+      return;
+    }
+    const selectedDriver = livreurs.find(l => l.id === Number(formData.livreur_id));
+    if (selectedDriver && !selectedDriver.warehouse) {
+      toast.error('السائق المختار ليس لديه مستودع. يرجى إنشاء مستودع أولاً');
       return;
     }
     if (selectedOrders.length === 0) {
@@ -384,8 +429,20 @@ export default function NewDeliveryPage() {
         order_ids: selectedOrders.map((o) => o.id),
       });
 
-      toast.success('تم إنشاء رحلة التوصيل بنجاح');
-      router.push(`/dashboard/deliveries/${response.data.id}`);
+      const deliveryId = response.data.id;
+
+      if (autoStart) {
+        try {
+          await deliveriesApi.start(deliveryId);
+          toast.success('تم إنشاء وبدء رحلة التوصيل بنجاح');
+        } catch {
+          toast.success('تم إنشاء الرحلة لكن فشل البدء التلقائي');
+        }
+      } else {
+        toast.success('تم إنشاء رحلة التوصيل بنجاح');
+      }
+
+      router.push(`/dashboard/deliveries/${deliveryId}`);
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
       toast.error(err.response?.data?.message || 'خطأ في إنشاء رحلة التوصيل');
@@ -591,6 +648,45 @@ export default function NewDeliveryPage() {
                     </option>
                   ))}
                 </select>
+                {formData.livreur_id && (() => {
+                  const driver = livreurs.find(l => l.id === Number(formData.livreur_id));
+                  if (!driver) return null;
+                  return (
+                    <div className={`mt-2 p-2.5 rounded-lg text-sm border ${driver.warehouse ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-200'}`}>
+                      <div className="flex items-center gap-2">
+                        <BuildingStorefrontIcon className={`w-4 h-4 ${driver.warehouse ? 'text-blue-600' : 'text-red-600'}`} />
+                        <span className={`font-medium ${driver.warehouse ? 'text-blue-800' : 'text-red-800'}`}>
+                          {driver.warehouse ? driver.warehouse.name : 'بدون مستودع'}
+                        </span>
+                      </div>
+                      {driver.warehouse && driver.warehouse.stock_count !== undefined && (
+                        <p className="text-blue-600 text-xs mt-1 mr-6">
+                          {driver.warehouse.stock_count > 0
+                            ? `${driver.warehouse.stock_count} منتج في المخزون`
+                            : 'المخزون فارغ'}
+                        </p>
+                      )}
+                      {!driver.warehouse && (
+                        <div className="mt-2">
+                          <p className="text-red-600 text-xs mb-2">لا يمكن إنشاء توصيل بدون مستودع للسائق</p>
+                          <button
+                            type="button"
+                            onClick={() => handleCreateWarehouse(driver)}
+                            disabled={isCreatingWarehouse}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+                          >
+                            {isCreatingWarehouse ? (
+                              <span className="spinner w-3 h-3"></span>
+                            ) : (
+                              <BuildingStorefrontIcon className="w-3.5 h-3.5" />
+                            )}
+                            إنشاء مستودع للسائق
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">المركبة</label>
@@ -628,6 +724,37 @@ export default function NewDeliveryPage() {
                 rows={2}
                 placeholder="ملاحظات إضافية..."
               />
+            </div>
+
+            {/* Auto-start toggle */}
+            <div className="mt-4 pt-4 border-t">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">بدء الرحلة تلقائياً</p>
+                    <p className="text-xs text-gray-500">سيتم بدء الرحلة وخصم المنتجات من المستودع مباشرة بعد الإنشاء</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={autoStart}
+                  onClick={() => handleAutoStartToggle(!autoStart)}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
+                    autoStart ? 'bg-green-600' : 'bg-gray-200'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      autoStart ? '-translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1014,20 +1141,36 @@ export default function NewDeliveryPage() {
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting || selectedOrders.length === 0 || !formData.livreur_id}
-                className="btn btn-primary w-full flex items-center justify-center gap-2"
+                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-bold text-white transition-colors disabled:opacity-50 ${
+                  autoStart
+                    ? 'bg-green-600 hover:bg-green-700'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
               >
                 {isSubmitting ? (
                   <>
-                    <div className="spinner w-5 h-5"></div>
-                    جاري الإنشاء...
+                    <div className="spinner w-5 h-5 border-white"></div>
+                    {autoStart ? 'جاري الإنشاء والبدء...' : 'جاري الإنشاء...'}
                   </>
                 ) : (
                   <>
-                    <TruckIcon className="w-5 h-5" />
-                    إنشاء رحلة التوصيل
+                    {autoStart ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    ) : (
+                      <TruckIcon className="w-5 h-5" />
+                    )}
+                    {autoStart ? 'إنشاء وبدء الرحلة' : 'إنشاء رحلة التوصيل'}
                   </>
                 )}
               </button>
+              {autoStart && (
+                <p className="text-xs text-center text-green-600 mt-2">
+                  سيتم بدء الرحلة وخصم المنتجات تلقائياً
+                </p>
+              )}
             </div>
           </div>
 

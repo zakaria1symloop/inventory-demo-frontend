@@ -337,6 +337,68 @@ tr:hover {
   }
 }
 
+/* ── Leaflet z-index containment ── */
+.leaflet-container {
+  z-index: 0 !important;
+}
+
+/* ── Hero animations ── */
+@keyframes hero-fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes hero-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes hero-scale-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes hero-blur-in {
+  from { opacity: 0; backdrop-filter: blur(0px); }
+  to   { opacity: 1; backdrop-filter: blur(16px); }
+}
+@keyframes hero-slide-right {
+  from { opacity: 0; transform: translateX(-30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes hero-glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.15), 0 8px 32px rgba(0,0,0,0.08); }
+  50%      { box-shadow: 0 0 40px rgba(59, 130, 246, 0.25), 0 8px 32px rgba(0,0,0,0.12); }
+}
+@keyframes hero-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+@keyframes hero-counter {
+  from { opacity: 0; transform: translateY(12px) scale(0.8); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.anim-fade-up    { animation: hero-fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.anim-fade-in    { animation: hero-fade-in 0.8s ease both; }
+.anim-scale-in   { animation: hero-scale-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.anim-blur-in    { animation: hero-blur-in 0.8s ease both; }
+.anim-slide-right{ animation: hero-slide-right 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.anim-glow       { animation: hero-glow-pulse 3s ease-in-out infinite; }
+.anim-float      { animation: hero-float 4s ease-in-out infinite; }
+.anim-counter    { animation: hero-counter 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.anim-glass-card { animation: hero-scale-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both, hero-glow-pulse 3s ease-in-out 0.6s infinite; }
+
+.delay-100 { animation-delay: 0.1s; }
+.delay-200 { animation-delay: 0.2s; }
+.delay-300 { animation-delay: 0.3s; }
+.delay-400 { animation-delay: 0.4s; }
+.delay-500 { animation-delay: 0.5s; }
+.delay-600 { animation-delay: 0.6s; }
+.delay-700 { animation-delay: 0.7s; }
+.delay-800 { animation-delay: 0.8s; }
+.delay-1000{ animation-delay: 1.0s; }
+.delay-1200{ animation-delay: 1.2s; }
+.delay-1400{ animation-delay: 1.4s; }
+.delay-1600{ animation-delay: 1.6s; }
+
 /* Status colors */
 .status-pending {
   color: #f59e0b;

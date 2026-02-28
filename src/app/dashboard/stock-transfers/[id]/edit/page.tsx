@@ -134,14 +134,13 @@ export default function EditStockTransferPage() {
       setToWarehouseId(transfer.to_warehouse_id);
       setNotes(transfer.notes || '');
 
-      // Build items from transfer data
+      // Build items from transfer data (quantity is stored as total pieces)
       const loadedItems: TransferItem[] = (transfer.items || []).map((ti: { product_id: number; quantity: number; product?: Product }) => {
         const product = prods.find((p: Product) => p.id === ti.product_id) || ti.product;
         const ppp = product?.pieces_per_package || 1;
-        const qty = Number(ti.quantity) || 0;
-        const cartons = Math.floor(qty);
-        const extraPieces = Math.round((qty - cartons) * ppp);
-        const totalPieces = cartons * ppp + extraPieces;
+        const totalPieces = Math.round(Number(ti.quantity) || 0);
+        const cartons = Math.floor(totalPieces / ppp);
+        const extraPieces = totalPieces % ppp;
         const unitCost = Number(product?.cost_price) || 0;
         return {
           product_id: ti.product_id,
@@ -150,7 +149,7 @@ export default function EditStockTransferPage() {
           extra_pieces: extraPieces,
           pieces_per_package: ppp,
           total_pieces: totalPieces,
-          decimal_qty: qty,
+          decimal_qty: cartons + extraPieces / ppp,
           unit_cost: unitCost,
           subtotal: unitCost * totalPieces,
         };
@@ -296,10 +295,10 @@ export default function EditStockTransferPage() {
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
 
-  const fmtStock = (qty: number, ppp: number): string => {
-    if (!ppp || ppp <= 1) return Math.round(qty).toString();
-    const cartons = Math.floor(qty);
-    const pieces = Math.round((qty - cartons) * ppp);
+  const fmtStock = (totalPieces: number, ppp: number): string => {
+    if (!ppp || ppp <= 1) return Math.round(totalPieces).toString();
+    const cartons = Math.floor(totalPieces / ppp);
+    const pieces = totalPieces % ppp;
     if (cartons > 0 && pieces > 0) return `${cartons} كرتون ${pieces} قطعة`;
     if (cartons > 0) return `${cartons} كرتون`;
     if (pieces > 0) return `${pieces} قطعة`;
@@ -308,7 +307,7 @@ export default function EditStockTransferPage() {
 
   const hasStockErrors = () => {
     if (!fromWarehouseId) return false;
-    return items.some(item => item.decimal_qty > getStock(item.product_id));
+    return items.some(item => item.total_pieces > getStock(item.product_id));
   };
 
   const handleSubmit = async () => {
@@ -333,7 +332,7 @@ export default function EditStockTransferPage() {
         notes: notes || null,
         items: items.map(item => ({
           product_id: item.product_id,
-          quantity: item.decimal_qty,
+          quantity: item.total_pieces,
         })),
       });
       toast.success('تم تحديث التحويل بنجاح');
@@ -513,7 +512,7 @@ export default function EditStockTransferPage() {
                   ) : (
                     items.map((item, index) => {
                       const stock = getStock(item.product_id);
-                      const overStock = fromWarehouseId && item.decimal_qty > stock;
+                      const overStock = fromWarehouseId && item.total_pieces > stock;
                       const ppp = item.pieces_per_package;
                       const hasPieces = ppp > 1;
                       return (

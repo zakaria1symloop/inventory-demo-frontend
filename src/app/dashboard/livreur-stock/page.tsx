@@ -171,11 +171,12 @@ export default function LivreurStockPage() {
     return new Intl.NumberFormat('ar-DZ').format(value);
   };
 
-  const formatQty = (qty: number, piecesPerPackage?: number) => {
+  const formatQty = (totalPieces: number, piecesPerPackage?: number) => {
     const ppp = piecesPerPackage || 1;
+    const qty = Math.round(totalPieces);
     if (ppp <= 1) return `${qty}`;
-    const cartons = Math.floor(qty);
-    const pieces = Math.round((qty - cartons) * ppp);
+    const cartons = Math.floor(qty / ppp);
+    const pieces = qty % ppp;
     if (cartons > 0 && pieces > 0) return `${cartons} كرتون ${pieces} قطعة`;
     if (cartons > 0) return `${cartons} كرتون`;
     if (pieces > 0) return `${pieces} قطعة`;
@@ -315,10 +316,9 @@ export default function LivreurStockPage() {
 
   const getReturnQty = (item: ReturnItem): number => {
     const ppp = item.pieces_per_package || 1;
-    const cartons = parseFloat(item.cartons) || 0;
-    const pieces = parseFloat(item.pieces) || 0;
-    if (ppp <= 1) return cartons;
-    return cartons + (pieces / ppp);
+    const cartons = parseInt(item.cartons) || 0;
+    const pieces = parseInt(item.pieces) || 0;
+    return cartons * ppp + pieces;
   };
 
   const handleReturnSubmit = async () => {
@@ -334,30 +334,22 @@ export default function LivreurStockPage() {
 
     for (const item of returnItems) {
       const ppp = item.pieces_per_package || 1;
-      const enteredCartons = parseFloat(item.cartons) || 0;
-      const enteredPieces = parseFloat(item.pieces) || 0;
+      const enteredCartons = parseInt(item.cartons) || 0;
+      const enteredPieces = parseInt(item.pieces) || 0;
 
       // Total entered in piece units
       const enteredTotalPieces = enteredCartons * ppp + enteredPieces;
       if (enteredTotalPieces <= 0) continue;
 
-      // Available in piece units (what formatQty displays)
-      const availableCartons = Math.floor(item.available);
-      const availablePieces = ppp > 1 ? Math.round((item.available - availableCartons) * ppp) : 0;
-      const availableTotalPieces = availableCartons * ppp + availablePieces;
-
-      if (enteredTotalPieces > availableTotalPieces) {
+      // Available is already in pieces from the backend
+      if (enteredTotalPieces > item.available) {
         toast.error(`الكمية المدخلة لـ ${item.product_name} أكبر من المتاح (${formatQty(item.available, ppp)})`);
         return;
       }
 
-      // Clamp the decimal value to available to avoid DB precision issues
-      const computed = enteredCartons + (ppp > 1 ? enteredPieces / ppp : 0);
-      const quantity = Math.min(computed, item.available);
-
       itemsToReturn.push({
         product_id: item.product_id,
-        quantity: parseFloat(quantity.toFixed(6)),
+        quantity: enteredTotalPieces,
         source_type: item.source_type,
         source_id: item.source_id,
       });

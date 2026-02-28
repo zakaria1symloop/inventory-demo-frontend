@@ -36,6 +36,7 @@ import {
   BanknotesIcon,
   WrenchScrewdriverIcon,
   DocumentDuplicateIcon,
+  DevicePhoneMobileIcon,
 } from '@heroicons/react/24/outline';
 
 interface MenuItem {
@@ -44,6 +45,7 @@ interface MenuItem {
   icon: React.ComponentType<{ className?: string }>;
   roles?: string[];
   badge?: string;
+  feature?: string;
 }
 
 interface MenuSection {
@@ -58,59 +60,59 @@ const menuSections: MenuSection[] = [
     name: 'المخزون',
     icon: ArchiveBoxIcon,
     items: [
-      { name: 'إدارة المخزون', href: '/dashboard/inventory', icon: ClipboardDocumentListIcon },
-      { name: 'المنتجات', href: '/dashboard/products', icon: CubeIcon },
-      { name: 'الأصناف', href: '/dashboard/categories', icon: TagIcon },
-      { name: 'العلامات التجارية', href: '/dashboard/brands', icon: RectangleStackIcon },
-      { name: 'الوحدات', href: '/dashboard/units', icon: BuildingStorefrontIcon },
-      { name: 'المستودعات', href: '/dashboard/warehouses', icon: BuildingStorefrontIcon },
-      { name: 'حركات المخزون', href: '/dashboard/stock-movements', icon: ArrowPathIcon },
-      { name: 'التعديلات', href: '/dashboard/adjustments', icon: ClipboardDocumentListIcon },
+      { name: 'إدارة المخزون', href: '/dashboard/inventory', icon: ClipboardDocumentListIcon, feature: 'inventory' },
+      { name: 'المنتجات', href: '/dashboard/products', icon: CubeIcon, feature: 'products' },
+      { name: 'الأصناف', href: '/dashboard/categories', icon: TagIcon, feature: 'categories' },
+      { name: 'العلامات التجارية', href: '/dashboard/brands', icon: RectangleStackIcon, feature: 'brands' },
+      { name: 'الوحدات', href: '/dashboard/units', icon: BuildingStorefrontIcon, feature: 'units' },
+      { name: 'المستودعات', href: '/dashboard/warehouses', icon: BuildingStorefrontIcon, feature: 'warehouses' },
+      { name: 'حركات المخزون', href: '/dashboard/stock-movements', icon: ArrowPathIcon, feature: 'stock_movements' },
+      { name: 'التعديلات', href: '/dashboard/adjustments', icon: ClipboardDocumentListIcon, feature: 'adjustments' },
     ],
   },
   {
     name: 'المشتريات',
     icon: ArrowTrendingDownIcon,
     items: [
-      { name: 'فواتير الشراء', href: '/dashboard/purchases', icon: ArrowTrendingDownIcon },
-      { name: 'بونات الطلب', href: '/dashboard/purchase-orders', icon: DocumentDuplicateIcon, badge: 'جديد' },
-      { name: 'الموردين', href: '/dashboard/suppliers', icon: TruckIcon },
-      { name: 'مرتجعات الشراء', href: '/dashboard/purchase-returns', icon: ArrowUturnLeftIcon },
+      { name: 'فواتير الشراء', href: '/dashboard/purchases', icon: ArrowTrendingDownIcon, feature: 'purchases' },
+      { name: 'بونات الطلب', href: '/dashboard/purchase-orders', icon: DocumentDuplicateIcon, badge: 'جديد', feature: 'purchase_orders' },
+      { name: 'الموردين', href: '/dashboard/suppliers', icon: TruckIcon, feature: 'suppliers' },
+      { name: 'مرتجعات الشراء', href: '/dashboard/purchase-returns', icon: ArrowUturnLeftIcon, feature: 'purchase_returns' },
     ],
   },
   {
     name: 'المبيعات',
     icon: ArrowTrendingUpIcon,
     items: [
-      { name: 'فواتير البيع', href: '/dashboard/sales', icon: ArrowTrendingUpIcon },
-      { name: 'العملاء', href: '/dashboard/clients', icon: UserGroupIcon },
-      { name: 'فئات العملاء', href: '/dashboard/client-categories', icon: TagIcon, badge: 'جديد' },
-      { name: 'مرتجعات المبيعات', href: '/dashboard/sale-returns', icon: ArrowUturnLeftIcon },
+      { name: 'فواتير البيع', href: '/dashboard/sales', icon: ArrowTrendingUpIcon, feature: 'sales' },
+      { name: 'العملاء', href: '/dashboard/clients', icon: UserGroupIcon, feature: 'clients' },
+      { name: 'فئات العملاء', href: '/dashboard/client-categories', icon: TagIcon, badge: 'جديد', feature: 'client_categories' },
+      { name: 'مرتجعات المبيعات', href: '/dashboard/sale-returns', icon: ArrowUturnLeftIcon, feature: 'sale_returns' },
     ],
   },
   {
     name: 'الطلبات والتوصيل',
     icon: ShoppingCartIcon,
     items: [
-      { name: 'الطلبات', href: '/dashboard/orders', icon: ShoppingCartIcon },
-      { name: 'الجولات', href: '/dashboard/trips', icon: MapPinIcon },
-      { name: 'التوصيل', href: '/dashboard/deliveries', icon: TruckIcon },
-      { name: 'تحويلات المخزون', href: '/dashboard/stock-transfers', icon: ArrowPathIcon, badge: 'جديد' },
-      { name: 'طلبات المنتجات', href: '/dashboard/product-requests', icon: ClipboardDocumentListIcon },
-      { name: 'مخزون السائقين', href: '/dashboard/livreur-stock', icon: ArchiveBoxIcon },
-      { name: 'السائقين', href: '/dashboard/drivers', icon: UsersIcon },
-      { name: 'خريطة السائقين', href: '/dashboard/drivers-map', icon: MapPinIcon, badge: 'جديد' },
-      { name: 'المركبات', href: '/dashboard/vehicles', icon: TruckIcon },
+      { name: 'الطلبات', href: '/dashboard/orders', icon: ShoppingCartIcon, feature: 'orders' },
+      { name: 'الجولات', href: '/dashboard/trips', icon: MapPinIcon, feature: 'trips' },
+      { name: 'التوصيل', href: '/dashboard/deliveries', icon: TruckIcon, feature: 'deliveries' },
+      { name: 'تحويلات المخزون', href: '/dashboard/stock-transfers', icon: ArrowPathIcon, badge: 'جديد', feature: 'stock_transfers' },
+      { name: 'طلبات المنتجات', href: '/dashboard/product-requests', icon: ClipboardDocumentListIcon, feature: 'product_requests' },
+      { name: 'مخزون السائقين', href: '/dashboard/livreur-stock', icon: ArchiveBoxIcon, feature: 'livreur_stock' },
+      { name: 'السائقين', href: '/dashboard/drivers', icon: UsersIcon, feature: 'deliveries' },
+      { name: 'خريطة السائقين', href: '/dashboard/drivers-map', icon: MapPinIcon, badge: 'جديد', feature: 'drivers_map' },
+      { name: 'المركبات', href: '/dashboard/vehicles', icon: TruckIcon, feature: 'vehicles' },
     ],
   },
   {
     name: 'المالية',
     icon: BanknotesIcon,
     items: [
-      { name: 'الصناديق', href: '/dashboard/caisses', icon: BanknotesIcon, badge: 'جديد' },
-      { name: 'المدفوعات', href: '/dashboard/payments', icon: CurrencyDollarIcon },
-      { name: 'المصروفات', href: '/dashboard/dispenses', icon: BanknotesIcon, badge: 'جديد' },
-      { name: 'التقارير', href: '/dashboard/reports', icon: ChartBarIcon },
+      { name: 'الصناديق', href: '/dashboard/caisses', icon: BanknotesIcon, badge: 'جديد', feature: 'caisses' },
+      { name: 'المدفوعات', href: '/dashboard/payments', icon: CurrencyDollarIcon, feature: 'payments' },
+      { name: 'المصروفات', href: '/dashboard/dispenses', icon: BanknotesIcon, badge: 'جديد', feature: 'dispenses' },
+      { name: 'التقارير', href: '/dashboard/reports', icon: ChartBarIcon, feature: 'reports' },
     ],
   },
   {
@@ -118,9 +120,10 @@ const menuSections: MenuSection[] = [
     icon: WrenchScrewdriverIcon,
     roles: ['admin'],
     items: [
-      { name: 'الموظفين', href: '/dashboard/employees', icon: UsersIcon, badge: 'جديد' },
-      { name: 'المستخدمين', href: '/dashboard/users', icon: UsersIcon },
-      { name: 'الإعدادات', href: '/dashboard/settings', icon: Cog6ToothIcon },
+      { name: 'الموظفين', href: '/dashboard/employees', icon: UsersIcon, badge: 'جديد', feature: 'employees' },
+      { name: 'المستخدمين', href: '/dashboard/users', icon: UsersIcon, feature: 'users' },
+      { name: 'تطبيق الموبايل', href: '/dashboard/mobile-app', icon: DevicePhoneMobileIcon, badge: 'جديد' },
+      { name: 'الإعدادات', href: '/dashboard/settings', icon: Cog6ToothIcon, feature: 'settings' },
     ],
   },
 ];
@@ -128,7 +131,41 @@ const menuSections: MenuSection[] = [
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isLoading, isAuthenticated, checkAuth, logout } = useAuthStore();
+  const { user, isLoading, isAuthenticated, checkAuth, logout, hasFeature } = useAuthStore();
+
+  // Impersonation detection - read credentials from URL, not localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const impData = params.get('imp');
+    if (impData) {
+      try {
+        const { token, tenantId } = JSON.parse(atob(decodeURIComponent(impData)));
+        if (token && tenantId) {
+          localStorage.setItem('token', token);
+          localStorage.setItem('tenantId', tenantId);
+          // Also update Zustand persisted state
+          localStorage.setItem('auth-storage', JSON.stringify({ state: { token, tenantId } }));
+          window.location.href = '/dashboard';
+        }
+      } catch {
+        // Invalid impersonation data
+      }
+    }
+    // Legacy support
+    if (params.get('impersonate') === '1') {
+      const impToken = localStorage.getItem('impersonate_token');
+      const impTenantId = localStorage.getItem('impersonate_tenantId');
+      if (impToken && impTenantId) {
+        localStorage.setItem('token', impToken);
+        localStorage.setItem('tenantId', impTenantId);
+        localStorage.setItem('auth-storage', JSON.stringify({ state: { token: impToken, tenantId: impTenantId } }));
+        localStorage.removeItem('impersonate_token');
+        localStorage.removeItem('impersonate_tenantId');
+        window.location.href = '/dashboard';
+      }
+    }
+  }, []);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -281,10 +318,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => window.removeEventListener('keydown', handleGlobalShortcuts);
   }, [router]);
 
-  const filteredSections = menuSections.filter((section) => {
-    if (!section.roles) return true;
-    return user && section.roles.includes(user.role);
-  });
+  const filteredSections = menuSections
+    .filter((section) => {
+      if (!section.roles) return true;
+      return user && section.roles.includes(user.role);
+    })
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => {
+        if (!item.feature) return true;
+        return hasFeature(item.feature);
+      }),
+    }))
+    .filter((section) => section.items.length > 0);
 
   if (isLoading) {
     return (
@@ -511,6 +557,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
         </header>
+
+        {/* Email verification banner */}
+        {user && !user.email_verified_at && (
+          <div className="mx-4 lg:mx-6 mt-4 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-xl p-4 flex items-center gap-3">
+            <div className="w-10 h-10 bg-amber-100 dark:bg-amber-800 rounded-full flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">لم يتم تأكيد البريد الإلكتروني</p>
+              <p className="text-xs text-amber-600 dark:text-amber-400">يرجى تأكيد بريدك الإلكتروني للوصول الكامل لجميع الميزات.</p>
+            </div>
+            <Link
+              href="/verify-email"
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors flex-shrink-0"
+            >
+              تأكيد الآن
+            </Link>
+          </div>
+        )}
 
         {/* Page content */}
         <main className="p-4 lg:p-6 pb-20">{children}</main>

@@ -1,0 +1,11 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_API_URL=https://tracksera-api-531073743356.europe-west1.run.app/api'
+      - '-t'
+      - 'europe-west1-docker.pkg.dev/tracksera-app/tracksera/frontend:latest'
+      - '.'
+images:
+  - 'europe-west1-docker.pkg.dev/tracksera-app/tracksera/frontend:latest'

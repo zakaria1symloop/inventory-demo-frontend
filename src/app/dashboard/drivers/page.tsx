@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usersApi } from '@/lib/api';
+import { useAuthStore } from '@/lib/store/auth';
 import {
   PlusIcon,
   PencilIcon,
@@ -35,6 +36,8 @@ const roleLabels: Record<string, string> = {
 
 export default function DriversPage() {
   const queryClient = useQueryClient();
+  const tenantName = useAuthStore((s) => s.tenantName);
+  const emailSuffix = tenantName ? `@${tenantName}.com` : '';
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
@@ -134,9 +137,13 @@ export default function DriversPage() {
   const openModal = (driver?: Driver) => {
     if (driver) {
       setSelectedDriver(driver);
+      // Strip @companyname suffix so the input shows just the username
+      const editEmail = (tenantName && driver.email.endsWith(`@${tenantName}.com`))
+        ? driver.email.replace(`@${tenantName}.com`, '')
+        : driver.email;
       setFormData({
         name: driver.name,
-        email: driver.email,
+        email: editEmail,
         phone: driver.phone || '',
         password: '',
         role: driver.role,
@@ -156,10 +163,15 @@ export default function DriversPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Compose full email with @companyname suffix
+    const email = tenantName
+      ? formData.email.replace(emailSuffix, '') + emailSuffix
+      : formData.email;
+
     if (selectedDriver) {
       const updateData: Record<string, unknown> = {
         name: formData.name,
-        email: formData.email,
+        email,
         phone: formData.phone,
       };
       updateMutation.mutate({ id: selectedDriver.id, data: updateData });
@@ -168,7 +180,7 @@ export default function DriversPage() {
         toast.error('كلمة المرور مطلوبة');
         return;
       }
-      createMutation.mutate(formData);
+      createMutation.mutate({ ...formData, email });
     }
   };
 
@@ -419,14 +431,31 @@ export default function DriversPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               البريد الإلكتروني <span className="text-red-500">*</span>
             </label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="input"
-              required
-              dir="ltr"
-            />
+            {tenantName ? (
+              <div className="flex items-center gap-0">
+                <input
+                  type="text"
+                  value={formData.email.replace(emailSuffix, '')}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value.replace(/[@\s]/g, '') })}
+                  className="input rounded-l-none flex-1"
+                  placeholder="اسم المستخدم"
+                  required
+                  dir="ltr"
+                />
+                <span className="inline-flex items-center px-3 py-2 bg-gray-100 border border-r-0 border-gray-300 rounded-r-lg text-sm text-gray-600 font-medium whitespace-nowrap" dir="ltr">
+                  {emailSuffix}
+                </span>
+              </div>
+            ) : (
+              <input
+                type="text"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="input"
+                required
+                dir="ltr"
+              />
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">الهاتف</label>

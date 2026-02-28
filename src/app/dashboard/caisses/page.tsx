@@ -27,6 +27,10 @@ const sourceTypeLabels: Record<string, string> = {
   settlement: 'تحصيل',
   adjustment: 'تعديل',
   transfer: 'تحويل',
+  'App\\Models\\Sale': 'فاتورة بيع',
+  'App\\Models\\Purchase': 'فاتورة شراء',
+  'App\\Models\\SaleReturn': 'مرتجع بيع',
+  'App\\Models\\PurchaseReturn': 'مرتجع شراء',
 };
 
 export default function CaissesPage() {

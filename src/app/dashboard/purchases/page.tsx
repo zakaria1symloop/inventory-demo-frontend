@@ -16,6 +16,7 @@ import {
   ClipboardDocumentListIcon,
   TrashIcon,
   BanknotesIcon,
+  CheckCircleIcon,
 } from '@heroicons/react/24/outline';
 
 interface Purchase {
@@ -171,7 +172,20 @@ export default function PurchasesPage() {
   };
 
   const canDelete = (purchase: Purchase) => {
+    if (purchase.status === 'pending') return true;
     return purchase.payment_status === 'unpaid' && purchase.paid_amount === 0;
+  };
+
+  const handleConfirmPurchase = async (id: number) => {
+    if (!confirm('هل تريد تأكيد استلام هذه الفاتورة؟')) return;
+    try {
+      await purchasesApi.confirm(id);
+      toast.success('تم تأكيد الفاتورة بنجاح');
+      fetchData();
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'خطأ في تأكيد الفاتورة';
+      toast.error(message);
+    }
   };
 
   const handleDownloadFacture = async (id: number, reference: string) => {
@@ -331,6 +345,11 @@ export default function PurchasesPage() {
                             <td><span className={`badge ${paymentBadge.class}`}>{paymentBadge.text}</span></td>
                             <td>
                               <div className="flex gap-2">
+                                {purchase.status === 'pending' && (
+                                  <button onClick={() => handleConfirmPurchase(purchase.id)} className="text-green-600 hover:text-green-800" title="تأكيد الاستلام">
+                                    <CheckCircleIcon className="w-5 h-5" />
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => openEditTab(purchase.id, purchase.reference)}
                                   className="text-amber-600 hover:text-amber-800"

@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 interface AssignedUser {
   id: number;
   name: string;
+  role?: string;
   warehouse_id: number;
 }
 
@@ -257,7 +258,7 @@ export default function NewStockTransferPage() {
     item.subtotal = item.unit_cost * newTotal;
 
     const stock = getStock(item.product_id);
-    if (fromWarehouseId && item.decimal_qty > stock) {
+    if (fromWarehouseId && item.total_pieces > stock) {
       toast.error(`${item.product.name}: المتوفر ${fmtStock(stock, ppp)} فقط`);
     }
     setItems(newItems);
@@ -314,10 +315,10 @@ export default function NewStockTransferPage() {
     return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
   };
 
-  const fmtStock = (qty: number, ppp: number): string => {
-    if (!ppp || ppp <= 1) return Math.round(qty).toString();
-    const cartons = Math.floor(qty);
-    const pieces = Math.round((qty - cartons) * ppp);
+  const fmtStock = (totalPieces: number, ppp: number): string => {
+    if (!ppp || ppp <= 1) return Math.round(totalPieces).toString();
+    const cartons = Math.floor(totalPieces / ppp);
+    const pieces = totalPieces % ppp;
     if (cartons > 0 && pieces > 0) return `${cartons} كرتون ${pieces} قطعة`;
     if (cartons > 0) return `${cartons} كرتون`;
     if (pieces > 0) return `${pieces} قطعة`;
@@ -326,7 +327,7 @@ export default function NewStockTransferPage() {
 
   const hasStockErrors = () => {
     if (!fromWarehouseId) return false;
-    return items.some(item => item.decimal_qty > getStock(item.product_id));
+    return items.some(item => item.total_pieces > getStock(item.product_id));
   };
 
   const handleSubmit = async () => {
@@ -342,6 +343,12 @@ export default function NewStockTransferPage() {
       toast.error('المستودع المصدر والوجهة يجب أن يكونا مختلفين');
       return;
     }
+    // Only allow transfers to cashvan warehouses
+    const destWh = warehouses.find(w => w.id === toWarehouseId);
+    if (destWh?.assigned_user && destWh.assigned_user.role !== 'cashvan') {
+      toast.error('التحويل متاح فقط لمستودعات البائعين المتنقلين (Cashvan). للسائقين العاديين استخدم نظام الطلبات.');
+      return;
+    }
     if (items.length === 0) {
       toast.error('يرجى إضافة منتج واحد على الأقل');
       return;
@@ -349,8 +356,8 @@ export default function NewStockTransferPage() {
     const errors: string[] = [];
     for (const item of items) {
       const available = getStock(item.product_id);
-      if (item.decimal_qty > available) {
-        errors.push(`${item.product.name}: المطلوب ${fmtStock(item.decimal_qty, item.pieces_per_package)}، المتوفر ${fmtStock(available, item.pieces_per_package)}`);
+      if (item.total_pieces > available) {
+        errors.push(`${item.product.name}: المطلوب ${fmtStock(item.total_pieces, item.pieces_per_package)}، المتوفر ${fmtStock(available, item.pieces_per_package)}`);
       }
     }
     if (errors.length > 0) {
@@ -366,7 +373,7 @@ export default function NewStockTransferPage() {
         notes: notes || null,
         items: items.map(item => ({
           product_id: item.product_id,
-          quantity: item.decimal_qty,
+          quantity: item.total_pieces,
         }))
       });
       toast.success('تم إنشاء طلب التحويل بنجاح');
@@ -392,6 +399,16 @@ export default function NewStockTransferPage() {
     const wh = warehouses.find(w => w.id === whId);
     return wh?.assigned_user?.name || '';
   };
+
+  // Check if destination warehouse belongs to a cashvan user
+  const getDestWarehouseUser = (whId: number | '') => {
+    if (!whId) return null;
+    const wh = warehouses.find(w => w.id === whId);
+    return wh?.assigned_user || null;
+  };
+
+  const destUser = getDestWarehouseUser(toWarehouseId);
+  const isDestCashvan = !toWarehouseId || !destUser || destUser.role === 'cashvan';
 
   if (isLoadingData) {
     return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
@@ -446,16 +463,29 @@ export default function NewStockTransferPage() {
                 <select
                   value={toWarehouseId}
                   onChange={(e) => setToWarehouseId(Number(e.target.value) || '')}
-                  className="select"
+                  className={`select ${toWarehouseId && !isDestCashvan ? 'border-red-500' : ''}`}
                 >
                   <option value="">اختر مستودع السائق</option>
-                  {warehouses.map(w => (
-                    <option key={w.id} value={w.id}>
-                      {w.name}{w.assigned_user ? ` (${w.assigned_user.name})` : ''}{w.is_main ? ' - رئيسي' : ''}
-                    </option>
-                  ))}
+                  {warehouses.map(w => {
+                    const roleLabel = w.assigned_user?.role === 'cashvan' ? 'بائع متنقل' : w.assigned_user?.role === 'livreur' ? 'سائق توصيل' : '';
+                    return (
+                      <option key={w.id} value={w.id}>
+                        {w.name}{w.assigned_user ? ` (${w.assigned_user.name}${roleLabel ? ' - ' + roleLabel : ''})` : ''}{w.is_main ? ' - رئيسي' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
-                {getDriverName(toWarehouseId) && (
+                {toWarehouseId && !isDestCashvan && (
+                  <div className="mt-2 p-2.5 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm font-medium text-red-800">
+                      هذا المستودع تابع لـ {destUser?.role === 'livreur' ? 'سائق توصيل' : 'مستخدم'} وليس بائع متنقل (Cashvan)
+                    </p>
+                    <p className="text-xs text-red-600 mt-1">
+                      التحويل المباشر للمخزون متاح فقط لمستودعات البائعين المتنقلين. للسائقين العاديين استخدم نظام الطلبات.
+                    </p>
+                  </div>
+                )}
+                {isDestCashvan && getDriverName(toWarehouseId) && (
                   <p className="text-xs text-blue-600 mt-1 font-medium">
                     السائق: {getDriverName(toWarehouseId)}
                   </p>
@@ -661,7 +691,7 @@ export default function NewStockTransferPage() {
                   ) : (
                     items.map((item, index) => {
                       const stock = getStock(item.product_id);
-                      const overStock = fromWarehouseId && item.decimal_qty > stock;
+                      const overStock = fromWarehouseId && item.total_pieces > stock;
                       const ppp = item.pieces_per_package;
                       const hasPieces = ppp > 1;
                       return (
@@ -802,7 +832,12 @@ export default function NewStockTransferPage() {
               {getDriverName(toWarehouseId) && (
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">السائق:</span>
-                  <span className="font-medium text-blue-600">{getDriverName(toWarehouseId)}</span>
+                  <span className={`font-medium ${isDestCashvan ? 'text-blue-600' : 'text-red-600'}`}>{getDriverName(toWarehouseId)}</span>
+                </div>
+              )}
+              {toWarehouseId && !isDestCashvan && (
+                <div className="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                  هذا المستخدم ليس بائع متنقل
                 </div>
               )}
               <hr className="border-gray-200 dark:border-gray-700" />
@@ -854,7 +889,7 @@ export default function NewStockTransferPage() {
             <div className="space-y-3">
               <button
                 onClick={handleSubmit}
-                disabled={isSaving || items.length === 0 || hasStockErrors()}
+                disabled={isSaving || items.length === 0 || hasStockErrors() || (toWarehouseId && !isDestCashvan)}
                 className="btn btn-primary w-full"
               >
                 {isSaving ? (

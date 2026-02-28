@@ -11,11 +11,17 @@ const api = axios.create({
   },
 });
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token and tenant ID
 api.interceptors.request.use((config) => {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    const tenantId = localStorage.getItem('tenantId');
+    if (tenantId) {
+      config.headers['X-Tenant-Id'] = tenantId;
+    }
   }
   return config;
 });
@@ -27,6 +33,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('token');
+        localStorage.removeItem('tenantId');
         localStorage.removeItem('user');
         window.location.href = '/login';
       }
@@ -40,15 +47,40 @@ export default api;
 // Auth API
 export const authApi = {
   login: (email: string, password: string) =>
-    api.post('/login', { email, password }),
-  register: (data: { name: string; email: string; password: string }) =>
-    api.post('/register', data),
+    api.post('/saas/login', { email, password }),
+  register: (data: { company_name?: string; name: string; email: string; password: string; password_confirmation?: string }) =>
+    api.post('/saas/register', data),
   logout: () => api.post('/logout'),
   getUser: () => api.get('/user'),
   updateProfile: (data: { name: string; phone?: string }) =>
     api.put('/profile', data),
   changePassword: (data: { current_password: string; password: string; password_confirmation: string }) =>
     api.put('/change-password', data),
+};
+
+// SaaS API (public, no tenant header)
+export const saasApi = {
+  forgotPassword: (email: string) =>
+    api.post('/saas/forgot-password', { email }),
+  resetPassword: (data: { email: string; otp: string; password: string; password_confirmation: string }) =>
+    api.post('/saas/reset-password', data),
+  sendVerificationOtp: (email: string) =>
+    api.post('/saas/send-verification-otp', { email }),
+  verifyEmail: (data: { email: string; otp: string }) =>
+    api.post('/saas/verify-email', data),
+};
+
+// Tenant API
+export const tenantApi = {
+  getPlan: () => api.get('/tenant/plan'),
+  getApps: () => api.get('/tenant/apps'),
+};
+
+// SaaS Payment API
+export const saasPaymentApi = {
+  upgrade: (plan: string) => api.post('/saas/payments/upgrade', { plan }),
+  getStatus: (paymentId: number) => api.get(`/saas/payments/${paymentId}/status`),
+  getHistory: () => api.get('/saas/payments/history'),
 };
 
 // Dashboard API
@@ -76,6 +108,17 @@ export const productsApi = {
     api.get('/products/available-stock/bulk', { params: { warehouse_id: warehouseId, product_ids: productIds } }),
   getPricesForClient: (clientId: number) =>
     api.get('/products/prices-for-client', { params: { client_id: clientId } }),
+  downloadTemplate: () =>
+    api.get('/products/import-template', { responseType: 'blob' }),
+  previewImport: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/products/import/preview', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  confirmImport: (rows: Record<string, unknown>[]) =>
+    api.post('/products/import/confirm', { rows }),
 };
 
 // Categories API
@@ -165,6 +208,7 @@ export const purchasesApi = {
   update: (id: number, data: Record<string, unknown>) => api.put(`/purchases/${id}`, data),
   delete: (id: number) => api.delete(`/purchases/${id}`),
   createReturn: (id: number, data: Record<string, unknown>) => api.post(`/purchases/${id}/return`, data),
+  confirm: (id: number, data?: Record<string, unknown>) => api.post(`/purchases/${id}/confirm`, data || {}),
   addPayment: (id: number, data: Record<string, unknown>) => api.post(`/purchases/${id}/payments`, data),
   downloadFacture: (id: number) => api.get(`/purchases/${id}/facture/pdf`, { responseType: 'blob' }),
   downloadBonCommande: (id: number) => api.get(`/purchases/${id}/bon-commande/pdf`, { responseType: 'blob' }),
@@ -424,6 +468,26 @@ export const settingsApi = {
   setPassword: (data: { current_password?: string; new_password: string }) =>
     api.post('/settings/set-password', data),
   removePassword: (password: string) => api.post('/settings/remove-password', { password }),
+  // Backup & Restore
+  createBackup: () =>
+    api.post('/backup/create', {}, { responseType: 'blob', timeout: 300000 }),
+  exportSql: () =>
+    api.get('/backup/export-sql', { responseType: 'blob', timeout: 300000 }),
+  restoreBackup: (file: File) => {
+    const formData = new FormData();
+    formData.append('backup', file);
+    return api.post('/backup/restore', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 600000,
+    });
+  },
+  getBackupInfo: (file: File) => {
+    const formData = new FormData();
+    formData.append('backup', file);
+    return api.post('/backup/info', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 
 // Employees API
@@ -474,7 +538,7 @@ export const stockTransfersApi = {
   update: (id: number, data: Record<string, unknown>) => api.put(`/stock-transfers/${id}`, data),
   delete: (id: number) => api.delete(`/stock-transfers/${id}`),
   approve: (id: number) => api.post(`/stock-transfers/${id}/approve`),
-  collect: (id: number) => api.post(`/stock-transfers/${id}/collect`),
+  collect: (id: number, data?: { caisse_id?: number }) => api.post(`/stock-transfers/${id}/collect`, data),
 };
 
 // Dispenses (Expenses) API

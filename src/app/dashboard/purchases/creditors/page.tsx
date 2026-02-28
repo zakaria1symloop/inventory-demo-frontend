@@ -175,7 +175,7 @@ export default function CreditorsPage() {
 
     try {
       await purchasesApi.addPayment(purchase.id, {
-        amount: purchase.due_amount,
+        amount: parseFloat(String(purchase.due_amount)),
         payment_method: 'cash',
         date: new Date().toISOString().split('T')[0],
         notes: 'دفعة كاملة',

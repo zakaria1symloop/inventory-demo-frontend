@@ -268,7 +268,7 @@ export default function SaleDetail() {
           <tbody>
             ${sale?.items?.map((item, index) => {
               const piecesPerPkg = item.product?.pieces_per_package || 1;
-              const totalPieces = Math.round(item.quantity * piecesPerPkg);
+              const totalPieces = Math.round(item.quantity);
               const costPrice = Number(item.product?.cost_price) || 0;
               const totalCost = costPrice * totalPieces;
               return `
@@ -290,7 +290,7 @@ export default function SaleDetail() {
         ${(() => {
           const totalCostAll = sale?.items?.reduce((sum, item) => {
             const ppp = item.product?.pieces_per_package || 1;
-            const tp = Math.round(item.quantity * ppp);
+            const tp = Math.round(item.quantity);
             return sum + ((Number(item.product?.cost_price) || 0) * tp);
           }, 0) || 0;
           const totalSellAll = sale?.items?.reduce((sum, item) => sum + (Number(item.subtotal) || 0), 0) || 0;
@@ -422,7 +422,7 @@ export default function SaleDetail() {
     setIsProcessingPayment(true);
     try {
       await salesApi.addPayment(sale.id, {
-        amount: sale.due_amount,
+        amount: parseFloat(String(sale.due_amount)),
         payment_method: 'cash',
         notes: 'دفع كامل',
         date: new Date().toISOString().split('T')[0],
@@ -574,7 +574,7 @@ export default function SaleDetail() {
             {(() => {
               const totalCost = sale.items?.reduce((sum, item) => {
                 const ppp = item.product?.pieces_per_package || 1;
-                const totalPieces = Math.round(item.quantity * ppp);
+                const totalPieces = Math.round(item.quantity);
                 const costPrice = Number(item.product?.cost_price) || 0;
                 return sum + (costPrice * totalPieces);
               }, 0) || 0;
@@ -617,7 +617,7 @@ export default function SaleDetail() {
                 <tbody>
                   {sale.items?.map((item, index) => {
                     const piecesPerPkg = item.product?.pieces_per_package || 1;
-                    const totalPieces = Math.round(item.quantity * piecesPerPkg);
+                    const totalPieces = Math.round(item.quantity);
                     const costPrice = Number(item.product?.cost_price) || 0;
                     const totalCost = costPrice * totalPieces;
                     return (

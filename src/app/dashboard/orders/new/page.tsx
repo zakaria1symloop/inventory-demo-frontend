@@ -191,12 +191,12 @@ export default function NewOrderPage() {
       value = Math.max(0, Math.min(value, piecesPerPkg - 1));
     }
 
-    // Check stock availability when updating quantity or extra_pieces
+    // Check stock availability when updating quantity or extra_pieces (both in pieces)
     if (field === 'quantity' || field === 'extra_pieces') {
       const newQty = field === 'quantity' ? (Number(value) || 0) : currentItem.quantity;
       const newExtra = field === 'extra_pieces' ? (Number(value) || 0) : currentItem.extra_pieces;
-      const decimalQty = newQty + newExtra / piecesPerPkg;
-      if (decimalQty > currentItem.available_stock) {
+      const totalPieces = (newQty * piecesPerPkg) + newExtra;
+      if (totalPieces > currentItem.available_stock) {
         toast.error(`الكمية المتوفرة: ${Math.round(currentItem.available_stock)} فقط`);
         return;
       }
@@ -289,9 +289,9 @@ export default function NewOrderPage() {
         return;
       }
       const ppp = Number(item.pieces_per_package) || 1;
-      const decimalQty = item.quantity + (item.extra_pieces || 0) / ppp;
-      if (decimalQty > item.available_stock) {
-        toast.error(`الكمية المطلوبة لـ "${item.product_name}" (${decimalQty}) أكبر من المتوفر (${Math.round(item.available_stock)})`);
+      const totalPieces = (item.quantity * ppp) + (item.extra_pieces || 0);
+      if (totalPieces > item.available_stock) {
+        toast.error(`الكمية المطلوبة لـ "${item.product_name}" (${totalPieces}) أكبر من المتوفر (${Math.round(item.available_stock)})`);
         return;
       }
     }
@@ -307,10 +307,10 @@ export default function NewOrderPage() {
         notes: orderNotes,
         items: orderItems.map(item => {
           const ppp = Number(item.pieces_per_package) || 1;
-          const decimalQty = item.quantity + (item.extra_pieces || 0) / ppp;
+          const totalPieces = (item.quantity * ppp) + (item.extra_pieces || 0);
           return {
             product_id: item.product_id,
-            quantity: decimalQty,
+            quantity: totalPieces,
             unit_price: item.unit_price,
             discount: item.discount,
             tax_percent: item.tax_percent,
@@ -560,6 +560,11 @@ export default function NewOrderPage() {
                                   className="w-7 h-7 flex items-center justify-center rounded border border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 text-sm font-bold"
                                 >+</button>
                                 <span className="text-xs text-orange-600 font-medium">قطعة</span>
+                              </div>
+                            )}
+                            {item.pieces_per_package > 1 && (
+                              <div className="text-center text-xs text-green-700 bg-green-50 rounded px-1 py-0.5 font-medium">
+                                {(item.quantity * item.pieces_per_package) + (item.extra_pieces || 0)} قطعة
                               </div>
                             )}
                           </div>

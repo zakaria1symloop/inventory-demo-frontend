@@ -205,15 +205,14 @@ export default function InventoryPage() {
 
       // Calculate stats
       const allProducts = data.data || [];
-      const inStock = allProducts.filter((p: Product) => Number(p.total_stock) > Number(p.stock_alert)).length;
-      const lowStock = allProducts.filter((p: Product) => Number(p.total_stock) > 0 && Number(p.total_stock) <= Number(p.stock_alert)).length;
+      const inStock = allProducts.filter((p: Product) => Number(p.total_stock) > Number(p.stock_alert) * (Number(p.pieces_per_package) || 1)).length;
+      const lowStock = allProducts.filter((p: Product) => Number(p.total_stock) > 0 && Number(p.total_stock) <= Number(p.stock_alert) * (Number(p.pieces_per_package) || 1)).length;
       const outOfStock = allProducts.filter((p: Product) => Number(p.total_stock) <= 0).length;
-      const totalCostValue = allProducts.reduce((sum: number, p: Product) => sum + (Number(p.total_stock) || 0) * (Number(p.cost_price) || 0), 0);
+      const totalCostValue = allProducts.reduce((sum: number, p: Product) => {
+        return sum + (Number(p.total_stock) || 0) * (Number(p.cost_price) || 0);
+      }, 0);
       const totalRetailValue = allProducts.reduce((sum: number, p: Product) => {
-        const ppp = Number(p.pieces_per_package) || 1;
-        const pieces = Math.round((Number(p.total_stock) || 0) * ppp);
-        const sellPerPiece = ppp > 0 ? (Number(p.retail_price) || 0) / ppp : (Number(p.retail_price) || 0);
-        return sum + pieces * sellPerPiece;
+        return sum + (Number(p.total_stock) || 0) * (Number(p.retail_price) || 0);
       }, 0);
 
       setStats({
@@ -263,7 +262,7 @@ export default function InventoryPage() {
   const saveAdjustment = async () => {
     if (!editingProduct) return;
 
-    const newQty = parseFloat(editingProduct.newQty);
+    const newQty = parseInt(editingProduct.newQty);
     if (isNaN(newQty) || newQty < 0) {
       toast.error('الكمية غير صالحة');
       return;
@@ -302,7 +301,7 @@ export default function InventoryPage() {
       return;
     }
 
-    const qty = parseFloat(editingProduct.newQty);
+    const qty = parseInt(editingProduct.newQty);
     if (isNaN(qty) || qty <= 0) {
       toast.error('الكمية غير صالحة');
       return;
@@ -336,11 +335,21 @@ export default function InventoryPage() {
     return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
   };
 
+  const fmtCartonPieces = (totalPieces: number, ppp: number): string => {
+    if (!ppp || ppp <= 1) return totalPieces.toString();
+    const cartons = Math.floor(totalPieces / ppp);
+    const pieces = totalPieces % ppp;
+    if (cartons > 0 && pieces > 0) return `${cartons} كرتون ${pieces} قطعة`;
+    if (cartons > 0) return `${cartons} كرتون`;
+    if (pieces > 0) return `${pieces} قطعة`;
+    return '0';
+  };
+
   const getStockStatusBadge = (product: Product) => {
     if (product.total_stock <= 0) {
       return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800">نفذ</span>;
     }
-    if (product.total_stock <= product.stock_alert) {
+    if (product.total_stock <= product.stock_alert * (product.pieces_per_package || 1)) {
       return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">منخفض</span>;
     }
     return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">متوفر</span>;
@@ -517,8 +526,8 @@ export default function InventoryPage() {
                   ))
                 )}
                 <th className="text-center px-4 py-3 text-sm">الكمية (قطعة)</th>
-                <th className="text-center px-4 py-3 text-sm">الكمية (وحدة)</th>
-                <th className="text-center px-4 py-3 text-sm">سعر الشراء/وحدة</th>
+                <th className="text-center px-4 py-3 text-sm">كرتون/قطعة</th>
+                <th className="text-center px-4 py-3 text-sm">سعر الشراء/قطعة</th>
                 <th className="text-center px-4 py-3 text-sm">إجمالي الشراء</th>
                 <th className="text-center px-4 py-3 text-sm">سعر البيع/قطعة</th>
                 <th className="text-center px-4 py-3 text-sm">إجمالي البيع</th>
@@ -733,21 +742,19 @@ export default function InventoryPage() {
                       )}
 
                       {(() => {
-                        const qty = Number(product.total_stock) || 0;
+                        const totalPieces = Number(product.total_stock) || 0;
                         const ppp = Number(product.pieces_per_package) || 1;
-                        const totalPieces = Math.round(qty * ppp);
-                        const costPerUnit = Number(product.cost_price) || 0;
-                        const retailPrice = Number(product.retail_price) || 0;
-                        const totalCost = qty * costPerUnit;
-                        const sellPerPiece = ppp > 0 ? retailPrice / ppp : retailPrice;
-                        const totalSell = totalPieces * sellPerPiece;
+                        const costPerPiece = Number(product.cost_price) || 0;
+                        const retailPerPiece = Number(product.retail_price) || 0;
+                        const totalCost = totalPieces * costPerPiece;
+                        const totalSell = totalPieces * retailPerPiece;
                         return (
                           <>
                             <td className="px-4 py-2 text-center font-bold">{totalPieces}</td>
-                            <td className="px-4 py-2 text-center text-sm">{qty}</td>
-                            <td className="px-4 py-2 text-center text-sm">{formatCurrency(costPerUnit)}</td>
+                            <td className="px-4 py-2 text-center text-sm">{fmtCartonPieces(totalPieces, ppp)}</td>
+                            <td className="px-4 py-2 text-center text-sm">{formatCurrency(costPerPiece)}</td>
                             <td className="px-4 py-2 text-center text-sm font-medium text-purple-700">{formatCurrency(totalCost)}</td>
-                            <td className="px-4 py-2 text-center text-sm">{formatCurrency(sellPerPiece)}</td>
+                            <td className="px-4 py-2 text-center text-sm">{formatCurrency(retailPerPiece)}</td>
                             <td className="px-4 py-2 text-center text-sm font-medium text-indigo-700">{formatCurrency(totalSell)}</td>
                           </>
                         );
@@ -763,22 +770,19 @@ export default function InventoryPage() {
                 <tr>
                   <td className="px-4 py-3 text-sm" colSpan={selectedWarehouse ? 4 : 3 + Math.min(3, warehouses.length)}>الإجمالي</td>
                   <td className="px-4 py-3 text-center text-sm">
-                    {products.reduce((s, p) => s + Math.round((Number(p.total_stock) || 0) * (Number(p.pieces_per_package) || 1)), 0)}
-                  </td>
-                  <td className="px-4 py-3 text-center text-sm">
                     {products.reduce((s, p) => s + (Number(p.total_stock) || 0), 0)}
                   </td>
                   <td className="px-4 py-3 text-center text-sm">-</td>
+                  <td className="px-4 py-3 text-center text-sm">-</td>
                   <td className="px-4 py-3 text-center text-sm text-purple-700">
-                    {formatCurrency(products.reduce((s, p) => s + (Number(p.total_stock) || 0) * (Number(p.cost_price) || 0), 0))}
+                    {formatCurrency(products.reduce((s, p) => {
+                      return s + (Number(p.total_stock) || 0) * (Number(p.cost_price) || 0);
+                    }, 0))}
                   </td>
                   <td className="px-4 py-3 text-center text-sm">-</td>
                   <td className="px-4 py-3 text-center text-sm text-indigo-700">
                     {formatCurrency(products.reduce((s, p) => {
-                      const ppp = Number(p.pieces_per_package) || 1;
-                      const pieces = Math.round((Number(p.total_stock) || 0) * ppp);
-                      const sellPerPiece = ppp > 0 ? (Number(p.retail_price) || 0) / ppp : (Number(p.retail_price) || 0);
-                      return s + pieces * sellPerPiece;
+                      return s + (Number(p.total_stock) || 0) * (Number(p.retail_price) || 0);
                     }, 0))}
                   </td>
                   <td className="px-4 py-3"></td>

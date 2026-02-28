@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { productsApi, categoriesApi, brandsApi, unitsApi, clientCategoriesApi } from '@/lib/api';
-import { PlusIcon, PencilIcon, TrashIcon, DocumentArrowDownIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PencilIcon, TrashIcon, DocumentArrowDownIcon, ArrowUpTrayIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import ImportPreviewPanel from '@/components/products/ImportPreviewPanel';
+import type { ImportPreviewResponse, ImportRow } from '@/lib/types';
 import DataTable from '@/components/ui/DataTable';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import toast from 'react-hot-toast';
@@ -28,6 +30,10 @@ export default function ProductsPage() {
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [importStep, setImportStep] = useState<'idle' | 'uploading' | 'preview' | 'confirming'>('idle');
+  const [previewData, setPreviewData] = useState<ImportPreviewResponse | null>(null);
+  const [importResult, setImportResult] = useState<{ created: number; errors: { row: number; message: string }[] } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [categoryPricesForm, setCategoryPricesForm] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState({
@@ -323,6 +329,64 @@ export default function ProductsPage() {
     toast.success('Export termine avec succes');
   };
 
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await productsApi.downloadTemplate();
+      const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'نموذج_استيراد_المنتجات.xlsx';
+      link.click();
+      toast.success('تم تحميل النموذج');
+    } catch {
+      toast.error('خطأ في تحميل النموذج');
+    }
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportStep('uploading');
+    setImportResult(null);
+    try {
+      const response = await productsApi.previewImport(file);
+      setPreviewData(response.data);
+      setImportStep('preview');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'خطأ في قراءة الملف');
+      setImportStep('idle');
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleConfirmImport = async (rows: ImportRow[]) => {
+    setImportStep('confirming');
+    try {
+      const response = await productsApi.confirmImport(rows as unknown as Record<string, unknown>[]);
+      const result = response.data;
+      setImportResult(result);
+      setImportStep('idle');
+      setPreviewData(null);
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      if (result.created > 0) {
+        toast.success(`تم استيراد ${result.created} منتج بنجاح`);
+      }
+      if (result.errors?.length > 0) {
+        toast.error(`${result.errors.length} أخطاء أثناء الاستيراد`);
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'خطأ في استيراد المنتجات');
+      setImportStep('preview');
+    }
+  };
+
+  const handleCancelImport = () => {
+    setImportStep('idle');
+    setPreviewData(null);
+  };
+
   const columns = [
     { key: 'name', title: 'الاسم' },
     {
@@ -429,6 +493,26 @@ export default function ProductsPage() {
           <p className="text-gray-500 mt-1">إدارة المنتجات والمخزون</p>
         </div>
         <div className="flex gap-2">
+          <button onClick={handleDownloadTemplate} className="btn btn-secondary" title="تحميل نموذج الاستيراد">
+            <ArrowDownTrayIcon className="w-5 h-5" />
+            تحميل النموذج
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="btn btn-secondary"
+            disabled={importStep !== 'idle'}
+            title="استيراد منتجات من Excel"
+          >
+            <ArrowUpTrayIcon className="w-5 h-5" />
+            {importStep === 'uploading' ? 'جاري القراءة...' : 'استيراد Excel'}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            onChange={handleImportFile}
+            className="hidden"
+          />
           <button onClick={exportToPDF} className="btn btn-secondary">
             <DocumentArrowDownIcon className="w-5 h-5" />
             PDF
@@ -691,6 +775,57 @@ export default function ProductsPage() {
         message={`هل أنت متأكد من حذف "${selectedProduct?.name}"؟`}
         isLoading={deleteMutation.isPending}
       />
+
+      {/* Import Results Modal */}
+      {/* Import Preview Panel */}
+      {(importStep === 'preview' || importStep === 'confirming') && previewData && (
+        <ImportPreviewPanel
+          previewData={previewData}
+          onConfirm={handleConfirmImport}
+          onCancel={handleCancelImport}
+          isImporting={importStep === 'confirming'}
+        />
+      )}
+
+      {/* Import Results Modal */}
+      {importResult && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[80vh] overflow-hidden">
+            <div className="p-6 border-b dark:border-gray-700">
+              <h3 className="text-lg font-bold dark:text-white">نتيجة الاستيراد</h3>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="bg-green-100 text-green-800 px-4 py-2 rounded-lg text-center">
+                  <div className="text-2xl font-bold">{importResult.created}</div>
+                  <div className="text-xs">تم استيرادها</div>
+                </div>
+                {importResult.errors.length > 0 && (
+                  <div className="bg-red-100 text-red-800 px-4 py-2 rounded-lg text-center">
+                    <div className="text-2xl font-bold">{importResult.errors.length}</div>
+                    <div className="text-xs">أخطاء</div>
+                  </div>
+                )}
+              </div>
+              {importResult.errors.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm text-red-600">تفاصيل الأخطاء:</h4>
+                  {importResult.errors.map((err, i) => (
+                    <div key={i} className="bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm p-2 rounded">
+                      <span className="font-medium">سطر {err.row}:</span> {err.message}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="p-4 border-t dark:border-gray-700 flex justify-end">
+              <button onClick={() => setImportResult(null)} className="btn btn-primary">
+                إغلاق
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

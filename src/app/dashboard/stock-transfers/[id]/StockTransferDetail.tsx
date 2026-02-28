@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { stockTransfersApi } from '@/lib/api';
+import { stockTransfersApi, caissesApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 interface Warehouse {
@@ -53,13 +53,12 @@ interface StockTransfer {
   items?: StockTransferItem[];
 }
 
-function formatQty(decimalQty: number, piecesPerPackage: number): string {
+function formatQty(totalPiecesQty: number, piecesPerPackage: number): string {
   const ppp = piecesPerPackage || 1;
+  const totalPieces = Math.round(totalPiecesQty);
   if (ppp <= 1) {
-    const total = Math.round(decimalQty);
-    return `${total} قطعة`;
+    return `${totalPieces} قطعة`;
   }
-  const totalPieces = Math.round(decimalQty * ppp);
   const cartons = Math.floor(totalPieces / ppp);
   const pieces = totalPieces % ppp;
   if (pieces === 0) return `${cartons} كرتون (${totalPieces} ق)`;
@@ -79,10 +78,27 @@ export default function StockTransferDetail() {
   const [transfer, setTransfer] = useState<StockTransfer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isActioning, setIsActioning] = useState(false);
+  const [caisses, setCaisses] = useState<{ id: number; name: string; type: string; balance: number }[]>([]);
+  const [selectedCaisseId, setSelectedCaisseId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchTransfer();
+    fetchCaisses();
   }, [id]);
+
+  const fetchCaisses = async () => {
+    try {
+      const res = await caissesApi.getAll();
+      const list = res.data?.data || res.data || [];
+      setCaisses(list);
+      // Default to principale caisse
+      const principale = list.find((c: { type: string }) => c.type === 'principale');
+      if (principale) setSelectedCaisseId(principale.id);
+      else if (list.length > 0) setSelectedCaisseId(list[0].id);
+    } catch {
+      // ignore
+    }
+  };
 
   const fetchTransfer = async () => {
     setIsLoading(true);
@@ -117,7 +133,7 @@ export default function StockTransferDetail() {
     if (!confirm('هل أنت متأكد من تسليم البضاعة؟ سيتم نقل المخزون فوراً والسائق يمكنه الانطلاق.')) return;
     setIsActioning(true);
     try {
-      await stockTransfersApi.collect(id);
+      await stockTransfersApi.collect(id, selectedCaisseId ? { caisse_id: selectedCaisseId } : undefined);
       toast.success('تم التسليم بنجاح - يمكن للسائق الانطلاق');
       fetchTransfer();
     } catch (error: unknown) {
@@ -326,9 +342,9 @@ export default function StockTransferDetail() {
 
   const getItemDetails = (item: StockTransferItem) => {
     const ppp = item.product?.pieces_per_package || 1;
-    const totalPieces = Math.round(Number(item.quantity) * ppp);
-    const cartons = Math.floor(totalPieces / ppp);
-    const extraPieces = totalPieces % ppp;
+    const totalPieces = Math.round(Number(item.quantity));
+    const cartons = ppp > 1 ? Math.floor(totalPieces / ppp) : totalPieces;
+    const extraPieces = ppp > 1 ? totalPieces % ppp : 0;
     const unitCost = Number(item.product?.cost_price) || 0;
     const subtotal = unitCost * totalPieces;
     return { ppp, totalPieces, cartons, extraPieces, unitCost, subtotal };
@@ -624,6 +640,31 @@ export default function StockTransferDetail() {
                     <p className="font-medium mb-1">جاري التحميل</p>
                     <p>البضاعة يتم تحضيرها. اضغط &quot;تسليم&quot; عند الانتهاء.</p>
                   </div>
+
+                  {/* Caisse selector */}
+                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                    <label className="block text-sm font-medium text-amber-800 dark:text-amber-400 mb-2">
+                      خصم قيمة البضاعة من الصندوق
+                    </label>
+                    <select
+                      value={selectedCaisseId || ''}
+                      onChange={(e) => setSelectedCaisseId(e.target.value ? Number(e.target.value) : null)}
+                      className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-600"
+                    >
+                      <option value="">بدون خصم من صندوق</option>
+                      {caisses.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} ({formatCurrency(c.balance)})
+                        </option>
+                      ))}
+                    </select>
+                    {selectedCaisseId && (
+                      <p className="text-xs text-amber-700 dark:text-amber-500 mt-1">
+                        سيتم خصم {formatCurrency(summary.totalCostValue)} من هذا الصندوق
+                      </p>
+                    )}
+                  </div>
+
                   <button
                     onClick={handleCollect}
                     disabled={isActioning}

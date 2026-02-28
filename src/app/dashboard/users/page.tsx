@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usersApi, warehousesApi } from '@/lib/api';
+import { useAuthStore } from '@/lib/store/auth';
 import { PlusIcon, PencilIcon, TrashIcon, KeyIcon } from '@heroicons/react/24/outline';
 import DataTable from '@/components/ui/DataTable';
 import Modal from '@/components/ui/Modal';
@@ -18,8 +19,16 @@ const roleLabels: Record<string, string> = {
   cashvan: 'بائع متنقل',
 };
 
+const planNames: Record<string, string> = {
+  free: 'مجاني',
+  starter: 'المبتدئ',
+  pro: 'المحترف',
+  business: 'الأعمال',
+};
+
 export default function UsersPage() {
   const queryClient = useQueryClient();
+  const tenantName = useAuthStore((s) => s.tenantName);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
@@ -35,12 +44,21 @@ export default function UsersPage() {
     role: 'seller',
     is_active: true,
     warehouse_id: '' as number | '',
+    create_warehouse: false,
   });
   const [warehousesList, setWarehousesList] = useState<Array<{ id: number; name: string; assigned_user?: { id: number; name: string } }>>([]);
   const [passwordData, setPasswordData] = useState({
     password: '',
     password_confirmation: '',
   });
+  const [limitError, setLimitError] = useState<{
+    message: string;
+    limit: number;
+    current: number;
+    plan: string;
+    extra_user_price: number;
+    upgrade_options: Array<{ plan: string; user_limit: number; price: number }>;
+  } | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['users', page, search, roleFilter],
@@ -58,8 +76,20 @@ export default function UsersPage() {
       handleCloseModal();
     },
     onError: (error: unknown) => {
-      const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'حدث خطأ أثناء الإضافة');
+      const err = error as { response?: { status?: number; data?: { message?: string; limit?: number; current?: number; plan?: string; extra_user_price?: number; upgrade_options?: Array<{ plan: string; user_limit: number; price: number }> } } };
+      if (err.response?.status === 403 && err.response?.data?.limit) {
+        setLimitError({
+          message: err.response.data.message || '',
+          limit: err.response.data.limit || 0,
+          current: err.response.data.current || 0,
+          plan: err.response.data.plan || 'free',
+          extra_user_price: err.response.data.extra_user_price || 0,
+          upgrade_options: err.response.data.upgrade_options || [],
+        });
+        handleCloseModal();
+      } else {
+        toast.error(err.response?.data?.message || 'حدث خطأ أثناء الإضافة');
+      }
     },
   });
 
@@ -147,6 +177,7 @@ export default function UsersPage() {
       role: 'seller',
       is_active: true,
       warehouse_id: '',
+      create_warehouse: false,
     });
     fetchWarehouses();
     setIsModalOpen(true);
@@ -154,14 +185,19 @@ export default function UsersPage() {
 
   const handleOpenEdit = (user: User) => {
     setSelectedUser(user);
+    // Strip @companyname suffix for sub-users so the input shows just the username
+    const editEmail = (user.role !== 'admin' && tenantName && user.email.endsWith(`@${tenantName}.com`))
+      ? user.email.replace(`@${tenantName}.com`, '')
+      : user.email;
     setFormData({
       name: user.name,
-      email: user.email,
+      email: editEmail,
       password: '',
       phone: user.phone || '',
       role: user.role,
       is_active: user.is_active,
       warehouse_id: user.warehouse_id || '',
+      create_warehouse: false,
     });
     fetchWarehouses();
     setIsModalOpen(true);
@@ -172,19 +208,30 @@ export default function UsersPage() {
     setSelectedUser(null);
   };
 
+  const isSubUserRole = (role: string) => role !== 'admin';
+  const emailSuffix = tenantName ? `@${tenantName}.com` : '';
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // For sub-user roles, compose full email with @companyname suffix
+    const email = isSubUserRole(formData.role) && tenantName
+      ? formData.email.replace(emailSuffix, '') + emailSuffix
+      : formData.email;
+
     const data: Record<string, unknown> = {
       name: formData.name,
-      email: formData.email,
+      email,
       phone: formData.phone || null,
       role: formData.role,
       is_active: formData.is_active,
-      warehouse_id: formData.warehouse_id === '' ? null : formData.warehouse_id,
+      warehouse_id: formData.create_warehouse ? null : (formData.warehouse_id === '' ? null : formData.warehouse_id),
     };
 
     if (!selectedUser) {
       data.password = formData.password;
+      if (formData.create_warehouse && (formData.role === 'livreur' || formData.role === 'cashvan')) {
+        data.create_warehouse = true;
+      }
     }
 
     if (selectedUser) {
@@ -345,13 +392,29 @@ export default function UsersPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">البريد الإلكتروني</label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
-              className="input"
-              required
-            />
+            {isSubUserRole(formData.role) && tenantName ? (
+              <div className="flex items-center gap-0">
+                <input
+                  type="text"
+                  value={formData.email.replace(emailSuffix, '')}
+                  onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value.replace(/[@\s]/g, '') }))}
+                  className="input rounded-l-none flex-1"
+                  placeholder="اسم المستخدم"
+                  required
+                />
+                <span className="inline-flex items-center px-3 py-2 bg-gray-100 border border-r-0 border-gray-300 rounded-r-lg text-sm text-gray-600 font-medium whitespace-nowrap" dir="ltr">
+                  {emailSuffix}
+                </span>
+              </div>
+            ) : (
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
+                className="input"
+                required
+              />
+            )}
           </div>
 
           {!selectedUser && (
@@ -382,7 +445,7 @@ export default function UsersPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">الدور</label>
             <select
               value={formData.role}
-              onChange={(e) => setFormData((p) => ({ ...p, role: e.target.value }))}
+              onChange={(e) => setFormData((p) => ({ ...p, role: e.target.value, create_warehouse: false }))}
               className="select"
               required
             >
@@ -394,26 +457,45 @@ export default function UsersPage() {
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">المستودع</label>
-            <select
-              value={formData.warehouse_id}
-              onChange={(e) => setFormData((p) => ({ ...p, warehouse_id: e.target.value === '' ? '' : Number(e.target.value) }))}
-              className="select"
-            >
-              <option value="">-- بدون مستودع --</option>
-              {warehousesList
-                .filter(w => {
-                  // Show warehouses that are either unassigned or assigned to the current user
-                  if (!w.assigned_user) return true;
-                  if (selectedUser && w.assigned_user.id === selectedUser.id) return true;
-                  return false;
-                })
-                .map(w => (
-                  <option key={w.id} value={w.id}>{w.name}</option>
-                ))}
-            </select>
-          </div>
+          {(formData.role === 'livreur' || formData.role === 'cashvan') && !selectedUser && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.create_warehouse}
+                  onChange={(e) => setFormData((p) => ({ ...p, create_warehouse: e.target.checked, warehouse_id: '' }))}
+                  className="w-4 h-4 text-blue-600 rounded"
+                />
+                <span className="text-sm font-medium text-blue-800">
+                  {formData.role === 'cashvan' ? 'إنشاء مستودع خاص بالبائع المتنقل' : 'إنشاء مستودع خاص بالسائق'}
+                </span>
+              </label>
+              <p className="text-xs text-blue-600 mt-1 mr-6">سيتم إنشاء مستودع باسم المستخدم تلقائياً</p>
+            </div>
+          )}
+
+          {!formData.create_warehouse && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">المستودع</label>
+              <select
+                value={formData.warehouse_id}
+                onChange={(e) => setFormData((p) => ({ ...p, warehouse_id: e.target.value === '' ? '' : Number(e.target.value) }))}
+                className="select"
+              >
+                <option value="">-- بدون مستودع --</option>
+                {warehousesList
+                  .filter(w => {
+                    // Show warehouses that are either unassigned or assigned to the current user
+                    if (!w.assigned_user) return true;
+                    if (selectedUser && w.assigned_user.id === selectedUser.id) return true;
+                    return false;
+                  })
+                  .map(w => (
+                    <option key={w.id} value={w.id}>{w.name}</option>
+                  ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="flex items-center gap-2 cursor-pointer">
@@ -516,6 +598,55 @@ export default function UsersPage() {
         message={`هل أنت متأكد من حذف "${selectedUser?.name}"؟`}
         isLoading={deleteMutation.isPending}
       />
+
+      {/* User Limit Modal */}
+      <Modal
+        isOpen={!!limitError}
+        onClose={() => setLimitError(null)}
+        title="تم الوصول للحد الأقصى من المستخدمين"
+      >
+        {limitError && (
+          <div className="space-y-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+              <p className="text-red-700 font-bold text-lg">{limitError.current} / {limitError.limit}</p>
+              <p className="text-red-600 text-sm mt-1">مستخدم — الحد الأقصى للخطة {planNames[limitError.plan] || limitError.plan}</p>
+            </div>
+
+            <p className="text-gray-600 text-sm">{limitError.message}</p>
+
+            {limitError.extra_user_price > 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-blue-700 text-sm font-medium">
+                  يمكنك إضافة مستخدمين إضافيين بتكلفة {limitError.extra_user_price.toLocaleString()} د.ج/مستخدم شهرياً
+                </p>
+              </div>
+            )}
+
+            {limitError.upgrade_options.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-bold text-gray-700">أو قم بترقية خطتك:</p>
+                {limitError.upgrade_options.map((opt) => (
+                  <div key={opt.plan} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
+                    <div>
+                      <span className="font-medium text-gray-900">{planNames[opt.plan] || opt.plan}</span>
+                      <span className="text-xs text-gray-500 mr-2">حتى {opt.user_limit} مستخدم</span>
+                    </div>
+                    <span className="text-sm font-bold text-blue-600">
+                      {opt.price > 0 ? `${opt.price.toLocaleString()} د.ج/شهر` : 'مجاني'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2">
+              <button onClick={() => setLimitError(null)} className="btn btn-secondary">
+                إغلاق
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

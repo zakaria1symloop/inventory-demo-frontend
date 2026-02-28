@@ -258,26 +258,26 @@ export default function ProductRequestsPage() {
     new Date(date).toLocaleDateString('ar-DZ', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
   const fmtQty = (val: unknown, piecesPerPkg?: number): string => {
-    const n = Number(val);
-    if (isNaN(n) || n === 0) return '0';
+    const totalPieces = Math.round(Number(val) || 0);
+    if (totalPieces === 0) return '0';
     const ppp = piecesPerPkg && piecesPerPkg > 1 ? piecesPerPkg : 0;
-    if (!ppp) return String(n);
-    const cartons = Math.floor(n);
-    const pieces = Math.round((n - cartons) * ppp);
+    if (!ppp) return String(totalPieces);
+    const cartons = Math.floor(totalPieces / ppp);
+    const pieces = totalPieces % ppp;
     if (cartons > 0 && pieces > 0) return `${cartons} كرتون ${pieces} قطعة`;
     if (cartons > 0) return `${cartons} كرتون`;
     if (pieces > 0) return `${pieces} قطعة`;
     return '0';
   };
 
-  const splitQty = (decimal: number, ppp: number) => {
-    const cartons = Math.floor(decimal);
-    const pieces = Math.round((decimal - cartons) * ppp);
+  const splitQty = (totalPieces: number, ppp: number) => {
+    const cartons = ppp > 1 ? Math.floor(totalPieces / ppp) : totalPieces;
+    const pieces = ppp > 1 ? totalPieces % ppp : 0;
     return { cartons, pieces };
   };
 
   const combineQty = (cartons: number, pieces: number, ppp: number) => {
-    return cartons + (ppp > 1 ? pieces / ppp : 0);
+    return (cartons * (ppp > 1 ? ppp : 1)) + pieces;
   };
 
   const pendingCount = requests.filter(r => r.status === 'pending').length;

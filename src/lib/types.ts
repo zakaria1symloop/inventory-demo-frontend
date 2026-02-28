@@ -550,3 +550,56 @@ export interface DashboardStats {
   active_deliveries: number;
   low_stock_count: number;
 }
+
+// Import Preview Types
+export interface ImportCellValidation {
+  value: string;
+  resolvedId?: number | null;
+  isValid: boolean;
+  error: string | null;
+}
+
+export interface ImportColumnDef {
+  key: string;
+  label: string;
+  type: 'text' | 'number' | 'select';
+  required: boolean;
+  client_category_id?: number;
+}
+
+export interface ImportPreviewRow {
+  rowIndex: number;
+  isValid: boolean;
+  cells: Record<string, ImportCellValidation>;
+}
+
+export interface ImportPreviewResponse {
+  columns: ImportColumnDef[];
+  rows: ImportPreviewRow[];
+  referenceData: {
+    categories: { id: number; name: string }[];
+    brands: { id: number; name: string }[];
+    units: { id: number; name: string; short_name: string }[];
+    clientCategories: { id: number; name: string; is_default: boolean }[];
+  };
+  summary: {
+    totalRows: number;
+    validRows: number;
+    invalidRows: number;
+  };
+}
+
+export interface ImportRow {
+  name: string;
+  category_id: number | null;
+  brand_id: number | null;
+  unit_buy_id: number | null;
+  unit_sale_id: number | null;
+  barcode: string;
+  cost_price: number;
+  stock_alert: number | null;
+  tax_percent: number;
+  pieces_per_package: number;
+  opening_stock: number;
+  category_prices: { client_category_id: number; price: number }[];
+}

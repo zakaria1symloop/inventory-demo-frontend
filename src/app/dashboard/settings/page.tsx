@@ -57,6 +57,17 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSettingPassword, setIsSettingPassword] = useState(false);
 
+  // Backup state
+  const [isExportingSql, setIsExportingSql] = useState(false);
+  const [isCreatingBackup, setIsCreatingBackup] = useState(false);
+  const [isRestoringBackup, setIsRestoringBackup] = useState(false);
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [backupInfo, setBackupInfo] = useState<any>(null);
+  const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
+  const [restoreProgress, setRestoreProgress] = useState<string>('');
+  const backupFileInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     checkPasswordProtection();
     // Check localStorage for dark mode
@@ -242,6 +253,108 @@ export default function SettingsPage() {
     }
   };
 
+  // Backup handlers
+  const handleExportSql = async () => {
+    setIsExportingSql(true);
+    try {
+      const response = await settingsApi.exportSql();
+      const blob = new Blob([response.data], { type: 'application/sql' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `database_${new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')}.sql`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('تم تصدير قاعدة البيانات بنجاح');
+    } catch {
+      toast.error('خطأ في تصدير قاعدة البيانات');
+    } finally {
+      setIsExportingSql(false);
+    }
+  };
+
+  const handleCreateBackup = async () => {
+    setIsCreatingBackup(true);
+    try {
+      const response = await settingsApi.createBackup();
+      const blob = new Blob([response.data], { type: 'application/octet-stream' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `backup_${new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')}.rbk`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('تم إنشاء النسخة الاحتياطية بنجاح');
+    } catch {
+      toast.error('خطأ في إنشاء النسخة الاحتياطية');
+    } finally {
+      setIsCreatingBackup(false);
+    }
+  };
+
+  const handleRestoreFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.rbk')) {
+      toast.error('يرجى اختيار ملف بصيغة .rbk');
+      return;
+    }
+
+    setRestoreFile(file);
+    setRestoreProgress('جاري قراءة معلومات النسخة...');
+
+    try {
+      const response = await settingsApi.getBackupInfo(file);
+      setBackupInfo(response.data.metadata);
+      setShowRestoreConfirm(true);
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'الملف غير صالح');
+      setRestoreFile(null);
+    } finally {
+      setRestoreProgress('');
+    }
+  };
+
+  const handleConfirmRestore = async () => {
+    if (!restoreFile) return;
+
+    setIsRestoringBackup(true);
+    setRestoreProgress('جاري استعادة النسخة الاحتياطية...');
+    setShowRestoreConfirm(false);
+
+    try {
+      await settingsApi.restoreBackup(restoreFile);
+      toast.success('تم استعادة النسخة الاحتياطية بنجاح');
+      fetchSettings();
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'فشل في استعادة النسخة');
+    } finally {
+      setIsRestoringBackup(false);
+      setRestoreProgress('');
+      setRestoreFile(null);
+      setBackupInfo(null);
+      if (backupFileInputRef.current) {
+        backupFileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleCancelRestore = () => {
+    setShowRestoreConfirm(false);
+    setRestoreFile(null);
+    setBackupInfo(null);
+    if (backupFileInputRef.current) {
+      backupFileInputRef.current.value = '';
+    }
+  };
+
   const tabs = [
     { id: 'company', name: 'الشركة', icon: '🏢' },
     { id: 'legal', name: 'المعلومات القانونية', icon: '📋' },
@@ -249,6 +362,7 @@ export default function SettingsPage() {
     { id: 'invoice', name: 'الفواتير', icon: '📄' },
     { id: 'appearance', name: 'المظهر', icon: '🎨' },
     { id: 'security', name: 'الأمان', icon: '🔒' },
+    { id: 'backup', name: 'النسخ الاحتياطي', icon: '💾' },
   ];
 
   // Show loading while checking password
@@ -415,7 +529,7 @@ export default function SettingsPage() {
                       value={settings.company_name}
                       onChange={(e) => setSettings({ ...settings, company_name: e.target.value })}
                       className="input"
-                      placeholder="RAFIK BISKRA"
+                      placeholder="TrackSera"
                     />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -899,7 +1013,179 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {activeTab !== 'security' && (
+            {activeTab === 'backup' && (
+              <div>
+                <h2 className="text-lg font-semibold mb-4 dark:text-white">النسخ الاحتياطي والاستعادة</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                  إنشاء نسخة احتياطية مشفرة من جميع بيانات النظام أو استعادة نسخة سابقة.
+                  النسخة الاحتياطية مشفرة ولا يمكن قراءتها إلا بواسطة هذا النظام فقط.
+                </p>
+
+                {/* Create Backup Section */}
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 mb-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="font-medium dark:text-white">إنشاء نسخة احتياطية</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        تحميل ملف مشفر يحتوي على جميع البيانات
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleCreateBackup}
+                    disabled={isCreatingBackup}
+                    className="btn btn-primary"
+                  >
+                    {isCreatingBackup ? (
+                      <>
+                        <div className="spinner w-5 h-5"></div>
+                        جاري إنشاء النسخة...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        إنشاء وتحميل نسخة احتياطية
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Export SQL Section */}
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 mb-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="font-medium dark:text-white">تصدير SQL</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        تحميل ملف SQL يمكن استيراده في أي قاعدة بيانات MySQL
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleExportSql}
+                    disabled={isExportingSql}
+                    className="btn btn-primary"
+                  >
+                    {isExportingSql ? (
+                      <>
+                        <div className="spinner w-5 h-5"></div>
+                        جاري التصدير...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                        </svg>
+                        تصدير قاعدة البيانات SQL
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Restore Backup Section */}
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m4-8l-4-4m0 0L16 8m4-4v12" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="font-medium dark:text-white">استعادة نسخة احتياطية</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        رفع ملف .rbk لاستعادة البيانات
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">
+                    <p className="text-sm text-red-700 dark:text-red-400 font-medium">
+                      تحذير: استعادة نسخة احتياطية ستحذف جميع البيانات الحالية واستبدالها بالبيانات الموجودة في النسخة.
+                      هذا الإجراء لا يمكن التراجع عنه.
+                    </p>
+                  </div>
+
+                  <input
+                    ref={backupFileInputRef}
+                    type="file"
+                    accept=".rbk"
+                    onChange={handleRestoreFileSelect}
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => backupFileInputRef.current?.click()}
+                    disabled={isRestoringBackup}
+                    className="btn btn-secondary"
+                  >
+                    {isRestoringBackup ? (
+                      <>
+                        <div className="spinner w-5 h-5"></div>
+                        {restoreProgress || 'جاري الاستعادة...'}
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m4-8l-4-4m0 0L16 8m4-4v12" />
+                        </svg>
+                        اختيار ملف النسخة الاحتياطية
+                      </>
+                    )}
+                  </button>
+
+                  {restoreProgress && !isRestoringBackup && (
+                    <p className="text-sm text-gray-500 mt-2">{restoreProgress}</p>
+                  )}
+                </div>
+
+                {/* Restore Confirmation Modal */}
+                {showRestoreConfirm && backupInfo && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+                      <h3 className="text-lg font-semibold mb-4 dark:text-white">تأكيد الاستعادة</h3>
+
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 text-sm space-y-1">
+                        <p className="dark:text-gray-300"><strong>تاريخ النسخة:</strong> {new Date(backupInfo.created_at).toLocaleString('ar-DZ')}</p>
+                        <p className="dark:text-gray-300"><strong>أنشأها:</strong> {backupInfo.created_by}</p>
+                        <p className="dark:text-gray-300"><strong>الإصدار:</strong> {backupInfo.version}</p>
+                        {backupInfo.table_counts && (
+                          <p className="dark:text-gray-300">
+                            <strong>عدد الجداول:</strong> {Object.keys(backupInfo.table_counts).length}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-4">
+                        <p className="text-sm text-red-700 dark:text-red-400">
+                          سيتم حذف جميع البيانات الحالية واستبدالها. هل أنت متأكد؟
+                        </p>
+                      </div>
+
+                      <div className="flex gap-3 justify-end">
+                        <button onClick={handleCancelRestore} className="btn btn-secondary">
+                          إلغاء
+                        </button>
+                        <button onClick={handleConfirmRestore} className="btn btn-danger">
+                          تأكيد الاستعادة
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab !== 'security' && activeTab !== 'backup' && (
               <div className="mt-6 pt-4 border-t">
                 <button
                   onClick={handleSave}

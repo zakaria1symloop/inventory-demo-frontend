@@ -175,6 +175,23 @@ export default function DeliveriesPage() {
     setSearchQuery('');
   };
 
+  const [startingId, setStartingId] = useState<number | null>(null);
+
+  const handleStartDelivery = async (id: number) => {
+    if (!confirm('هل تريد بدء هذه التوصيلة؟ سيتم خصم المنتجات من المستودع.')) return;
+    setStartingId(id);
+    try {
+      await deliveriesApi.start(id);
+      toast.success('تم بدء التوصيلة بنجاح');
+      fetchData();
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'خطأ في بدء التوصيلة';
+      toast.error(message);
+    } finally {
+      setStartingId(null);
+    }
+  };
+
   const hasActiveFilters = statusFilter || livreurFilter || dateFrom || dateTo || searchQuery;
 
   if (isLoading) {
@@ -495,16 +512,35 @@ export default function DeliveriesPage() {
                       <td className="text-yellow-600">{pendingCount > 0 ? pendingCount : '-'}</td>
                       <td><span className={`badge ${statusBadge.class}`}>{statusBadge.text}</span></td>
                       <td>
-                        <Link
-                          href={`/dashboard/deliveries/${delivery.id}`}
-                          className="btn btn-sm btn-secondary"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                          عرض
-                        </Link>
+                        <div className="flex items-center gap-1.5">
+                          {delivery.status === 'preparing' && (
+                            <button
+                              onClick={() => handleStartDelivery(delivery.id)}
+                              disabled={startingId === delivery.id}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
+                            >
+                              {startingId === delivery.id ? (
+                                <div className="spinner w-3.5 h-3.5 border-white"></div>
+                              ) : (
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              )}
+                              بدء
+                            </button>
+                          )}
+                          <button
+                            onClick={() => router.push(`/dashboard/deliveries/${delivery.id}`)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            عرض
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

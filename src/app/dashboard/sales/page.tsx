@@ -39,7 +39,7 @@ interface Sale {
   status: 'pending' | 'completed' | 'cancelled' | 'draft';
   payment_status: 'unpaid' | 'partial' | 'paid';
   note?: string;
-  source?: 'web' | 'app';
+  source?: 'web' | 'app' | 'delivery';
   client?: { id: number; name: string };
   warehouse?: { id: number; name: string };
   user?: { id: number; name: string };
@@ -509,6 +509,7 @@ export default function SalesPage() {
                   <option value="">جميع المصادر</option>
                   <option value="web">من المنصة</option>
                   <option value="app">من التطبيق</option>
+                  <option value="delivery">من التوصيل</option>
                 </select>
                 <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="input" placeholder="من تاريخ" />
                 <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="input" placeholder="إلى تاريخ" />
@@ -573,12 +574,19 @@ export default function SalesPage() {
                                   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
                                     sale.source === 'app'
                                       ? 'bg-violet-100 text-violet-700'
+                                      : sale.source === 'delivery'
+                                      ? 'bg-amber-100 text-amber-700'
                                       : 'bg-sky-100 text-sky-700'
                                   }`}>
                                     {sale.source === 'app' ? (
                                       <>
                                         <DevicePhoneMobileIcon className="w-3 h-3" />
                                         تطبيق
+                                      </>
+                                    ) : sale.source === 'delivery' ? (
+                                      <>
+                                        <TruckIcon className="w-3 h-3" />
+                                        توصيل
                                       </>
                                     ) : (
                                       <>

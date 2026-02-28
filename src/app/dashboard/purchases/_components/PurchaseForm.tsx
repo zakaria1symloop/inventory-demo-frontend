@@ -57,9 +57,10 @@ interface PurchaseItem {
   product_id: number;
   product_name: string;
   barcode: string;
-  quantity: number; // Number of packages
+  quantity: number; // Number of cartons
+  extra_pieces: number; // Extra pieces (0 to pieces_per_package - 1)
   pieces_per_package: number; // Pieces per package
-  total_pieces: number; // Total pieces = quantity * pieces_per_package
+  total_pieces: number; // Total pieces = quantity * pieces_per_package + extra_pieces
   unit_price: number; // Price per 1 PIECE (not per package)
   original_price: number; // Original price per piece
   selling_price?: number; // Selling price per piece - updates product price
@@ -67,7 +68,7 @@ interface PurchaseItem {
   discount: number;
   tax_percent: number;
   tax: number;
-  subtotal: number; // = unit_price × pieces_per_package × quantity - discount + tax
+  subtotal: number; // = unit_price × total_pieces - discount + tax
 }
 
 interface PurchaseFormProps {
@@ -173,14 +174,16 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
           const piecesPerPkg = Number(pi.pieces_per_package) || 1;
           const unitPrice = Number(pi.unit_price) || 0;
           const qty = Number(pi.quantity) || 1;
-          const baseAmount = unitPrice * piecesPerPkg * qty;
+          const totalPieces = qty * piecesPerPkg;
+          const baseAmount = unitPrice * totalPieces;
           return {
             product_id: Number(pi.product_id),
             product_name: String(pi.product_name || ''),
             barcode: String(pi.barcode || ''),
             quantity: qty,
+            extra_pieces: 0,
             pieces_per_package: piecesPerPkg,
-            total_pieces: qty * piecesPerPkg,
+            total_pieces: totalPieces,
             unit_price: unitPrice,
             original_price: unitPrice,
             unit_name: String(pi.unit_name || 'وحدة'),
@@ -346,23 +349,30 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
       setWarehouseId(purchase.warehouse_id?.toString() || '');
       setDate(purchase.date?.split(' ')[0] || new Date().toISOString().split('T')[0]);
 
-      // Load items (read-only in edit mode)
+      // Load items
       if (purchase.items && Array.isArray(purchase.items)) {
-        const loadedItems: PurchaseItem[] = purchase.items.map((item: any) => ({
-          product_id: item.product_id,
-          product_name: item.product?.name || '',
-          barcode: item.product?.barcode || '',
-          quantity: item.quantity,
-          pieces_per_package: item.product?.pieces_per_package || 1,
-          total_pieces: item.quantity * (item.product?.pieces_per_package || 1),
-          unit_price: item.unit_price,
-          original_price: item.unit_price,
-          unit_name: item.product?.unit_buy?.short_name || 'وحدة',
-          discount: item.discount || 0,
-          tax_percent: item.product?.tax_percent || 0,
-          tax: item.tax || 0,
-          subtotal: item.subtotal || 0,
-        }));
+        const loadedItems: PurchaseItem[] = purchase.items.map((item: any) => {
+          const ppp = item.product?.pieces_per_package || 1;
+          const totalPieces = Math.floor(Number(item.quantity) || 0);
+          const cartons = Math.floor(totalPieces / ppp);
+          const extraPieces = totalPieces % ppp;
+          return {
+            product_id: item.product_id,
+            product_name: item.product?.name || '',
+            barcode: item.product?.barcode || '',
+            quantity: cartons,
+            extra_pieces: extraPieces,
+            pieces_per_package: ppp,
+            total_pieces: totalPieces,
+            unit_price: item.unit_price,
+            original_price: item.unit_price,
+            unit_name: item.product?.unit_buy?.short_name || 'وحدة',
+            discount: item.discount || 0,
+            tax_percent: item.product?.tax_percent || 0,
+            tax: item.tax || 0,
+            subtotal: item.subtotal || 0,
+          };
+        });
         setItems(loadedItems);
       }
 
@@ -382,15 +392,27 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
       e.preventDefault();
 
       // Define field order for navigation
-      const fieldOrder = ['quantity', 'unit_price', 'discount'];
+      const fieldOrder = ['quantity', 'extra_pieces', 'total_pieces', 'unit_price', 'discount'];
       const currentFieldIndex = fieldOrder.indexOf(field);
 
       if (currentFieldIndex < fieldOrder.length - 1) {
         // Move to next field in same row
         const nextField = fieldOrder[currentFieldIndex + 1];
         const nextRef = inputRefs.current[`${rowIndex}-${nextField}`];
-        nextRef?.focus();
-        nextRef?.select();
+        if (nextRef) {
+          nextRef.focus();
+          nextRef.select();
+        } else {
+          // Skip missing fields (e.g., extra_pieces when ppp=1)
+          for (let i = currentFieldIndex + 2; i < fieldOrder.length; i++) {
+            const skipRef = inputRefs.current[`${rowIndex}-${fieldOrder[i]}`];
+            if (skipRef) {
+              skipRef.focus();
+              skipRef.select();
+              break;
+            }
+          }
+        }
       } else if (rowIndex < items.length - 1) {
         // Move to first field of next row
         const nextRef = inputRefs.current[`${rowIndex + 1}-quantity`];
@@ -430,8 +452,9 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
       const piecesPerPkg = product.pieces_per_package || 1;
       const unitPrice = parseFloat(String(product.cost_price)) || 0; // Price per 1 piece
       const taxPercent = parseFloat(String(product.tax_percent)) || 0;
-      // baseAmount = price × pieces × qty
-      const baseAmount = unitPrice * piecesPerPkg * quantity;
+      const totalPieces = quantity * piecesPerPkg;
+      // baseAmount = price × totalPieces
+      const baseAmount = unitPrice * totalPieces;
       const taxAmount = (baseAmount * taxPercent) / 100;
       const unitName = product.unit_buy?.name || 'وحدة';
 
@@ -440,8 +463,9 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
         product_name: product.name,
         barcode: product.barcode || '',
         quantity: quantity,
+        extra_pieces: 0,
         pieces_per_package: piecesPerPkg,
-        total_pieces: quantity * piecesPerPkg,
+        total_pieces: totalPieces,
         unit_price: unitPrice, // Price per 1 piece
         original_price: unitPrice,
         unit_name: unitName,
@@ -536,7 +560,8 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
     } else {
       const piecesPerPkg = product.pieces_per_package || 1;
       const taxPercent = parseFloat(String(product.tax_percent)) || 0;
-      const baseAmount = unitPrice * piecesPerPkg * quantity;
+      const totalPieces = quantity * piecesPerPkg;
+      const baseAmount = unitPrice * totalPieces;
       const taxAmount = (baseAmount * taxPercent) / 100;
       const unitName = product.unit_buy?.name || 'وحدة';
 
@@ -545,8 +570,9 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
         product_name: product.name,
         barcode: product.barcode || '',
         quantity: quantity,
+        extra_pieces: 0,
         pieces_per_package: piecesPerPkg,
-        total_pieces: quantity * piecesPerPkg,
+        total_pieces: totalPieces,
         unit_price: unitPrice,
         original_price: Number(product.cost_price) || 0,
         selling_price: sellingPrice > 0 ? sellingPrice : undefined,
@@ -574,20 +600,49 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
     }
   };
 
-  const updateItem = (index: number, field: 'quantity' | 'unit_price' | 'discount', value: number) => {
+  const updateItem = (index: number, field: 'quantity' | 'extra_pieces' | 'unit_price' | 'discount', value: number) => {
     const updated = [...items];
+    const piecesPerPkg = updated[index].pieces_per_package || 1;
+
+    // Clamp extra_pieces to 0..ppp-1
+    if (field === 'extra_pieces') {
+      value = Math.max(0, Math.min(value, piecesPerPkg - 1));
+    }
+
     updated[index] = { ...updated[index], [field]: value };
 
-    // Recalculate: price × pieces_per_package × quantity
+    // Recalculate: price × total_pieces - discount + tax
     const quantity = updated[index].quantity || 0;
+    const extraPieces = updated[index].extra_pieces || 0;
     const unitPrice = updated[index].unit_price || 0; // Price per 1 piece
     const discount = updated[index].discount || 0;
     const taxPercent = updated[index].tax_percent || 0;
-    const piecesPerPkg = updated[index].pieces_per_package || 1;
 
-    updated[index].total_pieces = quantity * piecesPerPkg;
-    // baseAmount = price × pieces × qty - discount
-    const baseAmount = (unitPrice * piecesPerPkg * quantity) - discount;
+    const totalPieces = (quantity * piecesPerPkg) + extraPieces;
+    updated[index].total_pieces = totalPieces;
+    // baseAmount = price × totalPieces - discount
+    const baseAmount = (unitPrice * totalPieces) - discount;
+    updated[index].tax = (baseAmount * taxPercent) / 100;
+    updated[index].subtotal = baseAmount + updated[index].tax;
+
+    setItems(updated);
+  };
+
+  const updateTotalPieces = (index: number, newTotalPieces: number) => {
+    const updated = [...items];
+    const ppp = updated[index].pieces_per_package || 1;
+    const newCartons = Math.floor(newTotalPieces / ppp);
+    const newExtra = newTotalPieces % ppp;
+
+    updated[index].quantity = newCartons;
+    updated[index].extra_pieces = newExtra;
+    updated[index].total_pieces = newTotalPieces;
+
+    // Recalculate subtotal
+    const unitPrice = updated[index].unit_price || 0;
+    const discount = updated[index].discount || 0;
+    const taxPercent = updated[index].tax_percent || 0;
+    const baseAmount = (unitPrice * newTotalPieces) - discount;
     updated[index].tax = (baseAmount * taxPercent) / 100;
     updated[index].subtotal = baseAmount + updated[index].tax;
 
@@ -617,14 +672,39 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
     e.preventDefault();
 
     if (isEditMode && purchaseId) {
-      // Edit mode - only update allowed fields
+      // Edit mode - send full data including items
+      if (items.length === 0) {
+        toast.error('الرجاء إضافة منتج واحد على الأقل');
+        return;
+      }
       setIsSaving(true);
       try {
+        // Update product prices if changed
+        for (const item of items) {
+          if (item.unit_price !== item.original_price) {
+            try {
+              await productsApi.update(item.product_id, { cost_price: item.unit_price });
+            } catch (error) {
+              console.error(`Failed to update price for product ${item.product_id}:`, error);
+            }
+          }
+        }
+
         await purchasesApi.update(purchaseId, {
+          supplier_id: supplierId ? parseInt(supplierId) : null,
+          warehouse_id: parseInt(warehouseId),
+          date,
           discount,
           tax,
           shipping,
           note,
+          items: items.map((item) => ({
+            product_id: item.product_id,
+            quantity: item.total_pieces,
+            unit_price: item.unit_price,
+            discount: item.discount,
+            tax: item.tax,
+          })),
         });
 
         toast.success('تم تحديث الفاتورة بنجاح');
@@ -678,7 +758,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
         status: 'received',
         items: items.map((item) => ({
           product_id: item.product_id,
-          quantity: item.quantity,
+          quantity: item.total_pieces,
           unit_price: item.unit_price,
           discount: item.discount,
           tax: item.tax,
@@ -721,7 +801,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
         status: 'pending',
         items: items.map((item) => ({
           product_id: item.product_id,
-          quantity: item.quantity,
+          quantity: item.total_pieces,
           unit_price: item.unit_price,
           discount: item.discount,
           tax: item.tax,
@@ -740,10 +820,11 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
     }
   };
 
-  const formatStockQty = (qty: number, ppp: number): string => {
-    if (!ppp || ppp <= 1) return String(qty);
-    const cartons = Math.floor(qty);
-    const pieces = Math.round((qty - cartons) * ppp);
+  const formatStockQty = (stockPieces: number, ppp: number): string => {
+    const total = Math.floor(stockPieces);
+    if (!ppp || ppp <= 1) return String(total);
+    const cartons = Math.floor(total / ppp);
+    const pieces = total % ppp;
     if (cartons > 0 && pieces > 0) return `${cartons} كرتون ${pieces} قطعة`;
     if (cartons > 0) return `${cartons} كرتون`;
     if (pieces > 0) return `${pieces} قطعة`;
@@ -1281,23 +1362,77 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                             )}
                           </td>
                           <td className="px-2 py-2">
-                            <input
-                              ref={(el) => { inputRefs.current[`${index}-quantity`] = el; }}
-                              type="number"
-                              value={item.quantity}
-                              onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                              onKeyDown={(e) => handleKeyDown(e, index, 'quantity')}
-                              className="input w-full text-center"
-                              min="0.01"
-                              step="0.01"
-                            />
+                            <div className="space-y-1">
+                              {/* Cartons row - blue */}
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => updateItem(index, 'quantity', Math.max(0, item.quantity - 1))}
+                                  className="w-6 h-6 flex items-center justify-center rounded border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold"
+                                >-</button>
+                                <input
+                                  ref={(el) => { inputRefs.current[`${index}-quantity`] = el; }}
+                                  type="number"
+                                  value={item.quantity}
+                                  onChange={(e) => updateItem(index, 'quantity', Math.max(0, parseInt(e.target.value) || 0))}
+                                  onKeyDown={(e) => handleKeyDown(e, index, 'quantity')}
+                                  className="input w-12 text-center text-sm py-0.5 border-blue-300"
+                                  min="0"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => updateItem(index, 'quantity', item.quantity + 1)}
+                                  className="w-6 h-6 flex items-center justify-center rounded border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold"
+                                >+</button>
+                              </div>
+                              {/* Pieces row - orange (only if ppp > 1) */}
+                              {item.pieces_per_package > 1 && (
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => updateItem(index, 'extra_pieces', Math.max(0, item.extra_pieces - 1))}
+                                    className="w-6 h-6 flex items-center justify-center rounded border border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 text-xs font-bold"
+                                  >-</button>
+                                  <input
+                                    ref={(el) => { inputRefs.current[`${index}-extra_pieces`] = el; }}
+                                    type="number"
+                                    value={item.extra_pieces}
+                                    onChange={(e) => updateItem(index, 'extra_pieces', parseInt(e.target.value) || 0)}
+                                    onKeyDown={(e) => handleKeyDown(e, index, 'extra_pieces')}
+                                    className="input w-12 text-center text-sm py-0.5 border-orange-300"
+                                    min="0"
+                                    max={item.pieces_per_package - 1}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => updateItem(index, 'extra_pieces', item.extra_pieces + 1)}
+                                    className="w-6 h-6 flex items-center justify-center rounded border border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 text-xs font-bold"
+                                  >+</button>
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td className="px-2 py-2 text-center text-sm">
                             <div className="text-blue-600 font-medium">{item.pieces_per_package}</div>
                             <div className="text-xs text-gray-500">{item.unit_name}</div>
                           </td>
-                          <td className="px-2 py-2 text-center font-medium">
-                            {item.total_pieces}
+                          <td className="px-2 py-2 text-center">
+                            <input
+                              ref={(el) => { inputRefs.current[`${index}-total_pieces`] = el; }}
+                              type="number"
+                              value={item.total_pieces}
+                              onChange={(e) => updateTotalPieces(index, Math.max(0, parseInt(e.target.value) || 0))}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const nextRef = inputRefs.current[`${index}-unit_price`];
+                                  nextRef?.focus();
+                                  nextRef?.select();
+                                }
+                              }}
+                              className="input w-16 text-center text-sm py-0.5 font-medium"
+                              min="0"
+                            />
                           </td>
                           <td className="px-2 py-2">
                             <input

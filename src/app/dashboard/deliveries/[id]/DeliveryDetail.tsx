@@ -316,6 +316,24 @@ export default function DeliveryDetail() {
     }
   };
 
+  const [isStarting, setIsStarting] = useState(false);
+
+  const handleStartDelivery = async () => {
+    if (!delivery) return;
+    if (!confirm('هل تريد بدء هذه التوصيلة؟ سيتم خصم المنتجات من المستودع.')) return;
+    setIsStarting(true);
+    try {
+      await deliveriesApi.start(delivery.id);
+      toast.success('تم بدء التوصيلة بنجاح');
+      fetchDelivery();
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'خطأ في بدء التوصيلة';
+      toast.error(message);
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
   if (isLoading) return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
   if (!delivery) return <div className="text-center py-8 text-gray-500">لم يتم العثور على التوصيلة</div>;
 
@@ -344,10 +362,29 @@ export default function DeliveryDetail() {
           </div>
           <span className={`badge ${statusBadge.class}`}>{statusBadge.text}</span>
         </div>
-        <button onClick={fetchDelivery} className="btn btn-outline">
-          <ArrowPathIcon className="w-5 h-5" />
-          تحديث
-        </button>
+        <div className="flex items-center gap-2">
+          {delivery.status === 'preparing' && (
+            <button
+              onClick={handleStartDelivery}
+              disabled={isStarting}
+              className="btn bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+            >
+              {isStarting ? (
+                <div className="spinner w-5 h-5 border-white"></div>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+              بدء التوصيلة
+            </button>
+          )}
+          <button onClick={fetchDelivery} className="btn btn-outline">
+            <ArrowPathIcon className="w-5 h-5" />
+            تحديث
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -544,8 +581,7 @@ export default function DeliveryDetail() {
                         <tbody>
                           {order.order.items.map((item) => {
                             const piecesPerPkg = item.product?.pieces_per_package || 1;
-                            // Price per piece × pieces_per_package × quantity
-                            const deliveredAmount = (item.quantity_delivered || 0) * item.unit_price * piecesPerPkg;
+                            const deliveredAmount = (item.quantity_delivered || 0) * item.unit_price;
                             return (
                               <tr key={item.id} className="border-t">
                                 <td className="px-3 py-2">
@@ -554,20 +590,40 @@ export default function DeliveryDetail() {
                                     <div className="text-xs text-gray-400">{item.product.barcode}</div>
                                   )}
                                 </td>
-                                <td className="px-3 py-2 text-center">{formatQty(item.quantity_confirmed, piecesPerPkg)}</td>
+                                <td className="px-3 py-2 text-center">
+                                  <div>{formatQty(item.quantity_confirmed, piecesPerPkg)}</div>
+                                  {piecesPerPkg > 1 && (
+                                    <div className="text-xs text-gray-400">{item.quantity_confirmed} قطعة</div>
+                                  )}
+                                </td>
                                 <td className="px-3 py-2 text-center">
                                   <span className={item.quantity_delivered > 0 ? 'text-green-600 font-medium' : 'text-gray-400'}>
                                     {formatQty(item.quantity_delivered || 0, piecesPerPkg)}
                                   </span>
+                                  {piecesPerPkg > 1 && (item.quantity_delivered || 0) > 0 && (
+                                    <div className="text-xs text-gray-400">{item.quantity_delivered} قطعة</div>
+                                  )}
                                 </td>
                                 <td className="px-3 py-2 text-center">
                                   <span className={item.quantity_returned > 0 ? 'text-red-600 font-medium' : 'text-gray-400'}>
                                     {formatQty(item.quantity_returned || 0, piecesPerPkg)}
                                   </span>
                                 </td>
-                                <td className="px-3 py-2">{formatCurrency(item.unit_price)}</td>
+                                <td className="px-3 py-2">
+                                  {formatCurrency(item.unit_price)}
+                                  {piecesPerPkg > 1 && (
+                                    <div className="text-xs text-blue-500">({formatCurrency(item.unit_price * piecesPerPkg)}/كرتون)</div>
+                                  )}
+                                </td>
                                 <td className="px-3 py-2 text-center">{piecesPerPkg}</td>
-                                <td className="px-3 py-2 font-medium">{formatCurrency(deliveredAmount)}</td>
+                                <td className="px-3 py-2 font-medium">
+                                  {formatCurrency(deliveredAmount)}
+                                  {piecesPerPkg > 1 && (item.quantity_delivered || 0) > 0 && (
+                                    <div className="text-xs text-gray-400">
+                                      {item.unit_price} × {item.quantity_delivered}
+                                    </div>
+                                  )}
+                                </td>
                               </tr>
                             );
                           })}
