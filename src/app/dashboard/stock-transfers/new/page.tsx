@@ -889,7 +889,7 @@ export default function NewStockTransferPage() {
             <div className="space-y-3">
               <button
                 onClick={handleSubmit}
-                disabled={isSaving || items.length === 0 || hasStockErrors() || (toWarehouseId && !isDestCashvan)}
+                disabled={isSaving || items.length === 0 || hasStockErrors() || (!!toWarehouseId && !isDestCashvan)}
                 className="btn btn-primary w-full"
               >
                 {isSaving ? (
