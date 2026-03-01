@@ -2,6 +2,22 @@
 
 const changelog = [
   {
+    version: 'v1.0.3',
+    date: '2026-03-01',
+    changes: [
+      { type: 'feature', text: 'إضافة تاريخ ووقت البيع الصحيح في قائمة المبيعات وتفاصيل البيع (تطبيق البيع المتنقل)' },
+      { type: 'improvement', text: 'تحديث بيانات العملاء تلقائياً عند فتح شاشة البيع (بدون إعادة تشغيل التطبيق)' },
+      { type: 'improvement', text: 'تحسين التحقق من المخزون: المنع من تجاوز الكمية المتوفرة بالقطع وليس بالكراتين' },
+      { type: 'improvement', text: 'عند إضافة منتج للسلة والمخزون أقل من كرتون، يبدأ بقطعة واحدة بدلاً من كرتون' },
+      { type: 'improvement', text: 'القطع تتحول تلقائياً إلى كراتين عند تجاوز عدد القطع في الكرتون' },
+      { type: 'improvement', text: 'توحيد حجم صناديق الكراتين والقطع في شاشة اختيار المنتجات' },
+      { type: 'improvement', text: 'عرض رسالة تنبيه عند محاولة إضافة أكثر من المخزون المتوفر' },
+      { type: 'fix', text: 'إصلاح خطأ "quantity must be integer" عند طلب منتجات من تطبيق البيع المتنقل' },
+      { type: 'fix', text: 'إصلاح خطأ "quantity_approved must be integer" عند الموافقة على طلبات المنتجات' },
+      { type: 'fix', text: 'إصلاح خطأ 500 عند البيع بسبب حقل movable_type غير قابل للقيمة الفارغة' },
+    ],
+  },
+  {
     version: 'v1.0.2',
     date: '2026-02-28',
     changes: [
@@ -79,7 +95,7 @@ export default function ChangelogPage() {
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{release.version}</span>
-                {release.version === 'v1.0.2' && (
+                {release.version === 'v1.0.3' && (
                   <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-emerald-500 text-white">الأحدث</span>
                 )}
               </div>
