@@ -1008,6 +1008,87 @@ export default function CaissesPage() {
             </div>
           </div>
         )}
+
+        {/* Transfer Modal */}
+        {showTransferModal && summary && (
+          <div className="modal-overlay" onClick={() => setShowTransferModal(false)}>
+            <div className="modal-content p-6" onClick={(e) => e.stopPropagation()}>
+              <h2 className="text-lg font-semibold mb-4 dark:text-white">تحويل بين الصناديق</h2>
+              <form onSubmit={handleTransfer} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">من صندوق *</label>
+                  <select
+                    value={transferForm.from_caisse_id}
+                    onChange={(e) => setTransferForm({ ...transferForm, from_caisse_id: parseInt(e.target.value) || 0, to_caisse_id: transferForm.to_caisse_id === parseInt(e.target.value) ? 0 : transferForm.to_caisse_id })}
+                    className="select"
+                    required
+                  >
+                    <option value={0}>اختر الصندوق المصدر</option>
+                    {summary.caisses.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name || c.user?.name} ({typeLabels[c.type]}) - {formatCurrency(c.balance)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">إلى صندوق *</label>
+                  <select
+                    value={transferForm.to_caisse_id}
+                    onChange={(e) => setTransferForm({ ...transferForm, to_caisse_id: parseInt(e.target.value) || 0 })}
+                    className="select"
+                    required
+                  >
+                    <option value={0}>اختر الصندوق الوجهة</option>
+                    {summary.caisses
+                      .filter((c) => c.id !== transferForm.from_caisse_id)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name || c.user?.name} ({typeLabels[c.type]}) - {formatCurrency(c.balance)}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">المبلغ *</label>
+                  <input
+                    type="number"
+                    value={transferForm.amount || ''}
+                    onChange={(e) => setTransferForm({ ...transferForm, amount: parseFloat(e.target.value) || 0 })}
+                    className="input"
+                    min="0.01"
+                    step="0.01"
+                    placeholder="0.00"
+                    required
+                  />
+                  {transferForm.from_caisse_id > 0 && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      الرصيد المتاح: {formatCurrency(summary.caisses.find((c) => c.id === transferForm.from_caisse_id)?.balance || 0)}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">ملاحظات</label>
+                  <textarea
+                    value={transferForm.notes}
+                    onChange={(e) => setTransferForm({ ...transferForm, notes: e.target.value })}
+                    className="input"
+                    rows={2}
+                    placeholder="ملاحظات اختيارية..."
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button type="submit" disabled={isTransferring} className="btn btn-primary flex-1">
+                    {isTransferring ? 'جاري التحويل...' : 'تأكيد التحويل'}
+                  </button>
+                  <button type="button" onClick={() => setShowTransferModal(false)} className="btn btn-secondary">
+                    إلغاء
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1209,87 +1290,6 @@ export default function CaissesPage() {
                 </div>
               </form>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Transfer Modal */}
-      {showTransferModal && summary && (
-        <div className="modal-overlay" onClick={() => setShowTransferModal(false)}>
-          <div className="modal-content p-6" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold mb-4 dark:text-white">تحويل بين الصناديق</h2>
-            <form onSubmit={handleTransfer} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-gray-300">من صندوق *</label>
-                <select
-                  value={transferForm.from_caisse_id}
-                  onChange={(e) => setTransferForm({ ...transferForm, from_caisse_id: parseInt(e.target.value) || 0, to_caisse_id: transferForm.to_caisse_id === parseInt(e.target.value) ? 0 : transferForm.to_caisse_id })}
-                  className="select"
-                  required
-                >
-                  <option value={0}>اختر الصندوق المصدر</option>
-                  {summary.caisses.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name || c.user?.name} ({typeLabels[c.type]}) - {formatCurrency(c.balance)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-gray-300">إلى صندوق *</label>
-                <select
-                  value={transferForm.to_caisse_id}
-                  onChange={(e) => setTransferForm({ ...transferForm, to_caisse_id: parseInt(e.target.value) || 0 })}
-                  className="select"
-                  required
-                >
-                  <option value={0}>اختر الصندوق الوجهة</option>
-                  {summary.caisses
-                    .filter((c) => c.id !== transferForm.from_caisse_id)
-                    .map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name || c.user?.name} ({typeLabels[c.type]}) - {formatCurrency(c.balance)}
-                      </option>
-                    ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-gray-300">المبلغ *</label>
-                <input
-                  type="number"
-                  value={transferForm.amount || ''}
-                  onChange={(e) => setTransferForm({ ...transferForm, amount: parseFloat(e.target.value) || 0 })}
-                  className="input"
-                  min="0.01"
-                  step="0.01"
-                  placeholder="0.00"
-                  required
-                />
-                {transferForm.from_caisse_id > 0 && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    الرصيد المتاح: {formatCurrency(summary.caisses.find((c) => c.id === transferForm.from_caisse_id)?.balance || 0)}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-gray-300">ملاحظات</label>
-                <textarea
-                  value={transferForm.notes}
-                  onChange={(e) => setTransferForm({ ...transferForm, notes: e.target.value })}
-                  className="input"
-                  rows={2}
-                  placeholder="ملاحظات اختيارية..."
-                />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button type="submit" disabled={isTransferring} className="btn btn-primary flex-1">
-                  {isTransferring ? 'جاري التحويل...' : 'تأكيد التحويل'}
-                </button>
-                <button type="button" onClick={() => setShowTransferModal(false)} className="btn btn-secondary">
-                  إلغاء
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
