@@ -936,7 +936,12 @@ class _CreateVanSaleScreenState extends ConsumerState<CreateVanSaleScreen> {
   }
 
   Widget _buildCartControls(StockItemInfo item, CartItem cartItem) {
-    final maxCartons = item.availableQuantity.floor();
+    final ppp = item.piecesPerPackage > 0 ? item.piecesPerPackage : 1;
+    final totalPiecesInStock = item.availableQuantity.floor();
+    final maxCartons = totalPiecesInStock ~/ ppp;
+    final piecesUsedByCartons = cartItem.quantity * ppp;
+    final remainingPiecesAfterCartons = totalPiecesInStock - piecesUsedByCartons;
+    final maxExtraPieces = ppp > 1 ? remainingPiecesAfterCartons.clamp(0, ppp - 1) : 0;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1066,11 +1071,11 @@ class _CreateVanSaleScreenState extends ConsumerState<CreateVanSaleScreen> {
                 ),
                 IconButton(
                   icon: Icon(Icons.add, size: 16,
-                    color: cartItem.extraPieces >= item.piecesPerPackage - 1
+                    color: cartItem.extraPieces >= maxExtraPieces
                         ? Colors.grey
                         : Colors.orange[800],
                   ),
-                  onPressed: cartItem.extraPieces >= item.piecesPerPackage - 1
+                  onPressed: cartItem.extraPieces >= maxExtraPieces
                       ? null
                       : () => ref.read(cartProvider.notifier)
                           .updateExtraPieces(item.productId, cartItem.extraPieces + 1),

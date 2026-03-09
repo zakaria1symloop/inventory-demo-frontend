@@ -147,6 +147,15 @@ class CartNotifier extends StateNotifier<CartState> {
     );
     if (index >= 0) {
       updatedItems[index].quantity = quantity;
+      // Cap extra pieces if they exceed remaining stock after cartons
+      final ppp = updatedItems[index].piecesPerPackage > 0 ? updatedItems[index].piecesPerPackage : 1;
+      final totalPiecesInStock = updatedItems[index].stockItem.availableQuantity.floor();
+      final piecesUsedByCartons = quantity * ppp;
+      final remainingPieces = totalPiecesInStock - piecesUsedByCartons;
+      final maxExtra = ppp > 1 ? remainingPieces.clamp(0, ppp - 1) : 0;
+      if (updatedItems[index].extraPieces > maxExtra) {
+        updatedItems[index].extraPieces = maxExtra;
+      }
       state = state.copyWith(items: updatedItems);
     }
   }
@@ -158,7 +167,12 @@ class CartNotifier extends StateNotifier<CartState> {
     );
     if (index >= 0) {
       final item = updatedItems[index];
-      final maxPieces = item.piecesPerPackage - 1;
+      final ppp = item.piecesPerPackage > 0 ? item.piecesPerPackage : 1;
+      final totalPiecesInStock = item.stockItem.availableQuantity.floor();
+      final piecesUsedByCartons = item.quantity * ppp;
+      final remainingPieces = totalPiecesInStock - piecesUsedByCartons;
+      // Max extra pieces: can't exceed ppp-1, and can't exceed remaining stock
+      final maxPieces = ppp > 1 ? remainingPieces.clamp(0, ppp - 1) : 0;
       updatedItems[index].extraPieces = pieces.clamp(0, maxPieces);
       if (updatedItems[index].quantity <= 0 &&
           updatedItems[index].extraPieces <= 0) {
