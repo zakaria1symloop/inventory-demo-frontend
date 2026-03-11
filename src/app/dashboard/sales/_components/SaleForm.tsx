@@ -752,6 +752,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
           date,
           discount,
           tax: taxAmount,
+          tax_percentage: tax,
           shipping,
           note,
           paid_amount: paidAmount,
