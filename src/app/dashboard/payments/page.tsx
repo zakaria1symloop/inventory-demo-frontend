@@ -75,7 +75,8 @@ export default function PaymentsPage() {
     return badges[method] || { class: 'badge-secondary', text: method };
   };
 
-  const getPayableType = (type: string) => {
+  const getPayableType = (type: string | null) => {
+    if (!type) return 'تحصيل دين';
     if (type.includes('Purchase')) return 'شراء';
     if (type.includes('Sale')) return 'بيع';
     return type;
@@ -91,7 +92,7 @@ export default function PaymentsPage() {
   };
 
   const filteredPayments = payments.filter(p => {
-    const matchesSearch = p.reference.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (p.reference || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesMethod = !methodFilter || p.payment_method === methodFilter;
     return matchesSearch && matchesMethod;
   });
