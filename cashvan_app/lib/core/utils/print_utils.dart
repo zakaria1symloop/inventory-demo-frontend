@@ -5,15 +5,15 @@ import 'package:printing/printing.dart';
 import '../../data/models/sale_model.dart';
 
 class PrintUtils {
-  static Future<void> printSaleReceipt(SaleModel sale) async {
-    final pdf = await _generateSalePdf(sale);
+  static Future<void> printSaleReceipt(SaleModel sale, {bool canCollectDebt = false}) async {
+    final pdf = await _generateSalePdf(sale, canCollectDebt: canCollectDebt);
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdf,
       name: 'فاتورة_${sale.reference ?? sale.id}',
     );
   }
 
-  static Future<Uint8List> _generateSalePdf(SaleModel sale) async {
+  static Future<Uint8List> _generateSalePdf(SaleModel sale, {bool canCollectDebt = false}) async {
     final pdf = pw.Document();
     final arabicFont = await PdfGoogleFonts.cairoRegular();
     final arabicFontBold = await PdfGoogleFonts.cairoBold();
@@ -172,6 +172,58 @@ class PrintUtils {
                   ],
                 ),
               ),
+
+              // Debt section (only if canCollectDebt is enabled)
+              if (canCollectDebt && sale.clientId != null) ...[
+                pw.SizedBox(height: 16),
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(10),
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(color: PdfColors.grey400),
+                    borderRadius: pw.BorderRadius.circular(4),
+                  ),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('معلومات الدين', style: pw.TextStyle(font: arabicFontBold, fontSize: 13)),
+                      pw.SizedBox(height: 8),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text('الدين السابق:', style: pw.TextStyle(font: arabicFont)),
+                          pw.Text('${(sale.clientBalance - sale.dueAmount).toStringAsFixed(2)} د.ج', style: pw.TextStyle(font: arabicFont)),
+                        ],
+                      ),
+                      pw.SizedBox(height: 4),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text('مبلغ الفاتورة:', style: pw.TextStyle(font: arabicFont)),
+                          pw.Text('${sale.grandTotal.toStringAsFixed(2)} د.ج', style: pw.TextStyle(font: arabicFont)),
+                        ],
+                      ),
+                      pw.SizedBox(height: 4),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text('المدفوع:', style: pw.TextStyle(font: arabicFont)),
+                          pw.Text('${sale.paidAmount.toStringAsFixed(2)} د.ج', style: pw.TextStyle(font: arabicFont, color: PdfColors.green)),
+                        ],
+                      ),
+                      pw.SizedBox(height: 4),
+                      pw.Divider(),
+                      pw.SizedBox(height: 4),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text('إجمالي الدين:', style: pw.TextStyle(font: arabicFontBold, fontSize: 14)),
+                          pw.Text('${sale.clientBalance.toStringAsFixed(2)} د.ج', style: pw.TextStyle(font: arabicFontBold, fontSize: 14, color: PdfColors.red)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
 
               if (sale.note != null && sale.note!.isNotEmpty) ...[
                 pw.SizedBox(height: 20),

@@ -50,6 +50,7 @@ class SaleModel {
   final String? clientName;
   final String? clientPhone;
   final String? warehouseName;
+  final double clientBalance;
   final List<SaleItemModel> items;
 
   SaleModel({
@@ -73,6 +74,7 @@ class SaleModel {
     this.clientName,
     this.clientPhone,
     this.warehouseName,
+    this.clientBalance = 0,
     this.items = const [],
   });
 
@@ -111,6 +113,7 @@ class SaleModel {
       clientName: json['client']?['name']?.toString(),
       clientPhone: json['client']?['phone']?.toString(),
       warehouseName: json['warehouse']?['name']?.toString(),
+      clientBalance: _toDouble(json['client']?['balance']),
       items: json['items'] != null
           ? (json['items'] as List)
               .map((e) => SaleItemModel.fromJson(e))

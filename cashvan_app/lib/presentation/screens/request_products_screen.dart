@@ -108,6 +108,10 @@ class _RequestProductsScreenState extends ConsumerState<RequestProductsScreen> {
               .map((e) => _Warehouse.fromJson(e as Map<String, dynamic>))
               .where((w) => w.id != myWarehouseId) // Exclude driver's own warehouse
               .toList();
+          // Auto-select the main warehouse (first available)
+          if (_warehouses.isNotEmpty) {
+            _selectedWarehouse = _warehouses.first;
+          }
           _loadingWarehouses = false;
         });
       }
@@ -293,7 +297,36 @@ class _RequestProductsScreenState extends ConsumerState<RequestProductsScreen> {
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Scaffold(
+      child: PopScope(
+        canPop: _cartItems.isEmpty,
+        onPopInvokedWithResult: (didPop, result) async {
+          if (didPop) return;
+          final shouldPop = await showDialog<bool>(
+            context: context,
+            builder: (context) => Directionality(
+              textDirection: TextDirection.rtl,
+              child: AlertDialog(
+                title: const Text('تأكيد الخروج'),
+                content: const Text('لديك منتجات في السلة. هل أنت متأكد من الخروج؟ سيتم فقدان جميع البيانات.'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('لا، البقاء'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                    child: const Text('نعم، خروج', style: TextStyle(color: Colors.white)),
+                  ),
+                ],
+              ),
+            ),
+          );
+          if (shouldPop == true && context.mounted) {
+            Navigator.pop(context);
+          }
+        },
+        child: Scaffold(
         appBar: AppBar(
           title: const Text('طلب منتجات'),
           actions: [
@@ -351,38 +384,40 @@ class _RequestProductsScreenState extends ConsumerState<RequestProductsScreen> {
         ),
         bottomNavigationBar: _buildBottomBar(),
       ),
+      ),
     );
   }
 
   Widget _buildWarehouseSelector() {
+    if (_loadingWarehouses) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+    if (_selectedWarehouse == null) return const SizedBox.shrink();
+    // Show selected warehouse as info bar (auto-selected, no dropdown needed)
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        border: Border.all(color: AppTheme.borderColor),
+        border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
         borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
+        color: AppTheme.primaryColor.withValues(alpha: 0.05),
       ),
-      child: _loadingWarehouses
-          ? const Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-            )
-          : DropdownButtonHideUnderline(
-              child: DropdownButton<_Warehouse>(
-                isExpanded: true,
-                value: _selectedWarehouse,
-                hint: const Text('اختر المستودع المصدر'),
-                icon: const Icon(Icons.warehouse),
-                items: _warehouses.map((w) {
-                  return DropdownMenuItem<_Warehouse>(
-                    value: w,
-                    child: Text(w.name),
-                  );
-                }).toList(),
-                onChanged: (value) => setState(() => _selectedWarehouse = value),
-              ),
+      child: Row(
+        children: [
+          Icon(Icons.warehouse, color: AppTheme.primaryColor, size: 20),
+          const SizedBox(width: 8),
+          Text(
+            'المستودع: ${_selectedWarehouse!.name}',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: AppTheme.primaryColor,
             ),
+          ),
+        ],
+      ),
     );
   }
 

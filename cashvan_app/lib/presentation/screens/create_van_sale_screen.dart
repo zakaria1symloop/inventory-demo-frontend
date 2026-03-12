@@ -311,7 +311,7 @@ class _CreateVanSaleScreenState extends ConsumerState<CreateVanSaleScreen> {
       }
     }
 
-    final paidAmount = double.tryParse(_paidAmountController.text) ?? cart.totalAmount;
+    final paidAmount = double.tryParse(_paidAmountController.text) ?? 0;
 
     // Paid amount cannot exceed grand total
     if (paidAmount > cart.totalAmount) {
@@ -1384,7 +1384,7 @@ class _CreateVanSaleScreenState extends ConsumerState<CreateVanSaleScreen> {
                           );
                           return;
                         }
-                        _paidAmountController.text = cart.totalAmount.toStringAsFixed(0);
+                        _paidAmountController.text = '0';
                         setState(() => _currentStep = 2);
                       } else if (_currentStep == 2) {
                         _showConfirmDialog();

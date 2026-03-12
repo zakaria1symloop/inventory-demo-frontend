@@ -66,6 +66,8 @@ export default function DispensesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [userFilter, setUserFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -75,7 +77,7 @@ export default function DispensesPage() {
 
   useEffect(() => {
     fetchData();
-  }, [categoryFilter, userFilter]);
+  }, [categoryFilter, userFilter, dateFrom, dateTo]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -105,6 +107,8 @@ export default function DispensesPage() {
           per_page: 100,
           category: categoryFilter || undefined,
           user_id: userFilter || undefined,
+          date_from: dateFrom || undefined,
+          date_to: dateTo || undefined,
         }),
         employeesApi.getActive(),
         dispensesApi.getSummary(),
@@ -193,7 +197,7 @@ export default function DispensesPage() {
     d.employee?.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const hasActiveFilters = !!(categoryFilter || userFilter);
+  const hasActiveFilters = !!(categoryFilter || userFilter || dateFrom || dateTo);
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
@@ -309,6 +313,24 @@ export default function DispensesPage() {
               <option key={u.id} value={u.id}>{u.name}</option>
             ))}
           </select>
+          <DateInput
+            value={dateFrom}
+            onChange={(v) => setDateFrom(v)}
+            placeholder="من تاريخ"
+          />
+          <DateInput
+            value={dateTo}
+            onChange={(v) => setDateTo(v)}
+            placeholder="إلى تاريخ"
+          />
+          {hasActiveFilters && (
+            <button
+              onClick={() => { setCategoryFilter(''); setUserFilter(''); setDateFrom(''); setDateTo(''); }}
+              className="btn btn-secondary text-sm"
+            >
+              مسح الفلاتر
+            </button>
+          )}
         </div>
 
         <div className="overflow-x-auto">
