@@ -307,7 +307,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     .filter((section) => {
       if (!section.roles) return true;
       return user && section.roles.includes(user.role);
-    });
+    })
+    .filter((section) => section.items.length > 0);
 
   if (isLoading) {
     return (
@@ -509,7 +510,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </button>
             {!sidebarCollapsed && (
               <Link href="/dashboard/changelog" className="block text-center text-[10px] text-gray-400 dark:text-gray-500 mt-2 hover:text-blue-500 dark:hover:text-blue-400 transition-colors">
-                v1.0.6
+                v1.0.7
               </Link>
             )}
           </div>

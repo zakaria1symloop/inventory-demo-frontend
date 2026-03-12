@@ -2,6 +2,21 @@
 
 const changelog = [
   {
+    version: 'v1.0.7',
+    date: '2026-03-12',
+    changes: [
+      { type: 'feature', text: 'إضافة أعمدة TVA في فواتير PDF للمبيعات والمشتريات: نسبة TVA، مبلغ TVA، المبلغ HT والمبلغ TTC لكل منتج' },
+      { type: 'feature', text: 'إضافة إجمالي TVA في ملخص الفاتورة (Total HT + Total TVA + Total TTC)' },
+      { type: 'feature', text: 'إضافة فلتر التاريخ (من/إلى) في صفحة المصروفات' },
+      { type: 'feature', text: 'إضافة عمود العميل/المورد في صفحة حركات المخزون والمدفوعات' },
+      { type: 'feature', text: 'إضافة معلومات الدين في فاتورة الطباعة (الدين السابق، مبلغ الفاتورة، المدفوع، إجمالي الدين) حسب صلاحية تحصيل الديون' },
+      { type: 'improvement', text: 'المستودع الرئيسي (is_main) يُختار تلقائياً عند طلب المنتجات في تطبيق البيع المتنقل' },
+      { type: 'improvement', text: 'تأكيد الخروج عند الرجوع من شاشة طلب المنتجات في حالة وجود منتجات في السلة' },
+      { type: 'improvement', text: 'المبلغ المدفوع يبدأ من 0 بدلاً من المبلغ الكامل في شاشة الدفع بتطبيق البيع المتنقل' },
+      { type: 'improvement', text: 'إصلاح حفظ نسبة TVA عند تعديل المبيعات (كانت تختفي عند إعادة التعديل)' },
+    ],
+  },
+  {
     version: 'v1.0.6',
     date: '2026-03-06',
     changes: [
@@ -141,7 +156,7 @@ export default function ChangelogPage() {
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{release.version}</span>
-                {release.version === 'v1.0.6' && (
+                {release.version === 'v1.0.7' && (
                   <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-emerald-500 text-white">الأحدث</span>
                 )}
               </div>
