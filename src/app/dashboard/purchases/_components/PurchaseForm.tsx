@@ -3,8 +3,21 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { purchasesApi, productsApi, suppliersApi, warehousesApi, creditorsApi } from '@/lib/api';
+import DateInput from '@/components/ui/DateInput';
+import { purchasesApi, productsApi, suppliersApi, warehousesApi, creditorsApi, clientCategoriesApi } from '@/lib/api';
 import toast from 'react-hot-toast';
+
+interface ProductCategoryPrice {
+  id: number;
+  product_id: number;
+  client_category_id: number;
+  price: number;
+}
+
+interface ClientCategory {
+  id: number;
+  name: string;
+}
 
 interface Product {
   id: number;
@@ -12,9 +25,11 @@ interface Product {
   barcode: string;
   cost_price: number;
   retail_price: number;
+  wholesale_price?: number;
   tax_percent: number;
   pieces_per_package: number;
   unit_buy?: { id: number; name: string; short_name: string };
+  category_prices?: ProductCategoryPrice[];
 }
 
 interface Supplier {
@@ -43,9 +58,10 @@ interface PurchaseItem {
   product_id: number;
   product_name: string;
   barcode: string;
-  quantity: number; // Number of packages
+  quantity: number; // Number of cartons
+  extra_pieces: number; // Extra pieces (0 to pieces_per_package - 1)
   pieces_per_package: number; // Pieces per package
-  total_pieces: number; // Total pieces = quantity * pieces_per_package
+  total_pieces: number; // Total pieces = quantity * pieces_per_package + extra_pieces
   unit_price: number; // Price per 1 PIECE (not per package)
   original_price: number; // Original price per piece
   selling_price?: number; // Selling price per piece - updates product price
@@ -53,14 +69,16 @@ interface PurchaseItem {
   discount: number;
   tax_percent: number;
   tax: number;
-  subtotal: number; // = unit_price × pieces_per_package × quantity - discount + tax
+  subtotal: number; // = unit_price × total_pieces - discount + tax
 }
 
 interface PurchaseFormProps {
   purchaseId?: number | null;
+  onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
-export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
+export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }: PurchaseFormProps) {
   const router = useRouter();
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const productSearchRef = useRef<HTMLInputElement>(null);
@@ -70,6 +88,7 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [clientCategories, setClientCategories] = useState<ClientCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [purchaseDataLoaded, setPurchaseDataLoaded] = useState(false);
@@ -108,6 +127,9 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
   // Search mode toggle (barcode or name) - saved to localStorage
   const [searchMode, setSearchMode] = useState<'barcode' | 'name'>('barcode');
 
+  // Warehouse stock
+  const [warehouseStock, setWarehouseStock] = useState<Record<number, number>>({});
+
   // Quick product entry modal
   const [quickEntryModal, setQuickEntryModal] = useState<{
     show: boolean;
@@ -115,9 +137,12 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
     quantity: number;
     unitPrice: number;
     sellingPrice: number;
-  }>({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0 });
+    categoryPrices: Record<number, number>;
+  }>({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0, categoryPrices: {} });
   const quickQtyRef = useRef<HTMLInputElement>(null);
   const quickPriceRef = useRef<HTMLInputElement>(null);
+  const quickSellingRef = useRef<HTMLInputElement>(null);
+  const catPriceRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const paidAmountRef = useRef<HTMLInputElement>(null);
   const submitBtnRef = useRef<HTMLButtonElement>(null);
 
@@ -132,6 +157,54 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
       setSearchMode(savedSearchMode);
     }
   }, []);
+
+  // Pre-fill from product request (sessionStorage)
+  useEffect(() => {
+    if (isEditMode || products.length === 0) return;
+    const preFillJson = sessionStorage.getItem('purchasePreFill');
+    if (!preFillJson) return;
+    sessionStorage.removeItem('purchasePreFill');
+    try {
+      const preFill = JSON.parse(preFillJson);
+      if (preFill.warehouse_id) {
+        setWarehouseId(preFill.warehouse_id.toString());
+      }
+      if (preFill.note) {
+        setNote(preFill.note);
+      }
+      if (preFill.items && Array.isArray(preFill.items)) {
+        const preFillItems: PurchaseItem[] = preFill.items.map((pi: Record<string, unknown>) => {
+          const piecesPerPkg = Number(pi.pieces_per_package) || 1;
+          const unitPrice = Number(pi.unit_price) || 0;
+          const qty = Number(pi.quantity) || 1;
+          const totalPieces = qty * piecesPerPkg;
+          const baseAmount = unitPrice * totalPieces;
+          return {
+            product_id: Number(pi.product_id),
+            product_name: String(pi.product_name || ''),
+            barcode: String(pi.barcode || ''),
+            quantity: qty,
+            extra_pieces: 0,
+            pieces_per_package: piecesPerPkg,
+            total_pieces: totalPieces,
+            unit_price: unitPrice,
+            original_price: unitPrice,
+            unit_name: String(pi.unit_name || 'وحدة'),
+            discount: 0,
+            tax_percent: 0,
+            tax: 0,
+            subtotal: baseAmount,
+          };
+        });
+        if (preFillItems.length > 0) {
+          setItems(preFillItems);
+          toast.success(`تم تحميل ${preFillItems.length} منتج من طلب المنتجات`);
+        }
+      }
+    } catch {
+      // Silent fail
+    }
+  }, [products.length, isEditMode]);
 
   // Load purchase data in edit mode - wait for suppliers to be loaded first
   useEffect(() => {
@@ -188,6 +261,21 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [quickEntryModal.show]);
 
+  // Fetch warehouse stock when warehouse changes
+  useEffect(() => {
+    if (warehouseId) {
+      warehousesApi.getStock(parseInt(warehouseId)).then((res) => {
+        const stockMap: Record<number, number> = {};
+        (res.data || []).forEach((s: { product_id: number; quantity: number }) => {
+          stockMap[s.product_id] = Number(s.quantity) || 0;
+        });
+        setWarehouseStock(stockMap);
+      }).catch(() => setWarehouseStock({}));
+    } else {
+      setWarehouseStock({});
+    }
+  }, [warehouseId]);
+
   // Fetch supplier debt when supplier changes
   useEffect(() => {
     if (supplierId) {
@@ -208,14 +296,16 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
 
   const fetchData = async () => {
     try {
-      const [suppliersRes, warehousesRes, productsRes] = await Promise.all([
+      const [suppliersRes, warehousesRes, productsRes, catRes] = await Promise.all([
         suppliersApi.getAll({ per_page: 1000 }),
         warehousesApi.getAll(),
         productsApi.getAll({ per_page: 1000 }),
+        clientCategoriesApi.getAll().catch(() => ({ data: { data: [] } })),
       ]);
       setSuppliers(suppliersRes.data.data || suppliersRes.data);
       setWarehouses(warehousesRes.data.data || warehousesRes.data);
       setProducts(productsRes.data.data || productsRes.data);
+      setClientCategories(catRes.data.data || catRes.data || []);
 
       // Set default warehouse if only one
       const whs = warehousesRes.data.data || warehousesRes.data;
@@ -273,23 +363,30 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
       setWarehouseId(purchase.warehouse_id?.toString() || '');
       setDate(purchase.date?.split(' ')[0] || new Date().toISOString().split('T')[0]);
 
-      // Load items (read-only in edit mode)
+      // Load items
       if (purchase.items && Array.isArray(purchase.items)) {
-        const loadedItems: PurchaseItem[] = purchase.items.map((item: any) => ({
-          product_id: item.product_id,
-          product_name: item.product?.name || '',
-          barcode: item.product?.barcode || '',
-          quantity: item.quantity,
-          pieces_per_package: item.product?.pieces_per_package || 1,
-          total_pieces: item.quantity * (item.product?.pieces_per_package || 1),
-          unit_price: item.unit_price,
-          original_price: item.unit_price,
-          unit_name: item.product?.unit_buy?.short_name || 'وحدة',
-          discount: item.discount || 0,
-          tax_percent: item.product?.tax_percent || 0,
-          tax: item.tax || 0,
-          subtotal: item.subtotal || 0,
-        }));
+        const loadedItems: PurchaseItem[] = purchase.items.map((item: any) => {
+          const ppp = item.product?.pieces_per_package || 1;
+          const totalPieces = Math.floor(Number(item.quantity) || 0);
+          const cartons = Math.floor(totalPieces / ppp);
+          const extraPieces = totalPieces % ppp;
+          return {
+            product_id: item.product_id,
+            product_name: item.product?.name || '',
+            barcode: item.product?.barcode || '',
+            quantity: cartons,
+            extra_pieces: extraPieces,
+            pieces_per_package: ppp,
+            total_pieces: totalPieces,
+            unit_price: item.unit_price,
+            original_price: item.unit_price,
+            unit_name: item.product?.unit_buy?.short_name || 'وحدة',
+            discount: item.discount || 0,
+            tax_percent: item.product?.tax_percent || 0,
+            tax: item.tax || 0,
+            subtotal: item.subtotal || 0,
+          };
+        });
         setItems(loadedItems);
       }
 
@@ -309,15 +406,27 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
       e.preventDefault();
 
       // Define field order for navigation
-      const fieldOrder = ['quantity', 'unit_price', 'discount'];
+      const fieldOrder = ['quantity', 'extra_pieces', 'total_pieces', 'unit_price', 'discount'];
       const currentFieldIndex = fieldOrder.indexOf(field);
 
       if (currentFieldIndex < fieldOrder.length - 1) {
         // Move to next field in same row
         const nextField = fieldOrder[currentFieldIndex + 1];
         const nextRef = inputRefs.current[`${rowIndex}-${nextField}`];
-        nextRef?.focus();
-        nextRef?.select();
+        if (nextRef) {
+          nextRef.focus();
+          nextRef.select();
+        } else {
+          // Skip missing fields (e.g., extra_pieces when ppp=1)
+          for (let i = currentFieldIndex + 2; i < fieldOrder.length; i++) {
+            const skipRef = inputRefs.current[`${rowIndex}-${fieldOrder[i]}`];
+            if (skipRef) {
+              skipRef.focus();
+              skipRef.select();
+              break;
+            }
+          }
+        }
       } else if (rowIndex < items.length - 1) {
         // Move to first field of next row
         const nextRef = inputRefs.current[`${rowIndex + 1}-quantity`];
@@ -357,8 +466,9 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
       const piecesPerPkg = product.pieces_per_package || 1;
       const unitPrice = parseFloat(String(product.cost_price)) || 0; // Price per 1 piece
       const taxPercent = parseFloat(String(product.tax_percent)) || 0;
-      // baseAmount = price × pieces × qty
-      const baseAmount = unitPrice * piecesPerPkg * quantity;
+      const totalPieces = quantity * piecesPerPkg;
+      // baseAmount = price × totalPieces
+      const baseAmount = unitPrice * totalPieces;
       const taxAmount = (baseAmount * taxPercent) / 100;
       const unitName = product.unit_buy?.name || 'وحدة';
 
@@ -367,8 +477,9 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
         product_name: product.name,
         barcode: product.barcode || '',
         quantity: quantity,
+        extra_pieces: 0,
         pieces_per_package: piecesPerPkg,
-        total_pieces: quantity * piecesPerPkg,
+        total_pieces: totalPieces,
         unit_price: unitPrice, // Price per 1 piece
         original_price: unitPrice,
         unit_name: unitName,
@@ -392,12 +503,26 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
       toast.error('الرجاء اختيار المستودع أولاً');
       return;
     }
+    // Build category prices map from existing product data
+    const catPrices: Record<number, number> = {};
+    if (product.category_prices) {
+      for (const cp of product.category_prices) {
+        catPrices[cp.client_category_id] = Number(cp.price) || 0;
+      }
+    }
+    // Ensure all categories have an entry
+    for (const cat of clientCategories) {
+      if (!(cat.id in catPrices)) {
+        catPrices[cat.id] = 0;
+      }
+    }
     setQuickEntryModal({
       show: true,
       product,
       quantity: 1,
       unitPrice: Number(product.cost_price) || 0,
-      sellingPrice: Number(product.cost_price) || 0,
+      sellingPrice: Number(product.retail_price) || 0,
+      categoryPrices: catPrices,
     });
     setShowProductSearch(false);
     setBarcodeInput('');
@@ -407,11 +532,25 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
   // Confirm quick entry and add product
   const confirmQuickEntry = () => {
     if (!quickEntryModal.product) return;
-    const { product, quantity, unitPrice, sellingPrice } = quickEntryModal;
+    const { product, quantity, unitPrice, sellingPrice, categoryPrices } = quickEntryModal;
 
     if (quantity <= 0) {
       toast.error('الكمية يجب أن تكون أكبر من صفر');
       return;
+    }
+
+    // Save category prices + selling price to product in background
+    const priceUpdates: Record<string, unknown> = {};
+    const catPricesArray = Object.entries(categoryPrices)
+      .filter(([, price]) => price > 0)
+      .map(([catId, price]) => ({ client_category_id: Number(catId), price }));
+    if (catPricesArray.length > 0) {
+      priceUpdates.category_prices = catPricesArray;
+    }
+    if (Object.keys(priceUpdates).length > 0) {
+      productsApi.update(product.id, priceUpdates).catch((err: unknown) => {
+        console.error('Failed to update product prices:', err);
+      });
     }
 
     const existingIndex = items.findIndex((item) => item.product_id === product.id);
@@ -421,13 +560,12 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
       const newQty = existingItem.quantity + quantity;
       const taxPercent = existingItem.tax_percent;
       const piecesPerPkg = existingItem.pieces_per_package;
-      // baseAmount = price × pieces × qty - discount
       const baseAmount = (unitPrice * piecesPerPkg * newQty) - existingItem.discount;
       const updatedItem = {
         ...existingItem,
         quantity: newQty,
         total_pieces: newQty * piecesPerPkg,
-        unit_price: unitPrice, // Price per 1 piece
+        unit_price: unitPrice,
         tax: (baseAmount * taxPercent) / 100,
         subtotal: baseAmount + (baseAmount * taxPercent) / 100,
       };
@@ -436,8 +574,8 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
     } else {
       const piecesPerPkg = product.pieces_per_package || 1;
       const taxPercent = parseFloat(String(product.tax_percent)) || 0;
-      // baseAmount = price × pieces × qty
-      const baseAmount = unitPrice * piecesPerPkg * quantity;
+      const totalPieces = quantity * piecesPerPkg;
+      const baseAmount = unitPrice * totalPieces;
       const taxAmount = (baseAmount * taxPercent) / 100;
       const unitName = product.unit_buy?.name || 'وحدة';
 
@@ -446,9 +584,10 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
         product_name: product.name,
         barcode: product.barcode || '',
         quantity: quantity,
+        extra_pieces: 0,
         pieces_per_package: piecesPerPkg,
-        total_pieces: quantity * piecesPerPkg,
-        unit_price: unitPrice, // Price per 1 piece
+        total_pieces: totalPieces,
+        unit_price: unitPrice,
         original_price: Number(product.cost_price) || 0,
         selling_price: sellingPrice > 0 ? sellingPrice : undefined,
         unit_name: unitName,
@@ -460,7 +599,7 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
       setItems([newItem, ...items]);
     }
 
-    setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0 });
+    setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0, categoryPrices: {} });
     barcodeInputRef.current?.focus();
   };
 
@@ -475,20 +614,49 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
     }
   };
 
-  const updateItem = (index: number, field: 'quantity' | 'unit_price' | 'discount', value: number) => {
+  const updateItem = (index: number, field: 'quantity' | 'extra_pieces' | 'unit_price' | 'discount', value: number) => {
     const updated = [...items];
+    const piecesPerPkg = updated[index].pieces_per_package || 1;
+
+    // Clamp extra_pieces to 0..ppp-1
+    if (field === 'extra_pieces') {
+      value = Math.max(0, Math.min(value, piecesPerPkg - 1));
+    }
+
     updated[index] = { ...updated[index], [field]: value };
 
-    // Recalculate: price × pieces_per_package × quantity
+    // Recalculate: price × total_pieces - discount + tax
     const quantity = updated[index].quantity || 0;
+    const extraPieces = updated[index].extra_pieces || 0;
     const unitPrice = updated[index].unit_price || 0; // Price per 1 piece
     const discount = updated[index].discount || 0;
     const taxPercent = updated[index].tax_percent || 0;
-    const piecesPerPkg = updated[index].pieces_per_package || 1;
 
-    updated[index].total_pieces = quantity * piecesPerPkg;
-    // baseAmount = price × pieces × qty - discount
-    const baseAmount = (unitPrice * piecesPerPkg * quantity) - discount;
+    const totalPieces = (quantity * piecesPerPkg) + extraPieces;
+    updated[index].total_pieces = totalPieces;
+    // baseAmount = price × totalPieces - discount
+    const baseAmount = (unitPrice * totalPieces) - discount;
+    updated[index].tax = (baseAmount * taxPercent) / 100;
+    updated[index].subtotal = baseAmount + updated[index].tax;
+
+    setItems(updated);
+  };
+
+  const updateTotalPieces = (index: number, newTotalPieces: number) => {
+    const updated = [...items];
+    const ppp = updated[index].pieces_per_package || 1;
+    const newCartons = Math.floor(newTotalPieces / ppp);
+    const newExtra = newTotalPieces % ppp;
+
+    updated[index].quantity = newCartons;
+    updated[index].extra_pieces = newExtra;
+    updated[index].total_pieces = newTotalPieces;
+
+    // Recalculate subtotal
+    const unitPrice = updated[index].unit_price || 0;
+    const discount = updated[index].discount || 0;
+    const taxPercent = updated[index].tax_percent || 0;
+    const baseAmount = (unitPrice * newTotalPieces) - discount;
     updated[index].tax = (baseAmount * taxPercent) / 100;
     updated[index].subtotal = baseAmount + updated[index].tax;
 
@@ -518,19 +686,48 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
     e.preventDefault();
 
     if (isEditMode && purchaseId) {
-      // Edit mode - only update allowed fields
+      // Edit mode - send full data including items
+      if (items.length === 0) {
+        toast.error('الرجاء إضافة منتج واحد على الأقل');
+        return;
+      }
       setIsSaving(true);
       try {
+        // Update product prices if changed
+        for (const item of items) {
+          if (item.unit_price !== item.original_price) {
+            try {
+              await productsApi.update(item.product_id, { cost_price: item.unit_price });
+            } catch (error) {
+              console.error(`Failed to update price for product ${item.product_id}:`, error);
+            }
+          }
+        }
+
         await purchasesApi.update(purchaseId, {
+          supplier_id: supplierId ? parseInt(supplierId) : null,
+          warehouse_id: parseInt(warehouseId),
+          date,
           discount,
           tax,
           shipping,
           timbre,
           note,
+          items: items.map((item) => ({
+            product_id: item.product_id,
+            quantity: item.total_pieces,
+            unit_price: item.unit_price,
+            discount: item.discount,
+            tax: item.tax,
+          })),
         });
 
         toast.success('تم تحديث الفاتورة بنجاح');
-        router.push('/dashboard/purchases');
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          router.push('/dashboard/purchases');
+        }
       } catch (error: any) {
         toast.error(error.response?.data?.message || 'خطأ في تحديث الفاتورة');
       } finally {
@@ -574,9 +771,10 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
         timbre,
         note,
         paid_amount: paidAmount,
+        status: 'received',
         items: items.map((item) => ({
           product_id: item.product_id,
-          quantity: item.quantity,
+          quantity: item.total_pieces,
           unit_price: item.unit_price,
           discount: item.discount,
           tax: item.tax,
@@ -584,12 +782,70 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
       });
 
       toast.success('تم إنشاء فاتورة الشراء بنجاح');
-      router.push('/dashboard/purchases');
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.push('/dashboard/purchases');
+      }
     } catch (error) {
       toast.error('خطأ في إنشاء فاتورة الشراء');
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!warehouseId) {
+      toast.error('الرجاء اختيار المستودع');
+      return;
+    }
+    if (items.length === 0) {
+      toast.error('الرجاء إضافة منتج واحد على الأقل');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await purchasesApi.create({
+        supplier_id: supplierId ? parseInt(supplierId) : null,
+        warehouse_id: parseInt(warehouseId),
+        date,
+        discount,
+        tax,
+        shipping,
+        timbre,
+        note,
+        paid_amount: paidAmount,
+        status: 'pending',
+        items: items.map((item) => ({
+          product_id: item.product_id,
+          quantity: item.total_pieces,
+          unit_price: item.unit_price,
+          discount: item.discount,
+          tax: item.tax,
+        })),
+      });
+      toast.success('تم حفظ المسودة بنجاح');
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.push('/dashboard/purchases');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'خطأ في حفظ المسودة');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const formatStockQty = (stockPieces: number, ppp: number): string => {
+    const total = Math.floor(stockPieces);
+    if (!ppp || ppp <= 1) return String(total);
+    const cartons = Math.floor(total / ppp);
+    const pieces = total % ppp;
+    if (cartons > 0 && pieces > 0) return `${cartons} كرتون ${pieces} قطعة`;
+    if (cartons > 0) return `${cartons} كرتون`;
+    if (pieces > 0) return `${pieces} قطعة`;
+    return '0';
   };
 
   const formatCurrency = (value: number) => {
@@ -621,9 +877,12 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
       </div>
 
       {/* Quick Entry Modal */}
-      {quickEntryModal.show && quickEntryModal.product && (
+      {quickEntryModal.show && quickEntryModal.product && (() => {
+        const ppp = quickEntryModal.product?.pieces_per_package || 1;
+        const sortedCats = clientCategories.slice().sort((a, b) => a.id - b.id);
+        return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-96 max-w-full mx-4">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-[480px] max-w-full mx-4 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold mb-4 text-center">{quickEntryModal.product.name}</h3>
             <div className="space-y-4">
               <div>
@@ -639,7 +898,7 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
                       quickPriceRef.current?.focus();
                       quickPriceRef.current?.select();
                     } else if (e.key === 'Escape') {
-                      setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0 });
+                      setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0, categoryPrices: {} });
                       barcodeInputRef.current?.focus();
                     }
                   }}
@@ -649,7 +908,7 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">سعر الشراء</label>
+                <label className="block text-sm font-medium mb-1">سعر الشراء (القطعة)</label>
                 <input
                   ref={quickPriceRef}
                   type="number"
@@ -658,42 +917,61 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
-                      document.getElementById('selling-price-input')?.focus();
-                    } else if (e.key === 'Escape') {
-                      setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0 });
-                      barcodeInputRef.current?.focus();
-                    }
-                  }}
-                  className="input w-full text-center text-xl"
-                  min="0"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">سعر البيع (اختياري)</label>
-                <input
-                  id="selling-price-input"
-                  type="number"
-                  value={quickEntryModal.sellingPrice}
-                  onChange={(e) => setQuickEntryModal(prev => ({ ...prev, sellingPrice: Number(e.target.value) || 0 }))}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
                       confirmQuickEntry();
                     } else if (e.key === 'Escape') {
-                      setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0 });
+                      setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0, categoryPrices: {} });
                       barcodeInputRef.current?.focus();
                     }
                   }}
                   className="input w-full text-center text-xl"
                   min="0"
-                  placeholder="سعر البيع للقطعة"
                 />
-                <p className="text-xs text-gray-500 mt-1">سيتم تحديث سعر بيع المنتج</p>
+                {ppp > 1 && (
+                  <div className="text-center text-sm text-blue-600 mt-1 font-medium">
+                    سعر الكرتون: {formatCurrency(quickEntryModal.unitPrice * ppp)}
+                  </div>
+                )}
               </div>
+
+              {/* Category prices */}
+              {sortedCats.length > 0 && (
+              <div className="border border-gray-200 rounded-lg p-3 space-y-3">
+                <div className="text-sm font-semibold text-gray-700 mb-1">أسعار البيع (القطعة)</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {sortedCats.map((cat, catIdx) => (
+                    <div key={cat.id}>
+                      <label className="block text-xs text-amber-600 font-medium mb-0.5">{cat.name}</label>
+                      <input
+                        ref={(el) => { catPriceRefs.current[cat.id] = el; if (catIdx === 0 && !quickSellingRef.current) quickSellingRef.current = el; }}
+                        type="number"
+                        value={quickEntryModal.categoryPrices[cat.id] || ''}
+                        onChange={(e) => setQuickEntryModal(prev => ({
+                          ...prev,
+                          categoryPrices: { ...prev.categoryPrices, [cat.id]: Number(e.target.value) || 0 }
+                        }))}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            confirmQuickEntry();
+                          } else if (e.key === 'Escape') {
+                            setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0, categoryPrices: {} });
+                            barcodeInputRef.current?.focus();
+                          }
+                        }}
+                        className="input w-full text-center text-sm"
+                        min="0"
+                        placeholder="0"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              )}
+
               <div className="text-center text-lg font-bold text-blue-600">
-                المجموع: {formatCurrency(quickEntryModal.unitPrice * (quickEntryModal.product?.pieces_per_package || 1) * quickEntryModal.quantity)}
+                المجموع: {formatCurrency(quickEntryModal.unitPrice * ppp * quickEntryModal.quantity)}
                 <div className="text-xs text-gray-500 font-normal">
-                  ({quickEntryModal.unitPrice} × {quickEntryModal.product?.pieces_per_package || 1} قطعة × {quickEntryModal.quantity})
+                  ({quickEntryModal.unitPrice} × {ppp} قطعة × {quickEntryModal.quantity})
                 </div>
               </div>
               <div className="flex gap-2">
@@ -707,7 +985,7 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
                 <button
                   type="button"
                   onClick={() => {
-                    setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0 });
+                    setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0, categoryPrices: {} });
                     barcodeInputRef.current?.focus();
                   }}
                   className="btn btn-secondary flex-1"
@@ -718,16 +996,25 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <Link href="/dashboard/purchases" className="text-gray-500 hover:text-gray-700">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </Link>
+          {onCancel ? (
+            <button onClick={onCancel} className="text-gray-500 hover:text-gray-700">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          ) : (
+            <Link href="/dashboard/purchases" className="text-gray-500 hover:text-gray-700">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          )}
           <h1 className="text-2xl font-bold">{isEditMode ? 'تعديل فاتورة الشراء' : 'فاتورة شراء جديدة'}</h1>
         </div>
       </div>
@@ -865,11 +1152,10 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">التاريخ *</label>
-                  <input
-                    type="date"
+                  <DateInput
                     value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    className="input w-full"
+                    onChange={(v) => setDate(v)}
+                    className="w-full"
                     required
                   />
                 </div>
@@ -1029,9 +1315,16 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
                                   <span>{product.barcode}</span>
                                   <span>
                                     {formatCurrency(unitPrice)} / قطعة
-                                    {piecesPerPkg > 1 && <span className="text-blue-500 mr-1">({piecesPerPkg} قطعة/وحدة)</span>}
+                                    {piecesPerPkg > 1 && (
+                                      <span className="text-blue-500 mr-1">({formatCurrency(unitPrice * piecesPerPkg)} / كرتون)</span>
+                                    )}
                                   </span>
                                 </div>
+                                {warehouseId && (
+                                  <div className="text-xs text-blue-600">
+                                    متوفر: {formatStockQty(warehouseStock[product.id] || 0, piecesPerPkg)}
+                                  </div>
+                                )}
                               </button>
                             );
                           })
@@ -1049,6 +1342,7 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
                     <tr className="bg-gray-100">
                       <th className="px-2 py-2 text-center w-12">الرقم</th>
                       <th className="px-2 py-2 text-right">التعيين</th>
+                      <th className="px-2 py-2 text-center w-24">المتوفر</th>
                       <th className="px-2 py-2 text-center w-20">الكمية</th>
                       <th className="px-2 py-2 text-center w-16">الوحدة</th>
                       <th className="px-2 py-2 text-center w-20">العدد</th>
@@ -1062,7 +1356,7 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
                   <tbody>
                     {items.length === 0 ? (
                       <tr>
-                        <td colSpan={10} className="text-center py-8 text-gray-500">
+                        <td colSpan={11} className="text-center py-8 text-gray-500">
                           لم يتم إضافة منتجات بعد
                         </td>
                       </tr>
@@ -1074,24 +1368,87 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
                             <div className="font-medium">{item.product_name}</div>
                             <div className="text-xs text-gray-500">{item.barcode}</div>
                           </td>
+                          <td className="px-2 py-2 text-center text-sm">
+                            {warehouseId ? (
+                              <span className="text-blue-600 font-medium">
+                                {formatStockQty(warehouseStock[item.product_id] || 0, item.pieces_per_package)}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
                           <td className="px-2 py-2">
-                            <input
-                              ref={(el) => { inputRefs.current[`${index}-quantity`] = el; }}
-                              type="number"
-                              value={item.quantity}
-                              onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                              onKeyDown={(e) => handleKeyDown(e, index, 'quantity')}
-                              className="input w-full text-center"
-                              min="0.01"
-                              step="0.01"
-                            />
+                            <div className="space-y-1">
+                              {/* Cartons row - blue */}
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => updateItem(index, 'quantity', Math.max(0, item.quantity - 1))}
+                                  className="w-6 h-6 flex items-center justify-center rounded border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold"
+                                >-</button>
+                                <input
+                                  ref={(el) => { inputRefs.current[`${index}-quantity`] = el; }}
+                                  type="number"
+                                  value={item.quantity}
+                                  onChange={(e) => updateItem(index, 'quantity', Math.max(0, parseInt(e.target.value) || 0))}
+                                  onKeyDown={(e) => handleKeyDown(e, index, 'quantity')}
+                                  className="input w-12 text-center text-sm py-0.5 border-blue-300"
+                                  min="0"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => updateItem(index, 'quantity', item.quantity + 1)}
+                                  className="w-6 h-6 flex items-center justify-center rounded border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold"
+                                >+</button>
+                              </div>
+                              {/* Pieces row - orange (only if ppp > 1) */}
+                              {item.pieces_per_package > 1 && (
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => updateItem(index, 'extra_pieces', Math.max(0, item.extra_pieces - 1))}
+                                    className="w-6 h-6 flex items-center justify-center rounded border border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 text-xs font-bold"
+                                  >-</button>
+                                  <input
+                                    ref={(el) => { inputRefs.current[`${index}-extra_pieces`] = el; }}
+                                    type="number"
+                                    value={item.extra_pieces}
+                                    onChange={(e) => updateItem(index, 'extra_pieces', parseInt(e.target.value) || 0)}
+                                    onKeyDown={(e) => handleKeyDown(e, index, 'extra_pieces')}
+                                    className="input w-12 text-center text-sm py-0.5 border-orange-300"
+                                    min="0"
+                                    max={item.pieces_per_package - 1}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => updateItem(index, 'extra_pieces', item.extra_pieces + 1)}
+                                    className="w-6 h-6 flex items-center justify-center rounded border border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 text-xs font-bold"
+                                  >+</button>
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td className="px-2 py-2 text-center text-sm">
                             <div className="text-blue-600 font-medium">{item.pieces_per_package}</div>
                             <div className="text-xs text-gray-500">{item.unit_name}</div>
                           </td>
-                          <td className="px-2 py-2 text-center font-medium">
-                            {item.total_pieces}
+                          <td className="px-2 py-2 text-center">
+                            <input
+                              ref={(el) => { inputRefs.current[`${index}-total_pieces`] = el; }}
+                              type="number"
+                              value={item.total_pieces}
+                              onChange={(e) => updateTotalPieces(index, Math.max(0, parseInt(e.target.value) || 0))}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const nextRef = inputRefs.current[`${index}-unit_price`];
+                                  nextRef?.focus();
+                                  nextRef?.select();
+                                }
+                              }}
+                              className="input w-16 text-center text-sm py-0.5 font-medium"
+                              min="0"
+                            />
                           </td>
                           <td className="px-2 py-2">
                             <input
@@ -1104,6 +1461,11 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
                               min="0"
                               step="0.01"
                             />
+                            {item.pieces_per_package > 1 && (
+                              <div className="text-[10px] text-blue-500 text-center mt-0.5">
+                                {formatCurrency(item.unit_price * item.pieces_per_package)}/كرتون
+                              </div>
+                            )}
                           </td>
                           <td className="px-2 py-2">
                             <input
@@ -1346,9 +1708,26 @@ export default function PurchaseForm({ purchaseId = null }: PurchaseFormProps) {
                   {isSaving ? 'جاري الحفظ...' : 'حفظ الفاتورة'}
                 </button>
 
-                <Link href="/dashboard/purchases" className="btn btn-secondary w-full text-center block">
-                  إلغاء
-                </Link>
+                {!isEditMode && (
+                  <button
+                    type="button"
+                    onClick={handleSaveDraft}
+                    disabled={isSaving || items.length === 0}
+                    className="btn w-full bg-yellow-500 hover:bg-yellow-600 text-white"
+                  >
+                    {isSaving ? 'جاري الحفظ...' : 'حفظ كمسودة'}
+                  </button>
+                )}
+
+                {onCancel ? (
+                  <button type="button" onClick={onCancel} className="btn btn-secondary w-full text-center block">
+                    إلغاء
+                  </button>
+                ) : (
+                  <Link href="/dashboard/purchases" className="btn btn-secondary w-full text-center block">
+                    إلغاء
+                  </Link>
+                )}
               </div>
             </div>
           </div>

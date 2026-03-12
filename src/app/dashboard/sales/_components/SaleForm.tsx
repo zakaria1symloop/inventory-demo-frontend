@@ -3,12 +3,25 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { salesApi, productsApi, clientsApi, warehousesApi } from '@/lib/api';
+import DateInput from '@/components/ui/DateInput';
+import { salesApi, productsApi, clientsApi, warehousesApi, clientCategoriesApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 interface StockItem {
   quantity: number;
   warehouse_id: number;
+}
+
+interface ProductCategoryPrice {
+  id: number;
+  product_id: number;
+  client_category_id: number;
+  price: number;
+}
+
+interface ClientCategory {
+  id: number;
+  name: string;
 }
 
 interface Product {
@@ -17,10 +30,12 @@ interface Product {
   barcode: string;
   cost_price: number;
   retail_price: number;
+  wholesale_price?: number;
   min_selling_price?: number;
   pieces_per_package?: number;
   unit_sale?: { id: number; name: string; short_name: string };
   stock?: StockItem[];
+  category_prices?: ProductCategoryPrice[];
 }
 
 interface Client {
@@ -29,6 +44,8 @@ interface Client {
   phone?: string;
   balance?: number;
   credit_limit?: number;
+  client_category_id?: number;
+  client_category?: { id: number; name: string };
 }
 
 interface ClientDebtInfo {
@@ -52,24 +69,28 @@ interface SaleItem {
   product_id: number;
   product_name: string;
   barcode: string;
-  quantity: number; // Number of packages/units
+  quantity: number; // Number of packages/units (cartons)
+  extra_pieces: number; // Extra pieces (0 to pieces_per_package - 1)
   pieces_per_package: number; // Pieces per package
-  total_pieces: number; // Total pieces = quantity * pieces_per_package
+  total_pieces: number; // Total pieces = quantity * pieces_per_package + extra_pieces
   unit_price: number; // Price per 1 PIECE (not per package)
   original_price: number; // Original price per piece
   unit_name: string; // Unit name
   discount: number;
   tax: number;
-  subtotal: number; // = unit_price × pieces_per_package × quantity - discount + tax
+  subtotal: number; // = unit_price × total_pieces - discount + tax
   available_stock: number;
   min_selling_price: number;
+  cost_price: number;
 }
 
 interface SaleFormProps {
   saleId?: number | null;
+  onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
-export default function SaleForm({ saleId = null }: SaleFormProps) {
+export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFormProps) {
   const router = useRouter();
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const productSearchRef = useRef<HTMLInputElement>(null);
@@ -79,6 +100,7 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
   const [clients, setClients] = useState<Client[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [clientCategories, setClientCategories] = useState<ClientCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saleDataLoaded, setSaleDataLoaded] = useState(false);
@@ -123,7 +145,8 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
     product: Product | null;
     quantity: number;
     unitPrice: number;
-  }>({ show: false, product: null, quantity: 1, unitPrice: 0 });
+    categoryPrices: Record<number, number>;
+  }>({ show: false, product: null, quantity: 1, unitPrice: 0, categoryPrices: {} });
   const quickQtyRef = useRef<HTMLInputElement>(null);
   const quickPriceRef = useRef<HTMLInputElement>(null);
   const paidAmountRef = useRef<HTMLInputElement>(null);
@@ -199,12 +222,12 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
     }
   }, [clientId]);
 
-  // Load sale data in edit mode - wait for clients to be loaded first
+  // Load sale data in edit mode - wait for clients and products to be loaded first
   useEffect(() => {
-    if (isEditMode && saleId && clients.length > 0 && !saleDataLoaded) {
+    if (isEditMode && saleId && clients.length > 0 && products.length > 0 && !saleDataLoaded) {
       loadSaleData(saleId);
     }
-  }, [isEditMode, saleId, clients.length, saleDataLoaded]);
+  }, [isEditMode, saleId, clients.length, products.length, saleDataLoaded]);
 
   // Auto-calculate timbre at 1% when totals change (unless manually edited)
   useEffect(() => {
@@ -219,14 +242,16 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
 
   const fetchData = async () => {
     try {
-      const [clientsRes, warehousesRes, productsRes] = await Promise.all([
+      const [clientsRes, warehousesRes, productsRes, catRes] = await Promise.all([
         clientsApi.getAll({ per_page: 1000 }),
         warehousesApi.getAll(),
         productsApi.getAll({ per_page: 1000 }),
+        clientCategoriesApi.getAll().catch(() => ({ data: { data: [] } })),
       ]);
       setClients(clientsRes.data.data || clientsRes.data);
       setWarehouses(warehousesRes.data.data || warehousesRes.data);
       setProducts(productsRes.data.data || productsRes.data);
+      setClientCategories(catRes.data.data || catRes.data || []);
 
       // Set default warehouse if only one
       const whs = warehousesRes.data.data || warehousesRes.data;
@@ -292,24 +317,41 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
       setWarehouseId(sale.warehouse_id?.toString() || '');
       setDate(sale.date?.split(' ')[0] || new Date().toISOString().split('T')[0]);
 
-      // Load items (read-only in edit mode)
+      // Load items for edit mode
       if (sale.items && Array.isArray(sale.items)) {
-        const loadedItems: SaleItem[] = sale.items.map((item: any) => ({
-          product_id: item.product_id,
-          product_name: item.product?.name || '',
-          barcode: item.product?.barcode || '',
-          quantity: item.quantity,
-          pieces_per_package: item.product?.pieces_per_package || 1,
-          total_pieces: item.quantity * (item.product?.pieces_per_package || 1),
-          unit_price: item.unit_price,
-          original_price: item.unit_price,
-          unit_name: item.product?.unit_sale?.short_name || 'وحدة',
-          discount: item.discount || 0,
-          tax: item.tax || 0,
-          subtotal: item.subtotal || 0,
-          available_stock: 0, // Not needed in edit mode
-          min_selling_price: item.product?.min_selling_price || 0,
-        }));
+        const wId = sale.warehouse_id ? parseInt(sale.warehouse_id) : null;
+        const loadedItems: SaleItem[] = sale.items.map((item: any) => {
+          const ppp = item.product?.pieces_per_package || 1;
+          const totalPieces = Math.floor(Number(item.quantity) || 0);
+          // Split integer pieces back into cartons + extra pieces
+          const cartons = Math.floor(totalPieces / ppp);
+          const extraPieces = totalPieces % ppp;
+          // In edit mode: available = current warehouse stock + this item's original qty
+          // (because the sale already deducted these pieces from stock)
+          // Use products list (which has stock data) since sale API doesn't include stock
+          const productFromList = products.find((p: Product) => p.id === item.product_id);
+          const currentStock = wId && productFromList?.stock
+            ? Number(productFromList.stock.find((s: StockItem) => s.warehouse_id === wId)?.quantity) || 0
+            : 0;
+          return {
+            product_id: item.product_id,
+            product_name: item.product?.name || '',
+            barcode: item.product?.barcode || '',
+            quantity: cartons,
+            extra_pieces: extraPieces,
+            pieces_per_package: ppp,
+            total_pieces: totalPieces,
+            unit_price: item.unit_price,
+            original_price: item.unit_price,
+            unit_name: item.product?.unit_sale?.short_name || 'وحدة',
+            discount: item.discount || 0,
+            tax: item.tax || 0,
+            subtotal: item.subtotal || 0,
+            available_stock: currentStock + totalPieces,
+            min_selling_price: item.product?.min_selling_price || 0,
+            cost_price: item.product?.cost_price || 0,
+          };
+        });
         setItems(loadedItems);
       }
 
@@ -334,8 +376,12 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
     if (e.key === 'Enter') {
       e.preventDefault();
 
-      // Define field order for navigation
-      const fieldOrder = ['quantity', 'unit_price', 'discount'];
+      // Build field order dynamically based on whether item has ppp > 1
+      const item = items[rowIndex];
+      const hasPieces = item && (item.pieces_per_package || 1) > 1;
+      const fieldOrder = hasPieces
+        ? ['quantity', 'extra_pieces', 'total_pieces', 'unit_price', 'discount']
+        : ['quantity', 'total_pieces', 'unit_price', 'discount'];
       const currentFieldIndex = fieldOrder.indexOf(field);
 
       if (currentFieldIndex < fieldOrder.length - 1) {
@@ -354,7 +400,7 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
         barcodeInputRef.current?.focus();
       }
     }
-  }, [items.length]);
+  }, [items]);
 
   const addProduct = (product: Product, quantity: number = 1) => {
     if (!warehouseId) {
@@ -367,26 +413,29 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
 
     if (existingIndex >= 0) {
       const existingItem = items[existingIndex];
+      const ppp = existingItem.pieces_per_package || 1;
       const newQty = existingItem.quantity + quantity;
-      if (newQty > availableStock) {
-        toast.error(`الكمية المتوفرة: ${Math.round(availableStock)} فقط`);
+      const newTotalPieces = (newQty * ppp) + (existingItem.extra_pieces || 0);
+      if (newTotalPieces > availableStock) {
+        toast.error(`الكمية المتوفرة: ${formatStockQty(availableStock, ppp)} فقط`);
         return;
       }
       const updatedItem = {
         ...existingItem,
         quantity: newQty,
-        total_pieces: newQty * existingItem.pieces_per_package
+        total_pieces: newTotalPieces
       };
       updatedItem.subtotal = calculateSubtotal(updatedItem);
       const otherItems = items.filter((_, i) => i !== existingIndex);
       setItems([updatedItem, ...otherItems]);
     } else {
-      if (availableStock < quantity) {
+      const piecesPerPkg = product.pieces_per_package || 1;
+      const totalPieces = quantity * piecesPerPkg;
+      if (availableStock < totalPieces) {
         toast.error(`المنتج "${product.name}" غير متوفر في المخزون`);
         return;
       }
-      const piecesPerPkg = product.pieces_per_package || 1;
-      const unitPrice = Number(product.retail_price) || 0;
+      const unitPrice = getDefaultPrice(product);
       const minUnitPrice = Number(product.min_selling_price) || 0;
       const unitName = product.unit_sale?.name || 'وحدة';
 
@@ -395,16 +444,18 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
         product_name: product.name,
         barcode: product.barcode,
         quantity: quantity,
+        extra_pieces: 0,
         pieces_per_package: piecesPerPkg,
-        total_pieces: quantity * piecesPerPkg,
+        total_pieces: totalPieces,
         unit_price: unitPrice, // Price per 1 piece
         original_price: unitPrice,
         unit_name: unitName,
         discount: 0,
         tax: 0,
-        subtotal: unitPrice * piecesPerPkg * quantity, // price × pieces × qty
+        subtotal: unitPrice * totalPieces, // price × totalPieces
         available_stock: availableStock,
         min_selling_price: minUnitPrice,
+        cost_price: Number(product.cost_price) || 0,
       };
       setItems([newItem, ...items]);
     }
@@ -413,6 +464,72 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
     setShowProductSearch(false);
     setBarcodeInput('');
     barcodeInputRef.current?.focus();
+  };
+
+  // Get available prices for a product as labeled chips
+  // If client has a category, only show that category's price
+  const getProductPrices = (product: Product): Array<{ label: string; price: number; color: string }> => {
+    const prices: Array<{ label: string; price: number; color: string }> = [];
+    const seen = new Set<number>();
+
+    // If client has a category, show only the category price
+    if (clientId) {
+      const selectedClient = clients.find(c => c.id.toString() === clientId);
+      if (selectedClient?.client_category_id && product.category_prices) {
+        const categoryPrice = product.category_prices.find(
+          cp => cp.client_category_id === selectedClient.client_category_id
+        );
+        if (categoryPrice && categoryPrice.price > 0) {
+          const catName = selectedClient.client_category?.name ||
+            clientCategories.find(c => c.id === selectedClient.client_category_id)?.name ||
+            'فئة العميل';
+          prices.push({ label: catName, price: categoryPrice.price, color: 'amber' });
+          return prices;
+        }
+      }
+    }
+
+    // No client category - show all prices
+    const retailPrice = Number(product.retail_price) || 0;
+    const wholesalePrice = Number(product.wholesale_price) || 0;
+
+    if (wholesalePrice > 0 && !seen.has(wholesalePrice)) {
+      prices.push({ label: 'جملة', price: wholesalePrice, color: 'green' });
+      seen.add(wholesalePrice);
+    }
+    if (retailPrice > 0 && !seen.has(retailPrice)) {
+      prices.push({ label: 'تجزئة', price: retailPrice, color: 'blue' });
+      seen.add(retailPrice);
+    }
+
+    if (product.category_prices && product.category_prices.length > 0) {
+      for (const cp of product.category_prices) {
+        if (cp.price > 0 && !seen.has(cp.price)) {
+          const catName = clientCategories.find(c => c.id === cp.client_category_id)?.name || `فئة ${cp.client_category_id}`;
+          prices.push({ label: catName, price: cp.price, color: 'amber' });
+          seen.add(cp.price);
+        }
+      }
+    }
+
+    return prices;
+  };
+
+  // Get best default price for a product (uses client category price if available)
+  const getDefaultPrice = (product: Product): number => {
+    // If a client is selected and has a category, use that category's price
+    if (clientId) {
+      const selectedClient = clients.find(c => c.id.toString() === clientId);
+      if (selectedClient?.client_category_id && product.category_prices) {
+        const categoryPrice = product.category_prices.find(
+          cp => cp.client_category_id === selectedClient.client_category_id
+        );
+        if (categoryPrice && categoryPrice.price > 0) {
+          return categoryPrice.price;
+        }
+      }
+    }
+    return Number(product.retail_price) || 0;
   };
 
   // Open quick entry modal for product
@@ -425,7 +542,8 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
       show: true,
       product,
       quantity: 1,
-      unitPrice: Number(product.retail_price) || 0,
+      unitPrice: getDefaultPrice(product),
+      categoryPrices: {},
     });
     setShowProductSearch(false);
     setBarcodeInput('');
@@ -442,31 +560,41 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
       return;
     }
 
+    // Block if price is below cost price
+    const costPrice = Number(product.cost_price) || 0;
+    if (unitPrice > 0 && unitPrice < costPrice) {
+      toast.error(`لا يمكن البيع بأقل من سعر الشراء (${costPrice} د.ج)`);
+      return;
+    }
+
     const availableStock = getProductStock(product);
     const existingIndex = items.findIndex((item) => item.product_id === product.id);
 
     if (existingIndex >= 0) {
       const existingItem = items[existingIndex];
+      const ppp = existingItem.pieces_per_package || 1;
       const newQty = existingItem.quantity + quantity;
-      if (newQty > availableStock) {
-        toast.error(`الكمية المتوفرة: ${Math.round(availableStock)} فقط`);
+      const newTotalPieces = (newQty * ppp) + (existingItem.extra_pieces || 0);
+      if (newTotalPieces > availableStock) {
+        toast.error(`الكمية المتوفرة: ${formatStockQty(availableStock, ppp)} فقط`);
         return;
       }
       const updatedItem = {
         ...existingItem,
         quantity: newQty,
-        total_pieces: newQty * existingItem.pieces_per_package,
+        total_pieces: newTotalPieces,
         unit_price: unitPrice,
       };
       updatedItem.subtotal = calculateSubtotal(updatedItem);
       const otherItems = items.filter((_, i) => i !== existingIndex);
       setItems([updatedItem, ...otherItems]);
     } else {
-      if (availableStock < quantity) {
-        toast.error(`الكمية المتوفرة: ${Math.round(availableStock)} فقط`);
+      const piecesPerPkg = product.pieces_per_package || 1;
+      const totalPieces = quantity * piecesPerPkg;
+      if (availableStock < totalPieces) {
+        toast.error(`الكمية المتوفرة: ${formatStockQty(availableStock, piecesPerPkg)} فقط`);
         return;
       }
-      const piecesPerPkg = product.pieces_per_package || 1;
       const minUnitPrice = Number(product.min_selling_price) || 0;
       const unitName = product.unit_sale?.name || 'وحدة';
 
@@ -475,21 +603,23 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
         product_name: product.name,
         barcode: product.barcode,
         quantity: quantity,
+        extra_pieces: 0,
         pieces_per_package: piecesPerPkg,
-        total_pieces: quantity * piecesPerPkg,
+        total_pieces: totalPieces,
         unit_price: unitPrice, // Price per 1 piece
-        original_price: Number(product.retail_price) || 0,
+        original_price: getDefaultPrice(product),
         unit_name: unitName,
         discount: 0,
         tax: 0,
-        subtotal: unitPrice * piecesPerPkg * quantity, // price × pieces × qty
+        subtotal: unitPrice * totalPieces, // price × totalPieces
         available_stock: availableStock,
         min_selling_price: minUnitPrice,
+        cost_price: costPrice,
       };
       setItems([newItem, ...items]);
     }
 
-    setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0 });
+    setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, categoryPrices: {} });
     barcodeInputRef.current?.focus();
   };
 
@@ -504,18 +634,54 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
     }
   };
 
-  const updateItem = (index: number, field: 'quantity' | 'unit_price' | 'discount' | 'tax', value: number) => {
+  const updateTotalPieces = (index: number, newTotalPieces: number) => {
     const updated = [...items];
-    const numValue = Number(value) || 0;
+    const ppp = updated[index].pieces_per_package || 1;
+    const newCartons = Math.floor(newTotalPieces / ppp);
+    const newExtra = newTotalPieces % ppp;
 
-    if (field === 'quantity') {
-      if (numValue > updated[index].available_stock) {
-        toast.error(`الكمية المتوفرة: ${Math.round(updated[index].available_stock)} فقط`);
+    // Check stock (both in pieces)
+    if (newTotalPieces > updated[index].available_stock) {
+      toast.error(`الكمية المتوفرة: ${formatStockQty(updated[index].available_stock, ppp)} فقط`);
+      return;
+    }
+
+    updated[index].quantity = newCartons;
+    updated[index].extra_pieces = newExtra;
+    updated[index].total_pieces = newTotalPieces;
+    updated[index].subtotal = calculateSubtotal(updated[index]);
+    setItems(updated);
+  };
+
+  const updateItem = (index: number, field: 'quantity' | 'extra_pieces' | 'unit_price' | 'discount' | 'tax', value: number) => {
+    const updated = [...items];
+    let numValue = Number(value) || 0;
+    const ppp = updated[index].pieces_per_package || 1;
+
+    // Clamp extra_pieces to 0..ppp-1
+    if (field === 'extra_pieces') {
+      numValue = Math.max(0, Math.min(numValue, ppp - 1));
+    }
+
+    if (field === 'quantity' || field === 'extra_pieces') {
+      const newQty = field === 'quantity' ? numValue : updated[index].quantity;
+      const newExtra = field === 'extra_pieces' ? numValue : updated[index].extra_pieces;
+      const totalPieces = (newQty * ppp) + newExtra;
+      if (totalPieces > updated[index].available_stock) {
+        toast.error(`الكمية المتوفرة: ${formatStockQty(updated[index].available_stock, ppp)} فقط`);
         return;
       }
-      updated[index].quantity = numValue;
-      updated[index].total_pieces = numValue * updated[index].pieces_per_package;
+      if (field === 'quantity') {
+        updated[index].quantity = numValue;
+      } else {
+        updated[index].extra_pieces = numValue;
+      }
+      updated[index].total_pieces = (updated[index].quantity * ppp) + updated[index].extra_pieces;
     } else if (field === 'unit_price') {
+      if (updated[index].cost_price > 0 && numValue > 0 && numValue < updated[index].cost_price) {
+        toast.error(`لا يمكن البيع بأقل من سعر الشراء (${updated[index].cost_price} د.ج)`);
+        return;
+      }
       updated[index].unit_price = numValue;
     } else if (field === 'discount') {
       updated[index].discount = numValue;
@@ -533,19 +699,21 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
 
   const calculateSubtotal = (item: SaleItem): number => {
     const qty = Number(item.quantity) || 0;
+    const extraPieces = Number(item.extra_pieces) || 0;
     const price = Number(item.unit_price) || 0; // Price per 1 piece
     const piecesPerPkg = Number(item.pieces_per_package) || 1;
     const disc = Number(item.discount) || 0;
     const itemTax = Number(item.tax) || 0;
-    // subtotal = price × pieces_per_package × quantity - discount + tax
-    return (price * piecesPerPkg * qty) - disc + itemTax;
+    // totalPieces = (qty × piecesPerPkg) + extraPieces
+    const totalPieces = (qty * piecesPerPkg) + extraPieces;
+    // subtotal = price × totalPieces - discount + tax
+    return (price * totalPieces) - disc + itemTax;
   };
 
   const totalAmount = items.reduce((sum, item) => sum + (Number(item.subtotal) || 0), 0);
   const afterDiscount = totalAmount - (Number(discount) || 0);
   const taxAmount = afterDiscount * ((Number(tax) || 0) / 100);
-  const subtotalBeforeTimbre = afterDiscount + taxAmount + (Number(shipping) || 0);
-  const grandTotal = Math.max(0, subtotalBeforeTimbre + (Number(timbre) || 0));
+  const grandTotal = Math.max(0, afterDiscount + taxAmount + (Number(shipping) || 0) + (Number(timbre) || 0));
 
   // Calculate how payment is applied
   // previousDebt = what the client already owes us BEFORE this sale
@@ -559,23 +727,67 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
   const remainingPreviousDebt = Math.max(0, previousDebt - appliedToPreviousDebt);
   const totalRemainingDebt = remainingFromSale + remainingPreviousDebt;
 
+  const buildSalePayload = (status: 'completed' | 'draft' = 'completed') => {
+    return {
+      client_id: clientId ? parseInt(clientId) : null,
+      warehouse_id: parseInt(warehouseId),
+      date,
+      discount,
+      tax: taxAmount,
+      tax_percentage: tax,
+      shipping,
+      timbre,
+      note,
+      paid_amount: paidAmount,
+      status,
+      items: items.map((item) => {
+        const ppp = Number(item.pieces_per_package) || 1;
+        const totalPieces = (item.quantity * ppp) + (item.extra_pieces || 0);
+        return {
+          product_id: item.product_id,
+          quantity: totalPieces,
+          unit_price: item.unit_price,
+          discount: item.discount,
+          tax: item.tax,
+        };
+      }),
+    };
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (isEditMode && saleId) {
-      // Edit mode - only update allowed fields
+      // Edit mode - send items along with metadata
       setIsSaving(true);
       try {
+        const ppp = (item: SaleItem) => Number(item.pieces_per_package) || 1;
         await salesApi.update(saleId, {
+          client_id: clientId ? parseInt(clientId) : null,
+          warehouse_id: warehouseId ? parseInt(warehouseId) : null,
+          date,
           discount,
           tax: taxAmount,
+          tax_percentage: tax,
           shipping,
           timbre,
           note,
+          paid_amount: paidAmount,
+          items: items.map((item) => ({
+            product_id: item.product_id,
+            quantity: (item.quantity * ppp(item)) + (item.extra_pieces || 0),
+            unit_price: item.unit_price,
+            discount: item.discount,
+            tax: item.tax,
+          })),
         });
 
         toast.success('تم تحديث الفاتورة بنجاح');
-        router.push('/dashboard/sales');
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          router.push('/dashboard/sales');
+        }
       } catch (error: any) {
         toast.error(error.response?.data?.message || 'خطأ في تحديث الفاتورة');
       } finally {
@@ -596,8 +808,14 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
     }
 
     for (const item of items) {
-      if (item.quantity > item.available_stock) {
-        toast.error(`الكمية المطلوبة لـ "${item.product_name}" (${item.quantity}) أكبر من المتوفر (${Math.round(item.available_stock)})`);
+      const ppp = Number(item.pieces_per_package) || 1;
+      const totalPieces = (item.quantity * ppp) + (item.extra_pieces || 0);
+      if (totalPieces > item.available_stock) {
+        toast.error(`الكمية المطلوبة لـ "${item.product_name}" أكبر من المتوفر (${formatStockQty(item.available_stock, ppp)})`);
+        return;
+      }
+      if (item.cost_price > 0 && item.unit_price > 0 && item.unit_price < item.cost_price) {
+        toast.error(`لا يمكن البيع بأقل من سعر الشراء للمنتج "${item.product_name}" (${item.cost_price} د.ج)`);
         return;
       }
     }
@@ -616,30 +834,43 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
         }
       }
 
-      await salesApi.create({
-        client_id: clientId ? parseInt(clientId) : null,
-        warehouse_id: parseInt(warehouseId),
-        date,
-        discount,
-        tax: taxAmount,
-        tax_percentage: tax,
-        shipping,
-        timbre,
-        note,
-        paid_amount: paidAmount,
-        items: items.map((item) => ({
-          product_id: item.product_id,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          discount: item.discount,
-          tax: item.tax,
-        })),
-      });
+      await salesApi.create(buildSalePayload('completed'));
 
       toast.success('تم إنشاء فاتورة البيع بنجاح');
-      router.push('/dashboard/sales');
-    } catch (error) {
-      toast.error('خطأ في إنشاء فاتورة البيع');
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.push('/dashboard/sales');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'خطأ في إنشاء فاتورة البيع');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!warehouseId) {
+      toast.error('الرجاء اختيار المستودع');
+      return;
+    }
+
+    if (items.length === 0) {
+      toast.error('الرجاء إضافة منتج واحد على الأقل');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await salesApi.create(buildSalePayload('draft'));
+      toast.success('تم حفظ المسودة بنجاح');
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.push('/dashboard/sales');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'خطأ في حفظ المسودة');
     } finally {
       setIsSaving(false);
     }
@@ -649,10 +880,26 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
     return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
   };
 
-  const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (p.barcode && p.barcode.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // Format stock quantity (already in pieces) as cartons + pieces
+  const formatStockQty = (stockPieces: number, piecesPerPackage: number): string => {
+    const ppp = piecesPerPackage || 1;
+    const total = Math.floor(stockPieces);
+    if (ppp <= 1) return `${total} قطعة`;
+    const cartons = Math.floor(total / ppp);
+    const pieces = total % ppp;
+    if (pieces === 0) return `${cartons} كرتون`;
+    if (cartons === 0) return `${total} قطعة`;
+    return `${cartons} كرتون + ${pieces} ق`;
+  };
+
+  // Only show products with available stock > 0
+  const filteredProducts = products.filter((p) => {
+    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.barcode && p.barcode.toLowerCase().includes(searchTerm.toLowerCase()));
+    if (!matchesSearch) return false;
+    const stock = getProductStock(p);
+    return stock > 0;
+  });
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
@@ -673,13 +920,17 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
       </div>
 
       {/* Quick Entry Modal */}
-      {quickEntryModal.show && quickEntryModal.product && (
+      {quickEntryModal.show && quickEntryModal.product && (() => {
+        const ppp = quickEntryModal.product?.pieces_per_package || 1;
+        const costPrice = Number(quickEntryModal.product?.cost_price) || 0;
+        const isBelowCost = quickEntryModal.unitPrice > 0 && quickEntryModal.unitPrice < costPrice;
+        return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-96 max-w-full mx-4">
-            <h3 className="text-lg font-bold mb-4 text-center">{quickEntryModal.product.name}</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-[480px] max-w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold mb-4 text-center dark:text-white">{quickEntryModal.product.name}</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">الكمية</label>
+                <label className="block text-sm font-medium mb-1 dark:text-gray-300">الكمية</label>
                 <input
                   ref={quickQtyRef}
                   type="number"
@@ -691,7 +942,7 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
                       quickPriceRef.current?.focus();
                       quickPriceRef.current?.select();
                     } else if (e.key === 'Escape') {
-                      setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0 });
+                      setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, categoryPrices: {} });
                       barcodeInputRef.current?.focus();
                     }
                   }}
@@ -700,8 +951,9 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
                   autoFocus
                 />
               </div>
+
               <div>
-                <label className="block text-sm font-medium mb-1">سعر الوحدة</label>
+                <label className="block text-sm font-medium mb-1 dark:text-gray-300">سعر البيع (للقطعة)</label>
                 <input
                   ref={quickPriceRef}
                   type="number"
@@ -710,34 +962,45 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
-                      confirmQuickEntry();
+                      if (!isBelowCost) {
+                        confirmQuickEntry();
+                      }
                     } else if (e.key === 'Escape') {
-                      setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0 });
+                      setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, categoryPrices: {} });
                       barcodeInputRef.current?.focus();
                     }
                   }}
-                  className="input w-full text-center text-xl"
+                  className={`input w-full text-center text-xl ${isBelowCost ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : ''}`}
                   min="0"
+                  step="0.01"
                 />
+                {isBelowCost && (
+                  <p className="text-red-500 text-xs mt-1 text-center">
+                    لا يمكن البيع بأقل من سعر الشراء ({costPrice} د.ج)
+                  </p>
+                )}
               </div>
-              <div className="text-center text-lg font-bold text-blue-600">
-                المجموع: {formatCurrency(quickEntryModal.unitPrice * (quickEntryModal.product?.pieces_per_package || 1) * quickEntryModal.quantity)}
+
+
+              <div className="text-center text-lg font-bold text-blue-600 dark:text-blue-400">
+                المجموع: {formatCurrency(quickEntryModal.unitPrice * ppp * quickEntryModal.quantity)}
                 <div className="text-xs text-gray-500 font-normal">
-                  ({quickEntryModal.unitPrice} × {quickEntryModal.product?.pieces_per_package || 1} قطعة × {quickEntryModal.quantity})
+                  ({quickEntryModal.unitPrice} × {ppp} قطعة × {quickEntryModal.quantity})
                 </div>
               </div>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={confirmQuickEntry}
-                  className="btn btn-primary flex-1"
+                  disabled={isBelowCost}
+                  className={`btn btn-primary flex-1 ${isBelowCost ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   إضافة (Enter)
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0 });
+                    setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, categoryPrices: {} });
                     barcodeInputRef.current?.focus();
                   }}
                   className="btn btn-secondary flex-1"
@@ -748,16 +1011,25 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <Link href="/dashboard/sales" className="text-gray-500 hover:text-gray-700">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </Link>
+          {onCancel ? (
+            <button onClick={onCancel} className="text-gray-500 hover:text-gray-700">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          ) : (
+            <Link href="/dashboard/sales" className="text-gray-500 hover:text-gray-700">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          )}
           <h1 className="text-2xl font-bold">{isEditMode ? 'تعديل فاتورة البيع' : 'فاتورة بيع جديدة'}</h1>
         </div>
       </div>
@@ -873,7 +1145,12 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
                               setClientHighlightIndex(-1);
                             }}
                           >
-                            <div className="font-medium">{client.name}</div>
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium">{client.name}</span>
+                              {client.client_category?.name && (
+                                <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[10px] font-medium">{client.client_category.name}</span>
+                              )}
+                            </div>
                             {client.phone && <div className="text-sm text-gray-500">{client.phone}</div>}
                           </div>
                         ))}
@@ -909,11 +1186,10 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">التاريخ *</label>
-                  <input
-                    type="date"
+                  <DateInput
                     value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    className="input w-full"
+                    onChange={(v) => setDate(v)}
+                    className="w-full"
                     required
                   />
                 </div>
@@ -932,12 +1208,16 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
                           {formatCurrency(clientDebt.balance)}
                         </span>
                       </div>
-                      {clientDebt.credit_limit > 0 && (
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">حد الائتمان:</span>
-                          <span>{formatCurrency(clientDebt.credit_limit)}</span>
-                        </div>
-                      )}
+                      {(() => {
+                        const selectedClient = clients.find(c => c.id.toString() === clientId);
+                        const categoryName = selectedClient?.client_category?.name;
+                        return categoryName ? (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-600">فئة السعر:</span>
+                            <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">{categoryName}</span>
+                          </div>
+                        ) : null;
+                      })()}
                       {clientDebt.unpaid_orders && clientDebt.unpaid_orders.length > 0 && (
                         <div className="mt-3 pt-3 border-t border-orange-200">
                           <div className="text-sm font-medium text-orange-800 mb-2">الفواتير غير المسددة:</div>
@@ -1016,8 +1296,8 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
                         setProductHighlightIndex(-1);
                       }}
                       onKeyDown={(e) => {
-                        const availableProducts = filteredProducts.slice(0, 10).filter(p => getProductStock(p) >= 1);
-                        const maxIndex = availableProducts.length - 1;
+                        const visibleProducts = filteredProducts.slice(0, 10);
+                        const maxIndex = visibleProducts.length - 1;
 
                         if (e.key === 'Escape') {
                           setShowProductSearch(false);
@@ -1027,7 +1307,6 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
                           setShowProductSearch(true);
                           const newIndex = Math.min(productHighlightIndex + 1, maxIndex);
                           setProductHighlightIndex(newIndex);
-                          // Scroll to highlighted item
                           setTimeout(() => {
                             const item = productListRef.current?.querySelector(`[data-index="${newIndex}"]`);
                             item?.scrollIntoView({ block: 'nearest' });
@@ -1036,18 +1315,17 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
                           e.preventDefault();
                           const newIndex = Math.max(productHighlightIndex - 1, 0);
                           setProductHighlightIndex(newIndex);
-                          // Scroll to highlighted item
                           setTimeout(() => {
                             const item = productListRef.current?.querySelector(`[data-index="${newIndex}"]`);
                             item?.scrollIntoView({ block: 'nearest' });
                           }, 0);
                         } else if (e.key === 'Enter') {
                           e.preventDefault();
-                          if (productHighlightIndex >= 0 && availableProducts[productHighlightIndex]) {
-                            openQuickEntryModal(availableProducts[productHighlightIndex]);
+                          if (productHighlightIndex >= 0 && visibleProducts[productHighlightIndex]) {
+                            openQuickEntryModal(visibleProducts[productHighlightIndex]);
                             setProductHighlightIndex(-1);
-                          } else if (availableProducts.length === 1) {
-                            openQuickEntryModal(availableProducts[0]);
+                          } else if (visibleProducts.length === 1) {
+                            openQuickEntryModal(visibleProducts[0]);
                             setProductHighlightIndex(-1);
                           }
                         }
@@ -1061,37 +1339,37 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
                         {filteredProducts.length === 0 ? (
                           <div className="p-3 text-gray-500 text-center">لا توجد نتائج</div>
                         ) : (
-                          (() => {
-                            let availableIndex = -1;
-                            return filteredProducts.slice(0, 10).map((product) => {
-                              const stock = getProductStock(product);
-                              const isOutOfStock = stock < 1;
-                              if (!isOutOfStock) availableIndex++;
-                              const currentAvailableIndex = availableIndex;
-                              const isHighlighted = !isOutOfStock && productHighlightIndex === currentAvailableIndex;
-                              return (
-                                <button
-                                  key={product.id}
-                                  type="button"
-                                  data-index={isOutOfStock ? undefined : currentAvailableIndex}
-                                  onClick={() => openQuickEntryModal(product)}
-                                  className={`w-full p-3 text-right border-b last:border-b-0 ${isOutOfStock ? 'bg-red-50 opacity-60' : isHighlighted ? 'bg-blue-100' : 'hover:bg-gray-50'}`}
-                                  disabled={isOutOfStock}
-                                >
-                                  <div className="flex justify-between items-center">
-                                    <span className="font-medium">{product.name}</span>
-                                    <span className={`text-sm font-bold ${isOutOfStock ? 'text-red-600' : 'text-green-600'}`}>
-                                      {stock > 0 ? `متوفر: ${stock}` : 'غير متوفر'}
-                                    </span>
-                                  </div>
-                                  <div className="text-sm text-gray-500 flex justify-between">
-                                    <span>{product.barcode}</span>
-                                    <span>{formatCurrency(Number(product.retail_price) || 0)} / قطعة</span>
-                                  </div>
-                                </button>
-                              );
-                            });
-                          })()
+                          filteredProducts.slice(0, 10).map((product, index) => {
+                            const stock = getProductStock(product);
+                            const ppp = product.pieces_per_package || 1;
+                            const price = getDefaultPrice(product);
+                            const isHighlighted = productHighlightIndex === index;
+                            return (
+                              <button
+                                key={product.id}
+                                type="button"
+                                data-index={index}
+                                onClick={() => openQuickEntryModal(product)}
+                                className={`w-full p-3 text-right border-b last:border-b-0 ${isHighlighted ? 'bg-blue-100' : 'hover:bg-gray-50'}`}
+                              >
+                                <div className="flex justify-between items-center">
+                                  <span className="font-medium">{product.name}</span>
+                                  <span className="text-sm font-bold text-green-600">
+                                    {formatStockQty(stock, ppp)}
+                                  </span>
+                                </div>
+                                <div className="text-sm text-gray-500 flex justify-between">
+                                  <span>{product.barcode}</span>
+                                  <span>
+                                    {formatCurrency(price)} / قطعة
+                                    {ppp > 1 && (
+                                      <span className="text-gray-400 mr-1">({formatCurrency(price * ppp)} / كرتون)</span>
+                                    )}
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          })
                         )}
                       </div>
                     )}
@@ -1106,9 +1384,10 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
                     <tr className="bg-gray-100">
                       <th className="px-2 py-2 text-center w-12">الرقم</th>
                       <th className="px-2 py-2 text-right">التعيين</th>
-                      <th className="px-2 py-2 text-center w-20">الكمية</th>
+                      <th className="px-2 py-2 text-center w-28">كرتون/قطعة</th>
                       <th className="px-2 py-2 text-center w-16">الوحدة</th>
                       <th className="px-2 py-2 text-center w-20">العدد</th>
+                      <th className="px-2 py-2 text-center w-20">المتوفر</th>
                       <th className="px-2 py-2 text-center w-24">س. الوحدة</th>
                       <th className="px-2 py-2 text-center w-20">الخصم</th>
                       <th className="px-2 py-2 text-center w-24">المبلغ</th>
@@ -1118,41 +1397,107 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
                   <tbody>
                     {items.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="text-center py-8 text-gray-500">
+                        <td colSpan={10} className="text-center py-8 text-gray-500">
                           لم يتم إضافة منتجات بعد
                         </td>
                       </tr>
                     ) : (
                       items.map((item, index) => {
-                        const isBelowMinPrice = item.min_selling_price > 0 && item.unit_price < item.min_selling_price;
+                        const isBelowCostPrice = item.cost_price > 0 && item.unit_price > 0 && item.unit_price < item.cost_price;
                         return (
-                          <tr key={index} className="border-b hover:bg-gray-50">
+                          <tr key={index} className={`border-b hover:bg-gray-50 ${isBelowCostPrice ? 'bg-red-50' : ''}`}>
                             <td className="px-2 py-2 text-center font-medium text-gray-500">{index + 1}</td>
                             <td className="px-2 py-2">
                               <div className="font-medium">{item.product_name}</div>
                               <div className="text-xs text-gray-500">{item.barcode}</div>
-                              {isBelowMinPrice && (
-                                <div className="text-xs text-red-600">الحد الأدنى: {formatCurrency(item.min_selling_price)}</div>
+                              {isBelowCostPrice && (
+                                <div className="text-xs text-red-600 font-bold">أقل من سعر الشراء: {formatCurrency(item.cost_price)}</div>
                               )}
                             </td>
                             <td className="px-2 py-2">
-                              <input
-                                ref={(el) => { inputRefs.current[`${index}-quantity`] = el; }}
-                                type="number"
-                                value={item.quantity}
-                                onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                                onKeyDown={(e) => handleKeyDown(e, index, 'quantity')}
-                                className={`input w-full text-center ${item.quantity > item.available_stock ? 'border-red-500' : ''}`}
-                                min="0.01"
-                                step="0.01"
-                              />
+                              <div className="space-y-1">
+                                {/* Cartons row - blue */}
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => updateItem(index, 'quantity', Math.max(0, item.quantity - 1))}
+                                    className="w-6 h-6 flex items-center justify-center rounded border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold"
+                                  >-</button>
+                                  <input
+                                    ref={(el) => { inputRefs.current[`${index}-quantity`] = el; }}
+                                    type="number"
+                                    value={item.quantity}
+                                    onChange={(e) => updateItem(index, 'quantity', Math.max(0, parseInt(e.target.value) || 0))}
+                                    onKeyDown={(e) => handleKeyDown(e, index, 'quantity')}
+                                    className="input w-12 text-center text-sm py-0.5 border-blue-300"
+                                    min="0"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => updateItem(index, 'quantity', item.quantity + 1)}
+                                    className="w-6 h-6 flex items-center justify-center rounded border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold"
+                                  >+</button>
+                                </div>
+                                {/* Pieces row - orange (only if ppp > 1) */}
+                                {item.pieces_per_package > 1 && (
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => updateItem(index, 'extra_pieces', Math.max(0, item.extra_pieces - 1))}
+                                      className="w-6 h-6 flex items-center justify-center rounded border border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 text-xs font-bold"
+                                    >-</button>
+                                    <input
+                                      ref={(el) => { inputRefs.current[`${index}-extra_pieces`] = el; }}
+                                      type="number"
+                                      value={item.extra_pieces}
+                                      onChange={(e) => updateItem(index, 'extra_pieces', parseInt(e.target.value) || 0)}
+                                      onKeyDown={(e) => handleKeyDown(e, index, 'extra_pieces')}
+                                      className="input w-12 text-center text-sm py-0.5 border-orange-300"
+                                      min="0"
+                                      max={item.pieces_per_package - 1}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => updateItem(index, 'extra_pieces', item.extra_pieces + 1)}
+                                      className="w-6 h-6 flex items-center justify-center rounded border border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 text-xs font-bold"
+                                    >+</button>
+                                  </div>
+                                )}
+                              </div>
                             </td>
                             <td className="px-2 py-2 text-center text-sm">
                               <div className="text-blue-600 font-medium">{item.pieces_per_package}</div>
                               <div className="text-xs text-gray-500">{item.unit_name}</div>
                             </td>
-                            <td className="px-2 py-2 text-center font-medium">
-                              {item.total_pieces}
+                            <td className="px-2 py-2 text-center">
+                              <input
+                                ref={(el) => { inputRefs.current[`${index}-total_pieces`] = el; }}
+                                type="number"
+                                value={item.total_pieces}
+                                onChange={(e) => updateTotalPieces(index, Math.max(0, parseInt(e.target.value) || 0))}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    const nextRef = inputRefs.current[`${index}-unit_price`];
+                                    nextRef?.focus();
+                                    nextRef?.select();
+                                  }
+                                }}
+                                className="input w-16 text-center text-sm py-0.5 font-medium"
+                                min="0"
+                              />
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              {(() => {
+                                const ppp = item.pieces_per_package || 1;
+                                const totalPieces = (item.quantity * ppp) + (item.extra_pieces || 0);
+                                const overStock = totalPieces > item.available_stock;
+                                return (
+                                  <span className={`text-sm font-bold ${overStock ? 'text-red-600' : 'text-green-600'}`}>
+                                    {formatStockQty(item.available_stock, ppp)}
+                                  </span>
+                                );
+                              })()}
                             </td>
                             <td className="px-2 py-2">
                               <input
@@ -1161,10 +1506,15 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
                                 value={item.unit_price}
                                 onChange={(e) => updateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
                                 onKeyDown={(e) => handleKeyDown(e, index, 'unit_price')}
-                                className={`input w-full text-center ${isBelowMinPrice ? 'border-red-500 bg-red-50' : ''}`}
+                                className={`input w-full text-center ${isBelowCostPrice ? 'border-red-500 bg-red-50' : ''}`}
                                 min="0"
                                 step="0.01"
                               />
+                              {item.pieces_per_package > 1 && (
+                                <div className="text-[10px] text-blue-500 text-center mt-0.5">
+                                  {formatCurrency(item.unit_price * item.pieces_per_package)}/كرتون
+                                </div>
+                              )}
                             </td>
                             <td className="px-2 py-2">
                               <input
@@ -1419,9 +1769,26 @@ export default function SaleForm({ saleId = null }: SaleFormProps) {
                   {isSaving ? 'جاري الحفظ...' : 'حفظ الفاتورة (F4)'}
                 </button>
 
-                <Link href="/dashboard/sales" className="btn btn-secondary w-full text-center block">
-                  إلغاء
-                </Link>
+                {!isEditMode && (
+                  <button
+                    type="button"
+                    onClick={handleSaveDraft}
+                    disabled={isSaving || items.length === 0}
+                    className="w-full px-4 py-2 text-sm font-medium rounded-lg border-2 border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-50"
+                  >
+                    {isSaving ? 'جاري الحفظ...' : 'حفظ كمسودة (بدون خصم المخزون)'}
+                  </button>
+                )}
+
+                {onCancel ? (
+                  <button type="button" onClick={onCancel} className="btn btn-secondary w-full text-center block">
+                    إلغاء
+                  </button>
+                ) : (
+                  <Link href="/dashboard/sales" className="btn btn-secondary w-full text-center block">
+                    إلغاء
+                  </Link>
+                )}
               </div>
             </div>
           </div>
