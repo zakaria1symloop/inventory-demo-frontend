@@ -11,13 +11,15 @@ import '../../core/theme/app_theme.dart';
 class _Warehouse {
   final int id;
   final String name;
+  final bool isMain;
 
-  _Warehouse({required this.id, required this.name});
+  _Warehouse({required this.id, required this.name, this.isMain = false});
 
   factory _Warehouse.fromJson(Map<String, dynamic> json) {
     return _Warehouse(
       id: json['id'] as int,
       name: json['name']?.toString() ?? '',
+      isMain: json['is_main'] == true || json['is_main'] == 1,
     );
   }
 }
@@ -108,10 +110,9 @@ class _RequestProductsScreenState extends ConsumerState<RequestProductsScreen> {
               .map((e) => _Warehouse.fromJson(e as Map<String, dynamic>))
               .where((w) => w.id != myWarehouseId) // Exclude driver's own warehouse
               .toList();
-          // Auto-select the main warehouse (first available)
-          if (_warehouses.isNotEmpty) {
-            _selectedWarehouse = _warehouses.first;
-          }
+          // Auto-select the main warehouse (is_main=true), fallback to first
+          _selectedWarehouse = _warehouses.where((w) => w.isMain).firstOrNull
+              ?? (_warehouses.isNotEmpty ? _warehouses.first : null);
           _loadingWarehouses = false;
         });
       }
