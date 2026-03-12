@@ -100,8 +100,12 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
   const [discount, setDiscount] = useState<number>(0);
   const [tax, setTax] = useState<number>(0);
   const [shipping, setShipping] = useState<number>(0);
-  const [timbre, setTimbre] = useState<number>(0);
-  const [timbreManual, setTimbreManual] = useState(false);
+  const [timbre, setTimbre] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      return parseFloat(localStorage.getItem('defaultTimbre') || '1') || 1;
+    }
+    return 1;
+  });
   const [note, setNote] = useState('');
   const [items, setItems] = useState<PurchaseItem[]>([]);
   const [paidAmount, setPaidAmount] = useState<number>(0);
@@ -285,14 +289,6 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
     }
   }, [supplierId]);
 
-  // Auto-calculate timbre at 1% when totals change (unless manually edited)
-  useEffect(() => {
-    if (!timbreManual) {
-      const total = items.reduce((sum, item) => sum + (Number(item.subtotal) || 0), 0);
-      const sub = total - (Number(discount) || 0) + (Number(tax) || 0) + (Number(shipping) || 0);
-      setTimbre(Math.round(sub * 0.01 * 100) / 100);
-    }
-  }, [items, discount, tax, shipping, timbreManual]);
 
   const fetchData = async () => {
     try {
@@ -348,8 +344,6 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
       setDiscount(purchase.discount || 0);
       setTax(purchase.tax || 0);
       setShipping(purchase.shipping || 0);
-      setTimbre(purchase.timbre || 0);
-      setTimbreManual(true);
       setNote(purchase.note || '');
       setPaidAmount(purchase.paid_amount || 0);
 
@@ -668,7 +662,9 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
   };
 
   const totalAmount = items.reduce((sum, item) => sum + (Number(item.subtotal) || 0), 0);
-  const grandTotal = Math.max(0, totalAmount - (Number(discount) || 0) + (Number(tax) || 0) + (Number(shipping) || 0) + (Number(timbre) || 0));
+  const subtotalBeforeTimbre = totalAmount - (Number(discount) || 0) + (Number(tax) || 0) + (Number(shipping) || 0);
+  const timbreAmount = subtotalBeforeTimbre * ((Number(timbre) || 0) / 100);
+  const grandTotal = Math.max(0, subtotalBeforeTimbre + timbreAmount);
 
   // Calculate how payment is applied
   // previousDebt = what we already owe the supplier BEFORE this purchase
@@ -711,7 +707,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
           discount,
           tax,
           shipping,
-          timbre,
+          timbre: timbreAmount,
           note,
           items: items.map((item) => ({
             product_id: item.product_id,
@@ -768,7 +764,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
         discount,
         tax,
         shipping,
-        timbre,
+        timbre: timbreAmount,
         note,
         paid_amount: paidAmount,
         status: 'received',
@@ -812,7 +808,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
         discount,
         tax,
         shipping,
-        timbre,
+        timbre: timbreAmount,
         note,
         paid_amount: paidAmount,
         status: 'pending',
@@ -1570,26 +1566,34 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-500 mb-1">الطابع الجبائي (1%)</label>
-                  <input
-                    type="number"
-                    value={timbre}
-                    onChange={(e) => {
-                      setTimbre(parseFloat(e.target.value) || 0);
-                      setTimbreManual(true);
-                    }}
-                    className="input w-full"
-                    min="0"
-                    step="0.01"
-                  />
-                  {timbreManual && (
+                  <label className="block text-sm text-gray-500 mb-1">الطابع الجبائي (%)</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={timbre}
+                      onChange={(e) => setTimbre(parseFloat(e.target.value) || 0)}
+                      className="input flex-1"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                    />
+                    <span className="text-gray-400">%</span>
                     <button
                       type="button"
-                      onClick={() => setTimbreManual(false)}
-                      className="text-xs text-blue-500 hover:underline mt-1"
+                      onClick={() => {
+                        localStorage.setItem('defaultTimbre', timbre.toString());
+                        toast.success(`تم حفظ ${timbre}% كقيمة افتراضية للطابع`);
+                      }}
+                      className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1 rounded"
+                      title="حفظ كقيمة افتراضية"
                     >
-                      إعادة الحساب التلقائي
+                      حفظ
                     </button>
+                  </div>
+                  {timbre > 0 && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      = {formatCurrency(timbreAmount)}
+                    </div>
                   )}
                 </div>
 
