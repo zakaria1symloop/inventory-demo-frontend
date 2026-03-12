@@ -11,6 +11,7 @@ interface Payment {
   reference: string;
   payable_type: string;
   payable_id: number;
+  payable?: { client?: { id: number; name: string }; supplier?: { id: number; name: string } };
   amount: number;
   payment_method: 'cash' | 'bank' | 'check' | 'other';
   date: string;
@@ -148,6 +149,7 @@ export default function PaymentsPage() {
             <tr>
               <th>المرجع</th>
               <th>النوع</th>
+              <th>العميل/المورد</th>
               <th>المبلغ</th>
               <th>طريقة الدفع</th>
               <th>التاريخ</th>
@@ -158,7 +160,7 @@ export default function PaymentsPage() {
           </thead>
           <tbody>
             {filteredPayments.length === 0 ? (
-              <tr><td colSpan={8} className="text-center py-8 text-gray-500">لا توجد مدفوعات</td></tr>
+              <tr><td colSpan={9} className="text-center py-8 text-gray-500">لا توجد مدفوعات</td></tr>
             ) : (
               filteredPayments.map((payment) => {
                 const methodBadge = getMethodBadge(payment.payment_method);
@@ -180,6 +182,7 @@ export default function PaymentsPage() {
                       })()}
                     </td>
                     <td>{getPayableType(payment.payable_type)}</td>
+                    <td className="text-gray-700">{payment.payable?.client?.name || payment.payable?.supplier?.name || '-'}</td>
                     <td className="text-green-600 font-medium">{formatCurrency(payment.amount)}</td>
                     <td><span className={`badge ${methodBadge.class}`}>{methodBadge.text}</span></td>
                     <td>{formatDate(payment.date)}</td>

@@ -37,6 +37,7 @@ interface StockMovement {
   product?: { id: number; name: string; sku: string; barcode: string; pieces_per_package: number };
   warehouse?: { id: number; name: string };
   user?: { id: number; name: string };
+  movable?: { client?: { id: number; name: string }; supplier?: { id: number; name: string } };
 }
 
 interface Product {
@@ -403,6 +404,7 @@ export default function StockMovementsPage() {
                   <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">المنتج</th>
                   <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">المستودع</th>
                   <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">نوع الحركة</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">العميل/المورد</th>
                   <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">المرجع</th>
                   <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">قبل</th>
                   <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">التغيير</th>
@@ -413,7 +415,7 @@ export default function StockMovementsPage() {
               <tbody className="divide-y divide-gray-100">
                 {filteredMovements.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-4 py-12 text-center text-gray-500">
+                    <td colSpan={10} className="px-4 py-12 text-center text-gray-500">
                       <CubeIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                       <p className="text-lg font-medium">لا توجد حركات مخزون</p>
                       <p className="text-sm">جرب تغيير الفلاتر أو إضافة حركات جديدة</p>
@@ -442,6 +444,9 @@ export default function StockMovementsPage() {
                             <IconComponent className="w-3.5 h-3.5" />
                             {typeInfo.label}
                           </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700">
+                          {movement.movable?.client?.name || movement.movable?.supplier?.name || '-'}
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-sm font-mono text-gray-600">
