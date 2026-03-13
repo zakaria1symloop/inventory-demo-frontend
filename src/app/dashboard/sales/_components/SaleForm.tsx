@@ -268,12 +268,17 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       ]);
       // Use the actual sum of unpaid sales, not the client balance
       // This is more accurate because client.balance might be out of sync
-      const actualDebt = debtRes.data.totals?.total_remaining || 0;
+      // In edit mode, exclude the current sale from debt calculations
+      const allUnpaid = debtRes.data.sales || [];
+      const filteredUnpaid = isEditMode && saleId
+        ? allUnpaid.filter((s: { id: number }) => s.id !== saleId)
+        : allUnpaid;
+      const actualDebt = filteredUnpaid.reduce((sum: number, s: { due_amount: number }) => sum + (s.due_amount || 0), 0);
       setClientDebt({
         balance: actualDebt,
         credit_limit: balanceRes.data.credit_limit || 0,
         available_credit: balanceRes.data.available_credit || 0,
-        unpaid_orders: debtRes.data.sales || []
+        unpaid_orders: filteredUnpaid
       });
     } catch (error) {
       console.error('Error fetching client debt:', error);

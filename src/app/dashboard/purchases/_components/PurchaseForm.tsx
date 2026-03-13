@@ -320,11 +320,15 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
     try {
       const debtRes = await creditorsApi.getSupplierDebt(id).catch(() => ({ data: { purchases: [], totals: { total_remaining: 0 } } }));
       // Use the actual sum of unpaid purchases, not the supplier balance
-      // This is more accurate because supplier.balance might be out of sync
-      const actualDebt = debtRes.data.totals?.total_remaining || 0;
+      // In edit mode, exclude the current purchase from debt calculations
+      const allUnpaid = debtRes.data.purchases || [];
+      const filteredUnpaid = isEditMode && purchaseId
+        ? allUnpaid.filter((p: { id: number }) => p.id !== purchaseId)
+        : allUnpaid;
+      const actualDebt = filteredUnpaid.reduce((sum: number, p: { due_amount: number }) => sum + (p.due_amount || 0), 0);
       setSupplierDebt({
         balance: actualDebt,
-        unpaid_purchases: debtRes.data.purchases || []
+        unpaid_purchases: filteredUnpaid
       });
     } catch (error) {
       console.error('Error fetching supplier debt:', error);
