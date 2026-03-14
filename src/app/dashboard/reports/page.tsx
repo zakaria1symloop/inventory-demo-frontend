@@ -725,9 +725,10 @@ function SalesByProductReport({ data }: { data: ReportData }) {
             <thead>
               <tr className="bg-gray-50">
                 <th className="text-right p-3">المنتج</th>
+                <th className="text-right p-3">المستودع</th>
                 <th className="text-right p-3">العميل</th>
                 <th className="text-right p-3">الهاتف</th>
-                <th className="text-right p-3">عدد الطلبات</th>
+                <th className="text-right p-3">عدد الفواتير</th>
                 <th className="text-right p-3">الكمية</th>
                 <th className="text-right p-3">متوسط السعر</th>
                 <th className="text-right p-3">الإيرادات</th>
@@ -742,9 +743,10 @@ function SalesByProductReport({ data }: { data: ReportData }) {
                     <div className="font-medium">{row.product_name}</div>
                     <div className="text-xs text-gray-500">{row.barcode}</div>
                   </td>
+                  <td className="p-3">{row.warehouse_name}</td>
                   <td className="p-3 font-medium">{row.client_name}</td>
                   <td className="p-3 text-gray-600">{row.client_phone || '-'}</td>
-                  <td className="p-3">{row.order_count}</td>
+                  <td className="p-3">{row.sale_count}</td>
                   <td className="p-3">{row.total_quantity}</td>
                   <td className="p-3">{formatCurrency(row.avg_unit_price)}</td>
                   <td className="p-3">{formatCurrency(row.total_revenue)}</td>
@@ -764,6 +766,7 @@ function SalesByProductReport({ data }: { data: ReportData }) {
               <tr className="bg-gray-50">
                 <th className="text-right p-3">المنتج</th>
                 <th className="text-right p-3">الفئة</th>
+                <th className="text-right p-3">المستودع</th>
                 <th className="text-right p-3">الكمية</th>
                 <th className="text-right p-3">الإيرادات</th>
                 <th className="text-right p-3">التكلفة</th>
@@ -778,6 +781,7 @@ function SalesByProductReport({ data }: { data: ReportData }) {
                     <div className="text-xs text-gray-500">{p.barcode}</div>
                   </td>
                   <td className="p-3">{p.category_name || '-'}</td>
+                  <td className="p-3">{p.warehouse_name}</td>
                   <td className="p-3">{p.total_quantity}</td>
                   <td className="p-3">{formatCurrency(p.total_revenue)}</td>
                   <td className="p-3">{formatCurrency(p.total_cost)}</td>
