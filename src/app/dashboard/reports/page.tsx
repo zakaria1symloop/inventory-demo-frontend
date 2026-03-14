@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { reportsApi } from '@/lib/api';
+import { reportsApi, productsApi, clientsApi } from '@/lib/api';
 import DateInput from '@/components/ui/DateInput';
 
 // Tab definitions
@@ -59,12 +59,28 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState<ReportData>(null);
 
+  // Product & Client filters for by-product report
+  const [products, setProducts] = useState<Array<{id: number; name: string; barcode?: string}>>([]);
+  const [clients, setClients] = useState<Array<{id: number; name: string; phone?: string}>>([]);
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
+  const [productSearch, setProductSearch] = useState('');
+  const [clientSearch, setClientSearch] = useState('');
+  const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+
   // Fetch report data
   const fetchReport = useCallback(async () => {
     setLoading(true);
     try {
-      const params = { from_date: dateFrom, to_date: dateTo };
+      const params: Record<string, unknown> = { from_date: dateFrom, to_date: dateTo };
       let response;
+
+      // Add product/client filters for by-product tab
+      if (activeTab === 'sales' && activeSubTab === 'by-product') {
+        if (selectedProductId) params.product_id = selectedProductId;
+        if (selectedClientId) params.client_id = selectedClientId;
+      }
 
       // Determine which API to call based on tabs
       if (activeTab === 'sales') {
@@ -99,15 +115,46 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, activeSubTab, dateFrom, dateTo]);
+  }, [activeTab, activeSubTab, dateFrom, dateTo, selectedProductId, selectedClientId]);
 
   useEffect(() => {
     fetchReport();
   }, [fetchReport]);
 
+  // Fetch products & clients for filters
+  useEffect(() => {
+    const fetchFilterData = async () => {
+      try {
+        const [productsRes, clientsRes] = await Promise.all([
+          productsApi.getAll({ per_page: 1000 }),
+          clientsApi.getAll({ per_page: 1000 }),
+        ]);
+        setProducts(productsRes.data.data || productsRes.data);
+        setClients(clientsRes.data.data || clientsRes.data);
+      } catch (error) {
+        console.error('Error fetching filter data:', error);
+      }
+    };
+    fetchFilterData();
+  }, []);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handleClick = () => {
+      setShowProductDropdown(false);
+      setShowClientDropdown(false);
+    };
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, []);
+
   // Reset sub-tab when main tab changes
   useEffect(() => {
     setActiveSubTab(subTabs[activeTab]?.[0]?.id || 'summary');
+    setSelectedProductId(null);
+    setSelectedClientId(null);
+    setProductSearch('');
+    setClientSearch('');
   }, [activeTab]);
 
   // Export to Excel
@@ -328,6 +375,136 @@ export default function ReportsPage() {
             </button>
           </div>
         </div>
+
+        {/* Product & Client Filters - only for by-product tab */}
+        {activeTab === 'sales' && activeSubTab === 'by-product' && (
+          <div className="flex flex-wrap items-center gap-4 mt-3 pt-3 border-t">
+            {/* Product Filter */}
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              <label className="text-sm text-gray-600 ml-2">المنتج:</label>
+              <div className="relative inline-block">
+                <input
+                  type="text"
+                  value={productSearch}
+                  onChange={(e) => {
+                    setProductSearch(e.target.value);
+                    setShowProductDropdown(true);
+                    if (!e.target.value) setSelectedProductId(null);
+                  }}
+                  onFocus={() => setShowProductDropdown(true)}
+                  placeholder="ابحث عن منتج..."
+                  className="input w-56 text-sm py-1.5 pl-8"
+                />
+                {selectedProductId && (
+                  <button
+                    onClick={() => { setSelectedProductId(null); setProductSearch(''); }}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-lg"
+                  >
+                    &times;
+                  </button>
+                )}
+                {showProductDropdown && productSearch && !selectedProductId && (
+                  <div className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {products
+                      .filter(p =>
+                        p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+                        p.barcode?.includes(productSearch)
+                      )
+                      .slice(0, 10)
+                      .map((product) => (
+                        <div
+                          key={product.id}
+                          onClick={() => {
+                            setSelectedProductId(product.id);
+                            setProductSearch(product.name);
+                            setShowProductDropdown(false);
+                          }}
+                          className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0 text-sm"
+                        >
+                          <div className="font-medium">{product.name}</div>
+                          {product.barcode && <div className="text-xs text-gray-500">{product.barcode}</div>}
+                        </div>
+                      ))
+                    }
+                    {products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()) || p.barcode?.includes(productSearch)).length === 0 && (
+                      <div className="p-2 text-sm text-gray-500 text-center">لا توجد نتائج</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Client Filter */}
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              <label className="text-sm text-gray-600 ml-2">العميل:</label>
+              <div className="relative inline-block">
+                <input
+                  type="text"
+                  value={clientSearch}
+                  onChange={(e) => {
+                    setClientSearch(e.target.value);
+                    setShowClientDropdown(true);
+                    if (!e.target.value) setSelectedClientId(null);
+                  }}
+                  onFocus={() => setShowClientDropdown(true)}
+                  placeholder="ابحث عن عميل..."
+                  className="input w-56 text-sm py-1.5 pl-8"
+                />
+                {selectedClientId && (
+                  <button
+                    onClick={() => { setSelectedClientId(null); setClientSearch(''); }}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-lg"
+                  >
+                    &times;
+                  </button>
+                )}
+                {showClientDropdown && clientSearch && !selectedClientId && (
+                  <div className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {clients
+                      .filter(c =>
+                        c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
+                        c.phone?.includes(clientSearch)
+                      )
+                      .slice(0, 10)
+                      .map((client) => (
+                        <div
+                          key={client.id}
+                          onClick={() => {
+                            setSelectedClientId(client.id);
+                            setClientSearch(client.name);
+                            setShowClientDropdown(false);
+                          }}
+                          className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0 text-sm"
+                        >
+                          <div className="font-medium">{client.name}</div>
+                          {client.phone && <div className="text-xs text-gray-500">{client.phone}</div>}
+                        </div>
+                      ))
+                    }
+                    {clients.filter(c => c.name.toLowerCase().includes(clientSearch.toLowerCase()) || c.phone?.includes(clientSearch)).length === 0 && (
+                      <div className="p-2 text-sm text-gray-500 text-center">لا توجد نتائج</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Clear filters */}
+            {(selectedProductId || selectedClientId) && (
+              <button
+                onClick={() => {
+                  setSelectedProductId(null);
+                  setSelectedClientId(null);
+                  setProductSearch('');
+                  setClientSearch('');
+                }}
+                className="text-sm text-red-600 hover:text-red-800 underline"
+              >
+                مسح الفلاتر
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Report Content */}
@@ -529,7 +706,7 @@ function SalesSummaryReport({ data }: { data: ReportData }) {
 }
 
 function SalesByProductReport({ data }: { data: ReportData }) {
-  const { data: products, totals } = data;
+  const { data: rows, totals, mode } = data;
 
   return (
     <div>
@@ -541,39 +718,79 @@ function SalesByProductReport({ data }: { data: ReportData }) {
         <StatCard title="إجمالي الربح" value={formatCurrency(totals?.total_profit)} color="green" />
       </div>
 
-      {/* Products Table */}
+      {/* Table */}
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-50">
-              <th className="text-right p-3">المنتج</th>
-              <th className="text-right p-3">الفئة</th>
-              <th className="text-right p-3">الكمية</th>
-              <th className="text-right p-3">الإيرادات</th>
-              <th className="text-right p-3">التكلفة</th>
-              <th className="text-right p-3">الربح</th>
-            </tr>
-          </thead>
-          <tbody>
-            {products?.map((p: ReportData, i: number) => (
-              <tr key={i} className="border-b hover:bg-gray-50">
-                <td className="p-3">
-                  <div className="font-medium">{p.name}</div>
-                  <div className="text-xs text-gray-500">{p.barcode}</div>
-                </td>
-                <td className="p-3">{p.category_name || '-'}</td>
-                <td className="p-3">{p.total_quantity}</td>
-                <td className="p-3">{formatCurrency(p.total_revenue)}</td>
-                <td className="p-3">{formatCurrency(p.total_cost)}</td>
-                <td className="p-3">
-                  <span className={p.profit >= 0 ? 'text-green-600' : 'text-red-600'}>
-                    {formatCurrency(p.profit)}
-                  </span>
-                </td>
+        {mode === 'detailed' ? (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50">
+                <th className="text-right p-3">المنتج</th>
+                <th className="text-right p-3">العميل</th>
+                <th className="text-right p-3">الهاتف</th>
+                <th className="text-right p-3">عدد الطلبات</th>
+                <th className="text-right p-3">الكمية</th>
+                <th className="text-right p-3">متوسط السعر</th>
+                <th className="text-right p-3">الإيرادات</th>
+                <th className="text-right p-3">التكلفة</th>
+                <th className="text-right p-3">الربح</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows?.map((row: ReportData, i: number) => (
+                <tr key={i} className="border-b hover:bg-gray-50">
+                  <td className="p-3">
+                    <div className="font-medium">{row.product_name}</div>
+                    <div className="text-xs text-gray-500">{row.barcode}</div>
+                  </td>
+                  <td className="p-3 font-medium">{row.client_name}</td>
+                  <td className="p-3 text-gray-600">{row.client_phone || '-'}</td>
+                  <td className="p-3">{row.order_count}</td>
+                  <td className="p-3">{row.total_quantity}</td>
+                  <td className="p-3">{formatCurrency(row.avg_unit_price)}</td>
+                  <td className="p-3">{formatCurrency(row.total_revenue)}</td>
+                  <td className="p-3">{formatCurrency(row.total_cost)}</td>
+                  <td className="p-3">
+                    <span className={row.profit >= 0 ? 'text-green-600' : 'text-red-600'}>
+                      {formatCurrency(row.profit)}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50">
+                <th className="text-right p-3">المنتج</th>
+                <th className="text-right p-3">الفئة</th>
+                <th className="text-right p-3">الكمية</th>
+                <th className="text-right p-3">الإيرادات</th>
+                <th className="text-right p-3">التكلفة</th>
+                <th className="text-right p-3">الربح</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows?.map((p: ReportData, i: number) => (
+                <tr key={i} className="border-b hover:bg-gray-50">
+                  <td className="p-3">
+                    <div className="font-medium">{p.name}</div>
+                    <div className="text-xs text-gray-500">{p.barcode}</div>
+                  </td>
+                  <td className="p-3">{p.category_name || '-'}</td>
+                  <td className="p-3">{p.total_quantity}</td>
+                  <td className="p-3">{formatCurrency(p.total_revenue)}</td>
+                  <td className="p-3">{formatCurrency(p.total_cost)}</td>
+                  <td className="p-3">
+                    <span className={p.profit >= 0 ? 'text-green-600' : 'text-red-600'}>
+                      {formatCurrency(p.profit)}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
