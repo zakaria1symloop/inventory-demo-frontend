@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { reportsApi, productsApi, clientsApi } from '@/lib/api';
+import { reportsApi, productsApi, warehousesApi } from '@/lib/api';
 import DateInput from '@/components/ui/DateInput';
 
 // Tab definitions
@@ -59,15 +59,13 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState<ReportData>(null);
 
-  // Product & Client filters for by-product report
+  // Product & Warehouse filters for by-product report
   const [products, setProducts] = useState<Array<{id: number; name: string; barcode?: string}>>([]);
-  const [clients, setClients] = useState<Array<{id: number; name: string; phone?: string}>>([]);
+  const [warehouses, setWarehouses] = useState<Array<{id: number; name: string}>>([]);
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
-  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<number | null>(null);
   const [productSearch, setProductSearch] = useState('');
-  const [clientSearch, setClientSearch] = useState('');
   const [showProductDropdown, setShowProductDropdown] = useState(false);
-  const [showClientDropdown, setShowClientDropdown] = useState(false);
 
   // Fetch report data
   const fetchReport = useCallback(async () => {
@@ -76,10 +74,10 @@ export default function ReportsPage() {
       const params: Record<string, unknown> = { from_date: dateFrom, to_date: dateTo };
       let response;
 
-      // Add product/client filters for by-product tab
+      // Add product/warehouse filters for by-product tab
       if (activeTab === 'sales' && activeSubTab === 'by-product') {
         if (selectedProductId) params.product_id = selectedProductId;
-        if (selectedClientId) params.client_id = selectedClientId;
+        if (selectedWarehouseId) params.warehouse_id = selectedWarehouseId;
       }
 
       // Determine which API to call based on tabs
@@ -115,22 +113,22 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, activeSubTab, dateFrom, dateTo, selectedProductId, selectedClientId]);
+  }, [activeTab, activeSubTab, dateFrom, dateTo, selectedProductId, selectedWarehouseId]);
 
   useEffect(() => {
     fetchReport();
   }, [fetchReport]);
 
-  // Fetch products & clients for filters
+  // Fetch products & warehouses for filters
   useEffect(() => {
     const fetchFilterData = async () => {
       try {
-        const [productsRes, clientsRes] = await Promise.all([
+        const [productsRes, warehousesRes] = await Promise.all([
           productsApi.getAll({ per_page: 1000 }),
-          clientsApi.getAll({ per_page: 1000 }),
+          warehousesApi.getAll(),
         ]);
         setProducts(productsRes.data.data || productsRes.data);
-        setClients(clientsRes.data.data || clientsRes.data);
+        setWarehouses(warehousesRes.data.data || warehousesRes.data);
       } catch (error) {
         console.error('Error fetching filter data:', error);
       }
@@ -142,7 +140,6 @@ export default function ReportsPage() {
   useEffect(() => {
     const handleClick = () => {
       setShowProductDropdown(false);
-      setShowClientDropdown(false);
     };
     document.addEventListener('click', handleClick);
     return () => document.removeEventListener('click', handleClick);
@@ -152,9 +149,8 @@ export default function ReportsPage() {
   useEffect(() => {
     setActiveSubTab(subTabs[activeTab]?.[0]?.id || 'summary');
     setSelectedProductId(null);
-    setSelectedClientId(null);
+    setSelectedWarehouseId(null);
     setProductSearch('');
-    setClientSearch('');
   }, [activeTab]);
 
   // Export to Excel
@@ -434,69 +430,28 @@ export default function ReportsPage() {
               </div>
             </div>
 
-            {/* Client Filter */}
-            <div className="relative" onClick={(e) => e.stopPropagation()}>
-              <label className="text-sm text-gray-600 ml-2">العميل:</label>
-              <div className="relative inline-block">
-                <input
-                  type="text"
-                  value={clientSearch}
-                  onChange={(e) => {
-                    setClientSearch(e.target.value);
-                    setShowClientDropdown(true);
-                    if (!e.target.value) setSelectedClientId(null);
-                  }}
-                  onFocus={() => setShowClientDropdown(true)}
-                  placeholder="ابحث عن عميل..."
-                  className="input w-56 text-sm py-1.5 pl-8"
-                />
-                {selectedClientId && (
-                  <button
-                    onClick={() => { setSelectedClientId(null); setClientSearch(''); }}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-lg"
-                  >
-                    &times;
-                  </button>
-                )}
-                {showClientDropdown && clientSearch && !selectedClientId && (
-                  <div className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                    {clients
-                      .filter(c =>
-                        c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
-                        c.phone?.includes(clientSearch)
-                      )
-                      .slice(0, 10)
-                      .map((client) => (
-                        <div
-                          key={client.id}
-                          onClick={() => {
-                            setSelectedClientId(client.id);
-                            setClientSearch(client.name);
-                            setShowClientDropdown(false);
-                          }}
-                          className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0 text-sm"
-                        >
-                          <div className="font-medium">{client.name}</div>
-                          {client.phone && <div className="text-xs text-gray-500">{client.phone}</div>}
-                        </div>
-                      ))
-                    }
-                    {clients.filter(c => c.name.toLowerCase().includes(clientSearch.toLowerCase()) || c.phone?.includes(clientSearch)).length === 0 && (
-                      <div className="p-2 text-sm text-gray-500 text-center">لا توجد نتائج</div>
-                    )}
-                  </div>
-                )}
-              </div>
+            {/* Warehouse Filter */}
+            <div>
+              <label className="text-sm text-gray-600 ml-2">المستودع:</label>
+              <select
+                value={selectedWarehouseId ?? ''}
+                onChange={(e) => setSelectedWarehouseId(e.target.value ? Number(e.target.value) : null)}
+                className="input w-48 text-sm py-1.5"
+              >
+                <option value="">الكل</option>
+                {warehouses.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </select>
             </div>
 
             {/* Clear filters */}
-            {(selectedProductId || selectedClientId) && (
+            {(selectedProductId || selectedWarehouseId) && (
               <button
                 onClick={() => {
                   setSelectedProductId(null);
-                  setSelectedClientId(null);
+                  setSelectedWarehouseId(null);
                   setProductSearch('');
-                  setClientSearch('');
                 }}
                 className="text-sm text-red-600 hover:text-red-800 underline"
               >
