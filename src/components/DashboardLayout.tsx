@@ -536,27 +536,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </header>
 
-        {/* Email verification banner */}
-        {user && !user.email_verified_at && (
-          <div className="mx-4 lg:mx-6 mt-4 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-xl p-4 flex items-center gap-3">
-            <div className="w-10 h-10 bg-amber-100 dark:bg-amber-800 rounded-full flex items-center justify-center flex-shrink-0">
-              <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-              </svg>
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">لم يتم تأكيد البريد الإلكتروني</p>
-              <p className="text-xs text-amber-600 dark:text-amber-400">يرجى تأكيد بريدك الإلكتروني للوصول الكامل لجميع الميزات.</p>
-            </div>
-            <Link
-              href="/verify-email"
-              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors flex-shrink-0"
-            >
-              تأكيد الآن
-            </Link>
-          </div>
-        )}
-
         {/* Page content */}
         <main className="p-4 lg:p-6 pb-20">{children}</main>
 
