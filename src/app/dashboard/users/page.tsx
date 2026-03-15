@@ -45,7 +45,7 @@ export default function UsersPage() {
     warehouse_id: '' as number | '',
     create_warehouse: false,
   });
-  const [warehousesList, setWarehousesList] = useState<Array<{ id: number; name: string; assigned_user?: { id: number; name: string } }>>([]);
+  const [warehousesList, setWarehousesList] = useState<Array<{ id: number; name: string; is_main?: boolean; assigned_user?: { id: number; name: string } }>>([]);
   const [passwordData, setPasswordData] = useState({
     password: '',
     password_confirmation: '',
@@ -504,13 +504,15 @@ export default function UsersPage() {
                 <option value="">-- بدون مستودع --</option>
                 {warehousesList
                   .filter(w => {
+                    // Always show main warehouse
+                    if (w.is_main) return true;
                     // Show warehouses that are either unassigned or assigned to the current user
                     if (!w.assigned_user) return true;
                     if (selectedUser && w.assigned_user.id === selectedUser.id) return true;
                     return false;
                   })
                   .map(w => (
-                    <option key={w.id} value={w.id}>{w.name}</option>
+                    <option key={w.id} value={w.id}>{w.name}{w.is_main ? ' (الرئيسي)' : ''}</option>
                   ))}
               </select>
             </div>
