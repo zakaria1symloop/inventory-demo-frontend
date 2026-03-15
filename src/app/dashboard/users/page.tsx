@@ -46,6 +46,7 @@ export default function UsersPage() {
     create_warehouse: false,
   });
   const [warehousesList, setWarehousesList] = useState<Array<{ id: number; name: string; is_main?: boolean; assigned_user?: { id: number; name: string } }>>([]);
+  const mainWarehouseName = warehousesList.find(w => w.is_main)?.name;
   const [passwordData, setPasswordData] = useState({
     password: '',
     password_confirmation: '',
@@ -501,20 +502,25 @@ export default function UsersPage() {
                 onChange={(e) => setFormData((p) => ({ ...p, warehouse_id: e.target.value === '' ? '' : Number(e.target.value) }))}
                 className="select"
               >
-                <option value="">-- بدون مستودع --</option>
+                <option value="">-- المستودع الرئيسي تلقائياً --</option>
                 {warehousesList
                   .filter(w => {
-                    // Always show main warehouse
-                    if (w.is_main) return true;
+                    // Don't show main warehouse - it's used automatically
+                    if (w.is_main) return false;
                     // Show warehouses that are either unassigned or assigned to the current user
                     if (!w.assigned_user) return true;
                     if (selectedUser && w.assigned_user.id === selectedUser.id) return true;
                     return false;
                   })
                   .map(w => (
-                    <option key={w.id} value={w.id}>{w.name}{w.is_main ? ' (الرئيسي)' : ''}</option>
+                    <option key={w.id} value={w.id}>{w.name}</option>
                   ))}
               </select>
+              {!formData.warehouse_id && mainWarehouseName && (
+                <p className="text-xs text-blue-600 mt-1">
+                  سيستخدم المنتجات من المستودع الرئيسي ({mainWarehouseName}) تلقائياً
+                </p>
+              )}
             </div>
           )}
 
