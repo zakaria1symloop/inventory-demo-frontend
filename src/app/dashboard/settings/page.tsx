@@ -34,8 +34,6 @@ export default function SettingsPage() {
     currency: 'DZD',
     tax_rate: '19',
     low_stock_alert: '10',
-    // Stock Management
-    decrease_stock_on_order: 'false', // 'true' = decrease when order created, 'false' = decrease when confirmed
     // Order management
     auto_validate_orders: 'false',
     // Seller visibility
@@ -662,48 +660,6 @@ export default function SettingsPage() {
                       onChange={(e) => setSettings({ ...settings, low_stock_alert: e.target.value })}
                       className="input"
                     />
-                  </div>
-
-                  {/* Stock Management Setting */}
-                  <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <h3 className="text-md font-semibold mb-3 dark:text-white">إدارة المخزون</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">متى يتم خصم الكمية من المخزون؟</p>
-                    <div className="flex gap-4">
-                      <button
-                        type="button"
-                        onClick={() => setSettings({ ...settings, decrease_stock_on_order: 'true' })}
-                        className={`flex-1 p-4 rounded-lg border-2 transition-all cursor-pointer ${settings.decrease_stock_on_order === 'true' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'}`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.decrease_stock_on_order === 'true' ? 'bg-blue-100' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                            <svg className={`w-5 h-5 ${settings.decrease_stock_on_order === 'true' ? 'text-blue-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                          </div>
-                          <div className="text-right">
-                            <p className={`text-sm font-semibold ${settings.decrease_stock_on_order === 'true' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>فوري - عند إنشاء الطلب</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">يخصم المخزون فور إنشاء الطلب من البائع</p>
-                          </div>
-                        </div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSettings({ ...settings, decrease_stock_on_order: 'false' })}
-                        className={`flex-1 p-4 rounded-lg border-2 transition-all cursor-pointer ${settings.decrease_stock_on_order === 'false' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'}`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.decrease_stock_on_order === 'false' ? 'bg-blue-100' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                            <svg className={`w-5 h-5 ${settings.decrease_stock_on_order === 'false' ? 'text-blue-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </div>
-                          <div className="text-right">
-                            <p className={`text-sm font-semibold ${settings.decrease_stock_on_order === 'false' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>عند التأكيد</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">يخصم المخزون فقط بعد تأكيد الطلب</p>
-                          </div>
-                        </div>
-                      </button>
-                    </div>
                   </div>
 
                   {/* Auto-validate Orders Setting */}
