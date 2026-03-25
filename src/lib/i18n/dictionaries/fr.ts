@@ -2398,6 +2398,15 @@ const fr = {
 
     // Processor info
     processedBy: 'Traité par',
+
+    // Livreur requests page
+    lrTotal: 'Total demandes',
+    lrCount: 'demande(s)',
+    lrFilterLivreur: 'Livreur',
+    lrAllLivreurs: 'Tous les livreurs',
+    lrAllWarehouses: 'Tous les entrepôts',
+    lrLoadingDetails: 'Chargement des détails...',
+    lrProcessedBy: 'Traité par',
   },
   vanSessionDetail: {
     // Status labels

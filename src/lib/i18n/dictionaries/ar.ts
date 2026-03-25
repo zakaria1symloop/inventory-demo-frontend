@@ -2413,6 +2413,15 @@ const ar = {
 
     // Processor info
     processedBy: 'تمت المعالجة بواسطة',
+
+    // Livreur requests page
+    lrTotal: 'إجمالي الطلبات',
+    lrCount: 'طلب',
+    lrFilterLivreur: 'السائق',
+    lrAllLivreurs: 'كل السائقين',
+    lrAllWarehouses: 'كل المستودعات',
+    lrLoadingDetails: 'جاري تحميل التفاصيل...',
+    lrProcessedBy: 'تمت المعالجة بواسطة',
   },
   vanSessionDetail: {
     // Status labels
