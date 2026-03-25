@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import Link from 'next/link';
 import GuidedTour from '@/components/GuidedTour';
 import type { TourStep } from '@/components/GuidedTour';
+import { useLocale } from '@/lib/i18n/context';
 import {
   TruckIcon,
   PlusIcon,
@@ -62,42 +63,9 @@ interface Livreur {
   name: string;
 }
 
-// Tour steps
-const deliveryTourSteps: TourStep[] = [
-  {
-    target: '[data-tour="deliveries-title"]',
-    title: 'إدارة التوصيل',
-    desc: 'هنا تتابع جميع عمليات التوصيل. كل توصيلة تحتوي على مجموعة طلبات مسندة لسائق معين مع مركبة محددة.',
-    position: 'bottom',
-  },
-  {
-    target: '[data-tour="deliveries-add"]',
-    title: 'إنشاء توصيل جديد',
-    desc: 'اضغط هنا لإنشاء جولة توصيل جديدة. اختر السائق، المركبة، وأضف الطلبات المؤكدة التي تريد توصيلها.',
-    position: 'bottom',
-  },
-  {
-    target: '[data-tour="deliveries-kpis"]',
-    title: 'مؤشرات الأداء',
-    desc: 'نظرة سريعة على أداء التوصيل: عدد التوصيلات، نسبة النجاح، المبالغ المحصلة، والطلبات الجاهزة للتوزيع.',
-    position: 'bottom',
-  },
-  {
-    target: '[data-tour="deliveries-chips"]',
-    title: 'فلترة سريعة',
-    desc: 'اضغط على أي حالة للفلترة السريعة. يمكنك أيضاً فتح لوحة الفلاتر المتقدمة للبحث بدقة أكبر.',
-    position: 'bottom',
-  },
-  {
-    target: '[data-tour="deliveries-list"]',
-    title: 'قائمة التوصيلات',
-    desc: 'كل بطاقة تعرض تفاصيل التوصيلة: السائق، المركبة، عدد الطلبات، شريط التقدم، والمبالغ. اضغط "عرض" للتفاصيل الكاملة.',
-    position: 'top',
-  },
-];
-
 export default function DeliveriesPage() {
   const router = useRouter();
+  const { t, locale, dir } = useLocale();
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [confirmedOrders, setConfirmedOrders] = useState<Order[]>([]);
   const [livreurs, setLivreurs] = useState<Livreur[]>([]);
@@ -116,6 +84,15 @@ export default function DeliveriesPage() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const perPage = 20;
+
+  // Tour steps (inside component so t() works)
+  const deliveryTourSteps: TourStep[] = useMemo(() => [
+    { target: '[data-tour="deliveries-title"]', title: t('deliveries.tourTitle'), desc: t('deliveries.tourDesc'), position: 'bottom' },
+    { target: '[data-tour="deliveries-add"]', title: t('deliveries.tourAddTitle'), desc: t('deliveries.tourAddDesc'), position: 'bottom' },
+    { target: '[data-tour="deliveries-kpis"]', title: t('deliveries.tourKpisTitle'), desc: t('deliveries.tourKpisDesc'), position: 'bottom' },
+    { target: '[data-tour="deliveries-chips"]', title: t('deliveries.tourChipsTitle'), desc: t('deliveries.tourChipsDesc'), position: 'bottom' },
+    { target: '[data-tour="deliveries-list"]', title: t('deliveries.tourListTitle'), desc: t('deliveries.tourListDesc'), position: 'top' },
+  ], [t]);
 
   useEffect(() => {
     fetchData();
@@ -147,7 +124,7 @@ export default function DeliveriesPage() {
       setConfirmedOrders(ordersRes.data || []);
       setLivreurs(livreursRes.data || []);
     } catch (error) {
-      toast.error('خطأ في تحميل البيانات');
+      toast.error(t('deliveries.loadError'));
     } finally {
       setIsLoading(false);
     }
@@ -156,37 +133,37 @@ export default function DeliveriesPage() {
   const formatCurrency = (value: number | string | null | undefined) => {
     const num = typeof value === 'string' ? parseFloat(value) : (value ?? 0);
     if (isNaN(num)) return '0 د.ج.';
-    return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(num);
+    return new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(num);
   };
 
-  const formatDate = (date: string) => new Date(date).toLocaleDateString('ar-DZ');
+  const formatDate = (date: string) => new Date(date).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'ar-DZ');
 
   const getStatusConfig = (status: string) => {
     const configs: Record<string, { class: string; text: string; color: string; bgColor: string; icon: React.ReactNode }> = {
       preparing: {
         class: 'badge-warning',
-        text: 'قيد التحضير',
+        text: t('deliveries.preparing'),
         color: 'text-amber-700 dark:text-amber-300',
         bgColor: 'bg-amber-50 dark:bg-amber-900/20',
         icon: <ClockIcon className="w-4 h-4" />,
       },
       in_progress: {
         class: 'badge-info',
-        text: 'جاري التوصيل',
+        text: t('deliveries.inProgress'),
         color: 'text-blue-700 dark:text-blue-300',
         bgColor: 'bg-blue-50 dark:bg-blue-900/20',
         icon: <TruckIcon className="w-4 h-4" />,
       },
       completed: {
         class: 'badge-success',
-        text: 'مكتمل',
+        text: t('deliveries.completed'),
         color: 'text-emerald-700 dark:text-emerald-300',
         bgColor: 'bg-emerald-50 dark:bg-emerald-900/20',
         icon: <CheckCircleIcon className="w-4 h-4" />,
       },
       cancelled: {
         class: 'badge-danger',
-        text: 'ملغي',
+        text: t('deliveries.cancelled'),
         color: 'text-red-700 dark:text-red-300',
         bgColor: 'bg-red-50 dark:bg-red-900/20',
         icon: <XCircleIcon className="w-4 h-4" />,
@@ -278,14 +255,14 @@ export default function DeliveriesPage() {
   const [startingId, setStartingId] = useState<number | null>(null);
 
   const handleStartDelivery = async (id: number) => {
-    if (!confirm('هل تريد بدء هذه التوصيلة؟ سيتم خصم المنتجات من المستودع.')) return;
+    if (!confirm(t('deliveries.startConfirm'))) return;
     setStartingId(id);
     try {
       await deliveriesApi.start(id);
-      toast.success('تم بدء التوصيلة بنجاح');
+      toast.success(t('deliveries.startSuccess'));
       fetchData();
     } catch (error: any) {
-      const message = error.response?.data?.message || 'خطأ في بدء التوصيلة';
+      const message = error.response?.data?.message || t('deliveries.startError');
       toast.error(message);
     } finally {
       setStartingId(null);
@@ -313,18 +290,18 @@ export default function DeliveriesPage() {
             <TruckIcon className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">إدارة التوصيل</h1>
-            <p className="text-sm text-gray-400 mt-1.5">متابعة وإدارة عمليات التوصيل</p>
+            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('deliveries.title')}</h1>
+            <p className="text-sm text-gray-400 mt-1.5">{t('deliveries.subtitle')}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setShowTour(true)}
             className="inline-flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium rounded-xl border-2 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
-            title="جولة تعريفية"
+            title={t('deliveries.tourButton')}
           >
             <QuestionMarkCircleIcon className="w-5 h-5" />
-            جولة تعريفية
+            {t('deliveries.tourButton')}
           </button>
           <Link
             href="/dashboard/deliveries/new"
@@ -332,8 +309,8 @@ export default function DeliveriesPage() {
             data-tour="deliveries-add"
           >
             <PlusIcon className="w-5 h-5 group-hover:rotate-90 transition-transform duration-200" />
-            <span className="hidden sm:inline">إنشاء توصيل جديد</span>
-            <span className="sm:hidden">إضافة</span>
+            <span className="hidden sm:inline">{t('deliveries.addNew')}</span>
+            <span className="sm:hidden">{t('deliveries.addNewShort')}</span>
             <kbd className="hidden sm:inline bg-white/20 px-1.5 py-0.5 rounded-md text-[10px] font-mono">Insert</kbd>
           </Link>
         </div>
@@ -350,7 +327,7 @@ export default function DeliveriesPage() {
                 <span className="text-sm font-black">#</span>
               </div>
               <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.totalDeliveries}</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">إجمالي التوصيلات</div>
+              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('deliveries.kpiTotal')}</div>
             </div>
           </div>
 
@@ -362,7 +339,7 @@ export default function DeliveriesPage() {
                 <CheckCircleIcon className="w-4 h-4" />
               </div>
               <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums leading-none">{kpis.successRate}%</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">نسبة النجاح</div>
+              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('deliveries.kpiSuccessRate')}</div>
             </div>
           </div>
 
@@ -378,7 +355,7 @@ export default function DeliveriesPage() {
                 <span className="text-gray-300 dark:text-gray-600 mx-1">/</span>
                 <span>{kpis.totalOrders}</span>
               </div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">تم التسليم / الإجمالي</div>
+              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('deliveries.kpiDelivered')}</div>
             </div>
           </div>
 
@@ -390,7 +367,7 @@ export default function DeliveriesPage() {
                 <XCircleIcon className="w-4 h-4" />
               </div>
               <div className="text-3xl font-black text-red-600 dark:text-red-400 tabular-nums leading-none">{kpis.failedOrders}</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">فشل / مرتجع</div>
+              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('deliveries.kpiFailed')}</div>
             </div>
           </div>
 
@@ -402,7 +379,7 @@ export default function DeliveriesPage() {
                 <BanknotesIcon className="w-4 h-4" />
               </div>
               <div className="text-lg font-black text-teal-600 dark:text-teal-400 tabular-nums leading-none">{formatCurrency(kpis.collectedAmount)}</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">المحصل</div>
+              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('deliveries.kpiCollected')}</div>
             </div>
           </div>
 
@@ -414,7 +391,7 @@ export default function DeliveriesPage() {
                 <ExclamationTriangleIcon className="w-4 h-4" />
               </div>
               <div className="text-3xl font-black text-orange-600 dark:text-orange-400 tabular-nums leading-none">{kpis.unassignedOrders}</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">طلبات جاهزة للتوزيع</div>
+              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('deliveries.kpiUnassigned')}</div>
             </div>
           </div>
         </div>
@@ -431,7 +408,7 @@ export default function DeliveriesPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="بحث بالمرجع، السائق، المركبة..."
+            placeholder={t('deliveries.searchPlaceholder')}
             className="input pr-10 text-sm"
           />
         </div>
@@ -446,7 +423,7 @@ export default function DeliveriesPage() {
                 : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
             }`}
           >
-            الكل {kpis.totalDeliveries}
+            {t('deliveries.chipAll')} {kpis.totalDeliveries}
           </button>
           <button
             onClick={() => setStatusFilter(statusFilter === 'preparing' ? '' : 'preparing')}
@@ -456,7 +433,7 @@ export default function DeliveriesPage() {
                 : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30'
             }`}
           >
-            تحضير {kpis.preparingCount}
+            {t('deliveries.chipPreparing')} {kpis.preparingCount}
           </button>
           <button
             onClick={() => setStatusFilter(statusFilter === 'in_progress' ? '' : 'in_progress')}
@@ -466,7 +443,7 @@ export default function DeliveriesPage() {
                 : 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30'
             }`}
           >
-            نشط {kpis.inProgressCount}
+            {t('deliveries.chipInProgress')} {kpis.inProgressCount}
           </button>
           <button
             onClick={() => setStatusFilter(statusFilter === 'completed' ? '' : 'completed')}
@@ -476,7 +453,7 @@ export default function DeliveriesPage() {
                 : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/30'
             }`}
           >
-            مكتمل {kpis.completedCount}
+            {t('deliveries.chipCompleted')} {kpis.completedCount}
           </button>
           <button
             onClick={() => setStatusFilter(statusFilter === 'cancelled' ? '' : 'cancelled')}
@@ -486,7 +463,7 @@ export default function DeliveriesPage() {
                 : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30'
             }`}
           >
-            ملغي {kpis.cancelledCount}
+            {t('deliveries.chipCancelled')} {kpis.cancelledCount}
           </button>
         </div>
 
@@ -500,14 +477,14 @@ export default function DeliveriesPage() {
           }`}
         >
           <FunnelIcon className="w-3.5 h-3.5" />
-          فلاتر متقدمة
+          {t('deliveries.advancedFilters')}
           {showFilters ? <ChevronUpIcon className="w-3 h-3" /> : <ChevronDownIcon className="w-3 h-3" />}
         </button>
 
         {hasActiveFilters && (
           <button onClick={clearFilters} className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 font-bold flex items-center gap-1">
             <XCircleIcon className="w-3.5 h-3.5" />
-            مسح الكل
+            {t('deliveries.clearAll')}
           </button>
         )}
       </div>
@@ -518,9 +495,9 @@ export default function DeliveriesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Livreur Filter */}
             <div>
-              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">السائق</label>
+              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">{t('deliveries.filterDriver')}</label>
               <select value={livreurFilter} onChange={(e) => setLivreurFilter(e.target.value)} className="select text-sm">
-                <option value="">كل السائقين</option>
+                <option value="">{t('deliveries.filterAllDrivers')}</option>
                 {livreurs.map(livreur => (
                   <option key={livreur.id} value={livreur.id}>{livreur.name}</option>
                 ))}
@@ -529,32 +506,32 @@ export default function DeliveriesPage() {
 
             {/* Collection Filter */}
             <div>
-              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">حالة التحصيل</label>
+              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">{t('deliveries.filterCollection')}</label>
               <select value={collectionFilter} onChange={(e) => setCollectionFilter(e.target.value)} className="select text-sm">
-                <option value="">الكل</option>
-                <option value="collected">تم التحصيل بالكامل</option>
-                <option value="partial">تحصيل جزئي</option>
-                <option value="pending">لم يتم التحصيل</option>
+                <option value="">{t('deliveries.filterAllCollection')}</option>
+                <option value="collected">{t('deliveries.filterCollected')}</option>
+                <option value="partial">{t('deliveries.filterPartial')}</option>
+                <option value="pending">{t('deliveries.filterPending')}</option>
               </select>
             </div>
 
             {/* Date From */}
             <div>
-              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">من تاريخ</label>
+              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">{t('deliveries.filterFromDate')}</label>
               <DateInput
                 value={dateFrom}
                 onChange={(v) => setDateFrom(v)}
-                placeholder="من تاريخ"
+                placeholder={t('deliveries.filterFromDate')}
               />
             </div>
 
             {/* Date To */}
             <div>
-              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">إلى تاريخ</label>
+              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">{t('deliveries.filterToDate')}</label>
               <DateInput
                 value={dateTo}
                 onChange={(v) => setDateTo(v)}
-                placeholder="إلى تاريخ"
+                placeholder={t('deliveries.filterToDate')}
               />
             </div>
           </div>
@@ -566,12 +543,12 @@ export default function DeliveriesPage() {
         {/* Results count */}
         <div className="flex items-center justify-between mb-3">
           <span className="text-sm text-gray-500 dark:text-gray-400">
-            {filteredDeliveries.length} توصيلة
-            {hasActiveFilters && ` (من أصل ${deliveries.length})`}
+            {filteredDeliveries.length} {t('deliveries.deliveriesUnit')}
+            {hasActiveFilters && ` (${t('deliveries.ofTotal', { total: deliveries.length })})`}
           </span>
           {kpis.todayDeliveries > 0 && (
             <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2.5 py-1 rounded-full">
-              اليوم: {kpis.todayDeliveries} توصيلة ({kpis.todayInProgress} نشط)
+              {t('deliveries.todayBadge', { count: kpis.todayDeliveries, active: kpis.todayInProgress })}
             </span>
           )}
         </div>
@@ -579,10 +556,10 @@ export default function DeliveriesPage() {
         {paginatedDeliveries.length === 0 ? (
           <div className="rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 p-12 text-center">
             <TruckIcon className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-            <p className="text-gray-500 dark:text-gray-400 font-medium">لا توجد توصيلات مطابقة</p>
+            <p className="text-gray-500 dark:text-gray-400 font-medium">{t('deliveries.noResults')}</p>
             {hasActiveFilters && (
               <button onClick={clearFilters} className="mt-2 text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 font-bold">
-                مسح الفلاتر
+                {t('deliveries.clearFilters')}
               </button>
             )}
           </div>
@@ -663,7 +640,7 @@ export default function DeliveriesPage() {
                               <span className="text-gray-300 dark:text-gray-600">/</span>
                               <span className="text-gray-600 dark:text-gray-300 font-medium">{delivery.total_orders}</span>
                               {delivery.failed_count > 0 && (
-                                <span className="text-red-500 text-[10px] font-bold">({delivery.failed_count} فشل)</span>
+                                <span className="text-red-500 text-[10px] font-bold">({delivery.failed_count} {t('deliveries.failed')})</span>
                               )}
                             </div>
                             {delivery.total_orders > 0 && (
@@ -690,7 +667,7 @@ export default function DeliveriesPage() {
                               <div className="text-xs font-bold text-gray-900 dark:text-white">{formatCurrency(totalAmt)}</div>
                               {collectedAmt > 0 && (
                                 <div className="text-[10px] text-teal-600 dark:text-teal-400 font-medium mt-0.5">
-                                  محصل: {collectionPercent}%
+                                  {t('deliveries.collected')}: {collectionPercent}%
                                 </div>
                               )}
                             </div>
@@ -710,7 +687,7 @@ export default function DeliveriesPage() {
                               ) : (
                                 <PlayIcon className="w-3.5 h-3.5" />
                               )}
-                              بدء
+                              {t('deliveries.start')}
                             </button>
                           )}
                           <button
@@ -718,7 +695,7 @@ export default function DeliveriesPage() {
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all"
                           >
                             <EyeIcon className="w-3.5 h-3.5" />
-                            عرض
+                            {t('deliveries.view')}
                           </button>
                         </div>
                       </div>
@@ -738,7 +715,7 @@ export default function DeliveriesPage() {
               disabled={currentPage === 1}
               className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              السابق
+              {t('deliveries.previous')}
             </button>
             {Array.from({ length: totalPages }, (_, i) => i + 1)
               .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
@@ -764,7 +741,7 @@ export default function DeliveriesPage() {
               disabled={currentPage === totalPages}
               className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              التالي
+              {t('deliveries.next')}
             </button>
           </div>
         )}

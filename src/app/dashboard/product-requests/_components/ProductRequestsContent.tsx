@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { productRequestsApi, warehousesApi } from '@/lib/api';
+import { productRequestsApi, warehousesApi, usersApi } from '@/lib/api';
 import GuidedTour from '@/components/GuidedTour';
 import type { TourStep } from '@/components/GuidedTour';
 import DateInput from '@/components/ui/DateInput';
@@ -105,6 +105,16 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
   const [warehouseStock, setWarehouseStock] = useState<Record<number, StockItem[]>>({});
   const [loadingStock, setLoadingStock] = useState<number | null>(null);
 
+  // No-warehouse assignment modal
+  const [noWarehouseModal, setNoWarehouseModal] = useState<{
+    req: ProductRequest;
+    requesterId: number | null;
+    requesterName: string;
+  } | null>(null);
+  const [warehouses, setWarehouses] = useState<Array<{ id: number; name: string }>>([]);
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>('');
+  const [isAssigningWarehouse, setIsAssigningWarehouse] = useState(false);
+
   const resolvedTitle = title || t('productRequests.title');
   const resolvedSubtitle = subtitle || t('productRequests.subtitle');
 
@@ -148,6 +158,10 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
   useEffect(() => {
     fetchRequests();
   }, [statusFilter, requestType]);
+
+  useEffect(() => {
+    warehousesApi.getAll().then(r => setWarehouses(r.data || [])).catch(() => {});
+  }, []);
 
   // Fetch warehouse stock when expanding a pending request
   useEffect(() => {
@@ -248,10 +262,35 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
       setExpandedId(null);
       fetchRequests();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || t('productRequests.errorApproving'));
+      const err = error as { response?: { data?: { message?: string; error_type?: string; requester_id?: number; requester_name?: string } } };
+      if (err.response?.data?.error_type === 'no_warehouse') {
+        setNoWarehouseModal({
+          req,
+          requesterId: err.response.data.requester_id ?? null,
+          requesterName: err.response.data.requester_name ?? '',
+        });
+        setSelectedWarehouseId('');
+      } else {
+        toast.error(err.response?.data?.message || t('productRequests.errorApproving'));
+      }
     } finally {
       setIsActioning(false);
+    }
+  };
+
+  const handleAssignWarehouseAndApprove = async () => {
+    if (!noWarehouseModal || !noWarehouseModal.requesterId || !selectedWarehouseId) return;
+    setIsAssigningWarehouse(true);
+    try {
+      await usersApi.update(noWarehouseModal.requesterId, { warehouse_id: Number(selectedWarehouseId) });
+      toast.success('تم تعيين المستودع بنجاح');
+      const req = noWarehouseModal.req;
+      setNoWarehouseModal(null);
+      await handleApprove(req);
+    } catch {
+      toast.error('فشل تعيين المستودع');
+    } finally {
+      setIsAssigningWarehouse(false);
     }
   };
 
@@ -1008,6 +1047,53 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
           )}
         </div>
       </div>
+
+      {/* No-Warehouse Assignment Modal */}
+      {noWarehouseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
+                  <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">مستخدم بدون مستودع</h3>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-5">
+                المستخدم <strong className="text-gray-900 dark:text-gray-100">{noWarehouseModal.requesterName}</strong> لا يملك مستودعاً مخصصاً. اختر مستودعاً لتعيينه والموافقة على الطلب.
+              </p>
+              <select
+                value={selectedWarehouseId}
+                onChange={e => setSelectedWarehouseId(e.target.value)}
+                className="input w-full mb-5"
+              >
+                <option value="">-- اختر مستودع --</option>
+                {warehouses.map(w => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </select>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleAssignWarehouseAndApprove}
+                  disabled={!selectedWarehouseId || isAssigningWarehouse}
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-l from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 rounded-xl transition-all disabled:opacity-50"
+                >
+                  {isAssigningWarehouse
+                    ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    : <><CheckCircleIcon className="w-4 h-4" /> تعيين والموافقة</>
+                  }
+                </button>
+                <button
+                  onClick={() => setNoWarehouseModal(null)}
+                  className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Guided Tour */}
       {showTour && (

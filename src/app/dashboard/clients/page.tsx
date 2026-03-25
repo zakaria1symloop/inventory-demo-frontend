@@ -130,6 +130,7 @@ export default function ClientsPage() {
   const [warehouseFilter, setWarehouseFilter] = useState('');
   const [warehousesList, setWarehousesList] = useState<{ id: number; name: string }[]>([]);
   const [copyFilter, setCopyFilter] = useState<'all' | 'copies' | 'originals'>('all');
+  const [inactivePeriod, setInactivePeriod] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'map'>('table');
   const [showTour, setShowTour] = useState(false);
@@ -193,7 +194,7 @@ export default function ClientsPage() {
 
   useEffect(() => {
     fetchClients();
-  }, []);
+  }, [inactivePeriod]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -212,8 +213,10 @@ export default function ClientsPage() {
 
   const fetchClients = async () => {
     try {
+      const clientParams: Record<string, unknown> = { per_page: 1000 };
+      if (inactivePeriod) clientParams.no_purchase_days = inactivePeriod;
       const [clientsRes, categoriesRes, sellersRes, warehousesRes] = await Promise.all([
-        clientsApi.getAll({ per_page: 1000 }),
+        clientsApi.getAll(clientParams),
         clientCategoriesApi.getAll(),
         usersApi.getAll({ per_page: 1000 }).catch(() => ({ data: { data: [] } })),
         warehousesApi.getAll().catch(() => ({ data: [] })),
@@ -501,7 +504,7 @@ export default function ClientsPage() {
 
   // Check if any filters are active
   const hasActiveFilters = searchTerm || statusFilter !== 'all' || balanceFilter !== 'all' ||
-    dateFrom || dateTo || creditLimitFilter !== 'all' || sourceFilter !== 'all' || sellerFilter || warehouseFilter || copyFilter !== 'all';
+    dateFrom || dateTo || creditLimitFilter !== 'all' || sourceFilter !== 'all' || sellerFilter || warehouseFilter || copyFilter !== 'all' || inactivePeriod;
 
   // Reset all filters
   const resetFilters = () => {
@@ -515,6 +518,7 @@ export default function ClientsPage() {
     setSellerFilter('');
     setWarehouseFilter('');
     setCopyFilter('all');
+    setInactivePeriod('');
   };
 
   // Filtered clients
@@ -960,6 +964,18 @@ export default function ClientsPage() {
                 <option value="all">{t('clients.allCopyFilter')}</option>
                 <option value="copies">{t('clients.copiesOnly')}</option>
                 <option value="originals">{t('clients.originalsOnly')}</option>
+              </select>
+              <select
+                value={inactivePeriod}
+                onChange={(e) => setInactivePeriod(e.target.value)}
+                className={`select text-sm ${inactivePeriod ? 'border-orange-400 dark:border-orange-500 text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/20' : ''}`}
+              >
+                <option value="">{t('clients.allActivityFilter')}</option>
+                <option value="30">{t('clients.inactiveSince30')}</option>
+                <option value="60">{t('clients.inactiveSince60')}</option>
+                <option value="90">{t('clients.inactiveSince90')}</option>
+                <option value="180">{t('clients.inactiveSince180')}</option>
+                <option value="365">{t('clients.inactiveSince365')}</option>
               </select>
             </div>
             <div className="flex flex-wrap items-center gap-3">

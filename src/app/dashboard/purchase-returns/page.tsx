@@ -158,50 +158,62 @@ export default function PurchaseReturnsPage() {
         <h1 className="text-2xl font-bold">{t('purchases.prTitle')}</h1>
       </div>
 
-      <div className="card">
-        {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
-          <input
-            type="text"
-            placeholder={t('purchases.prSearchRef')}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            className="input"
-          />
-          <select
-            value={supplierFilter}
-            onChange={(e) => setSupplierFilter(e.target.value)}
-            className="select"
-          >
-            <option value="">{t('purchases.allSuppliers')}</option>
-            {suppliers.map((supplier) => (
-              <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
-            ))}
-          </select>
-          <select
-            value={warehouseFilter}
-            onChange={(e) => setWarehouseFilter(e.target.value)}
-            className="select"
-          >
-            <option value="">{t('purchases.allWarehouses')}</option>
-            {warehouses.map((warehouse) => (
-              <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
-            ))}
-          </select>
-          <DateInput
-            value={fromDate}
-            onChange={(v) => setFromDate(v)}
-            placeholder={t('purchases.fromDate')}
-          />
-          <DateInput
-            value={toDate}
-            onChange={(v) => setToDate(v)}
-            placeholder={t('purchases.toDate')}
-          />
+      {/* Filters Card */}
+      <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+          <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('purchases.prFilters')}</span>
+          {(searchTerm || supplierFilter || warehouseFilter || fromDate || toDate) && (
+            <button onClick={() => { setSearchTerm(''); setSupplierFilter(''); setWarehouseFilter(''); setFromDate(''); setToDate(''); fetchReturns(); }} className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-500 hover:text-red-700 px-2.5 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+              {t('purchases.prClearFilters')}
+            </button>
+          )}
         </div>
+        <div className="p-5">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+            <input
+              type="text"
+              placeholder={t('purchases.prSearchRef')}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              className="input"
+            />
+            <select
+              value={supplierFilter}
+              onChange={(e) => setSupplierFilter(e.target.value)}
+              className="select"
+            >
+              <option value="">{t('purchases.allSuppliers')}</option>
+              {suppliers.map((supplier) => (
+                <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+              ))}
+            </select>
+            <select
+              value={warehouseFilter}
+              onChange={(e) => setWarehouseFilter(e.target.value)}
+              className="select"
+            >
+              <option value="">{t('purchases.allWarehouses')}</option>
+              {warehouses.map((warehouse) => (
+                <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
+              ))}
+            </select>
+            <DateInput
+              value={fromDate}
+              onChange={(v) => setFromDate(v)}
+              placeholder={t('purchases.fromDate')}
+            />
+            <DateInput
+              value={toDate}
+              onChange={(v) => setToDate(v)}
+              placeholder={t('purchases.toDate')}
+            />
+          </div>
+        </div>
+      </div>
 
-        {/* Table */}
+      {/* Table Card */}
+      <div className="card">
         <table>
           <thead>
             <tr>

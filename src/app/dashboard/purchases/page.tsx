@@ -19,6 +19,7 @@ import {
   BanknotesIcon,
   CheckCircleIcon,
   QuestionMarkCircleIcon,
+  ArrowUturnLeftIcon,
 } from '@heroicons/react/24/outline';
 import GuidedTour from '@/components/GuidedTour';
 import type { TourStep } from '@/components/GuidedTour';
@@ -45,10 +46,174 @@ interface Purchase {
 
 interface Tab {
   id: string;
-  type: 'list' | 'new' | 'edit' | 'view';
+  type: 'list' | 'new' | 'edit' | 'view' | 'retour';
   title: string;
   purchaseId?: number;
   reference?: string;
+}
+
+interface PurchaseRetourItem {
+  product_id: number;
+  product_name: string;
+  pieces_per_package: number;
+  unit_price: number;
+  max_qty: number;
+  cartons: string;
+  pcs: string;
+  reason: string;
+}
+
+function PurchaseRetourForm({ purchaseId, onSuccess, onCancel }: { purchaseId: number; onSuccess: () => void; onCancel: () => void }) {
+  const { t, locale } = useLocale();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [purchaseRef, setPurchaseRef] = useState('');
+  const [items, setItems] = useState<PurchaseRetourItem[]>([]);
+  const [note, setNote] = useState('');
+
+  useEffect(() => {
+    purchasesApi.getOne(purchaseId).then(res => {
+      const purchase = res.data;
+      setPurchaseRef(purchase.reference || '');
+      setItems((purchase.items || []).map((item: any) => ({
+        product_id: item.product_id,
+        product_name: item.product?.name || '',
+        pieces_per_package: item.product?.pieces_per_package > 1 ? item.product.pieces_per_package : 1,
+        unit_price: item.unit_price,
+        max_qty: item.quantity,
+        cartons: '',
+        pcs: '',
+        reason: '',
+      })));
+    }).catch(() => toast.error(t('purchases.prRetourLoadError')))
+      .finally(() => setIsLoading(false));
+  }, [purchaseId, t]);
+
+  const getQty = (item: PurchaseRetourItem) => {
+    const c = parseInt(item.cartons || '0') || 0;
+    const p = parseInt(item.pcs || '0') || 0;
+    return c * item.pieces_per_package + p;
+  };
+
+  const formatQtyDisplay = (qty: number, ppp: number) => {
+    if (ppp <= 1) return `${qty}`;
+    const cartons = Math.floor(qty / ppp);
+    const pcs = qty % ppp;
+    return cartons > 0 ? `${cartons}×${ppp}${pcs > 0 ? ` + ${pcs}` : ''}` : `${pcs}`;
+  };
+
+  const handleSubmit = async () => {
+    const returnItems = items.filter(item => getQty(item) > 0).map(item => ({
+      product_id: item.product_id,
+      quantity: getQty(item),
+      reason: item.reason || undefined,
+    }));
+    if (returnItems.length === 0) { toast.error(t('purchases.prRetourNoItems')); return; }
+    for (const item of items) {
+      if (getQty(item) > item.max_qty) { toast.error(`${item.product_name}: ${t('purchases.prRetourExceedsMax')}`); return; }
+    }
+    setIsSubmitting(true);
+    try {
+      await purchasesApi.createReturn(purchaseId, { items: returnItems, note });
+      toast.success(t('purchases.prRetourSuccess'));
+      onSuccess();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || t('purchases.prRetourError'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const formatCurrency = (v: number) => new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(v);
+
+  if (isLoading) return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
+
+  return (
+    <div className="space-y-5 max-w-5xl">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center shadow-md">
+          <ArrowUturnLeftIcon className="w-5 h-5 text-white" />
+        </div>
+        <div>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t('purchases.prRetourTitle')}</h2>
+          <p className="text-sm text-gray-400">{purchaseRef}</p>
+        </div>
+        <span className="ms-auto inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+          {t('purchases.prApprovedPurchase')}
+        </span>
+      </div>
+
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 dark:bg-gray-800">
+              <tr>
+                <th className="text-start px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('purchases.product')}</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('purchases.prRetourPurchasedQty')}</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('purchases.prRetourCartons')}</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('purchases.prRetourPcs')}</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('purchases.prRetourTotal')}</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('purchases.prRetourReason')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+              {items.map((item, idx) => {
+                const qty = getQty(item);
+                const isOver = qty > item.max_qty;
+                const totalValue = qty * item.unit_price;
+                return (
+                  <tr key={item.product_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{item.product_name}</td>
+                    <td className="px-4 py-3 text-center text-gray-500 tabular-nums text-sm">
+                      {formatQtyDisplay(item.max_qty, item.pieces_per_package)}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {item.pieces_per_package > 1 ? (
+                        <input type="number" min="0" value={item.cartons}
+                          onChange={e => setItems(prev => prev.map((it, i) => i === idx ? { ...it, cartons: e.target.value } : it))}
+                          className="w-20 text-center input py-1" placeholder="0" />
+                      ) : <span className="text-gray-300 text-sm">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <input type="number" min="0" value={item.pcs}
+                        onChange={e => setItems(prev => prev.map((it, i) => i === idx ? { ...it, pcs: e.target.value } : it))}
+                        className={`w-20 text-center input py-1 ${isOver ? 'border-red-400 bg-red-50 dark:bg-red-900/20' : ''}`} placeholder="0" />
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <div className={`font-semibold tabular-nums ${isOver ? 'text-red-600' : qty > 0 ? 'text-orange-600' : 'text-gray-300'}`}>
+                        {qty > 0 ? formatCurrency(totalValue) : '—'}
+                        {isOver && <div className="text-[10px] font-normal text-red-500">{t('purchases.prRetourExceedsMax')}</div>}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <input type="text" value={item.reason}
+                        onChange={e => setItems(prev => prev.map((it, i) => i === idx ? { ...it, reason: e.target.value } : it))}
+                        className="input py-1 w-full" placeholder={t('purchases.prRetourReasonPlaceholder')} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">{t('purchases.prRetourNote')}</label>
+        <textarea value={note} onChange={e => setNote(e.target.value)} rows={2}
+          className="input w-full resize-none" placeholder={t('purchases.prRetourNotePlaceholder')} />
+      </div>
+
+      <div className="flex justify-end gap-3">
+        <button onClick={onCancel} className="btn btn-secondary">{t('purchases.cancel')}</button>
+        <button onClick={handleSubmit} disabled={isSubmitting}
+          className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-orange-500 hover:bg-orange-600 shadow-md active:scale-[0.98] transition-all disabled:opacity-50">
+          <ArrowUturnLeftIcon className="w-4 h-4" />
+          {isSubmitting ? '...' : t('purchases.prRetourSubmit')}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default function PurchasesPage() {
@@ -259,10 +424,24 @@ export default function PurchasesPage() {
     }
   };
 
-  const canDelete = (purchase: Purchase) => {
-    if (purchase.status === 'pending') return true;
-    return purchase.payment_status === 'unpaid' && purchase.paid_amount === 0;
-  };
+  const canDelete = (purchase: Purchase) => purchase.status !== 'received';
+
+  const openRetourTab = useCallback((purchaseId: number, reference: string) => {
+    const existingTab = tabs.find(t => t.type === 'retour' && t.purchaseId === purchaseId);
+    if (existingTab) {
+      setActiveTabId(existingTab.id);
+      return;
+    }
+    const newTab: Tab = {
+      id: generateTabId(),
+      type: 'retour',
+      title: `↩ ${reference}`,
+      purchaseId,
+      reference,
+    };
+    setTabs(prev => [...prev, newTab]);
+    setActiveTabId(newTab.id);
+  }, [tabs]);
 
   const handleConfirmPurchase = async (id: number) => {
     if (!confirm(t('purchases.confirmReceiptQuestion'))) return;
@@ -626,14 +805,27 @@ export default function PurchasesPage() {
                             <td><span className={`badge ${paymentBadge.class}`}>{paymentBadge.text}</span></td>
                             <td>
                               <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                                {purchase.status === 'pending' && (
-                                  <button onClick={() => handleConfirmPurchase(purchase.id)} className="p-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 transition-colors" title={t('purchases.confirmReceipt')}>
-                                    <CheckCircleIcon className="w-5 h-5" />
+                                {purchase.status === 'received' ? (
+                                  <button onClick={() => openRetourTab(purchase.id, purchase.reference)} className="p-1.5 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-500 transition-colors" title={t('purchases.prRetourButton')}>
+                                    <ArrowUturnLeftIcon className="w-5 h-5" />
                                   </button>
+                                ) : (
+                                  <>
+                                    {purchase.status === 'pending' && (
+                                      <button onClick={() => handleConfirmPurchase(purchase.id)} className="p-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 transition-colors" title={t('purchases.confirmReceipt')}>
+                                        <CheckCircleIcon className="w-5 h-5" />
+                                      </button>
+                                    )}
+                                    <button onClick={() => openEditTab(purchase.id, purchase.reference)} className="p-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/30 text-amber-600 transition-colors" title={t('purchases.edit')}>
+                                      <PencilSquareIcon className="w-5 h-5" />
+                                    </button>
+                                    {canDelete(purchase) && (
+                                      <button onClick={() => handleDelete(purchase.id)} className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 transition-colors" title={t('purchases.delete')}>
+                                        <TrashIcon className="w-5 h-5" />
+                                      </button>
+                                    )}
+                                  </>
                                 )}
-                                <button onClick={() => openEditTab(purchase.id, purchase.reference)} className="p-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/30 text-amber-600 transition-colors" title={t('purchases.edit')}>
-                                  <PencilSquareIcon className="w-5 h-5" />
-                                </button>
                                 <Link href={`/dashboard/purchases/${purchase.id}`} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 transition-colors" title={t('purchases.view')}>
                                   <EyeIcon className="w-5 h-5" />
                                 </Link>
@@ -643,11 +835,6 @@ export default function PurchasesPage() {
                                 <button onClick={() => handleDownloadBonCommande(purchase.id, purchase.reference)} className="p-1.5 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 text-green-600 transition-colors" title={t('purchases.orderBon')}>
                                   <ClipboardDocumentListIcon className="w-5 h-5" />
                                 </button>
-                                {canDelete(purchase) && (
-                                  <button onClick={() => handleDelete(purchase.id)} className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 transition-colors" title={t('purchases.delete')}>
-                                    <TrashIcon className="w-5 h-5" />
-                                  </button>
-                                )}
                               </div>
                             </td>
                           </tr>
@@ -681,6 +868,16 @@ export default function PurchasesPage() {
           />
         );
 
+      case 'retour':
+        return (
+          <PurchaseRetourForm
+            key={tab.id}
+            purchaseId={tab.purchaseId!}
+            onSuccess={() => { closeTab(tab.id); fetchData(); }}
+            onCancel={() => closeTab(tab.id)}
+          />
+        );
+
       default:
         return null;
     }
@@ -694,6 +891,8 @@ export default function PurchasesPage() {
         return <DocumentPlusIcon className="w-4 h-4" />;
       case 'edit':
         return <PencilSquareIcon className="w-4 h-4" />;
+      case 'retour':
+        return <ArrowUturnLeftIcon className="w-4 h-4 text-orange-500" />;
       default:
         return null;
     }

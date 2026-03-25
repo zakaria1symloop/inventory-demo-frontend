@@ -120,6 +120,11 @@ export default function DispensesPage() {
   const [formData, setFormData] = useState(initialFormData);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Clean old dispenses modal
+  const [showCleanModal, setShowCleanModal] = useState(false);
+  const [cleanBeforeDate, setCleanBeforeDate] = useState('');
+  const [isCleaning, setIsCleaning] = useState(false);
+
   // Category labels using t()
   const CATEGORIES = useMemo(() => {
     const cats: Record<string, string> = {};
@@ -301,6 +306,22 @@ export default function DispensesPage() {
     }
   };
 
+  const handleCleanOld = async () => {
+    if (!cleanBeforeDate) return;
+    setIsCleaning(true);
+    try {
+      const res = await dispensesApi.deleteOld(cleanBeforeDate);
+      toast.success(res.data.message || `تم حذف ${res.data.count} مصروف`);
+      setShowCleanModal(false);
+      setCleanBeforeDate('');
+      fetchDispenses();
+    } catch {
+      toast.error('فشل حذف المصاريف القديمة');
+    } finally {
+      setIsCleaning(false);
+    }
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat(locale === 'ar' ? 'ar-DZ' : 'fr-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
   };
@@ -354,6 +375,14 @@ export default function DispensesPage() {
             title={t('dispenses.tourTitle')}
           >
             <span>{t('dispenses.tourTitle')}</span>
+          </button>
+          <button
+            onClick={() => { setCleanBeforeDate(''); setShowCleanModal(true); }}
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-xl transition-colors"
+            title="حذف المصاريف القديمة"
+          >
+            <TrashIcon className="w-4 h-4" />
+            <span className="hidden sm:inline">تنظيف القديمة</span>
           </button>
           <button
             data-tour="dispenses-add"
@@ -718,6 +747,51 @@ export default function DispensesPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Clean Old Dispenses Modal */}
+      {showCleanModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/40 flex items-center justify-center flex-shrink-0">
+                  <TrashIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">حذف المصاريف القديمة</h3>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-5">
+                سيتم حذف جميع المصاريف قبل التاريخ المحدد بشكل نهائي. هذا الإجراء لا يمكن التراجع عنه.
+              </p>
+              <div className="mb-5">
+                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">حذف كل المصاريف قبل</label>
+                <DateInput
+                  value={cleanBeforeDate}
+                  onChange={setCleanBeforeDate}
+                  className="w-full"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCleanOld}
+                  disabled={!cleanBeforeDate || isCleaning}
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-l from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 rounded-xl transition-all disabled:opacity-50"
+                >
+                  {isCleaning
+                    ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    : <><TrashIcon className="w-4 h-4" /> حذف نهائي</>
+                  }
+                </button>
+                <button
+                  onClick={() => setShowCleanModal(false)}
+                  className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

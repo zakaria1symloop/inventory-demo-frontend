@@ -345,23 +345,6 @@ export const deliveriesApi = {
     api.post(`/livreur-stock/${userId}/return`, data),
 };
 
-// Van Sessions API (Selling from Van)
-export const vanSessionsApi = {
-  getAll: (params?: Record<string, unknown>) => api.get('/van-sessions', { params }),
-  getOne: (id: number) => api.get(`/van-sessions/${id}`),
-  create: (data: Record<string, unknown>) => api.post('/van-sessions', data),
-  update: (id: number, data: Record<string, unknown>) => api.put(`/van-sessions/${id}`, data),
-  delete: (id: number) => api.delete(`/van-sessions/${id}`),
-  start: (id: number) => api.post(`/van-sessions/${id}/start`),
-  complete: (id: number) => api.post(`/van-sessions/${id}/complete`),
-  cancel: (id: number) => api.post(`/van-sessions/${id}/cancel`),
-  createSale: (sessionId: number, data: Record<string, unknown>) =>
-    api.post(`/van-sessions/${sessionId}/sales`, data),
-  getSales: (sessionId: number) => api.get(`/van-sessions/${sessionId}/sales`),
-  getAvailableProducts: (sessionId: number) => api.get(`/van-sessions/${sessionId}/products`),
-  getStats: (sessionId: number) => api.get(`/van-sessions/${sessionId}/stats`),
-  getMyActiveSession: () => api.get('/my-active-van-session'),
-};
 
 // Product Requests API
 export const productRequestsApi = {
@@ -569,4 +552,5 @@ export const dispensesApi = {
   create: (data: Record<string, unknown>) => api.post('/dispenses', data),
   update: (id: number, data: Record<string, unknown>) => api.put(`/dispenses/${id}`, data),
   delete: (id: number) => api.delete(`/dispenses/${id}`),
+  deleteOld: (before_date: string) => api.delete('/dispenses/old/cleanup', { data: { before_date } }),
 };

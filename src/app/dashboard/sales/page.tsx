@@ -23,6 +23,7 @@ import {
   ComputerDesktopIcon,
   CheckCircleIcon,
   QuestionMarkCircleIcon,
+  ArrowUturnLeftIcon,
 } from '@heroicons/react/24/outline';
 import GuidedTour from '@/components/GuidedTour';
 import type { TourStep } from '@/components/GuidedTour';
@@ -62,10 +63,174 @@ interface Warehouse {
 
 interface Tab {
   id: string;
-  type: 'list' | 'new' | 'edit';
+  type: 'list' | 'new' | 'edit' | 'retour';
   title: string;
   saleId?: number;
   reference?: string;
+}
+
+interface RetourItem {
+  product_id: number;
+  product_name: string;
+  pieces_per_package: number;
+  unit_price: number;
+  max_qty: number;
+  cartons: string;
+  pcs: string;
+  reason: string;
+}
+
+function SaleRetourForm({ saleId, onSuccess, onCancel }: { saleId: number; onSuccess: () => void; onCancel: () => void }) {
+  const { t, locale } = useLocale();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [saleRef, setSaleRef] = useState('');
+  const [items, setItems] = useState<RetourItem[]>([]);
+  const [note, setNote] = useState('');
+
+  useEffect(() => {
+    salesApi.getOne(saleId).then(res => {
+      const sale = res.data;
+      setSaleRef(sale.reference || '');
+      setItems((sale.items || []).map((item: any) => ({
+        product_id: item.product_id,
+        product_name: item.product?.name || '',
+        pieces_per_package: item.product?.pieces_per_package > 1 ? item.product.pieces_per_package : 1,
+        unit_price: item.unit_price,
+        max_qty: item.quantity,
+        cartons: '',
+        pcs: '',
+        reason: '',
+      })));
+    }).catch(() => toast.error(t('sales.retourLoadError')))
+      .finally(() => setIsLoading(false));
+  }, [saleId, t]);
+
+  const getQty = (item: RetourItem) => {
+    const c = parseInt(item.cartons || '0') || 0;
+    const p = parseInt(item.pcs || '0') || 0;
+    return c * item.pieces_per_package + p;
+  };
+
+  const formatQtyDisplay = (qty: number, ppp: number) => {
+    if (ppp <= 1) return `${qty}`;
+    const cartons = Math.floor(qty / ppp);
+    const pcs = qty % ppp;
+    return cartons > 0 ? `${cartons}×${ppp}${pcs > 0 ? ` + ${pcs}` : ''}` : `${pcs}`;
+  };
+
+  const handleSubmit = async () => {
+    const returnItems = items.filter(item => getQty(item) > 0).map(item => ({
+      product_id: item.product_id,
+      quantity: getQty(item),
+      reason: item.reason || undefined,
+    }));
+    if (returnItems.length === 0) { toast.error(t('sales.retourNoItems')); return; }
+    for (const item of items) {
+      if (getQty(item) > item.max_qty) { toast.error(`${item.product_name}: ${t('sales.retourExceedsMax')}`); return; }
+    }
+    setIsSubmitting(true);
+    try {
+      await salesApi.createReturn(saleId, { items: returnItems, note });
+      toast.success(t('sales.retourSuccess'));
+      onSuccess();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || t('sales.retourError'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const formatCurrency = (v: number) => new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(v);
+
+  if (isLoading) return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
+
+  return (
+    <div className="space-y-5 max-w-5xl">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center shadow-md">
+          <ArrowUturnLeftIcon className="w-5 h-5 text-white" />
+        </div>
+        <div>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t('sales.retourTitle')}</h2>
+          <p className="text-sm text-gray-400">{saleRef}</p>
+        </div>
+        <span className="ms-auto inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+          {t('sales.approvedInvoice')}
+        </span>
+      </div>
+
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 dark:bg-gray-800">
+              <tr>
+                <th className="text-start px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('sales.product')}</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('sales.retourSoldQty')}</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('sales.retourCartons')}</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('sales.retourPcs')}</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('sales.retourTotal')}</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('sales.retourReason')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+              {items.map((item, idx) => {
+                const qty = getQty(item);
+                const isOver = qty > item.max_qty;
+                const totalValue = qty * item.unit_price;
+                return (
+                  <tr key={item.product_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{item.product_name}</td>
+                    <td className="px-4 py-3 text-center text-gray-500 tabular-nums text-sm">
+                      {formatQtyDisplay(item.max_qty, item.pieces_per_package)}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {item.pieces_per_package > 1 ? (
+                        <input type="number" min="0" value={item.cartons}
+                          onChange={e => setItems(prev => prev.map((it, i) => i === idx ? { ...it, cartons: e.target.value } : it))}
+                          className="w-20 text-center input py-1" placeholder="0" />
+                      ) : <span className="text-gray-300 text-sm">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <input type="number" min="0" value={item.pcs}
+                        onChange={e => setItems(prev => prev.map((it, i) => i === idx ? { ...it, pcs: e.target.value } : it))}
+                        className={`w-20 text-center input py-1 ${isOver ? 'border-red-400 bg-red-50 dark:bg-red-900/20' : ''}`} placeholder="0" />
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <div className={`font-semibold tabular-nums ${isOver ? 'text-red-600' : qty > 0 ? 'text-orange-600' : 'text-gray-300'}`}>
+                        {qty > 0 ? formatCurrency(totalValue) : '—'}
+                        {isOver && <div className="text-[10px] font-normal text-red-500">{t('sales.retourExceedsMax')}</div>}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <input type="text" value={item.reason}
+                        onChange={e => setItems(prev => prev.map((it, i) => i === idx ? { ...it, reason: e.target.value } : it))}
+                        className="input py-1 w-full" placeholder={t('sales.retourReasonPlaceholder')} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">{t('sales.retourNote')}</label>
+        <textarea value={note} onChange={e => setNote(e.target.value)} rows={2}
+          className="input w-full resize-none" placeholder={t('sales.retourNotePlaceholder')} />
+      </div>
+
+      <div className="flex justify-end gap-3">
+        <button onClick={onCancel} className="btn btn-secondary">{t('sales.cancel')}</button>
+        <button onClick={handleSubmit} disabled={isSubmitting}
+          className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-orange-500 hover:bg-orange-600 shadow-md active:scale-[0.98] transition-all disabled:opacity-50">
+          <ArrowUturnLeftIcon className="w-4 h-4" />
+          {isSubmitting ? '...' : t('sales.retourSubmit')}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default function SalesPage() {
@@ -275,8 +440,25 @@ export default function SalesPage() {
   };
 
   const canDelete = (sale: Sale) => {
-    return sale.status !== 'cancelled';
+    return sale.status !== 'cancelled' && sale.status !== 'completed';
   };
+
+  const openRetourTab = useCallback((saleId: number, reference: string) => {
+    const existingTab = tabs.find(t => t.type === 'retour' && t.saleId === saleId);
+    if (existingTab) {
+      setActiveTabId(existingTab.id);
+      return;
+    }
+    const newTab: Tab = {
+      id: generateTabId(),
+      type: 'retour',
+      title: `↩ ${reference}`,
+      saleId,
+      reference,
+    };
+    setTabs(prev => [...prev, newTab]);
+    setActiveTabId(newTab.id);
+  }, [tabs]);
 
   const handleConfirmDraft = async (id: number) => {
     if (!confirm(t('sales.confirmDraftQuestion'))) return;
@@ -436,6 +618,8 @@ export default function SalesPage() {
         return <DocumentPlusIcon className="w-4 h-4" />;
       case 'edit':
         return <PencilSquareIcon className="w-4 h-4" />;
+      case 'retour':
+        return <ArrowUturnLeftIcon className="w-4 h-4 text-orange-500" />;
       default:
         return null;
     }
@@ -759,22 +943,39 @@ export default function SalesPage() {
                               </td>
                               <td>
                                 <div className="flex gap-1.5">
-                                  {sale.status === 'draft' && (
+                                  {sale.status === 'completed' ? (
                                     <button
-                                      onClick={() => handleConfirmDraft(sale.id)}
-                                      className="p-1.5 rounded-lg text-green-600 hover:text-green-800 hover:bg-green-100 dark:hover:bg-green-900/20 transition-colors"
-                                      title={t('sales.confirmInvoice')}
+                                      onClick={() => openRetourTab(sale.id, sale.reference)}
+                                      className="p-1.5 rounded-lg text-orange-500 hover:text-orange-700 hover:bg-orange-100 dark:hover:bg-orange-900/20 transition-colors"
+                                      title={t('sales.retourButton')}
                                     >
-                                      <CheckCircleIcon className="w-5 h-5" />
+                                      <ArrowUturnLeftIcon className="w-5 h-5" />
                                     </button>
+                                  ) : (
+                                    <>
+                                      {sale.status === 'draft' && (
+                                        <button
+                                          onClick={() => handleConfirmDraft(sale.id)}
+                                          className="p-1.5 rounded-lg text-green-600 hover:text-green-800 hover:bg-green-100 dark:hover:bg-green-900/20 transition-colors"
+                                          title={t('sales.confirmInvoice')}
+                                        >
+                                          <CheckCircleIcon className="w-5 h-5" />
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={() => openEditTab(sale.id, sale.reference)}
+                                        className="p-1.5 rounded-lg text-amber-600 hover:text-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/20 transition-colors"
+                                        title={t('sales.edit')}
+                                      >
+                                        <PencilIcon className="w-5 h-5" />
+                                      </button>
+                                      {canDelete(sale) && (
+                                        <button onClick={() => handleDelete(sale.id, sale.status === 'draft')} className="p-1.5 rounded-lg text-red-600 hover:text-red-800 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors" title={sale.status === 'draft' ? t('sales.delete') : t('sales.cancelInvoice')}>
+                                          <TrashIcon className="w-5 h-5" />
+                                        </button>
+                                      )}
+                                    </>
                                   )}
-                                  <button
-                                    onClick={() => openEditTab(sale.id, sale.reference)}
-                                    className="p-1.5 rounded-lg text-amber-600 hover:text-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/20 transition-colors"
-                                    title={t('sales.edit')}
-                                  >
-                                    <PencilIcon className="w-5 h-5" />
-                                  </button>
                                   <Link href={`/dashboard/sales/${sale.id}`} className="p-1.5 rounded-lg text-blue-600 hover:text-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-colors" title={t('sales.viewInvoice')}>
                                     <EyeIcon className="w-5 h-5" />
                                   </Link>
@@ -784,11 +985,6 @@ export default function SalesPage() {
                                   <button onClick={() => handleDownloadBonLivraison(sale.id)} className="p-1.5 rounded-lg text-green-600 hover:text-green-800 hover:bg-green-100 dark:hover:bg-green-900/20 transition-colors" title="Bon de Livraison">
                                     <TruckIcon className="w-5 h-5" />
                                   </button>
-                                  {canDelete(sale) && (
-                                    <button onClick={() => handleDelete(sale.id, sale.status === 'draft')} className="p-1.5 rounded-lg text-red-600 hover:text-red-800 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors" title={sale.status === 'draft' ? t('sales.delete') : t('sales.cancelInvoice')}>
-                                      <TrashIcon className="w-5 h-5" />
-                                    </button>
-                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -818,6 +1014,16 @@ export default function SalesPage() {
             key={tab.id}
             saleId={tab.saleId}
             onSuccess={() => handleFormSuccess(tab.id)}
+            onCancel={() => closeTab(tab.id)}
+          />
+        );
+
+      case 'retour':
+        return (
+          <SaleRetourForm
+            key={tab.id}
+            saleId={tab.saleId!}
+            onSuccess={() => { closeTab(tab.id); fetchData(); }}
             onCancel={() => closeTab(tab.id)}
           />
         );

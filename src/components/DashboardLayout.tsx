@@ -105,6 +105,8 @@ const menuSections: MenuSection[] = [
     icon: ShoppingCartIcon,
     items: [
       { nameKey: 'sidebar.orders', href: '/dashboard/orders', icon: ShoppingCartIcon, feature: 'orders' },
+      { nameKey: 'sidebar.sellerProductRequests', href: '/dashboard/seller-product-requests', icon: ClipboardDocumentListIcon, feature: 'product_requests' },
+      { nameKey: 'sidebar.sellerVendorRequests', href: '/dashboard/purchases', icon: BuildingStorefrontIcon, feature: 'purchases' },
     ],
   },
   {
@@ -116,14 +118,13 @@ const menuSections: MenuSection[] = [
       { nameKey: 'sidebar.driverStock', href: '/dashboard/livreur-stock', icon: ArchiveBoxIcon, feature: 'livreur_stock' },
       { nameKey: 'sidebar.driversMap', href: '/dashboard/drivers-map', icon: MapPinIcon, badgeKey: 'sidebar.new', feature: 'drivers_map' },
       { nameKey: 'sidebar.productRequests', href: '/dashboard/livreur-product-requests', icon: ClipboardDocumentListIcon, feature: 'product_requests' },
+      { nameKey: 'sidebar.livreurDispenses', href: '/dashboard/dispenses', icon: BanknotesIcon, feature: 'dispenses' },
     ],
   },
   {
     nameKey: 'sidebar.cashvan',
     icon: DevicePhoneMobileIcon,
     items: [
-      { nameKey: 'sidebar.vanSessions', href: '/dashboard/van-sessions', icon: ClipboardDocumentListIcon, feature: 'van_sessions' },
-      { nameKey: 'sidebar.vanSales', href: '/dashboard/van-sales', icon: ArrowTrendingUpIcon, feature: 'van_sessions' },
       { nameKey: 'sidebar.stockTransfers', href: '/dashboard/stock-transfers', icon: ArrowPathIcon, feature: 'stock_transfers' },
       { nameKey: 'sidebar.cashvanStock', href: '/dashboard/cashvan-stock', icon: ArchiveBoxIcon, feature: 'livreur_stock' },
       { nameKey: 'sidebar.cashvanProductRequests', href: '/dashboard/cashvan-product-requests', icon: ClipboardDocumentListIcon, feature: 'product_requests' },
