@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usersApi, warehousesApi } from '@/lib/api';
-import { useAuthStore } from '@/lib/store/auth';
 import { PlusIcon, PencilIcon, TrashIcon, KeyIcon, UsersIcon } from '@heroicons/react/24/outline';
 import DataTable from '@/components/ui/DataTable';
 import Modal from '@/components/ui/Modal';
@@ -16,7 +15,6 @@ export default function UsersPage() {
   const { t, locale } = useLocale();
   const isRTL = locale === 'ar';
   const queryClient = useQueryClient();
-  const tenantName = useAuthStore((s) => s.tenantName);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
@@ -208,10 +206,7 @@ export default function UsersPage() {
 
   const handleOpenEdit = (user: User) => {
     setSelectedUser(user);
-    // Strip @companyname suffix for sub-users so the input shows just the username
-    const editEmail = (user.role !== 'admin' && tenantName && user.email.endsWith(`@${tenantName}.com`))
-      ? user.email.replace(`@${tenantName}.com`, '')
-      : user.email;
+    const editEmail = user.email;
     setFormData({
       name: user.name,
       email: editEmail,
@@ -231,15 +226,9 @@ export default function UsersPage() {
     setSelectedUser(null);
   };
 
-  const isSubUserRole = (role: string) => role !== 'admin';
-  const emailSuffix = tenantName ? `@${tenantName}.com` : '';
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // For sub-user roles, compose full email with @companyname suffix
-    const email = isSubUserRole(formData.role) && tenantName
-      ? formData.email.replace(emailSuffix, '') + emailSuffix
-      : formData.email;
+    const email = formData.email;
 
     const data: Record<string, unknown> = {
       name: formData.name,
@@ -417,29 +406,13 @@ export default function UsersPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('users.labelEmail')}</label>
-            {isSubUserRole(formData.role) && tenantName ? (
-              <div className="flex items-center gap-0">
-                <input
-                  type="text"
-                  value={formData.email.replace(emailSuffix, '')}
-                  onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value.replace(/[@\s]/g, '') }))}
-                  className={`input ${isRTL ? 'rounded-l-none' : 'rounded-r-none'} flex-1`}
-                  placeholder={t('users.usernamePlaceholder')}
-                  required
-                />
-                <span className={`inline-flex items-center px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 ${isRTL ? 'border-r-0 rounded-r-lg' : 'border-l-0 rounded-l-lg'} text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap`} dir="ltr">
-                  {emailSuffix}
-                </span>
-              </div>
-            ) : (
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
-                className="input"
-                required
-              />
-            )}
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
+              className="input"
+              required
+            />
           </div>
 
           {!selectedUser && (
