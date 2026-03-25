@@ -6,6 +6,7 @@ import { vanSessionsApi, usersApi, vehiclesApi, warehousesApi, productsApi } fro
 import DateInput from '@/components/ui/DateInput';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
+import { useLocale } from '@/lib/i18n/context';
 
 interface User {
   id: number;
@@ -42,6 +43,7 @@ interface SessionItem {
 
 export default function NewVanSessionPage() {
   const router = useRouter();
+  const { t, locale } = useLocale();
   const [livreurs, setLivreurs] = useState<User[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -77,7 +79,7 @@ export default function NewVanSessionPage() {
       setWarehouses(warehousesRes.data.data || warehousesRes.data);
       setProducts(productsRes.data.data || productsRes.data);
     } catch {
-      toast.error('خطأ في تحميل البيانات');
+      toast.error(t('vanSessions.errorLoadingData'));
     } finally {
       setIsLoading(false);
     }
@@ -85,7 +87,7 @@ export default function NewVanSessionPage() {
 
   const addProduct = (product: Product) => {
     if (items.find(i => i.product_id === product.id)) {
-      toast.error('المنتج مضاف مسبقاً');
+      toast.error(t('vanSessions.productAlreadyAdded'));
       return;
     }
     setItems([...items, {
@@ -112,15 +114,15 @@ export default function NewVanSessionPage() {
     e.preventDefault();
 
     if (!formData.livreur_id) {
-      toast.error('يرجى اختيار السائق');
+      toast.error(t('vanSessions.selectDriver'));
       return;
     }
     if (!formData.warehouse_id) {
-      toast.error('يرجى اختيار المستودع');
+      toast.error(t('vanSessions.selectWarehouse'));
       return;
     }
     if (items.length === 0) {
-      toast.error('يرجى إضافة منتج واحد على الأقل');
+      toast.error(t('vanSessions.addAtLeastOneProduct'));
       return;
     }
 
@@ -137,18 +139,18 @@ export default function NewVanSessionPage() {
           quantity: i.quantity,
         })),
       });
-      toast.success('تم إنشاء الجلسة بنجاح');
+      toast.success(t('vanSessions.sessionCreated'));
       router.push(`/dashboard/van-sessions/${response.data.id}`);
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'خطأ في إنشاء الجلسة');
+      toast.error(err.response?.data?.message || t('vanSessions.errorCreatingSession'));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
+    new Intl.NumberFormat(locale === 'fr' ? 'fr-DZ' : 'ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
 
   const filteredProducts = products.filter(p =>
     productSearch.length >= 1 &&
@@ -164,10 +166,10 @@ export default function NewVanSessionPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">جلسة بيع متنقل جديدة</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">تحضير جلسة بيع متنقل جديدة مع المنتجات</p>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{t('vanSessions.newSessionTitle')}</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">{t('vanSessions.newSessionDescription')}</p>
         </div>
-        <Link href="/dashboard/van-sessions" className="btn btn-secondary">رجوع</Link>
+        <Link href="/dashboard/van-sessions" className="btn btn-secondary">{t('vanSessions.back')}</Link>
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -175,32 +177,32 @@ export default function NewVanSessionPage() {
           {/* Session Info */}
           <div className="lg:col-span-1">
             <div className="card space-y-4">
-              <h2 className="text-lg font-bold text-gray-800 dark:text-white border-b dark:border-gray-700 pb-2">معلومات الجلسة</h2>
+              <h2 className="text-lg font-bold text-gray-800 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">{t('vanSessions.sessionInfo')}</h2>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">السائق / البائع المتنقل *</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('vanSessions.driverLabel')}</label>
                 <select
                   value={formData.livreur_id}
                   onChange={(e) => setFormData(p => ({ ...p, livreur_id: e.target.value }))}
                   className="select"
                   required
                 >
-                  <option value="">اختر السائق...</option>
+                  <option value="">{t('vanSessions.selectDriverPlaceholder')}</option>
                   {livreurs.map(l => (
-                    <option key={l.id} value={l.id}>{l.name} ({l.role === 'cashvan' ? 'بائع متنقل' : 'سائق'})</option>
+                    <option key={l.id} value={l.id}>{l.name} ({l.role === 'cashvan' ? t('vanSessions.roleCashvan') : t('vanSessions.roleDriver')})</option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">المستودع *</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('vanSessions.warehouseLabel')}</label>
                 <select
                   value={formData.warehouse_id}
                   onChange={(e) => setFormData(p => ({ ...p, warehouse_id: e.target.value }))}
                   className="select"
                   required
                 >
-                  <option value="">اختر المستودع...</option>
+                  <option value="">{t('vanSessions.selectWarehousePlaceholder')}</option>
                   {warehouses.map(w => (
                     <option key={w.id} value={w.id}>{w.name}</option>
                   ))}
@@ -208,13 +210,13 @@ export default function NewVanSessionPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">المركبة</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('vanSessions.vehicleLabel')}</label>
                 <select
                   value={formData.vehicle_id}
                   onChange={(e) => setFormData(p => ({ ...p, vehicle_id: e.target.value }))}
                   className="select"
                 >
-                  <option value="">بدون مركبة</option>
+                  <option value="">{t('vanSessions.noVehicle')}</option>
                   {vehicles.map(v => (
                     <option key={v.id} value={v.id}>{v.name} {v.plate_number ? `(${v.plate_number})` : ''}</option>
                   ))}
@@ -222,7 +224,7 @@ export default function NewVanSessionPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">التاريخ *</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('vanSessions.dateLabel')}</label>
                 <DateInput
                   value={formData.date}
                   onChange={(v) => setFormData(p => ({ ...p, date: v }))}
@@ -232,28 +234,28 @@ export default function NewVanSessionPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ملاحظات</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('vanSessions.notesLabel')}</label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData(p => ({ ...p, notes: e.target.value }))}
                   className="input"
                   rows={3}
-                  placeholder="ملاحظات إضافية..."
+                  placeholder={t('vanSessions.notesPlaceholder')}
                 />
               </div>
 
               {/* Summary */}
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
                 <div className="flex justify-between mb-2">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">عدد المنتجات:</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">{t('vanSessions.productCount')}</span>
                   <span className="font-bold dark:text-white">{items.length}</span>
                 </div>
                 <div className="flex justify-between mb-2">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">إجمالي الكمية:</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">{t('vanSessions.totalQuantity')}</span>
                   <span className="font-bold dark:text-white">{items.reduce((s, i) => s + i.quantity, 0)}</span>
                 </div>
-                <div className="flex justify-between border-t dark:border-gray-700 pt-2">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">القيمة الإجمالية:</span>
+                <div className="flex justify-between border-t border-gray-200 dark:border-gray-700 pt-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('vanSessions.totalValue')}</span>
                   <span className="font-bold text-blue-600 dark:text-blue-400">{formatCurrency(totalValue)}</span>
                 </div>
               </div>
@@ -263,7 +265,7 @@ export default function NewVanSessionPage() {
                 disabled={isSubmitting}
                 className="btn btn-primary w-full"
               >
-                {isSubmitting ? <span className="spinner w-4 h-4"></span> : 'إنشاء الجلسة'}
+                {isSubmitting ? <span className="spinner w-4 h-4"></span> : t('vanSessions.createSession')}
               </button>
             </div>
           </div>
@@ -271,7 +273,7 @@ export default function NewVanSessionPage() {
           {/* Products Selection */}
           <div className="lg:col-span-2">
             <div className="card">
-              <h2 className="text-lg font-bold text-gray-800 dark:text-white border-b dark:border-gray-700 pb-2 mb-4">المنتجات المحملة</h2>
+              <h2 className="text-lg font-bold text-gray-800 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2 mb-4">{t('vanSessions.loadedProducts')}</h2>
 
               {/* Product Search */}
               <div className="relative mb-4">
@@ -280,18 +282,18 @@ export default function NewVanSessionPage() {
                   value={productSearch}
                   onChange={(e) => setProductSearch(e.target.value)}
                   className="input"
-                  placeholder="ابحث عن منتج بالاسم أو الباركود..."
+                  placeholder={t('vanSessions.searchProductPlaceholder')}
                 />
                 {filteredProducts.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 z-10 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto">
+                  <div className="absolute top-full left-0 right-0 z-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto">
                     {filteredProducts.map(product => (
                       <button
                         key={product.id}
                         type="button"
                         onClick={() => addProduct(product)}
-                        className="w-full px-4 py-2 text-right hover:bg-gray-50 dark:hover:bg-gray-700 flex justify-between items-center"
+                        className="w-full px-4 py-2 text-start hover:bg-gray-50 dark:hover:bg-gray-700 flex justify-between items-center"
                       >
-                        <span className="dark:text-white">{product.name}</span>
+                        <span className="text-gray-900 dark:text-white">{product.name}</span>
                         <span className="text-sm text-gray-500 dark:text-gray-400">{formatCurrency(product.retail_price)}</span>
                       </button>
                     ))}
@@ -305,7 +307,7 @@ export default function NewVanSessionPage() {
                   <svg className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                   </svg>
-                  <p>ابحث عن منتجات وأضفها للجلسة</p>
+                  <p>{t('vanSessions.searchAndAddProducts')}</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -313,10 +315,10 @@ export default function NewVanSessionPage() {
                     <thead>
                       <tr>
                         <th>#</th>
-                        <th>المنتج</th>
-                        <th>الكمية</th>
-                        <th>السعر</th>
-                        <th>المجموع</th>
+                        <th>{t('vanSessions.thProduct')}</th>
+                        <th>{t('vanSessions.thQuantity')}</th>
+                        <th>{t('vanSessions.thPrice')}</th>
+                        <th>{t('vanSessions.thTotal')}</th>
                         <th></th>
                       </tr>
                     </thead>
@@ -324,7 +326,7 @@ export default function NewVanSessionPage() {
                       {items.map((item, idx) => (
                         <tr key={item.product_id}>
                           <td>{idx + 1}</td>
-                          <td className="font-medium dark:text-white">{item.product_name}</td>
+                          <td className="font-medium text-gray-900 dark:text-white">{item.product_name}</td>
                           <td>
                             <input
                               type="number"
@@ -336,7 +338,7 @@ export default function NewVanSessionPage() {
                             />
                           </td>
                           <td className="text-gray-500 dark:text-gray-400">{formatCurrency(item.retail_price)}</td>
-                          <td className="font-medium dark:text-white">{formatCurrency(item.quantity * item.retail_price)}</td>
+                          <td className="font-medium text-gray-900 dark:text-white">{formatCurrency(item.quantity * item.retail_price)}</td>
                           <td>
                             <button
                               type="button"
@@ -353,7 +355,7 @@ export default function NewVanSessionPage() {
                     </tbody>
                     <tfoot>
                       <tr className="font-bold">
-                        <td colSpan={4} className="text-left dark:text-white">الإجمالي</td>
+                        <td colSpan={4} className="text-start text-gray-900 dark:text-white">{t('vanSessions.grandTotal')}</td>
                         <td className="text-blue-600 dark:text-blue-400">{formatCurrency(totalValue)}</td>
                         <td></td>
                       </tr>

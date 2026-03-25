@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { clientCategoriesApi } from '@/lib/api';
+import { useLocale } from '@/lib/i18n/context';
 import toast from 'react-hot-toast';
 import {
   PlusIcon,
@@ -22,6 +23,7 @@ interface ClientCategory {
 }
 
 export default function ClientCategoriesPage() {
+  const { t, locale } = useLocale();
   const [categories, setCategories] = useState<ClientCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -43,7 +45,7 @@ export default function ClientCategoriesPage() {
       const response = await clientCategoriesApi.getAll();
       setCategories(response.data);
     } catch (error) {
-      toast.error('خطأ في تحميل البيانات');
+      toast.error(t('clientCategories.loadError'));
     } finally {
       setIsLoading(false);
     }
@@ -77,15 +79,15 @@ export default function ClientCategoriesPage() {
     try {
       if (selectedCategory) {
         await clientCategoriesApi.update(selectedCategory.id, formData);
-        toast.success('تم تحديث الفئة بنجاح');
+        toast.success(t('clientCategories.categoryUpdated'));
       } else {
         await clientCategoriesApi.create(formData);
-        toast.success('تم إضافة الفئة بنجاح');
+        toast.success(t('clientCategories.categoryAdded'));
       }
       handleCloseModal();
       fetchCategories();
     } catch (error) {
-      toast.error('حدث خطأ أثناء الحفظ');
+      toast.error(t('clientCategories.saveError'));
     } finally {
       setIsSaving(false);
     }
@@ -95,12 +97,12 @@ export default function ClientCategoriesPage() {
     if (!selectedCategory) return;
     try {
       await clientCategoriesApi.delete(selectedCategory.id);
-      toast.success('تم حذف الفئة بنجاح');
+      toast.success(t('clientCategories.categoryDeleted'));
       setIsDeleteOpen(false);
       setSelectedCategory(null);
       fetchCategories();
     } catch (error: any) {
-      const message = error.response?.data?.message || 'حدث خطأ أثناء الحذف';
+      const message = error.response?.data?.message || t('clientCategories.deleteError');
       toast.error(message);
     }
   };
@@ -114,23 +116,23 @@ export default function ClientCategoriesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">فئات العملاء</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">إدارة فئات العملاء وتصنيفاتهم (جملة، تجزئة...)</p>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{t('clientCategories.title')}</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">{t('clientCategories.subtitle')}</p>
         </div>
         <button onClick={handleOpenCreate} className="btn btn-primary">
           <PlusIcon className="w-5 h-5" />
-          إضافة فئة
+          {t('clientCategories.addCategory')}
         </button>
       </div>
 
       {/* Categories Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {categories.length === 0 ? (
-          <div className="col-span-full text-center py-12 text-gray-500">
-            <TagIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <p>لا توجد فئات بعد</p>
-            <button onClick={handleOpenCreate} className="mt-3 text-blue-600 hover:underline">
-              إضافة فئة جديدة
+          <div className="col-span-full text-center py-12 text-gray-500 dark:text-gray-400">
+            <TagIcon className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+            <p>{t('clientCategories.noCategories')}</p>
+            <button onClick={handleOpenCreate} className="mt-3 text-blue-600 dark:text-blue-400 hover:underline">
+              {t('clientCategories.addNewCategory')}
             </button>
           </div>
         ) : (
@@ -147,7 +149,7 @@ export default function ClientCategoriesPage() {
                       {category.is_default && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400">
                           <CheckCircleIcon className="w-3 h-3" />
-                          سعر البيع
+                          {t('clientCategories.sellingPrice')}
                         </span>
                       )}
                     </div>
@@ -161,13 +163,13 @@ export default function ClientCategoriesPage() {
               <div className="mt-4 flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                   <UserGroupIcon className="w-4 h-4" />
-                  <span>{category.clients_count ?? 0} عميل</span>
+                  <span>{t('clientCategories.clientCount', { count: category.clients_count ?? 0 })}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => handleOpenEdit(category)}
                     className="p-2 hover:bg-green-50 dark:hover:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg transition-colors"
-                    title="تعديل"
+                    title={t('clientCategories.edit')}
                   >
                     <PencilIcon className="w-5 h-5" />
                   </button>
@@ -177,7 +179,7 @@ export default function ClientCategoriesPage() {
                       setIsDeleteOpen(true);
                     }}
                     className="p-2 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg transition-colors"
-                    title="حذف"
+                    title={t('clientCategories.delete')}
                   >
                     <TrashIcon className="w-5 h-5" />
                   </button>
@@ -194,7 +196,7 @@ export default function ClientCategoriesPage() {
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md mx-4">
             <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
               <h3 className="text-lg font-bold dark:text-white">
-                {selectedCategory ? 'تعديل الفئة' : 'إضافة فئة جديدة'}
+                {selectedCategory ? t('clientCategories.editCategory') : t('clientCategories.addCategoryTitle')}
               </h3>
               <button onClick={handleCloseModal} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                 <XMarkIcon className="w-5 h-5 dark:text-gray-400" />
@@ -204,7 +206,7 @@ export default function ClientCategoriesPage() {
             <form onSubmit={handleSubmit} className="p-4 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  اسم الفئة <span className="text-red-500">*</span>
+                  {t('clientCategories.categoryName')} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -212,20 +214,20 @@ export default function ClientCategoriesPage() {
                   onChange={(e) => setFormData(p => ({ ...p, name: e.target.value }))}
                   className="input w-full"
                   required
-                  placeholder="مثال: Grossiste, Detaillant"
+                  placeholder={t('clientCategories.categoryNamePlaceholder')}
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  الوصف
+                  {t('clientCategories.description')}
                 </label>
                 <input
                   type="text"
                   value={formData.description}
                   onChange={(e) => setFormData(p => ({ ...p, description: e.target.value }))}
                   className="input w-full"
-                  placeholder="وصف مختصر للفئة"
+                  placeholder={t('clientCategories.descriptionPlaceholder')}
                 />
               </div>
 
@@ -238,26 +240,26 @@ export default function ClientCategoriesPage() {
                     className="w-5 h-5 text-blue-600 rounded"
                   />
                   <div>
-                    <span className="font-medium text-gray-700 dark:text-gray-300">سعر البيع (التجزئة)</span>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">سعر هذه الفئة يُستخدم كسعر بيع افتراضي، ويتم تعيينها تلقائياً للعملاء الجدد</p>
+                    <span className="font-medium text-gray-700 dark:text-gray-300">{t('clientCategories.sellingPriceRetail')}</span>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('clientCategories.sellingPriceDescription')}</p>
                   </div>
                 </label>
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
                 <button type="button" onClick={handleCloseModal} className="btn btn-secondary">
-                  إلغاء
+                  {t('clientCategories.cancel')}
                 </button>
                 <button type="submit" disabled={isSaving} className="btn btn-primary">
                   {isSaving ? (
                     <>
                       <span className="spinner w-4 h-4"></span>
-                      جاري الحفظ...
+                      {t('clientCategories.saving')}
                     </>
                   ) : selectedCategory ? (
-                    'تحديث الفئة'
+                    t('clientCategories.updateCategory')
                   ) : (
-                    'إضافة الفئة'
+                    t('clientCategories.addCategoryBtn')
                   )}
                 </button>
               </div>
@@ -272,24 +274,24 @@ export default function ClientCategoriesPage() {
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
             <div className="text-center">
               <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center mx-auto mb-4">
-                <TrashIcon className="w-8 h-8 text-red-600" />
+                <TrashIcon className="w-8 h-8 text-red-600 dark:text-red-400" />
               </div>
-              <h3 className="text-lg font-bold mb-2 dark:text-white">حذف الفئة</h3>
+              <h3 className="text-lg font-bold mb-2 dark:text-white">{t('clientCategories.deleteCategory')}</h3>
               <p className="text-gray-600 dark:text-gray-400 mb-6">
-                هل أنت متأكد من حذف الفئة &quot;{selectedCategory.name}&quot;؟
+                {t('clientCategories.deleteConfirm', { name: selectedCategory.name })}
                 {selectedCategory.is_default && (
                   <>
                     <br />
-                    <span className="text-sm text-red-600">
-                      هذه الفئة معيّنة كسعر بيع. قم بتعيين فئة أخرى كسعر بيع أولاً
+                    <span className="text-sm text-red-600 dark:text-red-400">
+                      {t('clientCategories.deleteDefaultWarning')}
                     </span>
                   </>
                 )}
                 {!selectedCategory.is_default && (selectedCategory.clients_count ?? 0) > 0 && (
                   <>
                     <br />
-                    <span className="text-sm text-red-600">
-                      هذه الفئة مرتبطة بـ {selectedCategory.clients_count} عميل ولا يمكن حذفها
+                    <span className="text-sm text-red-600 dark:text-red-400">
+                      {t('clientCategories.deleteLinkedWarning', { count: selectedCategory.clients_count ?? 0 })}
                     </span>
                   </>
                 )}
@@ -299,14 +301,14 @@ export default function ClientCategoriesPage() {
                   onClick={() => setIsDeleteOpen(false)}
                   className="btn btn-secondary"
                 >
-                  إلغاء
+                  {t('clientCategories.cancel')}
                 </button>
                 <button
                   onClick={handleDelete}
                   disabled={selectedCategory.is_default}
-                  className={`btn ${selectedCategory.is_default ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'} text-white`}
+                  className={`btn ${selectedCategory.is_default ? 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'} text-white`}
                 >
-                  نعم، حذف الفئة
+                  {t('clientCategories.confirmDelete')}
                 </button>
               </div>
             </div>

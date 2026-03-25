@@ -1,12 +1,16 @@
 'use client';
 
+import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
 import { deliveriesApi, warehousesApi } from '@/lib/api';
 import { formatQty } from '@/lib/utils';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
+import { useLocale } from '@/lib/i18n/context';
+import GuidedTour, { TourStep } from '@/components/GuidedTour';
 import {
+  ArrowRightIcon,
+  ArrowLeftIcon,
   TruckIcon,
   UserIcon,
   BanknotesIcon,
@@ -20,6 +24,10 @@ import {
   ArrowPathIcon,
   ExclamationTriangleIcon,
   CurrencyDollarIcon,
+  PlayIcon,
+  BuildingStorefrontIcon,
+  IdentificationIcon,
+  ChartBarIcon,
 } from '@heroicons/react/24/outline';
 
 interface OrderItem {
@@ -76,6 +84,7 @@ interface DeliveryReturn {
   product?: {
     id: number;
     name: string;
+    pieces_per_package?: number;
   };
 }
 
@@ -100,11 +109,14 @@ interface Delivery {
 }
 
 export default function DeliveryDetail() {
+  const { t, locale, dir } = useLocale();
+  const isRTL = dir === 'rtl';
   const params = useParams();
   const [id, setId] = useState<string | null>(null);
   const [delivery, setDelivery] = useState<Delivery | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedOrder, setExpandedOrder] = useState<number | null>(null);
+  const [showTour, setShowTour] = useState(false);
 
   // Payment modal state
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -119,6 +131,47 @@ export default function DeliveryDetail() {
   const [selectedWarehouse, setSelectedWarehouse] = useState<number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingReturnId, setProcessingReturnId] = useState<number | null>(null);
+
+  const [isStarting, setIsStarting] = useState(false);
+
+  const BackArrowIcon = isRTL ? ArrowRightIcon : ArrowLeftIcon;
+
+  const tourSteps: TourStep[] = useMemo(() => [
+    { target: '[data-tour="dd-header"]', title: t('deliveryDetail.tourHeaderTitle'), desc: t('deliveryDetail.tourHeaderDesc'), position: 'bottom' as const },
+    { target: '[data-tour="dd-info"]', title: t('deliveryDetail.tourInfoTitle'), desc: t('deliveryDetail.tourInfoDesc'), position: 'bottom' as const },
+    { target: '[data-tour="dd-kpi"]', title: t('deliveryDetail.tourKpiTitle'), desc: t('deliveryDetail.tourKpiDesc'), position: 'bottom' as const },
+    { target: '[data-tour="dd-orders"]', title: t('deliveryDetail.tourOrdersTitle'), desc: t('deliveryDetail.tourOrdersDesc'), position: 'top' as const },
+  ], [t]);
+
+  const getStatusConfig = (status: string) => {
+    const configs: Record<string, { bg: string; darkBg: string; text: string; darkText: string; icon: typeof ClockIcon; label: string; color: string }> = {
+      preparing: { bg: 'bg-amber-100', darkBg: 'dark:bg-amber-900/30', text: 'text-amber-800', darkText: 'dark:text-amber-300', icon: ClockIcon, label: t('deliveryDetail.statusPreparing'), color: 'amber' },
+      in_progress: { bg: 'bg-blue-100', darkBg: 'dark:bg-blue-900/30', text: 'text-blue-800', darkText: 'dark:text-blue-300', icon: TruckIcon, label: t('deliveryDetail.statusInProgress'), color: 'blue' },
+      completed: { bg: 'bg-green-100', darkBg: 'dark:bg-green-900/30', text: 'text-green-800', darkText: 'dark:text-green-300', icon: CheckCircleIcon, label: t('deliveryDetail.statusCompleted'), color: 'green' },
+      cancelled: { bg: 'bg-red-100', darkBg: 'dark:bg-red-900/30', text: 'text-red-800', darkText: 'dark:text-red-300', icon: XCircleIcon, label: t('deliveryDetail.statusCancelled'), color: 'red' },
+    };
+    return configs[status] || configs.preparing;
+  };
+
+  const getOrderStatusConfig = (status: string) => {
+    const configs: Record<string, { bg: string; text: string; icon: typeof ClockIcon; label: string }> = {
+      pending: { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-800 dark:text-amber-300', icon: ClockIcon, label: t('deliveryDetail.orderPending') },
+      delivered: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-800 dark:text-green-300', icon: CheckCircleIcon, label: t('deliveryDetail.orderDelivered') },
+      partial: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-800 dark:text-blue-300', icon: CubeIcon, label: t('deliveryDetail.orderPartial') },
+      failed: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-300', icon: XCircleIcon, label: t('deliveryDetail.orderFailed') },
+      postponed: { bg: 'bg-gray-100 dark:bg-gray-700/50', text: 'text-gray-700 dark:text-gray-300', icon: ClockIcon, label: t('deliveryDetail.orderPostponed') },
+    };
+    return configs[status] || configs.pending;
+  };
+
+  const returnReasonLabels = useMemo(() => ({
+    refused: t('deliveryDetail.reasonRefused'),
+    damaged: t('deliveryDetail.reasonDamaged'),
+    excess: t('deliveryDetail.reasonExcess'),
+    store_closed: t('deliveryDetail.reasonStoreClosed'),
+    wrong: t('deliveryDetail.reasonWrong'),
+    other: t('deliveryDetail.reasonOther'),
+  } as Record<string, string>), [t]);
 
   // Extract ID from URL for static export compatibility
   useEffect(() => {
@@ -145,7 +198,6 @@ export default function DeliveryDetail() {
     try {
       const response = await warehousesApi.getAll();
       setWarehouses(response.data.data || response.data || []);
-      // Set default warehouse if delivery has one
       if (delivery?.warehouse?.id) {
         setSelectedWarehouse(delivery.warehouse.id);
       }
@@ -159,57 +211,24 @@ export default function DeliveryDetail() {
     try {
       const response = await deliveriesApi.getOne(parseInt(id));
       setDelivery(response.data.data || response.data);
-    } catch (error) {
-      toast.error('خطأ في تحميل البيانات');
+    } catch {
+      toast.error(t('deliveryDetail.errorLoadingData'));
     } finally {
       setIsLoading(false);
     }
   };
 
   const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
+    new Intl.NumberFormat(locale === 'fr' ? 'fr-DZ' : 'ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
 
   const formatDate = (date: string) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString('ar-DZ');
+    if (!date) return t('deliveryDetail.noData');
+    return new Date(date).toLocaleDateString(locale === 'fr' ? 'fr-DZ' : 'ar-DZ');
   };
 
   const formatDateTime = (date: string) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleString('ar-DZ');
-  };
-
-  const getStatusBadge = (status: string) => {
-    const badges: Record<string, { class: string; text: string }> = {
-      preparing: { class: 'badge-warning', text: 'قيد التحضير' },
-      in_progress: { class: 'badge-info', text: 'قيد التوصيل' },
-      completed: { class: 'badge-success', text: 'مكتمل' },
-      cancelled: { class: 'badge-danger', text: 'ملغي' },
-    };
-    return badges[status] || { class: 'badge-secondary', text: status };
-  };
-
-  const getOrderStatusBadge = (status: string) => {
-    const badges: Record<string, { class: string; text: string }> = {
-      pending: { class: 'badge-warning', text: 'معلق' },
-      delivered: { class: 'badge-success', text: 'تم التسليم' },
-      partial: { class: 'badge-info', text: 'جزئي' },
-      failed: { class: 'badge-danger', text: 'فشل' },
-      postponed: { class: 'badge-secondary', text: 'مؤجل' },
-    };
-    return badges[status] || { class: 'badge-secondary', text: status };
-  };
-
-  const getReturnReasonLabel = (reason: string) => {
-    const labels: Record<string, string> = {
-      refused: 'مرفوض',
-      damaged: 'تالف',
-      excess: 'زيادة',
-      store_closed: 'المحل مغلق',
-      wrong: 'خطأ',
-      other: 'أخرى',
-    };
-    return labels[reason] || reason;
+    if (!date) return t('deliveryDetail.noData');
+    return new Date(date).toLocaleString(locale === 'fr' ? 'fr-DZ' : 'ar-DZ');
   };
 
   const toggleExpand = (orderId: number) => {
@@ -232,12 +251,12 @@ export default function DeliveryDetail() {
     const remaining = selectedOrder.amount_due - selectedOrder.amount_collected;
 
     if (isNaN(amount) || amount <= 0) {
-      toast.error('يرجى إدخال مبلغ صحيح');
+      toast.error(t('deliveryDetail.enterValidAmount'));
       return;
     }
 
     if (amount > remaining) {
-      toast.error('المبلغ أكبر من المتبقي');
+      toast.error(t('deliveryDetail.amountExceedsRemaining'));
       return;
     }
 
@@ -247,11 +266,11 @@ export default function DeliveryDetail() {
         amount,
         notes: paymentNotes,
       });
-      toast.success('تم تسجيل الدفعة بنجاح');
+      toast.success(t('deliveryDetail.paymentSuccess'));
       setShowPaymentModal(false);
       fetchDelivery();
-    } catch (error: any) {
-      const message = error.response?.data?.message || 'خطأ في تسجيل الدفعة';
+    } catch (error: unknown) {
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || t('deliveryDetail.paymentError');
       toast.error(message);
     } finally {
       setIsSubmittingPayment(false);
@@ -261,23 +280,22 @@ export default function DeliveryDetail() {
   const handlePayFull = async (order: DeliveryOrder) => {
     if (!delivery) return;
     const remaining = order.amount_due - order.amount_collected;
-    if (!confirm(`هل تريد تسجيل دفعة كاملة بمبلغ ${formatCurrency(remaining)}؟`)) return;
+    if (!confirm(t('deliveryDetail.confirmPayFull').replace('{amount}', formatCurrency(remaining)))) return;
 
     try {
       await deliveriesApi.collectPayment(delivery.id, order.id, {
         amount: remaining,
-        notes: 'دفعة كاملة',
+        notes: t('deliveryDetail.fullPaymentNote'),
       });
-      toast.success('تم تسجيل الدفعة بنجاح');
+      toast.success(t('deliveryDetail.paymentSuccess'));
       fetchDelivery();
-    } catch (error: any) {
-      const message = error.response?.data?.message || 'خطأ في تسجيل الدفعة';
+    } catch (error: unknown) {
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || t('deliveryDetail.paymentError');
       toast.error(message);
     }
   };
 
   const openProcessModal = (returnId?: number) => {
-    // Set default warehouse from delivery
     if (delivery?.warehouse?.id) {
       setSelectedWarehouse(delivery.warehouse.id);
     }
@@ -287,47 +305,43 @@ export default function DeliveryDetail() {
 
   const handleProcessReturns = async () => {
     if (!delivery || !selectedWarehouse) {
-      toast.error('يرجى اختيار المستودع');
+      toast.error(t('deliveryDetail.selectWarehouseError'));
       return;
     }
 
     setIsProcessing(true);
     try {
       if (processingReturnId) {
-        // Process single return
         await deliveriesApi.processReturn(delivery.id, processingReturnId, {
           warehouse_id: selectedWarehouse,
         });
-        toast.success('تمت معالجة المرتجع بنجاح');
+        toast.success(t('deliveryDetail.processReturnSuccess'));
       } else {
-        // Process all returns
         await deliveriesApi.processReturns(delivery.id, {
           warehouse_id: selectedWarehouse,
         });
-        toast.success('تمت معالجة جميع المرتجعات بنجاح');
+        toast.success(t('deliveryDetail.processAllReturnsSuccess'));
       }
       setShowProcessModal(false);
       fetchDelivery();
-    } catch (error: any) {
-      const message = error.response?.data?.message || 'خطأ في معالجة المرتجعات';
+    } catch (error: unknown) {
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || t('deliveryDetail.processReturnError');
       toast.error(message);
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const [isStarting, setIsStarting] = useState(false);
-
   const handleStartDelivery = async () => {
     if (!delivery) return;
-    if (!confirm('هل تريد بدء هذه التوصيلة؟ سيتم خصم المنتجات من المستودع.')) return;
+    if (!confirm(t('deliveryDetail.confirmStartDelivery'))) return;
     setIsStarting(true);
     try {
       await deliveriesApi.start(delivery.id);
-      toast.success('تم بدء التوصيلة بنجاح');
+      toast.success(t('deliveryDetail.startSuccess'));
       fetchDelivery();
-    } catch (error: any) {
-      const message = error.response?.data?.message || 'خطأ في بدء التوصيلة';
+    } catch (error: unknown) {
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || t('deliveryDetail.startError');
       toast.error(message);
     } finally {
       setIsStarting(false);
@@ -335,293 +349,294 @@ export default function DeliveryDetail() {
   };
 
   if (isLoading) return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
-  if (!delivery) return <div className="text-center py-8 text-gray-500">لم يتم العثور على التوصيلة</div>;
+  if (!delivery) return <div className="text-center py-12 text-gray-500 dark:text-gray-400">{t('deliveryDetail.notFound')}</div>;
 
-  const statusBadge = getStatusBadge(delivery.status);
+  const statusConfig = getStatusConfig(delivery.status);
+  const StatusIcon = statusConfig.icon;
   const uncollectedAmount = (delivery.total_amount || 0) - (delivery.collected_amount || 0);
   const collectionRate = delivery.total_amount > 0 ? ((delivery.collected_amount || 0) / delivery.total_amount) * 100 : 0;
-
-  // Calculate totals
   const totalDelivered = delivery.delivery_orders?.filter(o => ['delivered', 'partial'].includes(o.status)).length || 0;
   const totalReturns = delivery.returns?.length || 0;
   const totalLoss = delivery.returns?.filter(r => !r.returnable_to_stock).reduce((sum, r) => sum + (r.loss_amount || 0), 0) || 0;
 
   return (
-    <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-5">
+      {/* ───── Header ───── */}
+      <div data-tour="dd-header" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Link href="/dashboard/deliveries" className="text-gray-500 hover:text-gray-700">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
+          <Link href="/dashboard/deliveries" className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+            <BackArrowIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
           </Link>
-          <div>
-            <h1 className="text-2xl font-bold">{delivery.reference}</h1>
-            <p className="text-gray-500">{formatDate(delivery.date)}</p>
+
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+            <TruckIcon className="w-6 h-6 text-white" />
           </div>
-          <span className={`badge ${statusBadge.class}`}>{statusBadge.text}</span>
+
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">{delivery.reference}</h1>
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${statusConfig.bg} ${statusConfig.darkBg} ${statusConfig.text} ${statusConfig.darkText}`}>
+                <StatusIcon className="w-4 h-4" />
+                {statusConfig.label}
+              </span>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{t('deliveryDetail.dateLabel')} {formatDate(delivery.date)}</p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={() => setShowTour(true)} className="text-sm font-medium text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors">
+            {t('deliveryDetail.tourBtn')}
+          </button>
+
           {delivery.status === 'preparing' && (
             <button
               onClick={handleStartDelivery}
               disabled={isStarting}
-              className="btn bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 shadow-sm disabled:opacity-50 transition-all active:scale-[0.98]"
             >
-              {isStarting ? (
-                <div className="spinner w-5 h-5 border-white"></div>
-              ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              )}
-              بدء التوصيلة
+              {isStarting ? <div className="spinner w-4 h-4 border-white"></div> : <PlayIcon className="w-4 h-4" />}
+              {isStarting ? t('deliveryDetail.starting') : t('deliveryDetail.startDelivery')}
             </button>
           )}
-          <button onClick={fetchDelivery} className="btn btn-outline">
-            <ArrowPathIcon className="w-5 h-5" />
-            تحديث
+
+          <button onClick={fetchDelivery} className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl border-2 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all">
+            <ArrowPathIcon className="w-4 h-4" />
+            {t('deliveryDetail.refresh')}
           </button>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
-        <div className="card">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-              <UserIcon className="w-5 h-5 text-blue-600" />
+      {/* ───── Info Cards ───── */}
+      <div data-tour="dd-info" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        {[
+          { icon: UserIcon, label: t('deliveryDetail.driver'), value: delivery.livreur?.name || t('deliveryDetail.noData'), color: 'blue' },
+          { icon: TruckIcon, label: t('deliveryDetail.vehicle'), value: delivery.vehicle?.name || t('deliveryDetail.noData'), color: 'purple' },
+          { icon: BuildingStorefrontIcon, label: t('deliveryDetail.warehouse'), value: delivery.warehouse?.name || t('deliveryDetail.noData'), color: 'indigo' },
+          { icon: IdentificationIcon, label: t('deliveryDetail.plateNumber'), value: delivery.vehicle?.plate_number || t('deliveryDetail.noData'), color: 'emerald' },
+          { icon: ClockIcon, label: t('deliveryDetail.startTime'), value: delivery.start_time ? formatDateTime(delivery.start_time) : t('deliveryDetail.noData'), color: 'orange' },
+          { icon: ClockIcon, label: t('deliveryDetail.endTime'), value: delivery.end_time ? formatDateTime(delivery.end_time) : t('deliveryDetail.noData'), color: 'rose' },
+        ].map((card, i) => {
+          const colorMap: Record<string, string> = {
+            blue: 'bg-blue-50 dark:bg-blue-900/30 border-blue-100 dark:border-blue-800 text-blue-600 dark:text-blue-400',
+            purple: 'bg-purple-50 dark:bg-purple-900/30 border-purple-100 dark:border-purple-800 text-purple-600 dark:text-purple-400',
+            indigo: 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-100 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400',
+            emerald: 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-100 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400',
+            orange: 'bg-orange-50 dark:bg-orange-900/30 border-orange-100 dark:border-orange-800 text-orange-600 dark:text-orange-400',
+            rose: 'bg-rose-50 dark:bg-rose-900/30 border-rose-100 dark:border-rose-800 text-rose-600 dark:text-rose-400',
+          };
+          return (
+            <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className={`w-11 h-11 rounded-xl border flex items-center justify-center ${colorMap[card.color]}`}>
+                  <card.icon className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[11px] uppercase tracking-wider text-gray-400 dark:text-gray-500">{card.label}</p>
+                  <p className="text-sm font-bold text-gray-800 dark:text-gray-100 truncate">{card.value}</p>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-gray-500">السائق</p>
-              <p className="font-bold text-sm">{delivery.livreur?.name || '-'}</p>
-            </div>
-          </div>
-        </div>
+          );
+        })}
+      </div>
 
-        <div className="card">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
-              <TruckIcon className="w-5 h-5 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">المركبة</p>
-              <p className="font-bold text-sm">{delivery.vehicle?.name || '-'}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center">
-              <BanknotesIcon className="w-5 h-5 text-yellow-600" />
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">المبلغ الإجمالي</p>
-              <p className="font-bold text-sm">{formatCurrency(delivery.total_amount || 0)}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="card bg-green-50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-              <CheckCircleIcon className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">المحصل</p>
-              <p className="font-bold text-sm text-green-600">{formatCurrency(delivery.collected_amount || 0)}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="card bg-red-50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-              <XCircleIcon className="w-5 h-5 text-red-600" />
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">المتبقي</p>
-              <p className="font-bold text-sm text-red-600">{formatCurrency(uncollectedAmount)}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
-              <CurrencyDollarIcon className="w-5 h-5 text-indigo-600" />
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">نسبة التحصيل</p>
-              <p className="font-bold text-sm text-indigo-600">{collectionRate.toFixed(0)}%</p>
-            </div>
-          </div>
+      {/* ───── Financial KPI Strip ───── */}
+      <div data-tour="dd-kpi" className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 ${isRTL ? 'divide-x-reverse' : ''} divide-x divide-gray-100 dark:divide-gray-700`}>
+          {[
+            { icon: BanknotesIcon, label: t('deliveryDetail.totalAmount'), value: formatCurrency(delivery.total_amount || 0), color: 'blue', bar: 'bg-blue-500' },
+            { icon: CheckCircleIcon, label: t('deliveryDetail.collected'), value: formatCurrency(delivery.collected_amount || 0), color: 'green', bar: 'bg-green-500' },
+            { icon: XCircleIcon, label: t('deliveryDetail.remaining'), value: formatCurrency(uncollectedAmount), color: 'red', bar: 'bg-red-500' },
+            { icon: ChartBarIcon, label: t('deliveryDetail.collectionRate'), value: `${collectionRate.toFixed(0)}%`, color: 'indigo', bar: 'bg-indigo-500' },
+            { icon: ExclamationTriangleIcon, label: t('deliveryDetail.totalLoss'), value: formatCurrency(totalLoss), color: 'orange', bar: 'bg-orange-500' },
+          ].map((kpi, i) => {
+            const textColor: Record<string, string> = {
+              blue: 'text-blue-600 dark:text-blue-400',
+              green: 'text-green-600 dark:text-green-400',
+              red: 'text-red-600 dark:text-red-400',
+              indigo: 'text-indigo-600 dark:text-indigo-400',
+              orange: 'text-orange-600 dark:text-orange-400',
+            };
+            return (
+              <div key={i} className="group relative p-4 hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
+                <div className={`absolute top-0 ${isRTL ? 'right-0' : 'left-0'} w-full h-[3px] ${kpi.bar} scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-${isRTL ? 'right' : 'left'}`} />
+                <div className="flex items-center gap-2 mb-1">
+                  <kpi.icon className={`w-4 h-4 ${textColor[kpi.color]}`} />
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400">{kpi.label}</span>
+                </div>
+                <p className={`text-lg font-bold ${textColor[kpi.color]}`}>{kpi.value}</p>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* Orders Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        <div className="card text-center">
-          <p className="text-3xl font-bold text-blue-600">{delivery.total_orders}</p>
-          <p className="text-sm text-gray-500">إجمالي الطلبات</p>
-        </div>
-        <div className="card text-center">
-          <p className="text-3xl font-bold text-green-600">{totalDelivered}</p>
-          <p className="text-sm text-gray-500">تم التسليم</p>
-        </div>
-        <div className="card text-center">
-          <p className="text-3xl font-bold text-red-600">{delivery.failed_count || 0}</p>
-          <p className="text-sm text-gray-500">فشل/مؤجل</p>
-        </div>
-        <div className="card text-center">
-          <p className="text-3xl font-bold text-orange-600">{totalReturns}</p>
-          <p className="text-sm text-gray-500">مرتجعات</p>
-        </div>
+      {/* ───── Order Stats Strip ───── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { value: delivery.total_orders, label: t('deliveryDetail.totalOrders'), color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+          { value: totalDelivered, label: t('deliveryDetail.deliveredCount'), color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/20' },
+          { value: delivery.failed_count || 0, label: t('deliveryDetail.failedPostponed'), color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20' },
+          { value: totalReturns, label: t('deliveryDetail.returnsCount'), color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-900/20' },
+        ].map((stat, i) => (
+          <div key={i} className={`${stat.bg} rounded-2xl border border-gray-200/60 dark:border-gray-700 p-4 text-center`}>
+            <p className={`text-3xl font-extrabold ${stat.color}`}>{stat.value}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">{stat.label}</p>
+          </div>
+        ))}
       </div>
 
-      {/* Delivery Orders */}
-      <div className="card mb-6">
-        <h2 className="text-lg font-semibold mb-4">تفاصيل الطلبات</h2>
+      {/* ───── Delivery Orders ───── */}
+      <div data-tour="dd-orders" className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
+              <CubeIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <h2 className="font-bold text-gray-800 dark:text-gray-100">{t('deliveryDetail.orderDetails')}</h2>
+            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">
+              {delivery.delivery_orders?.length || 0}
+            </span>
+          </div>
+        </div>
 
-        <div className="space-y-3">
+        <div className="divide-y divide-gray-100 dark:divide-gray-700">
           {delivery.delivery_orders?.map((order) => {
-            const orderStatusBadge = getOrderStatusBadge(order.status);
+            const orderStatus = getOrderStatusConfig(order.status);
+            const OrderStatusIcon = orderStatus.icon;
             const remaining = order.amount_due - order.amount_collected;
             const hasRemaining = remaining > 0;
             const isExpanded = expandedOrder === order.id;
 
             return (
-              <div key={order.id} className="border rounded-lg overflow-hidden">
+              <div key={order.id}>
                 {/* Order Header */}
                 <div
-                  className={`flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 ${isExpanded ? 'bg-gray-50' : ''}`}
+                  className={`flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-gray-50/80 dark:hover:bg-gray-700/30 transition-colors ${isExpanded ? 'bg-gray-50/80 dark:bg-gray-700/30' : ''}`}
                   onClick={() => toggleExpand(order.id)}
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center font-bold text-sm">
+                    <div className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center font-bold text-sm text-gray-600 dark:text-gray-300">
                       {order.delivery_order}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-bold">{order.order?.reference || '-'}</span>
-                        <span className={`badge ${orderStatusBadge.class}`}>{orderStatusBadge.text}</span>
+                        <span className="font-bold text-gray-800 dark:text-gray-100">{order.order?.reference || t('deliveryDetail.noData')}</span>
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${orderStatus.bg} ${orderStatus.text}`}>
+                          <OrderStatusIcon className="w-3.5 h-3.5" />
+                          {orderStatus.label}
+                        </span>
                       </div>
-                      <div className="text-sm text-gray-500">
-                        {order.client?.name} • {order.client?.phone || '-'}
-                      </div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {order.client?.name} {order.client?.phone ? `• ${order.client.phone}` : ''}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-6">
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500">المستحق</p>
-                      <p className="font-bold">{formatCurrency(order.amount_due)}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500">المحصل</p>
-                      <p className="font-bold text-green-600">{formatCurrency(order.amount_collected)}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500">المتبقي</p>
-                      <p className={`font-bold ${hasRemaining ? 'text-red-600' : 'text-green-600'}`}>
-                        {formatCurrency(remaining)}
-                      </p>
+                  <div className="flex items-center gap-5">
+                    <div className="hidden sm:flex items-center gap-5">
+                      <div className="text-center">
+                        <p className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('deliveryDetail.amountDue')}</p>
+                        <p className="font-bold text-gray-800 dark:text-gray-100">{formatCurrency(order.amount_due)}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('deliveryDetail.amountCollected')}</p>
+                        <p className="font-bold text-green-600 dark:text-green-400">{formatCurrency(order.amount_collected)}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('deliveryDetail.remainingAmount')}</p>
+                        <p className={`font-bold ${hasRemaining ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                          {formatCurrency(remaining)}
+                        </p>
+                      </div>
                     </div>
 
                     {hasRemaining && ['delivered', 'partial'].includes(order.status) && (
-                      <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => openPaymentModal(order)}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded bg-blue-600 text-white hover:bg-blue-700"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
                         >
                           <CurrencyDollarIcon className="w-3.5 h-3.5" />
-                          تحصيل
+                          {t('deliveryDetail.collectBtn')}
                         </button>
                         <button
                           onClick={() => handlePayFull(order)}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded bg-green-600 text-white hover:bg-green-700"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors"
                         >
                           <CheckCircleIcon className="w-3.5 h-3.5" />
-                          كامل
+                          {t('deliveryDetail.fullPaymentBtn')}
                         </button>
                       </div>
                     )}
 
                     {isExpanded ? (
-                      <ChevronUpIcon className="w-5 h-5 text-gray-400" />
+                      <ChevronUpIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
                     ) : (
-                      <ChevronDownIcon className="w-5 h-5 text-gray-400" />
+                      <ChevronDownIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
                     )}
                   </div>
                 </div>
 
                 {/* Order Details (Expanded) */}
                 {isExpanded && order.order?.items && (
-                  <div className="border-t p-4 bg-white">
-                    <h4 className="font-medium mb-3 flex items-center gap-2">
-                      <CubeIcon className="w-4 h-4" />
-                      المنتجات ({order.order.items.length})
+                  <div className="border-t border-gray-100 dark:border-gray-700 px-5 py-4 bg-gray-50/30 dark:bg-gray-900/20">
+                    <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2 text-sm">
+                      <CubeIcon className="w-4 h-4 text-indigo-500" />
+                      {t('deliveryDetail.products')} ({order.order.items.length})
                     </h4>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
                       <table className="w-full text-sm">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-3 py-2 text-right">المنتج</th>
-                            <th className="px-3 py-2 text-center">المطلوب</th>
-                            <th className="px-3 py-2 text-center">المسلم</th>
-                            <th className="px-3 py-2 text-center">المرتجع</th>
-                            <th className="px-3 py-2 text-right">السعر/قطعة</th>
-                            <th className="px-3 py-2 text-center">قطع/وحدة</th>
-                            <th className="px-3 py-2 text-right">المجموع</th>
+                        <thead>
+                          <tr className="bg-gray-100/80 dark:bg-gray-700/50">
+                            <th className="px-3 py-2.5 text-start text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.product')}</th>
+                            <th className="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.ordered')}</th>
+                            <th className="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.delivered')}</th>
+                            <th className="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.returned')}</th>
+                            <th className="px-3 py-2.5 text-start text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.unitPrice')}</th>
+                            <th className="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.piecesPerUnit')}</th>
+                            <th className="px-3 py-2.5 text-start text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.subtotal')}</th>
                           </tr>
                         </thead>
-                        <tbody>
+                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800">
                           {order.order.items.map((item) => {
                             const piecesPerPkg = item.product?.pieces_per_package || 1;
                             const deliveredAmount = (item.quantity_delivered || 0) * item.unit_price;
                             return (
-                              <tr key={item.id} className="border-t">
-                                <td className="px-3 py-2">
-                                  <div className="font-medium">{item.product?.name || '-'}</div>
-                                  {item.product?.barcode && (
-                                    <div className="text-xs text-gray-400">{item.product.barcode}</div>
-                                  )}
+                              <tr key={item.id} className="hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors">
+                                <td className="px-3 py-2.5">
+                                  <div className="font-medium text-gray-800 dark:text-gray-100">{item.product?.name || t('deliveryDetail.noData')}</div>
+                                  {item.product?.barcode && <div className="text-[10px] text-gray-400 dark:text-gray-500">{item.product.barcode}</div>}
                                 </td>
-                                <td className="px-3 py-2 text-center">
+                                <td className="px-3 py-2.5 text-center text-gray-700 dark:text-gray-300">
                                   <div>{formatQty(item.quantity_confirmed, piecesPerPkg)}</div>
-                                  {piecesPerPkg > 1 && (
-                                    <div className="text-xs text-gray-400">{item.quantity_confirmed} قطعة</div>
-                                  )}
+                                  {piecesPerPkg > 1 && <div className="text-[10px] text-gray-400">{item.quantity_confirmed} {t('deliveryDetail.pieces')}</div>}
                                 </td>
-                                <td className="px-3 py-2 text-center">
-                                  <span className={item.quantity_delivered > 0 ? 'text-green-600 font-medium' : 'text-gray-400'}>
+                                <td className="px-3 py-2.5 text-center">
+                                  <span className={item.quantity_delivered > 0 ? 'text-green-600 dark:text-green-400 font-medium' : 'text-gray-400'}>
                                     {formatQty(item.quantity_delivered || 0, piecesPerPkg)}
                                   </span>
                                   {piecesPerPkg > 1 && (item.quantity_delivered || 0) > 0 && (
-                                    <div className="text-xs text-gray-400">{item.quantity_delivered} قطعة</div>
+                                    <div className="text-[10px] text-gray-400">{item.quantity_delivered} {t('deliveryDetail.pieces')}</div>
                                   )}
                                 </td>
-                                <td className="px-3 py-2 text-center">
-                                  <span className={item.quantity_returned > 0 ? 'text-red-600 font-medium' : 'text-gray-400'}>
+                                <td className="px-3 py-2.5 text-center">
+                                  <span className={item.quantity_returned > 0 ? 'text-red-600 dark:text-red-400 font-medium' : 'text-gray-400'}>
                                     {formatQty(item.quantity_returned || 0, piecesPerPkg)}
                                   </span>
                                 </td>
-                                <td className="px-3 py-2">
+                                <td className="px-3 py-2.5 text-gray-700 dark:text-gray-300">
                                   {formatCurrency(item.unit_price)}
                                   {piecesPerPkg > 1 && (
-                                    <div className="text-xs text-blue-500">({formatCurrency(item.unit_price * piecesPerPkg)}/كرتون)</div>
+                                    <div className="text-[10px] text-blue-500 dark:text-blue-400">({formatCurrency(item.unit_price * piecesPerPkg)}{t('deliveryDetail.perCarton')})</div>
                                   )}
                                 </td>
-                                <td className="px-3 py-2 text-center">{piecesPerPkg}</td>
-                                <td className="px-3 py-2 font-medium">
+                                <td className="px-3 py-2.5 text-center text-gray-700 dark:text-gray-300">{piecesPerPkg}</td>
+                                <td className="px-3 py-2.5 font-medium text-gray-800 dark:text-gray-100">
                                   {formatCurrency(deliveredAmount)}
                                   {piecesPerPkg > 1 && (item.quantity_delivered || 0) > 0 && (
-                                    <div className="text-xs text-gray-400">
-                                      {item.unit_price} × {item.quantity_delivered}
-                                    </div>
+                                    <div className="text-[10px] text-gray-400">{item.unit_price} × {item.quantity_delivered}</div>
                                   )}
                                 </td>
                               </tr>
@@ -632,29 +647,29 @@ export default function DeliveryDetail() {
                     </div>
 
                     {/* Order Additional Info */}
-                    <div className="mt-4 pt-4 border-t grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       {order.delivered_at && (
                         <div>
-                          <p className="text-gray-500">وقت التسليم</p>
-                          <p className="font-medium">{formatDateTime(order.delivered_at)}</p>
+                          <p className="text-gray-500 dark:text-gray-400 text-xs">{t('deliveryDetail.deliveryTime')}</p>
+                          <p className="font-medium text-gray-800 dark:text-gray-100">{formatDateTime(order.delivered_at)}</p>
                         </div>
                       )}
                       {order.client?.address && (
                         <div className="col-span-2">
-                          <p className="text-gray-500">العنوان</p>
-                          <p className="font-medium">{order.client.address}</p>
+                          <p className="text-gray-500 dark:text-gray-400 text-xs">{t('deliveryDetail.address')}</p>
+                          <p className="font-medium text-gray-800 dark:text-gray-100">{order.client.address}</p>
                         </div>
                       )}
                       {order.failure_reason && (
                         <div className="col-span-2">
-                          <p className="text-gray-500">سبب الفشل</p>
-                          <p className="font-medium text-red-600">{order.failure_reason}</p>
+                          <p className="text-gray-500 dark:text-gray-400 text-xs">{t('deliveryDetail.failureReason')}</p>
+                          <p className="font-medium text-red-600 dark:text-red-400">{order.failure_reason}</p>
                         </div>
                       )}
                       {order.notes && (
                         <div className="col-span-2">
-                          <p className="text-gray-500">ملاحظات</p>
-                          <p className="font-medium">{order.notes}</p>
+                          <p className="text-gray-500 dark:text-gray-400 text-xs">{t('deliveryDetail.notes')}</p>
+                          <p className="font-medium text-gray-800 dark:text-gray-100">{order.notes}</p>
                         </div>
                       )}
                     </div>
@@ -666,84 +681,94 @@ export default function DeliveryDetail() {
         </div>
       </div>
 
-      {/* Returns Section */}
+      {/* ───── Returns Section ───── */}
       {delivery.returns && delivery.returns.length > 0 && (
-        <div className="card mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <ArrowPathIcon className="w-5 h-5" />
-              المرتجعات ({delivery.returns.length})
-            </h2>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center">
+                <ArrowPathIcon className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+              </div>
+              <h2 className="font-bold text-gray-800 dark:text-gray-100">{t('deliveryDetail.returnsTitle')}</h2>
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300">
+                {delivery.returns.length}
+              </span>
+            </div>
             {delivery.returns.some(r => !r.processed) && (
               <button
                 onClick={() => openProcessModal()}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-sm transition-all active:scale-[0.98]"
               >
-                <ArrowPathIcon className="w-4 h-4" />
-                معالجة جميع المرتجعات
+                <ArrowPathIcon className="w-3.5 h-3.5" />
+                {t('deliveryDetail.processAllReturns')}
               </button>
             )}
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-3 py-2 text-right">المنتج</th>
-                  <th className="px-3 py-2 text-center">الكمية</th>
-                  <th className="px-3 py-2 text-center">السبب</th>
-                  <th className="px-3 py-2 text-center">يعود للمخزون</th>
-                  <th className="px-3 py-2 text-right">الخسارة</th>
-                  <th className="px-3 py-2 text-center">الحالة</th>
-                  <th className="px-3 py-2 text-center">إجراءات</th>
+              <thead>
+                <tr className="bg-gray-50/80 dark:bg-gray-700/30">
+                  <th className="px-4 py-2.5 text-start text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.product')}</th>
+                  <th className="px-4 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.quantity')}</th>
+                  <th className="px-4 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.reason')}</th>
+                  <th className="px-4 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.returnableToStock')}</th>
+                  <th className="px-4 py-2.5 text-start text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.lossAmount')}</th>
+                  <th className="px-4 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.status')}</th>
+                  <th className="px-4 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.actions')}</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                 {delivery.returns.map((ret) => (
-                  <tr key={ret.id} className="border-t">
-                    <td className="px-3 py-2 font-medium">{ret.product?.name || '-'}</td>
-                    <td className="px-3 py-2 text-center">{formatQty(ret.quantity, (ret.product as Record<string, unknown>)?.pieces_per_package as number | undefined)}</td>
-                    <td className="px-3 py-2 text-center">
-                      <span className={`badge ${ret.reason === 'damaged' ? 'badge-danger' : 'badge-warning'}`}>
-                        {getReturnReasonLabel(ret.reason)}
+                  <tr key={ret.id} className="hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors">
+                    <td className="px-4 py-3 font-medium text-gray-800 dark:text-gray-100">{ret.product?.name || t('deliveryDetail.noData')}</td>
+                    <td className="px-4 py-3 text-center text-gray-700 dark:text-gray-300">{formatQty(ret.quantity, ret.product?.pieces_per_package)}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${ret.reason === 'damaged' ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' : 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300'}`}>
+                        {returnReasonLabels[ret.reason] || ret.reason}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-center">
+                    <td className="px-4 py-3 text-center">
                       {ret.returnable_to_stock ? (
-                        <span className="inline-flex items-center gap-1 text-green-600">
+                        <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
                           <CheckCircleIcon className="w-4 h-4" />
-                          <span className="text-xs">نعم</span>
+                          <span className="text-xs font-medium">{t('deliveryDetail.yes')}</span>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-red-600">
+                        <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400">
                           <XCircleIcon className="w-4 h-4" />
-                          <span className="text-xs">لا (خسارة)</span>
+                          <span className="text-xs font-medium">{t('deliveryDetail.noLoss')}</span>
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-3">
                       {ret.loss_amount > 0 ? (
-                        <span className="text-red-600 font-medium">{formatCurrency(ret.loss_amount)}</span>
+                        <span className="text-red-600 dark:text-red-400 font-medium">{formatCurrency(ret.loss_amount)}</span>
                       ) : (
-                        <span className="text-gray-400">-</span>
+                        <span className="text-gray-400">—</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-center">
+                    <td className="px-4 py-3 text-center">
                       {ret.processed ? (
-                        <span className="badge badge-success">تمت المعالجة</span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
+                          <CheckCircleIcon className="w-3.5 h-3.5" />
+                          {t('deliveryDetail.processed')}
+                        </span>
                       ) : (
-                        <span className="badge badge-warning">معلق</span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
+                          <ClockIcon className="w-3.5 h-3.5" />
+                          {t('deliveryDetail.pendingStatus')}
+                        </span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-center">
+                    <td className="px-4 py-3 text-center">
                       {!ret.processed && (
                         <button
                           onClick={() => openProcessModal(ret.id)}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded bg-green-600 text-white hover:bg-green-700"
-                          title="معالجة المرتجع"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors"
                         >
                           <CheckCircleIcon className="w-3.5 h-3.5" />
-                          معالجة
+                          {t('deliveryDetail.processReturn')}
                         </button>
                       )}
                     </td>
@@ -751,10 +776,10 @@ export default function DeliveryDetail() {
                 ))}
               </tbody>
               {totalLoss > 0 && (
-                <tfoot className="bg-red-50">
-                  <tr>
-                    <td colSpan={4} className="px-3 py-2 font-bold text-red-600">إجمالي الخسائر</td>
-                    <td className="px-3 py-2 font-bold text-red-600">{formatCurrency(totalLoss)}</td>
+                <tfoot>
+                  <tr className="bg-red-50/50 dark:bg-red-900/10">
+                    <td colSpan={4} className="px-4 py-3 font-bold text-red-600 dark:text-red-400">{t('deliveryDetail.totalLosses')}</td>
+                    <td className="px-4 py-3 font-bold text-red-600 dark:text-red-400">{formatCurrency(totalLoss)}</td>
                     <td colSpan={2}></td>
                   </tr>
                 </tfoot>
@@ -764,230 +789,220 @@ export default function DeliveryDetail() {
         </div>
       )}
 
-      {/* Additional Info */}
-      <div className="card">
-        <h2 className="text-lg font-semibold mb-4">معلومات إضافية</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {delivery.warehouse && (
-            <div>
-              <p className="text-sm text-gray-500">المستودع</p>
-              <p className="font-medium">{delivery.warehouse.name}</p>
+      {/* ───── Additional Info ───── */}
+      {delivery.notes && (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm p-5">
+          <h2 className="font-bold text-gray-800 dark:text-gray-100 mb-3 flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+              <CubeIcon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
             </div>
-          )}
-          {delivery.start_time && (
-            <div>
-              <p className="text-sm text-gray-500">وقت البدء</p>
-              <p className="font-medium">{formatDateTime(delivery.start_time)}</p>
-            </div>
-          )}
-          {delivery.end_time && (
-            <div>
-              <p className="text-sm text-gray-500">وقت الانتهاء</p>
-              <p className="font-medium">{formatDateTime(delivery.end_time)}</p>
-            </div>
-          )}
-          {delivery.vehicle?.plate_number && (
-            <div>
-              <p className="text-sm text-gray-500">رقم اللوحة</p>
-              <p className="font-medium">{delivery.vehicle.plate_number}</p>
-            </div>
-          )}
-        </div>
-        {delivery.notes && (
-          <div className="mt-4 pt-4 border-t">
-            <p className="text-sm text-gray-500">ملاحظات</p>
-            <p className="mt-1">{delivery.notes}</p>
-          </div>
-        )}
-      </div>
-
-      {/* Payment Modal */}
-      {showPaymentModal && selectedOrder && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4 shadow-2xl">
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                  <CurrencyDollarIcon className="w-5 h-5 text-blue-600" />
-                </div>
-                <h3 className="text-lg font-bold">تحصيل دفعة</h3>
-              </div>
-              <button
-                onClick={() => setShowPaymentModal(false)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-              >
-                <XMarkIcon className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="mb-5 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-gray-500">العميل</span>
-                <span className="font-medium">{selectedOrder.client?.name || '-'}</span>
-              </div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-gray-500">الطلب</span>
-                <span className="font-medium">{selectedOrder.order?.reference || '-'}</span>
-              </div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-gray-500">المستحق</span>
-                <span className="font-medium">{formatCurrency(selectedOrder.amount_due)}</span>
-              </div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-gray-500">تم تحصيله</span>
-                <span className="font-medium text-green-600">{formatCurrency(selectedOrder.amount_collected)}</span>
-              </div>
-              <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                <span className="text-sm font-medium text-gray-700">المتبقي</span>
-                <span className="text-lg font-bold text-red-600">
-                  {formatCurrency(selectedOrder.amount_due - selectedOrder.amount_collected)}
-                </span>
-              </div>
-            </div>
-
-            <form onSubmit={handlePayment}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">المبلغ المحصل</label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={paymentAmount}
-                    onChange={(e) => setPaymentAmount(e.target.value)}
-                    className="w-full px-4 py-3 text-lg font-semibold border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                    min="0.01"
-                    max={selectedOrder.amount_due - selectedOrder.amount_collected}
-                    placeholder="0.00"
-                  />
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">د.ج</span>
-                </div>
-                {/* Quick amount buttons */}
-                <div className="flex gap-2 mt-2">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentAmount(((selectedOrder.amount_due - selectedOrder.amount_collected) / 2).toFixed(0))}
-                    className="px-3 py-1 text-xs bg-gray-100 rounded hover:bg-gray-200"
-                  >
-                    نصف المبلغ
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentAmount((selectedOrder.amount_due - selectedOrder.amount_collected).toString())}
-                    className="px-3 py-1 text-xs bg-gray-100 rounded hover:bg-gray-200"
-                  >
-                    المبلغ كامل
-                  </button>
-                </div>
-              </div>
-
-              <div className="mb-5">
-                <label className="block text-sm font-medium text-gray-700 mb-2">ملاحظات (اختياري)</label>
-                <textarea
-                  value={paymentNotes}
-                  onChange={(e) => setPaymentNotes(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                  rows={2}
-                  placeholder="أضف ملاحظة..."
-                />
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  type="submit"
-                  disabled={isSubmittingPayment}
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50"
-                >
-                  <CheckCircleIcon className="w-5 h-5" />
-                  {isSubmittingPayment ? 'جاري الحفظ...' : 'تأكيد التحصيل'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowPaymentModal(false)}
-                  className="px-4 py-2.5 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  إلغاء
-                </button>
-              </div>
-            </form>
+            {t('deliveryDetail.additionalInfo')}
+          </h2>
+          <div className="ps-11">
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-xs">{t('deliveryDetail.notes')}</p>
+            <p className="mt-1 text-gray-800 dark:text-gray-100">{delivery.notes}</p>
           </div>
         </div>
       )}
 
-      {/* Process Returns Modal */}
-      {showProcessModal && (
+      {/* ───── Payment Modal ───── */}
+      {showPaymentModal && selectedOrder && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4 shadow-2xl">
-            <div className="flex items-center justify-between mb-5">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md mx-4 shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                  <ArrowPathIcon className="w-5 h-5 text-green-600" />
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <CurrencyDollarIcon className="w-5 h-5 text-white" />
                 </div>
-                <h3 className="text-lg font-bold">
-                  {processingReturnId ? 'معالجة مرتجع' : 'معالجة جميع المرتجعات'}
-                </h3>
+                <h3 className="text-lg font-bold text-white">{t('deliveryDetail.collectPaymentTitle')}</h3>
               </div>
               <button
-                onClick={() => setShowProcessModal(false)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                onClick={() => setShowPaymentModal(false)}
+                className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
               >
                 <XMarkIcon className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="mb-5 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
-              <p className="text-sm text-gray-600 mb-2">
-                {processingReturnId
-                  ? 'سيتم معالجة المرتجع المحدد:'
-                  : `سيتم معالجة ${delivery?.returns?.filter(r => !r.processed).length || 0} مرتجع:`
-                }
-              </p>
-              <ul className="text-sm space-y-1">
-                <li className="flex items-center gap-2">
-                  <CheckCircleIcon className="w-4 h-4 text-green-600" />
-                  <span>إرجاع المنتجات الصالحة للمخزون</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <ExclamationTriangleIcon className="w-4 h-4 text-red-600" />
-                  <span>تسجيل الخسائر للمنتجات التالفة</span>
-                </li>
-              </ul>
-            </div>
+            <div className="p-6">
+              {/* Order Info */}
+              <div className="mb-5 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{t('deliveryDetail.client')}</span>
+                  <span className="font-medium text-gray-800 dark:text-gray-100">{selectedOrder.client?.name || t('deliveryDetail.noData')}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{t('deliveryDetail.order')}</span>
+                  <span className="font-medium text-gray-800 dark:text-gray-100">{selectedOrder.order?.reference || t('deliveryDetail.noData')}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{t('deliveryDetail.due')}</span>
+                  <span className="font-medium text-gray-800 dark:text-gray-100">{formatCurrency(selectedOrder.amount_due)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{t('deliveryDetail.alreadyCollected')}</span>
+                  <span className="font-medium text-green-600 dark:text-green-400">{formatCurrency(selectedOrder.amount_collected)}</span>
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-600">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('deliveryDetail.remainingToPay')}</span>
+                  <span className="text-lg font-bold text-red-600 dark:text-red-400">
+                    {formatCurrency(selectedOrder.amount_due - selectedOrder.amount_collected)}
+                  </span>
+                </div>
+              </div>
 
-            <div className="mb-5">
-              <label className="block text-sm font-medium text-gray-700 mb-2">المستودع</label>
-              <select
-                value={selectedWarehouse || ''}
-                onChange={(e) => setSelectedWarehouse(parseInt(e.target.value))}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                required
-              >
-                <option value="">اختر المستودع</option>
-                {warehouses.map((wh) => (
-                  <option key={wh.id} value={wh.id}>{wh.name}</option>
-                ))}
-              </select>
-            </div>
+              <form onSubmit={handlePayment}>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('deliveryDetail.collectedAmountLabel')}</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={paymentAmount}
+                      onChange={(e) => setPaymentAmount(e.target.value)}
+                      className="w-full px-4 py-3 text-lg font-semibold border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                      required
+                      min="0.01"
+                      max={selectedOrder.amount_due - selectedOrder.amount_collected}
+                      placeholder="0.00"
+                    />
+                    <span className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 text-sm`}>{t('deliveryDetail.currencySymbol')}</span>
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentAmount(((selectedOrder.amount_due - selectedOrder.amount_collected) / 2).toFixed(0))}
+                      className="px-3 py-1.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      {t('deliveryDetail.halfAmount')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentAmount((selectedOrder.amount_due - selectedOrder.amount_collected).toString())}
+                      className="px-3 py-1.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      {t('deliveryDetail.fullAmountBtn')}
+                    </button>
+                  </div>
+                </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={handleProcessReturns}
-                disabled={isProcessing || !selectedWarehouse}
-                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors shadow-sm disabled:opacity-50"
-              >
-                <CheckCircleIcon className="w-5 h-5" />
-                {isProcessing ? 'جاري المعالجة...' : 'تأكيد المعالجة'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowProcessModal(false)}
-                className="px-4 py-2.5 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                إلغاء
-              </button>
+                <div className="mb-5">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('deliveryDetail.notesOptional')}</label>
+                  <textarea
+                    value={paymentNotes}
+                    onChange={(e) => setPaymentNotes(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none transition-all"
+                    rows={2}
+                    placeholder={t('deliveryDetail.addNote')}
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="submit"
+                    disabled={isSubmittingPayment}
+                    className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-sm disabled:opacity-50 transition-all active:scale-[0.98]"
+                  >
+                    <CheckCircleIcon className="w-5 h-5" />
+                    {isSubmittingPayment ? t('deliveryDetail.saving') : t('deliveryDetail.confirmCollection')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowPaymentModal(false)}
+                    className="px-4 py-2.5 text-sm font-medium rounded-xl border-2 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    {t('deliveryDetail.cancel')}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
+      )}
+
+      {/* ───── Process Returns Modal ───── */}
+      {showProcessModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md mx-4 shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <ArrowPathIcon className="w-5 h-5 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-white">
+                  {processingReturnId ? t('deliveryDetail.processSingleReturnTitle') : t('deliveryDetail.processAllReturnsTitle')}
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowProcessModal(false)}
+                className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="mb-5 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+                  {processingReturnId
+                    ? t('deliveryDetail.willProcessSingle')
+                    : t('deliveryDetail.willProcessAll').replace('{count}', String(delivery?.returns?.filter(r => !r.processed).length || 0))
+                  }
+                </p>
+                <ul className="text-sm space-y-1.5">
+                  <li className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                    <CheckCircleIcon className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                    <span>{t('deliveryDetail.returnableGoBack')}</span>
+                  </li>
+                  <li className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                    <ExclamationTriangleIcon className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0" />
+                    <span>{t('deliveryDetail.recordLosses')}</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="mb-5">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('deliveryDetail.warehouseLabel')}</label>
+                <select
+                  value={selectedWarehouse || ''}
+                  onChange={(e) => setSelectedWarehouse(parseInt(e.target.value))}
+                  className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                  required
+                >
+                  <option value="">{t('deliveryDetail.selectWarehouseOption')}</option>
+                  {warehouses.map((wh) => (
+                    <option key={wh.id} value={wh.id}>{wh.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleProcessReturns}
+                  disabled={isProcessing || !selectedWarehouse}
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 shadow-sm disabled:opacity-50 transition-all active:scale-[0.98]"
+                >
+                  <CheckCircleIcon className="w-5 h-5" />
+                  {isProcessing ? t('deliveryDetail.processing') : t('deliveryDetail.confirmProcess')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowProcessModal(false)}
+                  className="px-4 py-2.5 text-sm font-medium rounded-xl border-2 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  {t('deliveryDetail.cancel')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ───── Guided Tour ───── */}
+      {showTour && (
+        <GuidedTour steps={tourSteps} onComplete={() => setShowTour(false)} storageKey="delivery_detail_tour_step" />
       )}
     </div>
   );

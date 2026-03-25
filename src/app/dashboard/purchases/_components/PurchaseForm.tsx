@@ -1,11 +1,15 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import DateInput from '@/components/ui/DateInput';
 import { purchasesApi, productsApi, suppliersApi, warehousesApi, creditorsApi, clientCategoriesApi } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
+import GuidedTour from '@/components/GuidedTour';
+import type { TourStep } from '@/components/GuidedTour';
+import { useLocale } from '@/lib/i18n/context';
 
 interface ProductCategoryPrice {
   id: number;
@@ -80,10 +84,51 @@ interface PurchaseFormProps {
 
 export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }: PurchaseFormProps) {
   const router = useRouter();
+  const { t, locale, dir } = useLocale();
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const productSearchRef = useRef<HTMLInputElement>(null);
 
   const isEditMode = purchaseId !== null;
+  const [showTour, setShowTour] = useState(false);
+
+  const purchaseFormTourSteps: TourStep[] = useMemo(() => [
+    {
+      target: '[data-tour="pf-shortcuts"]',
+      title: t('purchases.pfTourShortcutsTitle'),
+      desc: t('purchases.pfTourShortcutsDesc'),
+      position: 'bottom' as const,
+    },
+    {
+      target: '[data-tour="pf-info"]',
+      title: t('purchases.pfTourInfoTitle'),
+      desc: t('purchases.pfTourInfoDesc'),
+      position: 'bottom' as const,
+    },
+    {
+      target: '[data-tour="pf-products"]',
+      title: t('purchases.pfTourProductsTitle'),
+      desc: t('purchases.pfTourProductsDesc'),
+      position: 'bottom' as const,
+    },
+    {
+      target: '[data-tour="pf-items"]',
+      title: t('purchases.pfTourItemsTitle'),
+      desc: t('purchases.pfTourItemsDesc'),
+      position: 'top' as const,
+    },
+    {
+      target: '[data-tour="pf-summary"]',
+      title: t('purchases.pfTourSummaryTitle'),
+      desc: t('purchases.pfTourSummaryDesc'),
+      position: 'left' as const,
+    },
+    {
+      target: '[data-tour="pf-save"]',
+      title: t('purchases.pfTourSaveTitle'),
+      desc: t('purchases.pfTourSaveDesc'),
+      position: 'left' as const,
+    },
+  ], [t]);
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -100,12 +145,6 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
   const [discount, setDiscount] = useState<number>(0);
   const [tax, setTax] = useState<number>(0);
   const [shipping, setShipping] = useState<number>(0);
-  const [timbre, setTimbre] = useState<number>(() => {
-    if (typeof window !== 'undefined') {
-      return parseFloat(localStorage.getItem('defaultTimbre') || '1') || 1;
-    }
-    return 1;
-  });
   const [note, setNote] = useState('');
   const [items, setItems] = useState<PurchaseItem[]>([]);
   const [paidAmount, setPaidAmount] = useState<number>(0);
@@ -120,6 +159,13 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
   const [supplierHighlightIndex, setSupplierHighlightIndex] = useState(-1);
   const supplierSearchRef = useRef<HTMLInputElement>(null);
   const supplierListRef = useRef<HTMLDivElement>(null);
+
+  // Inline creation
+  const [creatingSupplier, setCreatingSupplier] = useState(false);
+  const [newSupplierName, setNewSupplierName] = useState('');
+  const [newSupplierPhone, setNewSupplierPhone] = useState('');
+  const [creatingWarehouse, setCreatingWarehouse] = useState(false);
+  const [newWarehouseName, setNewWarehouseName] = useState('');
 
   // Product search
   const [searchTerm, setSearchTerm] = useState('');
@@ -193,7 +239,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
             total_pieces: totalPieces,
             unit_price: unitPrice,
             original_price: unitPrice,
-            unit_name: String(pi.unit_name || 'وحدة'),
+            unit_name: String(pi.unit_name || t('purchases.pfUnit')),
             discount: 0,
             tax_percent: 0,
             tax: 0,
@@ -202,7 +248,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
         });
         if (preFillItems.length > 0) {
           setItems(preFillItems);
-          toast.success(`تم تحميل ${preFillItems.length} منتج من طلب المنتجات`);
+          toast.success(t('purchases.pfProductsLoaded', { count: preFillItems.length }));
         }
       }
     } catch {
@@ -289,7 +335,6 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
     }
   }, [supplierId]);
 
-
   const fetchData = async () => {
     try {
       const [suppliersRes, warehousesRes, productsRes, catRes] = await Promise.all([
@@ -309,7 +354,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
         setWarehouseId(whs[0].id.toString());
       }
     } catch (error) {
-      toast.error('خطأ في تحميل البيانات');
+      toast.error(t('purchases.dataLoadError'));
     } finally {
       setIsLoading(false);
     }
@@ -320,21 +365,54 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
     try {
       const debtRes = await creditorsApi.getSupplierDebt(id).catch(() => ({ data: { purchases: [], totals: { total_remaining: 0 } } }));
       // Use the actual sum of unpaid purchases, not the supplier balance
-      // In edit mode, exclude the current purchase from debt calculations
-      const allUnpaid = debtRes.data.purchases || [];
-      const filteredUnpaid = isEditMode && purchaseId
-        ? allUnpaid.filter((p: { id: number }) => p.id !== purchaseId)
-        : allUnpaid;
-      const actualDebt = filteredUnpaid.reduce((sum: number, p: { due_amount: number }) => sum + (p.due_amount || 0), 0);
+      // This is more accurate because supplier.balance might be out of sync
+      const actualDebt = debtRes.data.totals?.total_remaining || 0;
       setSupplierDebt({
         balance: actualDebt,
-        unpaid_purchases: filteredUnpaid
+        unpaid_purchases: debtRes.data.purchases || []
       });
     } catch (error) {
       console.error('Error fetching supplier debt:', error);
       setSupplierDebt(null);
     } finally {
       setLoadingDebt(false);
+    }
+  };
+
+  const handleCreateSupplier = async () => {
+    if (!newSupplierName.trim()) { toast.error(t('purchases.pfEnterSupplierName')); return; }
+    try {
+      setCreatingSupplier(true);
+      const res = await suppliersApi.create({ name: newSupplierName.trim(), phone: newSupplierPhone.trim() || null });
+      const created = res.data?.data || res.data;
+      setSuppliers(prev => [...prev, created]);
+      setSupplierId(created.id.toString());
+      setSupplierSearch(created.name);
+      setShowSupplierDropdown(false);
+      setNewSupplierName('');
+      setNewSupplierPhone('');
+      toast.success(t('purchases.pfSupplierCreated', { name: created.name }));
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || t('purchases.pfSupplierCreateError'));
+    } finally {
+      setCreatingSupplier(false);
+    }
+  };
+
+  const handleCreateWarehouse = async () => {
+    if (!newWarehouseName.trim()) { toast.error(t('purchases.pfEnterWarehouseName')); return; }
+    try {
+      setCreatingWarehouse(true);
+      const res = await warehousesApi.create({ name: newWarehouseName.trim() });
+      const created = res.data?.data || res.data;
+      setWarehouses(prev => [...prev, created]);
+      setWarehouseId(created.id.toString());
+      setNewWarehouseName('');
+      toast.success(t('purchases.pfWarehouseCreated', { name: created.name }));
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || t('purchases.pfWarehouseCreateError'));
+    } finally {
+      setCreatingWarehouse(false);
     }
   };
 
@@ -378,7 +456,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
             total_pieces: totalPieces,
             unit_price: item.unit_price,
             original_price: item.unit_price,
-            unit_name: item.product?.unit_buy?.short_name || 'وحدة',
+            unit_name: item.product?.unit_buy?.short_name || t('purchases.pfUnit'),
             discount: item.discount || 0,
             tax_percent: item.product?.tax_percent || 0,
             tax: item.tax || 0,
@@ -388,10 +466,10 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
         setItems(loadedItems);
       }
 
-      toast.success('تم تحميل بيانات الفاتورة');
+      toast.success(t('purchases.pfInvoiceLoaded'));
       setPurchaseDataLoaded(true);
     } catch (error) {
-      toast.error('خطأ في تحميل بيانات الفاتورة');
+      toast.error(t('purchases.pfInvoiceLoadError'));
       console.error('Error loading purchase data:', error);
     } finally {
       setIsLoading(false);
@@ -468,7 +546,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
       // baseAmount = price × totalPieces
       const baseAmount = unitPrice * totalPieces;
       const taxAmount = (baseAmount * taxPercent) / 100;
-      const unitName = product.unit_buy?.name || 'وحدة';
+      const unitName = product.unit_buy?.name || t('purchases.pfUnit');
 
       const newItem: PurchaseItem = {
         product_id: product.id,
@@ -498,7 +576,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
   // Open quick entry modal for product
   const openQuickEntryModal = (product: Product) => {
     if (!warehouseId) {
-      toast.error('الرجاء اختيار المستودع أولاً');
+      toast.error(t('purchases.selectWarehouseFirst'));
       return;
     }
     // Build category prices map from existing product data
@@ -533,7 +611,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
     const { product, quantity, unitPrice, sellingPrice, categoryPrices } = quickEntryModal;
 
     if (quantity <= 0) {
-      toast.error('الكمية يجب أن تكون أكبر من صفر');
+      toast.error(t('purchases.qtyMustBePositive'));
       return;
     }
 
@@ -575,7 +653,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
       const totalPieces = quantity * piecesPerPkg;
       const baseAmount = unitPrice * totalPieces;
       const taxAmount = (baseAmount * taxPercent) / 100;
-      const unitName = product.unit_buy?.name || 'وحدة';
+      const unitName = product.unit_buy?.name || t('purchases.pfUnit');
 
       const newItem: PurchaseItem = {
         product_id: product.id,
@@ -607,7 +685,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
       if (product) {
         openQuickEntryModal(product);
       } else {
-        toast.error('المنتج غير موجود');
+        toast.error(t('purchases.productNotFound'));
       }
     }
   };
@@ -666,9 +744,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
   };
 
   const totalAmount = items.reduce((sum, item) => sum + (Number(item.subtotal) || 0), 0);
-  const subtotalBeforeTimbre = totalAmount - (Number(discount) || 0) + (Number(tax) || 0) + (Number(shipping) || 0);
-  const timbreAmount = subtotalBeforeTimbre * ((Number(timbre) || 0) / 100);
-  const grandTotal = Math.max(0, subtotalBeforeTimbre + timbreAmount);
+  const grandTotal = Math.max(0, totalAmount - (Number(discount) || 0) + (Number(tax) || 0) + (Number(shipping) || 0));
 
   // Calculate how payment is applied
   // previousDebt = what we already owe the supplier BEFORE this purchase
@@ -688,7 +764,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
     if (isEditMode && purchaseId) {
       // Edit mode - send full data including items
       if (items.length === 0) {
-        toast.error('الرجاء إضافة منتج واحد على الأقل');
+        toast.error(t('purchases.addAtLeastOneProduct'));
         return;
       }
       setIsSaving(true);
@@ -711,7 +787,6 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
           discount,
           tax,
           shipping,
-          timbre: timbreAmount,
           note,
           items: items.map((item) => ({
             product_id: item.product_id,
@@ -722,14 +797,14 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
           })),
         });
 
-        toast.success('تم تحديث الفاتورة بنجاح');
+        toast.success(t('purchases.pfInvoiceUpdated'));
         if (onSuccess) {
           onSuccess();
         } else {
           router.push('/dashboard/purchases');
         }
       } catch (error: any) {
-        toast.error(error.response?.data?.message || 'خطأ في تحديث الفاتورة');
+        toast.error(error.response?.data?.message || t('purchases.pfInvoiceUpdateError'));
       } finally {
         setIsSaving(false);
       }
@@ -738,12 +813,12 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
 
     // Create mode validation
     if (!warehouseId) {
-      toast.error('الرجاء اختيار المستودع');
+      toast.error(t('purchases.selectWarehouseError'));
       return;
     }
 
     if (items.length === 0) {
-      toast.error('الرجاء إضافة منتج واحد على الأقل');
+      toast.error(t('purchases.addAtLeastOneProduct'));
       return;
     }
 
@@ -768,7 +843,6 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
         discount,
         tax,
         shipping,
-        timbre: timbreAmount,
         note,
         paid_amount: paidAmount,
         status: 'received',
@@ -781,14 +855,14 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
         })),
       });
 
-      toast.success('تم إنشاء فاتورة الشراء بنجاح');
+      toast.success(t('purchases.pfInvoiceCreated'));
       if (onSuccess) {
         onSuccess();
       } else {
         router.push('/dashboard/purchases');
       }
     } catch (error) {
-      toast.error('خطأ في إنشاء فاتورة الشراء');
+      toast.error(t('purchases.pfInvoiceCreateError'));
     } finally {
       setIsSaving(false);
     }
@@ -796,11 +870,11 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
 
   const handleSaveDraft = async () => {
     if (!warehouseId) {
-      toast.error('الرجاء اختيار المستودع');
+      toast.error(t('purchases.selectWarehouseError'));
       return;
     }
     if (items.length === 0) {
-      toast.error('الرجاء إضافة منتج واحد على الأقل');
+      toast.error(t('purchases.addAtLeastOneProduct'));
       return;
     }
     setIsSaving(true);
@@ -812,7 +886,6 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
         discount,
         tax,
         shipping,
-        timbre: timbreAmount,
         note,
         paid_amount: paidAmount,
         status: 'pending',
@@ -824,14 +897,14 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
           tax: item.tax,
         })),
       });
-      toast.success('تم حفظ المسودة بنجاح');
+      toast.success(t('purchases.pfDraftSaved'));
       if (onSuccess) {
         onSuccess();
       } else {
         router.push('/dashboard/purchases');
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'خطأ في حفظ المسودة');
+      toast.error(error.response?.data?.message || t('purchases.pfDraftSaveError'));
     } finally {
       setIsSaving(false);
     }
@@ -842,15 +915,15 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
     if (!ppp || ppp <= 1) return String(total);
     const cartons = Math.floor(total / ppp);
     const pieces = total % ppp;
-    if (cartons > 0 && pieces > 0) return `${cartons} كرتون ${pieces} قطعة`;
-    if (cartons > 0) return `${cartons} كرتون`;
-    if (pieces > 0) return `${pieces} قطعة`;
+    if (cartons > 0 && pieces > 0) return `${cartons} ${t('purchases.pfPerCarton')} ${pieces} ${t('purchases.pfPerPiece')}`;
+    if (cartons > 0) return `${cartons} ${t('purchases.pfPerCarton')}`;
+    if (pieces > 0) return `${pieces} ${t('purchases.pfPerPiece')}`;
     return '0';
   };
 
   const formatCurrency = (value: number) => {
     const safeValue = isNaN(value) ? 0 : value;
-    return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(safeValue);
+    return new Intl.NumberFormat(locale === 'ar' ? 'ar-DZ' : 'fr-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(safeValue);
   };
 
   const filteredProducts = products.filter((p) =>
@@ -865,15 +938,25 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
   return (
     <div>
       {/* Keyboard Shortcuts Bar */}
-      <div className="bg-gray-800 text-white px-4 py-2 rounded-lg mb-4 flex items-center gap-6 text-sm">
-        <span className="font-bold">اختصارات:</span>
-        <span><kbd className="bg-gray-600 px-2 py-0.5 rounded">F1</kbd> المورد</span>
-        <span><kbd className="bg-gray-600 px-2 py-0.5 rounded">F2</kbd> المنتج</span>
-        <span><kbd className="bg-gray-600 px-2 py-0.5 rounded">F3</kbd> المبلغ المدفوع</span>
-        <span><kbd className="bg-gray-600 px-2 py-0.5 rounded">F4</kbd> حفظ</span>
-        <span><kbd className="bg-gray-600 px-2 py-0.5 rounded">↑↓</kbd> تنقل</span>
-        <span><kbd className="bg-gray-600 px-2 py-0.5 rounded">Enter</kbd> تأكيد</span>
-        <span><kbd className="bg-gray-600 px-2 py-0.5 rounded">Esc</kbd> إغلاق</span>
+      <div className="bg-gradient-to-l from-slate-800 to-slate-900 text-white px-5 py-2.5 rounded-xl mb-5 hidden sm:flex items-center gap-5 text-sm shadow-sm" data-tour="pf-shortcuts">
+        <span className="font-bold text-slate-300 text-xs tracking-wide">{t('purchases.pfShortcuts')}</span>
+        <div className="w-px h-4 bg-slate-700" />
+        <span><kbd className="bg-slate-700/80 px-2 py-0.5 rounded-md text-[11px] font-mono text-blue-300">F1</kbd> <span className="text-slate-400">{t('purchases.pfShortcutSupplier')}</span></span>
+        <span><kbd className="bg-slate-700/80 px-2 py-0.5 rounded-md text-[11px] font-mono text-blue-300">F2</kbd> <span className="text-slate-400">{t('purchases.pfShortcutProduct')}</span></span>
+        <span><kbd className="bg-slate-700/80 px-2 py-0.5 rounded-md text-[11px] font-mono text-emerald-300">F3</kbd> <span className="text-slate-400">{t('purchases.pfShortcutAmount')}</span></span>
+        <span><kbd className="bg-slate-700/80 px-2 py-0.5 rounded-md text-[11px] font-mono text-amber-300">F4</kbd> <span className="text-slate-400">{t('purchases.pfShortcutSave')}</span></span>
+        <div className="w-px h-4 bg-slate-700" />
+        <span><kbd className="bg-slate-700/80 px-2 py-0.5 rounded-md text-[11px] font-mono">↑↓</kbd> <span className="text-slate-400">{t('purchases.pfShortcutNavigate')}</span></span>
+        <span><kbd className="bg-slate-700/80 px-2 py-0.5 rounded-md text-[11px] font-mono">Enter</kbd> <span className="text-slate-400">{t('purchases.pfShortcutConfirm')}</span></span>
+        <span><kbd className="bg-slate-700/80 px-2 py-0.5 rounded-md text-[11px] font-mono">Esc</kbd> <span className="text-slate-400">{t('purchases.pfShortcutClose')}</span></span>
+        <button
+          onClick={() => setShowTour(true)}
+          className={`${dir === 'rtl' ? 'mr-auto' : 'ml-auto'} flex items-center gap-1.5 text-sm text-emerald-400 hover:text-emerald-300 transition-colors`}
+          title={t('common.guidedTour')}
+        >
+          <QuestionMarkCircleIcon className="w-5 h-5" />
+          <span className="text-slate-400">{t('purchases.pfTourBtn')}</span>
+        </button>
       </div>
 
       {/* Quick Entry Modal */}
@@ -881,12 +964,13 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
         const ppp = quickEntryModal.product?.pieces_per_package || 1;
         const sortedCats = clientCategories.slice().sort((a, b) => a.id - b.id);
         return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-[480px] max-w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold mb-4 text-center">{quickEntryModal.product.name}</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl shadow-black/20 p-6 w-full sm:w-[480px] max-w-full mx-4 max-h-[90vh] overflow-y-auto border border-gray-200/50 dark:border-gray-700">
+            <div className="absolute top-0 right-0 left-0 h-[3px] rounded-t-2xl bg-gradient-to-l from-blue-500 to-indigo-600" />
+            <h3 className="text-lg font-extrabold mb-4 text-center text-gray-900 dark:text-gray-100">{quickEntryModal.product.name}</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">الكمية</label>
+                <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('purchases.pfQtyLabel')}</label>
                 <input
                   ref={quickQtyRef}
                   type="number"
@@ -908,7 +992,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">سعر الشراء (القطعة)</label>
+                <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('purchases.pfPurchasePricePerPiece')}</label>
                 <input
                   ref={quickPriceRef}
                   type="number"
@@ -927,17 +1011,17 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                   min="0"
                 />
                 {ppp > 1 && (
-                  <div className="text-center text-sm text-blue-600 mt-1 font-medium">
-                    سعر الكرتون: {formatCurrency(quickEntryModal.unitPrice * ppp)}
+                  <div className="text-center text-sm text-blue-600 dark:text-blue-400 mt-1 font-medium">
+                    {t('purchases.pfCartonPrice')} {formatCurrency(quickEntryModal.unitPrice * ppp)}
                   </div>
                 )}
               </div>
 
               {/* Category prices */}
               {sortedCats.length > 0 && (
-              <div className="border border-gray-200 rounded-lg p-3 space-y-3">
-                <div className="text-sm font-semibold text-gray-700 mb-1">أسعار البيع (القطعة)</div>
-                <div className="grid grid-cols-2 gap-2">
+              <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-3 space-y-3">
+                <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{t('purchases.pfSellingPricesPerPiece')}</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {sortedCats.map((cat, catIdx) => (
                     <div key={cat.id}>
                       <label className="block text-xs text-amber-600 font-medium mb-0.5">{cat.name}</label>
@@ -968,19 +1052,21 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
               </div>
               )}
 
-              <div className="text-center text-lg font-bold text-blue-600">
-                المجموع: {formatCurrency(quickEntryModal.unitPrice * ppp * quickEntryModal.quantity)}
-                <div className="text-xs text-gray-500 font-normal">
-                  ({quickEntryModal.unitPrice} × {ppp} قطعة × {quickEntryModal.quantity})
+              <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/30 rounded-xl border border-blue-100 dark:border-blue-800">
+                <div className="text-2xl font-black text-blue-700 dark:text-blue-300 tabular-nums">
+                  {formatCurrency(quickEntryModal.unitPrice * ppp * quickEntryModal.quantity)}
+                </div>
+                <div className="text-xs text-blue-500 dark:text-blue-400 font-medium mt-0.5">
+                  ({quickEntryModal.unitPrice} × {ppp} {t('purchases.pfPerPiece')} × {quickEntryModal.quantity})
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2.5">
                 <button
                   type="button"
                   onClick={confirmQuickEntry}
-                  className="btn btn-primary flex-1"
+                  className="flex-1 px-4 py-2.5 text-sm font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-600/20 active:scale-[0.98] transition-all duration-200"
                 >
-                  إضافة (Enter)
+                  {t('purchases.pfAddBtn')} <kbd className={`bg-white/20 px-1.5 py-0.5 rounded-md text-[10px] font-mono ${dir === 'rtl' ? 'mr-1' : 'ml-1'}`}>Enter</kbd>
                 </button>
                 <button
                   type="button"
@@ -988,9 +1074,9 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                     setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0, categoryPrices: {} });
                     barcodeInputRef.current?.focus();
                   }}
-                  className="btn btn-secondary flex-1"
+                  className="flex-1 px-4 py-2.5 text-sm font-bold rounded-xl text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 active:scale-[0.98] transition-all duration-200"
                 >
-                  إلغاء (Esc)
+                  {t('common.cancel')} <kbd className={`bg-gray-200 dark:bg-gray-600 px-1.5 py-0.5 rounded-md text-[10px] font-mono ${dir === 'rtl' ? 'mr-1' : 'ml-1'}`}>Esc</kbd>
                 </button>
               </div>
             </div>
@@ -1003,19 +1089,22 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           {onCancel ? (
-            <button onClick={onCancel} className="text-gray-500 hover:text-gray-700">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button onClick={onCancel} className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>
           ) : (
-            <Link href="/dashboard/purchases" className="text-gray-500 hover:text-gray-700">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <Link href="/dashboard/purchases" className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </Link>
           )}
-          <h1 className="text-2xl font-bold">{isEditMode ? 'تعديل فاتورة الشراء' : 'فاتورة شراء جديدة'}</h1>
+          <div>
+            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-gray-100 tracking-tight leading-none">{isEditMode ? t('purchases.editInvoice') : t('purchases.newPurchaseInvoice')}</h1>
+            <p className="text-sm text-gray-400 mt-1">{isEditMode ? t('purchases.editInvoiceDesc') : t('purchases.newInvoiceDesc')}</p>
+          </div>
         </div>
       </div>
 
@@ -1024,11 +1113,17 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Basic Info */}
-            <div className="card">
-              <h2 className="text-lg font-semibold mb-4">معلومات الفاتورة</h2>
+            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm" data-tour="pf-info">
+              <div className="flex items-center gap-2.5 px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 rounded-t-2xl">
+                <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                </div>
+                <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('purchases.pfInvoiceInfo')}</span>
+              </div>
+              <div className="p-5">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="relative">
-                  <label className="block text-sm font-medium mb-1">المورد</label>
+                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('purchases.pfSupplier')}</label>
                   <input
                     ref={supplierSearchRef}
                     type="text"
@@ -1081,14 +1176,14 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                         }
                       }
                     }}
-                    placeholder="ابحث عن مورد أو اتركه فارغاً"
+                    placeholder={t('purchases.pfSearchSupplierPlaceholder')}
                     className="input w-full"
                     autoComplete="off"
                   />
                   {showSupplierDropdown && (
-                    <div ref={supplierListRef} className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    <div ref={supplierListRef} className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                       <div
-                        className={`px-3 py-2 cursor-pointer border-b ${supplierHighlightIndex === 0 ? 'bg-blue-100' : 'hover:bg-gray-100'}`}
+                        className={`px-3 py-2 cursor-pointer border-b dark:border-gray-700 ${supplierHighlightIndex === 0 ? 'bg-blue-100 dark:bg-blue-900/40' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                         onClick={() => {
                           setSupplierId('');
                           setSupplierSearch('');
@@ -1097,7 +1192,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                           setSupplierHighlightIndex(-1);
                         }}
                       >
-                        <span className="text-gray-500">بدون مورد</span>
+                        <span className="text-gray-500 dark:text-gray-400">{t('purchases.pfNoSupplier')}</span>
                       </div>
                       {suppliers
                         .filter(s =>
@@ -1108,7 +1203,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                         .map((supplier, index) => (
                           <div
                             key={supplier.id}
-                            className={`px-3 py-2 cursor-pointer ${supplierHighlightIndex === index + 1 ? 'bg-blue-100' : 'hover:bg-blue-50'}`}
+                            className={`px-3 py-2 cursor-pointer ${supplierHighlightIndex === index + 1 ? 'bg-blue-100 dark:bg-blue-900/40' : 'hover:bg-blue-50 dark:hover:bg-gray-700'}`}
                             onClick={() => {
                               setSupplierId(supplier.id.toString());
                               setSupplierSearch(supplier.name);
@@ -1123,9 +1218,60 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                       {suppliers.filter(s =>
                         s.name.toLowerCase().includes(supplierSearch.toLowerCase()) ||
                         (s.phone && s.phone.includes(supplierSearch))
-                      ).length === 0 && (
-                        <div className="px-3 py-2 text-gray-500">لا يوجد نتائج</div>
+                      ).length === 0 && !newSupplierName && (
+                        <div className="px-3 py-2 text-gray-400 text-sm text-center">{t('purchases.pfNoResults')}</div>
                       )}
+                      {/* Inline create supplier */}
+                      <div className="border-t border-gray-100 p-2.5">
+                        {newSupplierName || suppliers.filter(s => s.name.toLowerCase().includes(supplierSearch.toLowerCase()) || (s.phone && s.phone.includes(supplierSearch))).length === 0 ? (
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              value={newSupplierName || (supplierSearch && !suppliers.some(s => s.name === supplierSearch) ? supplierSearch : '')}
+                              onChange={(e) => setNewSupplierName(e.target.value)}
+                              onFocus={() => { if (!newSupplierName && supplierSearch) setNewSupplierName(supplierSearch); }}
+                              placeholder={t('purchases.pfNewSupplierNamePlaceholder')}
+                              className="input w-full text-sm"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <input
+                              type="text"
+                              value={newSupplierPhone}
+                              onChange={(e) => setNewSupplierPhone(e.target.value)}
+                              placeholder={t('purchases.pfPhonePlaceholder')}
+                              className="input w-full text-sm"
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateSupplier(); } }}
+                            />
+                            <div className="flex gap-1.5">
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); handleCreateSupplier(); }}
+                                disabled={creatingSupplier}
+                                className="flex-1 px-3 py-1.5 text-xs font-bold rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50"
+                              >
+                                {creatingSupplier ? '...' : t('purchases.pfCreateSupplier')}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setNewSupplierName(''); setNewSupplierPhone(''); }}
+                                className="px-3 py-1.5 text-xs font-bold rounded-lg text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                              >
+                                {t('common.cancel')}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setNewSupplierName(supplierSearch || ''); }}
+                            className="w-full px-3 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors flex items-center gap-2 justify-center"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                            {t('purchases.pfCreateNewSupplier')}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
                   {/* Click outside to close */}
@@ -1137,21 +1283,58 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">المستودع *</label>
+                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('purchases.pfWarehouse')}</label>
                   <select
                     value={warehouseId}
-                    onChange={(e) => setWarehouseId(e.target.value)}
+                    onChange={(e) => {
+                      if (e.target.value === '__new__') {
+                        setCreatingWarehouse(true);
+                        setWarehouseId('');
+                      } else {
+                        setWarehouseId(e.target.value);
+                      }
+                    }}
                     className="select w-full"
-                    required
+                    required={!creatingWarehouse}
                   >
-                    <option value="">اختر المستودع</option>
+                    <option value="">{t('purchases.pfChooseWarehouse')}</option>
                     {warehouses.map((warehouse) => (
                       <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
                     ))}
+                    <option value="__new__">{t('purchases.pfCreateNewWarehouse')}</option>
                   </select>
+                  {creatingWarehouse && (
+                    <div className="mt-2 p-2.5 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-xl space-y-2">
+                      <input
+                        type="text"
+                        value={newWarehouseName}
+                        onChange={(e) => setNewWarehouseName(e.target.value)}
+                        placeholder={t('purchases.pfNewWarehouseNamePlaceholder')}
+                        className="input w-full text-sm"
+                        autoFocus
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateWarehouse(); } else if (e.key === 'Escape') { setCreatingWarehouse(false); setNewWarehouseName(''); } }}
+                      />
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handleCreateWarehouse}
+                          className="flex-1 px-3 py-1.5 text-xs font-bold rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                        >
+                          {t('purchases.pfCreate')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setCreatingWarehouse(false); setNewWarehouseName(''); }}
+                          className="px-3 py-1.5 text-xs font-bold rounded-lg text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                        >
+                          {t('common.cancel')}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">التاريخ *</label>
+                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('purchases.pfDate')}</label>
                   <DateInput
                     value={date}
                     onChange={(v) => setDate(v)}
@@ -1163,20 +1346,20 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
 
               {/* Supplier Debt Info */}
               {supplierId && (
-                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="mt-4 p-4 bg-blue-50/80 dark:bg-blue-900/20 border border-blue-200/80 dark:border-blue-800 rounded-xl">
                   {loadingDebt ? (
-                    <div className="text-center text-gray-500">جاري تحميل بيانات الدين...</div>
+                    <div className="text-center text-gray-500 dark:text-gray-400">{t('purchases.pfLoadingDebt')}</div>
                   ) : supplierDebt ? (
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="font-semibold text-blue-800">دينك للمورد:</span>
+                        <span className="font-semibold text-blue-800 dark:text-blue-300">{t('purchases.pfSupplierDebt')}</span>
                         <span className={`font-bold text-lg ${supplierDebt.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
                           {formatCurrency(supplierDebt.balance)}
                         </span>
                       </div>
                       {supplierDebt.unpaid_purchases && supplierDebt.unpaid_purchases.length > 0 && (
                         <div className="mt-3 pt-3 border-t border-blue-200">
-                          <div className="text-sm font-medium text-blue-800 mb-2">الفواتير غير المسددة:</div>
+                          <div className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">{t('purchases.pfUnpaidInvoices')}</div>
                           <div className="max-h-24 overflow-y-auto space-y-1">
                             {supplierDebt.unpaid_purchases.slice(0, 5).map((purchase) => (
                               <div key={purchase.id} className="flex justify-between text-sm">
@@ -1189,19 +1372,28 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                       )}
                     </div>
                   ) : (
-                    <div className="text-center text-green-600">لا يوجد دين سابق</div>
+                    <div className="text-center text-green-600 dark:text-green-400">{t('purchases.pfNoPreviousDebt')}</div>
                   )}
                 </div>
               )}
+              </div>
             </div>
 
             {/* Product Search */}
-            <div className="card">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">إضافة المنتجات</h2>
+            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm" data-tour="pf-products">
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 rounded-t-2xl">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                  </div>
+                  <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('purchases.pfAddProducts')}</span>
+                  {items.length > 0 && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 tabular-nums">{items.length} {t('purchases.pfProduct')}</span>
+                  )}
+                </div>
                 {/* Search Mode Toggle */}
                 <div className="flex items-center gap-3">
-                  <span className={`text-sm ${searchMode === 'barcode' ? 'text-blue-600 font-medium' : 'text-gray-400'}`}>باركود</span>
+                  <span className={`text-sm ${searchMode === 'barcode' ? 'text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-400'}`}>{t('purchases.pfBarcode')}</span>
                   <button
                     type="button"
                     onClick={toggleSearchMode}
@@ -1216,14 +1408,14 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                       }`}
                     />
                   </button>
-                  <span className={`text-sm ${searchMode === 'name' ? 'text-blue-600 font-medium' : 'text-gray-400'}`}>اسم</span>
+                  <span className={`text-sm ${searchMode === 'name' ? 'text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-400'}`}>{t('purchases.pfName')}</span>
                 </div>
               </div>
 
-              <div className="mb-4">
+              <div className="px-5 pt-4 pb-0 mb-4">
                 {searchMode === 'barcode' ? (
                   <div>
-                    <label className="block text-sm font-medium mb-1">البحث بالباركود</label>
+                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('purchases.pfBarcodeSearch')}</label>
                     <input
                       ref={barcodeInputRef}
                       type="text"
@@ -1231,13 +1423,13 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                       onChange={(e) => setBarcodeInput(e.target.value)}
                       onKeyDown={handleBarcodeSearch}
                       className="input w-full"
-                      placeholder="امسح الباركود واضغط Enter..."
+                      placeholder={t('purchases.pfScanBarcode')}
                       autoFocus
                     />
                   </div>
                 ) : (
                   <div className="relative">
-                    <label className="block text-sm font-medium mb-1">البحث بالاسم</label>
+                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('purchases.pfNameSearch')}</label>
                     <input
                       ref={productSearchRef}
                       type="text"
@@ -1289,18 +1481,18 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                         }
                       }}
                       className="input w-full"
-                      placeholder="ابحث عن منتج..."
+                      placeholder={t('purchases.pfSearchProduct')}
                       autoFocus
                     />
                     {showProductSearch && searchTerm && (
-                      <div ref={productListRef} className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      <div ref={productListRef} className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                         {filteredProducts.length === 0 ? (
-                          <div className="p-3 text-gray-500 text-center">لا توجد نتائج</div>
+                          <div className="p-3 text-gray-500 text-center">{t('purchases.pfNoProductResults')}</div>
                         ) : (
                           filteredProducts.slice(0, 10).map((product, index) => {
                             const piecesPerPkg = product.pieces_per_package || 1;
                             const unitPrice = Number(product.cost_price) || 0;
-                            const unitName = product.unit_buy?.short_name || 'وحدة';
+                            const unitName = product.unit_buy?.short_name || t('purchases.pfUnit');
                             const isHighlighted = productHighlightIndex === index;
                             return (
                               <button
@@ -1308,21 +1500,21 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                                 type="button"
                                 data-index={index}
                                 onClick={() => openQuickEntryModal(product)}
-                                className={`w-full p-3 text-right border-b last:border-b-0 ${isHighlighted ? 'bg-blue-100' : 'hover:bg-gray-50'}`}
+                                className={`w-full p-3 ${dir === 'rtl' ? 'text-right' : 'text-left'} border-b last:border-b-0 ${isHighlighted ? 'bg-blue-100 dark:bg-blue-900/40' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                               >
                                 <div className="font-medium">{product.name}</div>
                                 <div className="text-sm text-gray-500 flex justify-between">
                                   <span>{product.barcode}</span>
                                   <span>
-                                    {formatCurrency(unitPrice)} / قطعة
+                                    {formatCurrency(unitPrice)} / {t('purchases.pfPerPiece')}
                                     {piecesPerPkg > 1 && (
-                                      <span className="text-blue-500 mr-1">({formatCurrency(unitPrice * piecesPerPkg)} / كرتون)</span>
+                                      <span className={`text-blue-500 dark:text-blue-400 ${dir === 'rtl' ? 'mr-1' : 'ml-1'}`}>({formatCurrency(unitPrice * piecesPerPkg)} / {t('purchases.pfPerCarton')})</span>
                                     )}
                                   </span>
                                 </div>
                                 {warehouseId && (
-                                  <div className="text-xs text-blue-600">
-                                    متوفر: {formatStockQty(warehouseStock[product.id] || 0, piecesPerPkg)}
+                                  <div className="text-xs text-blue-600 dark:text-blue-400">
+                                    {t('purchases.pfAvailable')} {formatStockQty(warehouseStock[product.id] || 0, piecesPerPkg)}
                                   </div>
                                 )}
                               </button>
@@ -1336,33 +1528,39 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
               </div>
 
               {/* Items Table - New Format */}
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto px-5 pb-5" data-tour="pf-items">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-gray-100">
-                      <th className="px-2 py-2 text-center w-12">الرقم</th>
-                      <th className="px-2 py-2 text-right">التعيين</th>
-                      <th className="px-2 py-2 text-center w-24">المتوفر</th>
-                      <th className="px-2 py-2 text-center w-20">الكمية</th>
-                      <th className="px-2 py-2 text-center w-16">الوحدة</th>
-                      <th className="px-2 py-2 text-center w-20">العدد</th>
-                      <th className="px-2 py-2 text-center w-24">س. الوحدة</th>
-                      <th className="px-2 py-2 text-center w-20">الخصم</th>
-                      <th className="px-2 py-2 text-center w-16">TVA</th>
-                      <th className="px-2 py-2 text-center w-24">المبلغ</th>
-                      <th className="px-2 py-2 w-10"></th>
+                    <tr className="bg-slate-50 dark:bg-gray-700/50 border-b-2 border-slate-200 dark:border-gray-600">
+                      <th className="px-2 py-2.5 text-center w-12 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">#</th>
+                      <th className={`px-2 py-2.5 ${dir === 'rtl' ? 'text-right' : 'text-left'} text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase`}>{t('purchases.pfDesignation')}</th>
+                      <th className="px-2 py-2.5 text-center w-24 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">{t('purchases.pfStockAvail')}</th>
+                      <th className="px-2 py-2.5 text-center w-20 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">{t('purchases.pfQtyCol')}</th>
+                      <th className="px-2 py-2.5 text-center w-16 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">{t('purchases.pfUnitCol')}</th>
+                      <th className="px-2 py-2.5 text-center w-20 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">{t('purchases.pfCountCol')}</th>
+                      <th className="px-2 py-2.5 text-center w-24 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">{t('purchases.pfUnitPriceCol')}</th>
+                      <th className="px-2 py-2.5 text-center w-20 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">{t('purchases.pfDiscountCol')}</th>
+                      <th className="px-2 py-2.5 text-center w-16 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">TVA</th>
+                      <th className="px-2 py-2.5 text-center w-24 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">{t('purchases.pfAmountCol')}</th>
+                      <th className="px-2 py-2.5 w-10"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {items.length === 0 ? (
                       <tr>
-                        <td colSpan={11} className="text-center py-8 text-gray-500">
-                          لم يتم إضافة منتجات بعد
+                        <td colSpan={11} className="text-center py-12">
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center">
+                              <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                            </div>
+                            <p className="text-sm text-gray-400 font-medium">{t('purchases.pfNoProductsYet')}</p>
+                            <p className="text-xs text-gray-300 dark:text-gray-500">{t('purchases.pfSearchHint')}</p>
+                          </div>
                         </td>
                       </tr>
                     ) : (
                       items.map((item, index) => (
-                        <tr key={index} className="border-b hover:bg-gray-50">
+                        <tr key={index} className="border-b border-gray-100 dark:border-gray-700 hover:bg-blue-50/30 dark:hover:bg-blue-900/20 transition-colors duration-150 group">
                           <td className="px-2 py-2 text-center font-medium text-gray-500">{index + 1}</td>
                           <td className="px-2 py-2">
                             <div className="font-medium">{item.product_name}</div>
@@ -1462,8 +1660,8 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                               step="0.01"
                             />
                             {item.pieces_per_package > 1 && (
-                              <div className="text-[10px] text-blue-500 text-center mt-0.5">
-                                {formatCurrency(item.unit_price * item.pieces_per_package)}/كرتون
+                              <div className="text-[10px] text-blue-500 dark:text-blue-400 text-center mt-0.5">
+                                {formatCurrency(item.unit_price * item.pieces_per_package)}/{t('purchases.pfPerCarton')}
                               </div>
                             )}
                           </td>
@@ -1483,14 +1681,14 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                             <div className="font-medium">{item.tax_percent}%</div>
                             <div className="text-gray-500 text-xs">{formatCurrency(item.tax)}</div>
                           </td>
-                          <td className="px-2 py-2 text-center font-bold text-green-600">
+                          <td className="px-2 py-2 text-center font-black text-emerald-600 tabular-nums">
                             {formatCurrency(item.subtotal)}
                           </td>
                           <td className="px-2 py-2">
                             <button
                               type="button"
                               onClick={() => removeItem(index)}
-                              className="text-red-600 hover:text-red-800 p-1"
+                              className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 opacity-50 group-hover:opacity-100 transition-all"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1504,238 +1702,211 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                 </table>
               </div>
 
-              <div className="mt-2 text-xs text-gray-500">
-                نصيحة: اضغط Enter للانتقال للحقل التالي
+              <div className="mt-2 px-5 pb-5 text-xs text-gray-400 flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                {t('purchases.pfEnterNextField')}
               </div>
             </div>
 
             {/* Notes */}
-            <div className="card">
-              <label className="block text-sm font-medium mb-1">ملاحظات</label>
+            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm p-5">
+              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">{t('purchases.pfNotes')}</label>
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 className="input w-full"
                 rows={2}
-                placeholder="أضف ملاحظات..."
+                placeholder={t('purchases.pfAddNotes')}
               />
             </div>
           </div>
 
           {/* Sidebar - Summary */}
           <div>
-            <div className="card sticky top-24">
-              <h2 className="text-lg font-semibold mb-4">ملخص الفاتورة</h2>
+            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm sticky top-24" data-tour="pf-summary">
+              <div className="flex items-center gap-2.5 px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 rounded-t-2xl">
+                <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                </div>
+                <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('purchases.pfInvoiceSummary')}</span>
+              </div>
 
-              <div className="space-y-3">
+              <div className="p-5 space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-500">إجمالي المنتجات ({items.length})</span>
-                  <span className="font-medium">{formatCurrency(totalAmount)}</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{t('purchases.pfProductsTotal', { count: items.length })}</span>
+                  <span className="font-bold text-gray-900 dark:text-gray-100 tabular-nums">{formatCurrency(totalAmount)}</span>
                 </div>
 
-                <div>
-                  <label className="block text-sm text-gray-500 mb-1">الخصم</label>
-                  <input
-                    type="number"
-                    value={discount}
-                    onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
-                    className="input w-full"
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-500 mb-1">الضريبة</label>
-                  <input
-                    type="number"
-                    value={tax}
-                    onChange={(e) => setTax(parseFloat(e.target.value) || 0)}
-                    className="input w-full"
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-500 mb-1">الشحن</label>
-                  <input
-                    type="number"
-                    value={shipping}
-                    onChange={(e) => setShipping(parseFloat(e.target.value) || 0)}
-                    className="input w-full"
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-500 mb-1">الطابع الجبائي (%)</label>
-                  <div className="flex items-center gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-400 mb-1">{t('purchases.pfDiscountLabel')}</label>
                     <input
                       type="number"
-                      value={timbre}
-                      onChange={(e) => setTimbre(parseFloat(e.target.value) || 0)}
-                      className="input flex-1"
+                      value={discount}
+                      onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+                      className="input w-full text-center text-sm"
                       min="0"
-                      max="100"
                       step="0.01"
                     />
-                    <span className="text-gray-400">%</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        localStorage.setItem('defaultTimbre', timbre.toString());
-                        toast.success(`تم حفظ ${timbre}% كقيمة افتراضية للطابع`);
-                      }}
-                      className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1 rounded"
-                      title="حفظ كقيمة افتراضية"
-                    >
-                      حفظ
-                    </button>
                   </div>
-                  {timbre > 0 && (
-                    <div className="text-xs text-gray-500 mt-1">
-                      = {formatCurrency(timbreAmount)}
-                    </div>
-                  )}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-400 mb-1">{t('purchases.pfTaxLabel')}</label>
+                    <input
+                      type="number"
+                      value={tax}
+                      onChange={(e) => setTax(parseFloat(e.target.value) || 0)}
+                      className="input w-full text-center text-sm"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-400 mb-1">{t('purchases.pfShippingLabel')}</label>
+                    <input
+                      type="number"
+                      value={shipping}
+                      onChange={(e) => setShipping(parseFloat(e.target.value) || 0)}
+                      className="input w-full text-center text-sm"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
                 </div>
 
-                <hr />
+                <div className="h-px bg-gray-100" />
 
-                <div className="flex justify-between items-center text-lg font-bold">
-                  <span>الإجمالي النهائي</span>
-                  <span className="text-green-600">{formatCurrency(grandTotal)}</span>
+                <div className="flex justify-between items-center p-3 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl border border-emerald-100 dark:border-emerald-800">
+                  <span className="font-bold text-emerald-800 dark:text-emerald-300">{t('purchases.pfFinalTotal')}</span>
+                  <span className="text-xl font-black text-emerald-700 dark:text-emerald-300 tabular-nums">{formatCurrency(grandTotal)}</span>
                 </div>
 
                 {/* Payment Section */}
-                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <label className="block text-sm font-medium text-green-800 mb-2">المبلغ المدفوع</label>
+                <div className="p-3.5 bg-gradient-to-b from-blue-50 to-blue-50/30 dark:from-blue-900/30 dark:to-blue-900/10 border border-blue-200/60 dark:border-blue-800 rounded-xl">
+                  <label className="block text-sm font-bold text-blue-800 dark:text-blue-300 mb-2">{t('purchases.pfPaidAmount')}</label>
                   <input
                     ref={paidAmountRef}
                     type="number"
                     value={paidAmount}
                     onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
-                    className="input w-full text-lg font-bold text-center"
+                    className="input w-full text-lg font-black text-center tabular-nums"
                     min="0"
                     step="0.01"
                     placeholder="0"
                   />
                   {supplierId && previousDebt > 0 && (
-                    <div className="mt-2 text-xs text-gray-500 text-center">
-                      يمكنك دفع أكثر من قيمة الفاتورة لتسديد الدين السابق
+                    <div className="mt-2 text-[11px] text-blue-500 dark:text-blue-400 text-center font-medium">
+                      {t('purchases.pfPayMoreHint')}
                     </div>
                   )}
                 </div>
 
                 {/* Payment Breakdown */}
                 {supplierId && supplierDebt ? (
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+                  <div className="p-3.5 bg-slate-50 dark:bg-gray-700/50 border border-slate-200/60 dark:border-gray-600 rounded-xl space-y-2">
                     {/* Summary at top */}
-                    <div className="p-2 bg-white rounded border border-blue-100 mb-2">
+                    <div className="p-2.5 bg-white dark:bg-gray-800 rounded-lg border border-slate-100 dark:border-gray-700 mb-2 space-y-1">
                       <div className="flex justify-between items-center text-sm">
-                        <span>هذه الفاتورة:</span>
-                        <span className="font-bold">{formatCurrency(grandTotal)}</span>
+                        <span className="text-gray-500 dark:text-gray-400">{t('purchases.pfThisInvoice')}</span>
+                        <span className="font-bold tabular-nums">{formatCurrency(grandTotal)}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
-                        <span>+ الدين السابق:</span>
-                        <span className="font-bold">{formatCurrency(previousDebt)}</span>
+                        <span className="text-gray-500 dark:text-gray-400">{t('purchases.pfPreviousDebt')}</span>
+                        <span className="font-bold text-red-600 tabular-nums">{formatCurrency(previousDebt)}</span>
                       </div>
-                      <hr className="my-1" />
+                      <div className="h-px bg-slate-100 dark:bg-gray-600 my-1" />
                       <div className="flex justify-between items-center text-sm font-bold">
-                        <span>= المجموع:</span>
-                        <span className="text-blue-600">{formatCurrency(grandTotal + previousDebt)}</span>
+                        <span className="text-slate-700 dark:text-slate-300">{t('purchases.pfTotalSum')}</span>
+                        <span className="text-blue-700 dark:text-blue-400 tabular-nums">{formatCurrency(grandTotal + previousDebt)}</span>
                       </div>
                     </div>
 
-                    <div className="text-sm font-semibold text-blue-800 mb-2">توزيع المبلغ المدفوع ({formatCurrency(currentPaidAmount)}):</div>
+                    <div className="text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-2">{t('purchases.pfPaymentDistribution', { amount: formatCurrency(currentPaidAmount) })}</div>
 
                     {currentPaidAmount > 0 ? (
                       <>
-                        {/* Applied to current purchase */}
                         <div className="flex justify-between items-center text-sm">
-                          <span className="text-gray-600">يُخصم من الفاتورة:</span>
-                          <span className="font-medium text-green-600">{formatCurrency(appliedToCurrentPurchase)}</span>
+                          <span className="text-gray-500 dark:text-gray-400">{t('purchases.pfDeductedFromInvoice')}</span>
+                          <span className="font-semibold text-emerald-600 tabular-nums">{formatCurrency(appliedToCurrentPurchase)}</span>
                         </div>
 
-                        {/* Applied to previous debt */}
                         {appliedToPreviousDebt > 0 && (
                           <div className="flex justify-between items-center text-sm">
-                            <span className="text-gray-600">يُخصم من الدين السابق:</span>
-                            <span className="font-medium text-green-600">{formatCurrency(appliedToPreviousDebt)}</span>
+                            <span className="text-gray-500 dark:text-gray-400">{t('purchases.pfDeductedFromPreviousDebt')}</span>
+                            <span className="font-semibold text-emerald-600 tabular-nums">{formatCurrency(appliedToPreviousDebt)}</span>
                           </div>
                         )}
 
-                        <hr className="border-blue-200" />
+                        <div className="h-px bg-slate-200" />
                       </>
                     ) : (
-                      <div className="text-sm text-gray-500 text-center py-1">لم يتم إدخال مبلغ مدفوع</div>
+                      <div className="text-sm text-gray-400 text-center py-1">{t('purchases.pfNoPaidAmount')}</div>
                     )}
 
-                    {/* Remaining */}
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">متبقي الفاتورة:</span>
-                      <span className={`font-medium ${remainingFromPurchase > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      <span className="text-gray-500 dark:text-gray-400">{t('purchases.pfInvoiceRemaining')}</span>
+                      <span className={`font-semibold tabular-nums ${remainingFromPurchase > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                         {formatCurrency(remainingFromPurchase)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">متبقي الدين السابق:</span>
-                      <span className={`font-medium ${remainingPreviousDebt > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      <span className="text-gray-500 dark:text-gray-400">{t('purchases.pfPreviousDebtRemaining')}</span>
+                      <span className={`font-semibold tabular-nums ${remainingPreviousDebt > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                         {formatCurrency(remainingPreviousDebt)}
                       </span>
                     </div>
 
-                    <hr className="border-blue-200" />
+                    <div className="h-px bg-slate-200 dark:bg-gray-600" />
 
-                    {/* Total remaining */}
-                    <div className="flex justify-between items-center font-bold">
-                      <span className="text-blue-800">إجمالي الدين بعد الدفع:</span>
-                      <span className={`text-lg ${totalRemainingDebt > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    <div className="flex justify-between items-center p-2 bg-white dark:bg-gray-800 rounded-lg border border-slate-100 dark:border-gray-700">
+                      <span className="font-bold text-slate-700 dark:text-slate-300 text-sm">{t('purchases.pfTotalDebtAfterPayment')}</span>
+                      <span className={`text-lg font-black tabular-nums ${totalRemainingDebt > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                         {formatCurrency(totalRemainingDebt)}
                       </span>
                     </div>
                   </div>
                 ) : (
-                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                  <div className="p-3 bg-gray-50 dark:bg-gray-700/50 border border-gray-200/60 dark:border-gray-600 rounded-xl">
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">المتبقي من الفاتورة:</span>
-                      <span className={`font-bold ${remainingFromPurchase > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      <span className="text-gray-500 dark:text-gray-400">{t('purchases.pfRemainingFromInvoice')}</span>
+                      <span className={`font-black tabular-nums ${remainingFromPurchase > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                         {formatCurrency(remainingFromPurchase)}
                       </span>
                     </div>
                   </div>
                 )}
 
-                <button
-                  ref={submitBtnRef}
-                  type="submit"
-                  disabled={isSaving || items.length === 0}
-                  className="btn btn-primary w-full"
-                >
-                  {isSaving ? 'جاري الحفظ...' : 'حفظ الفاتورة'}
-                </button>
-
-                {!isEditMode && (
+                <div className="space-y-2 pt-1" data-tour="pf-save">
                   <button
-                    type="button"
-                    onClick={handleSaveDraft}
+                    ref={submitBtnRef}
+                    type="submit"
                     disabled={isSaving || items.length === 0}
-                    className="btn w-full bg-yellow-500 hover:bg-yellow-600 text-white"
+                    className="w-full px-5 py-3 text-sm font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                   >
-                    {isSaving ? 'جاري الحفظ...' : 'حفظ كمسودة'}
+                    {isSaving ? t('purchases.saving') : t('purchases.saveInvoice')}
+                    {!isSaving && <kbd className={`bg-white/20 px-1.5 py-0.5 rounded-md text-[10px] font-mono ${dir === 'rtl' ? 'mr-2' : 'ml-2'}`}>F4</kbd>}
                   </button>
-                )}
 
-                {onCancel ? (
-                  <button type="button" onClick={onCancel} className="btn btn-secondary w-full text-center block">
-                    إلغاء
-                  </button>
-                ) : (
-                  <Link href="/dashboard/purchases" className="btn btn-secondary w-full text-center block">
-                    إلغاء
-                  </Link>
-                )}
+                  {!isEditMode && (
+                    <button
+                      type="button"
+                      onClick={handleSaveDraft}
+                      disabled={isSaving || items.length === 0}
+                      className="w-full px-5 py-2.5 text-sm font-bold rounded-xl text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border-2 border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/50 hover:border-amber-300 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSaving ? t('purchases.saving') : t('purchases.saveAsDraft')}
+                    </button>
+                  )}
+
+                  {onCancel ? (
+                    <button type="button" onClick={onCancel} className="w-full px-5 py-2.5 text-sm font-bold rounded-xl text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 active:scale-[0.98] transition-all duration-200 text-center block">
+                      {t('common.cancel')}
+                    </button>
+                  ) : (
+                    <Link href="/dashboard/purchases" className="w-full px-5 py-2.5 text-sm font-bold rounded-xl text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 active:scale-[0.98] transition-all duration-200 text-center block">
+                      {t('common.cancel')}
+                    </Link>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1745,6 +1916,14 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
       {/* Click outside to close product search */}
       {showProductSearch && (
         <div className="fixed inset-0 z-0" onClick={() => setShowProductSearch(false)} />
+      )}
+
+      {showTour && (
+        <GuidedTour
+          steps={purchaseFormTourSteps}
+          storageKey="purchase_form_tour_step"
+          onComplete={() => setShowTour(false)}
+        />
       )}
     </div>
   );

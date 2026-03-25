@@ -3,9 +3,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { settingsApi } from '@/lib/api';
 import toast from 'react-hot-toast';
-import { SunIcon, MoonIcon, PhotoIcon, TrashIcon, LockClosedIcon, KeyIcon } from '@heroicons/react/24/outline';
+import { SunIcon, MoonIcon, PhotoIcon, TrashIcon, LockClosedIcon, KeyIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
+import { useLocale } from '@/lib/i18n/context';
 
 export default function SettingsPage() {
+  const { t, locale } = useLocale();
+  const isRTL = locale === 'ar';
+
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [hasPassword, setHasPassword] = useState(false);
   const [isCheckingPassword, setIsCheckingPassword] = useState(true);
@@ -98,7 +102,7 @@ export default function SettingsPage() {
   const handleVerifyPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!passwordInput.trim()) {
-      toast.error('يرجى إدخال كلمة المرور');
+      toast.error(t('settings.pleaseEnterPassword'));
       return;
     }
 
@@ -108,10 +112,10 @@ export default function SettingsPage() {
       if (response.data.verified) {
         setIsUnlocked(true);
         fetchSettings();
-        toast.success('تم التحقق بنجاح');
+        toast.success(t('settings.verifiedSuccess'));
       }
     } catch (error) {
-      toast.error('كلمة المرور غير صحيحة');
+      toast.error(t('settings.wrongPassword'));
     } finally {
       setIsVerifying(false);
       setPasswordInput('');
@@ -143,9 +147,9 @@ export default function SettingsPage() {
     setIsSaving(true);
     try {
       await settingsApi.update(settings);
-      toast.success('تم حفظ الإعدادات بنجاح');
+      toast.success(t('settings.saveSuccess'));
     } catch (error) {
-      toast.error('خطأ في حفظ الإعدادات');
+      toast.error(t('settings.saveError'));
     } finally {
       setIsSaving(false);
     }
@@ -169,9 +173,9 @@ export default function SettingsPage() {
     try {
       const response = await settingsApi.uploadLogo(formData);
       setSettings(prev => ({ ...prev, company_logo: response.data.path }));
-      toast.success('تم رفع الشعار بنجاح');
+      toast.success(t('settings.logoUploadSuccess'));
     } catch (error) {
-      toast.error('خطأ في رفع الشعار');
+      toast.error(t('settings.logoUploadError'));
       setLogoPreview(null);
     }
   };
@@ -181,9 +185,9 @@ export default function SettingsPage() {
       await settingsApi.deleteLogo();
       setLogoPreview(null);
       setSettings(prev => ({ ...prev, company_logo: '' }));
-      toast.success('تم حذف الشعار');
+      toast.success(t('settings.logoDeleteSuccess'));
     } catch (error) {
-      toast.error('خطأ في حذف الشعار');
+      toast.error(t('settings.logoDeleteError'));
     }
   };
 
@@ -206,12 +210,12 @@ export default function SettingsPage() {
     e.preventDefault();
 
     if (newPassword !== confirmPassword) {
-      toast.error('كلمة المرور غير متطابقة');
+      toast.error(t('settings.passwordMismatch'));
       return;
     }
 
     if (newPassword.length < 4) {
-      toast.error('كلمة المرور يجب أن تكون 4 أحرف على الأقل');
+      toast.error(t('settings.passwordMinLength'));
       return;
     }
 
@@ -221,13 +225,13 @@ export default function SettingsPage() {
         current_password: hasPassword ? currentPassword : undefined,
         new_password: newPassword,
       });
-      toast.success('تم تحديث كلمة المرور بنجاح');
+      toast.success(t('settings.passwordUpdateSuccess'));
       setHasPassword(true);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (error) {
-      toast.error('خطأ في تحديث كلمة المرور');
+      toast.error(t('settings.passwordUpdateError'));
     } finally {
       setIsSettingPassword(false);
     }
@@ -235,20 +239,20 @@ export default function SettingsPage() {
 
   const handleRemovePassword = async () => {
     if (!currentPassword) {
-      toast.error('يرجى إدخال كلمة المرور الحالية');
+      toast.error(t('settings.enterCurrentPassword'));
       return;
     }
 
-    if (!confirm('هل أنت متأكد من إزالة حماية كلمة المرور؟')) return;
+    if (!confirm(t('settings.confirmRemoveProtection'))) return;
 
     setIsSettingPassword(true);
     try {
       await settingsApi.removePassword(currentPassword);
-      toast.success('تم إزالة كلمة المرور');
+      toast.success(t('settings.passwordRemovedSuccess'));
       setHasPassword(false);
       setCurrentPassword('');
     } catch (error) {
-      toast.error('كلمة المرور غير صحيحة');
+      toast.error(t('settings.wrongPassword'));
     } finally {
       setIsSettingPassword(false);
     }
@@ -268,9 +272,9 @@ export default function SettingsPage() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      toast.success('تم تصدير قاعدة البيانات بنجاح');
+      toast.success(t('settings.exportSqlSuccess'));
     } catch {
-      toast.error('خطأ في تصدير قاعدة البيانات');
+      toast.error(t('settings.exportSqlError'));
     } finally {
       setIsExportingSql(false);
     }
@@ -289,9 +293,9 @@ export default function SettingsPage() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      toast.success('تم إنشاء النسخة الاحتياطية بنجاح');
+      toast.success(t('settings.backupSuccess'));
     } catch {
-      toast.error('خطأ في إنشاء النسخة الاحتياطية');
+      toast.error(t('settings.backupError'));
     } finally {
       setIsCreatingBackup(false);
     }
@@ -302,12 +306,12 @@ export default function SettingsPage() {
     if (!file) return;
 
     if (!file.name.endsWith('.rbk')) {
-      toast.error('يرجى اختيار ملف بصيغة .rbk');
+      toast.error(t('settings.invalidFileFormat'));
       return;
     }
 
     setRestoreFile(file);
-    setRestoreProgress('جاري قراءة معلومات النسخة...');
+    setRestoreProgress(t('settings.readingBackupInfo'));
 
     try {
       const response = await settingsApi.getBackupInfo(file);
@@ -315,7 +319,7 @@ export default function SettingsPage() {
       setShowRestoreConfirm(true);
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'الملف غير صالح');
+      toast.error(err.response?.data?.message || t('settings.invalidFile'));
       setRestoreFile(null);
     } finally {
       setRestoreProgress('');
@@ -326,16 +330,16 @@ export default function SettingsPage() {
     if (!restoreFile) return;
 
     setIsRestoringBackup(true);
-    setRestoreProgress('جاري استعادة النسخة الاحتياطية...');
+    setRestoreProgress(t('settings.restoringBackup'));
     setShowRestoreConfirm(false);
 
     try {
       await settingsApi.restoreBackup(restoreFile);
-      toast.success('تم استعادة النسخة الاحتياطية بنجاح');
+      toast.success(t('settings.restoreSuccess'));
       fetchSettings();
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'فشل في استعادة النسخة');
+      toast.error(err.response?.data?.message || t('settings.restoreFailed'));
     } finally {
       setIsRestoringBackup(false);
       setRestoreProgress('');
@@ -357,13 +361,13 @@ export default function SettingsPage() {
   };
 
   const tabs = [
-    { id: 'company', name: 'الشركة', icon: '🏢' },
-    { id: 'legal', name: 'المعلومات القانونية', icon: '📋' },
-    { id: 'general', name: 'عام', icon: '⚙️' },
-    { id: 'invoice', name: 'الفواتير', icon: '📄' },
-    { id: 'appearance', name: 'المظهر', icon: '🎨' },
-    { id: 'security', name: 'الأمان', icon: '🔒' },
-    { id: 'backup', name: 'النسخ الاحتياطي', icon: '💾' },
+    { id: 'company', name: t('settings.tabCompany'), icon: '🏢' },
+    { id: 'legal', name: t('settings.tabLegal'), icon: '📋' },
+    { id: 'general', name: t('settings.tabGeneral'), icon: '⚙️' },
+    { id: 'invoice', name: t('settings.tabInvoice'), icon: '📄' },
+    { id: 'appearance', name: t('settings.tabAppearance'), icon: '🎨' },
+    { id: 'security', name: t('settings.tabSecurity'), icon: '🔒' },
+    { id: 'backup', name: t('settings.tabBackup'), icon: '💾' },
   ];
 
   // Show loading while checking password
@@ -379,26 +383,26 @@ export default function SettingsPage() {
   if (!isUnlocked && hasPassword) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="card w-full max-w-md">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-8 w-full max-w-md">
           <div className="text-center mb-6">
-            <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+            <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 dark:bg-blue-900/40 rounded-2xl flex items-center justify-center">
               <LockClosedIcon className="w-8 h-8 text-blue-600 dark:text-blue-400" />
             </div>
-            <h1 className="text-2xl font-bold dark:text-white">الإعدادات محمية</h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-2">يرجى إدخال كلمة المرور للوصول إلى الإعدادات</p>
+            <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">{t('settings.settingsProtected')}</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{t('settings.enterPasswordAccess')}</p>
           </div>
 
           <form onSubmit={handleVerifyPassword}>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                كلمة المرور
+                {t('settings.passwordLabel')}
               </label>
               <input
                 type="password"
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
                 className="input"
-                placeholder="أدخل كلمة المرور..."
+                placeholder={t('settings.passwordPlaceholder')}
                 autoFocus
               />
             </div>
@@ -406,17 +410,17 @@ export default function SettingsPage() {
             <button
               type="submit"
               disabled={isVerifying}
-              className="btn btn-primary w-full"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
             >
               {isVerifying ? (
                 <>
                   <div className="spinner w-5 h-5"></div>
-                  جاري التحقق...
+                  {t('settings.verifying')}
                 </>
               ) : (
                 <>
                   <KeyIcon className="w-5 h-5" />
-                  دخول
+                  {t('settings.enter')}
                 </>
               )}
             </button>
@@ -437,16 +441,24 @@ export default function SettingsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold dark:text-white">الإعدادات</h1>
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-gray-600 flex items-center justify-center">
+            <Cog6ToothIcon className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('settings.title')}</h1>
+            <p className="text-sm text-gray-400 mt-1">{isRTL ? 'ادارة اعدادات التطبيق والتفضيلات' : 'Gerez les parametres et preferences de votre application'}</p>
+          </div>
+        </div>
         <button
           onClick={toggleDarkMode}
-          className="p-2 rounded-lg border hover:bg-gray-100 dark:hover:bg-gray-700"
-          title={darkMode ? 'الوضع الفاتح' : 'الوضع الداكن'}
+          className="p-2 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          title={darkMode ? t('settings.lightMode') : t('settings.darkMode')}
         >
           {darkMode ? (
             <SunIcon className="w-6 h-6 text-yellow-500" />
           ) : (
-            <MoonIcon className="w-6 h-6 text-gray-600" />
+            <MoonIcon className="w-6 h-6 text-gray-600 dark:text-gray-400" />
           )}
         </button>
       </div>
@@ -454,15 +466,17 @@ export default function SettingsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Tabs */}
         <div className="lg:col-span-1">
-          <div className="card p-2">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 overflow-hidden p-2">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-right transition-colors ${
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+                  isRTL ? 'text-right' : 'text-left'
+                } ${
                   activeTab === tab.id
-                    ? 'bg-blue-50 text-blue-600 dark:bg-blue-900 dark:text-blue-300'
-                    : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                 }`}
               >
                 <span>{tab.icon}</span>
@@ -474,23 +488,23 @@ export default function SettingsPage() {
 
         {/* Content */}
         <div className="lg:col-span-3">
-          <div className="card">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-6">
             {activeTab === 'company' && (
               <div>
-                <h2 className="text-lg font-semibold mb-4 dark:text-white">معلومات الشركة</h2>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{t('settings.companyInfo')}</h2>
 
                 {/* Logo Upload */}
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">شعار الشركة</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('settings.companyLogo')}</label>
                   <div className="flex items-center gap-4">
                     <div
-                      className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-blue-500 overflow-hidden"
+                      className="w-32 h-32 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400 overflow-hidden bg-white dark:bg-gray-800"
                       onClick={() => fileInputRef.current?.click()}
                     >
                       {logoPreview ? (
                         <img src={logoPreview} alt="Logo" className="w-full h-full object-contain" />
                       ) : (
-                        <PhotoIcon className="w-12 h-12 text-gray-400" />
+                        <PhotoIcon className="w-12 h-12 text-gray-400 dark:text-gray-500" />
                       )}
                     </div>
                     <input
@@ -503,28 +517,28 @@ export default function SettingsPage() {
                     <div className="flex flex-col gap-2">
                       <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="btn btn-secondary text-sm"
+                        className="flex items-center gap-2 px-3 py-2 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl text-sm font-medium transition-colors"
                       >
                         <PhotoIcon className="w-4 h-4" />
-                        رفع شعار
+                        {t('settings.uploadLogo')}
                       </button>
                       {logoPreview && (
                         <button
                           onClick={handleDeleteLogo}
-                          className="btn btn-danger text-sm"
+                          className="flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors"
                         >
                           <TrashIcon className="w-4 h-4" />
-                          حذف
+                          {t('settings.deleteLogo')}
                         </button>
                       )}
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">الحد الأقصى: 2 ميجابايت. PNG, JPG, GIF</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{t('settings.logoMaxSize')}</p>
                 </div>
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">اسم الشركة</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('settings.companyName')}</label>
                     <input
                       type="text"
                       value={settings.company_name}
@@ -535,7 +549,7 @@ export default function SettingsPage() {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">الهاتف</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('settings.phone')}</label>
                       <input
                         type="tel"
                         value={settings.company_phone}
@@ -546,7 +560,7 @@ export default function SettingsPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">البريد الإلكتروني</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('settings.email')}</label>
                       <input
                         type="email"
                         value={settings.company_email}
@@ -558,13 +572,13 @@ export default function SettingsPage() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">العنوان</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('settings.address')}</label>
                     <textarea
                       value={settings.company_address}
                       onChange={(e) => setSettings({ ...settings, company_address: e.target.value })}
                       className="input"
                       rows={2}
-                      placeholder="بسكرة، الجزائر"
+                      placeholder={isRTL ? 'بسكرة، الجزائر' : 'Biskra, Algerie'}
                     />
                   </div>
                 </div>
@@ -573,13 +587,13 @@ export default function SettingsPage() {
 
             {activeTab === 'legal' && (
               <div>
-                <h2 className="text-lg font-semibold mb-4 dark:text-white">المعلومات القانونية (للفواتير)</h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">هذه المعلومات ستظهر على جميع الفواتير</p>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{t('settings.legalInfo')}</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t('settings.legalInfoDesc')}</p>
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        RC (السجل التجاري)
+                        {t('settings.rc')}
                       </label>
                       <input
                         type="text"
@@ -592,7 +606,7 @@ export default function SettingsPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        NIF (الرقم الجبائي)
+                        {t('settings.nif')}
                       </label>
                       <input
                         type="text"
@@ -607,7 +621,7 @@ export default function SettingsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        AI (رقم المادة)
+                        {t('settings.ai')}
                       </label>
                       <input
                         type="text"
@@ -620,7 +634,7 @@ export default function SettingsPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        NIS (رقم الإحصاء)
+                        {t('settings.nis')}
                       </label>
                       <input
                         type="text"
@@ -634,7 +648,7 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      RIB (رقم الحساب البنكي)
+                      {t('settings.rib')}
                     </label>
                     <input
                       type="text"
@@ -651,22 +665,22 @@ export default function SettingsPage() {
 
             {activeTab === 'general' && (
               <div>
-                <h2 className="text-lg font-semibold mb-4 dark:text-white">الإعدادات العامة</h2>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{t('settings.generalSettings')}</h2>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">العملة</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('settings.currency')}</label>
                     <select
                       value={settings.currency}
                       onChange={(e) => setSettings({ ...settings, currency: e.target.value })}
                       className="select"
                     >
-                      <option value="DZD">دينار جزائري (DZD)</option>
-                      <option value="USD">دولار أمريكي (USD)</option>
-                      <option value="EUR">يورو (EUR)</option>
+                      <option value="DZD">{t('settings.currencyDZD')}</option>
+                      <option value="USD">{t('settings.currencyUSD')}</option>
+                      <option value="EUR">{t('settings.currencyEUR')}</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">نسبة الضريبة الافتراضية (%)</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('settings.taxRate')}</label>
                     <input
                       type="number"
                       value={settings.tax_rate}
@@ -675,7 +689,7 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">تنبيه نقص المخزون (الحد الأدنى)</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('settings.lowStockAlert')}</label>
                     <input
                       type="number"
                       value={settings.low_stock_alert}
@@ -687,42 +701,42 @@ export default function SettingsPage() {
                   {/* Auto-validate Orders Setting */}
                   <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                     <h3 className="text-md font-semibold mb-3 dark:text-white flex items-center gap-2">
-                      التصديق التلقائي للطلبات
-                      <span className="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-500 text-white rounded-full leading-none">جديد</span>
+                      {t('settings.autoValidateOrders')}
+                      <span className="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-500 text-white rounded-full leading-none">{t('settings.new')}</span>
                     </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">هل يتم تأكيد الطلبات تلقائياً عند إنشائها من طرف البائع؟</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{t('settings.autoValidateDesc')}</p>
                     <div className="flex gap-4">
                       <button
                         type="button"
                         onClick={() => setSettings({ ...settings, auto_validate_orders: 'false' })}
-                        className={`flex-1 p-4 rounded-lg border-2 transition-all cursor-pointer ${settings.auto_validate_orders === 'false' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'}`}
+                        className={`flex-1 p-4 rounded-xl border-2 transition-all cursor-pointer ${settings.auto_validate_orders === 'false' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500'}`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.auto_validate_orders === 'false' ? 'bg-blue-100' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                            <svg className={`w-5 h-5 ${settings.auto_validate_orders === 'false' ? 'text-blue-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.auto_validate_orders === 'false' ? 'bg-blue-100 dark:bg-blue-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                            <svg className={`w-5 h-5 ${settings.auto_validate_orders === 'false' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                           </div>
-                          <div className="text-right">
-                            <p className={`text-sm font-semibold ${settings.auto_validate_orders === 'false' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>يدوي - يحتاج موافقة</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">الطلب يبقى معلقاً حتى يوافق عليه المدير</p>
+                          <div className={isRTL ? 'text-right' : 'text-left'}>
+                            <p className={`text-sm font-semibold ${settings.auto_validate_orders === 'false' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>{t('settings.manualApproval')}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{t('settings.manualApprovalDesc')}</p>
                           </div>
                         </div>
                       </button>
                       <button
                         type="button"
                         onClick={() => setSettings({ ...settings, auto_validate_orders: 'true' })}
-                        className={`flex-1 p-4 rounded-lg border-2 transition-all cursor-pointer ${settings.auto_validate_orders === 'true' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'}`}
+                        className={`flex-1 p-4 rounded-xl border-2 transition-all cursor-pointer ${settings.auto_validate_orders === 'true' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500'}`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.auto_validate_orders === 'true' ? 'bg-blue-100' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                            <svg className={`w-5 h-5 ${settings.auto_validate_orders === 'true' ? 'text-blue-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.auto_validate_orders === 'true' ? 'bg-blue-100 dark:bg-blue-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                            <svg className={`w-5 h-5 ${settings.auto_validate_orders === 'true' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                             </svg>
                           </div>
-                          <div className="text-right">
-                            <p className={`text-sm font-semibold ${settings.auto_validate_orders === 'true' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>تلقائي - مصادقة فورية</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">الطلب يُأكد تلقائياً فور إنشائه</p>
+                          <div className={isRTL ? 'text-right' : 'text-left'}>
+                            <p className={`text-sm font-semibold ${settings.auto_validate_orders === 'true' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>{t('settings.autoApproval')}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{t('settings.autoApprovalDesc')}</p>
                           </div>
                         </div>
                       </button>
@@ -732,42 +746,42 @@ export default function SettingsPage() {
                   {/* Seller Client Visibility Setting */}
                   <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                     <h3 className="text-md font-semibold mb-3 dark:text-white flex items-center gap-2">
-                      رؤية العملاء للبائعين
-                      <span className="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-500 text-white rounded-full leading-none">جديد</span>
+                      {t('settings.sellerVisibility')}
+                      <span className="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-500 text-white rounded-full leading-none">{t('settings.new')}</span>
                     </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">هل يمكن للبائع رؤية عملاء البائعين الآخرين في التطبيق؟</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{t('settings.sellerVisibilityDesc')}</p>
                     <div className="flex gap-4">
                       <button
                         type="button"
                         onClick={() => setSettings({ ...settings, seller_see_all_clients: 'false' })}
-                        className={`flex-1 p-4 rounded-lg border-2 transition-all cursor-pointer ${settings.seller_see_all_clients === 'false' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'}`}
+                        className={`flex-1 p-4 rounded-xl border-2 transition-all cursor-pointer ${settings.seller_see_all_clients === 'false' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500'}`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.seller_see_all_clients === 'false' ? 'bg-blue-100' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                            <svg className={`w-5 h-5 ${settings.seller_see_all_clients === 'false' ? 'text-blue-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.seller_see_all_clients === 'false' ? 'bg-blue-100 dark:bg-blue-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                            <svg className={`w-5 h-5 ${settings.seller_see_all_clients === 'false' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                             </svg>
                           </div>
-                          <div className="text-right">
-                            <p className={`text-sm font-semibold ${settings.seller_see_all_clients === 'false' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>عملاؤه فقط</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">كل بائع يرى فقط العملاء الذين أضافهم</p>
+                          <div className={isRTL ? 'text-right' : 'text-left'}>
+                            <p className={`text-sm font-semibold ${settings.seller_see_all_clients === 'false' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>{t('settings.ownClientsOnly')}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{t('settings.ownClientsOnlyDesc')}</p>
                           </div>
                         </div>
                       </button>
                       <button
                         type="button"
                         onClick={() => setSettings({ ...settings, seller_see_all_clients: 'true' })}
-                        className={`flex-1 p-4 rounded-lg border-2 transition-all cursor-pointer ${settings.seller_see_all_clients === 'true' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'}`}
+                        className={`flex-1 p-4 rounded-xl border-2 transition-all cursor-pointer ${settings.seller_see_all_clients === 'true' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500'}`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.seller_see_all_clients === 'true' ? 'bg-blue-100' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                            <svg className={`w-5 h-5 ${settings.seller_see_all_clients === 'true' ? 'text-blue-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.seller_see_all_clients === 'true' ? 'bg-blue-100 dark:bg-blue-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                            <svg className={`w-5 h-5 ${settings.seller_see_all_clients === 'true' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                           </div>
-                          <div className="text-right">
-                            <p className={`text-sm font-semibold ${settings.seller_see_all_clients === 'true' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>جميع العملاء</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">البائعون يرون جميع العملاء</p>
+                          <div className={isRTL ? 'text-right' : 'text-left'}>
+                            <p className={`text-sm font-semibold ${settings.seller_see_all_clients === 'true' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>{t('settings.allClients')}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{t('settings.allClientsDesc')}</p>
                           </div>
                         </div>
                       </button>
@@ -779,11 +793,11 @@ export default function SettingsPage() {
 
             {activeTab === 'invoice' && (
               <div>
-                <h2 className="text-lg font-semibold mb-4 dark:text-white">إعدادات الفواتير</h2>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{t('settings.invoiceSettings')}</h2>
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">بادئة فواتير المبيعات</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('settings.salesInvoicePrefix')}</label>
                       <input
                         type="text"
                         value={settings.invoice_prefix_sale}
@@ -793,7 +807,7 @@ export default function SettingsPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">بادئة فواتير المشتريات</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('settings.purchaseInvoicePrefix')}</label>
                       <input
                         type="text"
                         value={settings.invoice_prefix_purchase}
@@ -811,7 +825,7 @@ export default function SettingsPage() {
                         onChange={(e) => setSettings({ ...settings, invoice_show_logo: e.target.checked ? 'true' : 'false' })}
                         className="w-4 h-4 text-blue-600 rounded"
                       />
-                      <span className="text-sm font-medium text-gray-700">طباعة الشعار على الفواتير</span>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings.showLogoOnInvoice')}</span>
                     </label>
                   </div>
                   <div>
@@ -822,7 +836,7 @@ export default function SettingsPage() {
                         onChange={(e) => setSettings({ ...settings, invoice_show_company: e.target.checked ? 'true' : 'false' })}
                         className="w-4 h-4 text-blue-600 rounded"
                       />
-                      <span className="text-sm font-medium text-gray-700">إظهار معلومات الشركة على الفواتير</span>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings.showCompanyOnInvoice')}</span>
                     </label>
                   </div>
                 </div>
@@ -831,10 +845,10 @@ export default function SettingsPage() {
 
             {activeTab === 'appearance' && (
               <div>
-                <h2 className="text-lg font-semibold mb-4 dark:text-white">المظهر</h2>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{t('settings.appearance')}</h2>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">اختر المظهر</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">{t('settings.chooseTheme')}</label>
                     <div className="flex gap-4">
                       <button
                         onClick={() => {
@@ -843,12 +857,12 @@ export default function SettingsPage() {
                           localStorage.setItem('darkMode', 'false');
                           window.dispatchEvent(new StorageEvent('storage', { key: 'darkMode', newValue: 'false' }));
                         }}
-                        className={`flex-1 p-4 border-2 rounded-lg flex flex-col items-center gap-2 transition-colors ${
-                          !darkMode ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
+                        className={`flex-1 p-4 border-2 rounded-xl flex flex-col items-center gap-2 transition-colors ${
+                          !darkMode ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500'
                         }`}
                       >
                         <SunIcon className="w-8 h-8 text-yellow-500" />
-                        <span className="font-medium dark:text-white">الوضع الفاتح</span>
+                        <span className="font-medium text-gray-900 dark:text-white">{t('settings.lightMode')}</span>
                       </button>
                       <button
                         onClick={() => {
@@ -857,12 +871,12 @@ export default function SettingsPage() {
                           localStorage.setItem('darkMode', 'true');
                           window.dispatchEvent(new StorageEvent('storage', { key: 'darkMode', newValue: 'true' }));
                         }}
-                        className={`flex-1 p-4 border-2 rounded-lg flex flex-col items-center gap-2 transition-colors ${
-                          darkMode ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
+                        className={`flex-1 p-4 border-2 rounded-xl flex flex-col items-center gap-2 transition-colors ${
+                          darkMode ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500'
                         }`}
                       >
                         <MoonIcon className="w-8 h-8 text-gray-600 dark:text-gray-300" />
-                        <span className="font-medium dark:text-white">الوضع الداكن</span>
+                        <span className="font-medium text-gray-900 dark:text-white">{t('settings.darkMode')}</span>
                       </button>
                     </div>
                   </div>
@@ -872,22 +886,22 @@ export default function SettingsPage() {
 
             {activeTab === 'security' && (
               <div>
-                <h2 className="text-lg font-semibold mb-4 dark:text-white">إعدادات الأمان</h2>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{t('settings.securitySettings')}</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                  حماية صفحة الإعدادات بكلمة مرور. عند التفعيل، سيطلب إدخال كلمة المرور للوصول إلى الإعدادات.
+                  {t('settings.securityDesc')}
                 </p>
 
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-6">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${hasPassword ? 'bg-green-100 dark:bg-green-900' : 'bg-gray-200 dark:bg-gray-700'}`}>
-                      <LockClosedIcon className={`w-5 h-5 ${hasPassword ? 'text-green-600 dark:text-green-400' : 'text-gray-500'}`} />
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${hasPassword ? 'bg-green-100 dark:bg-green-900/40' : 'bg-gray-200 dark:bg-gray-700'}`}>
+                      <LockClosedIcon className={`w-5 h-5 ${hasPassword ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`} />
                     </div>
                     <div>
-                      <h3 className="font-medium dark:text-white">
-                        {hasPassword ? 'الحماية مفعلة' : 'الحماية غير مفعلة'}
+                      <h3 className="font-medium text-gray-900 dark:text-white">
+                        {hasPassword ? t('settings.protectionEnabled') : t('settings.protectionDisabled')}
                       </h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {hasPassword ? 'صفحة الإعدادات محمية بكلمة مرور' : 'يمكن لأي مستخدم الوصول إلى الإعدادات'}
+                        {hasPassword ? t('settings.protectionEnabledDesc') : t('settings.protectionDisabledDesc')}
                       </p>
                     </div>
                   </div>
@@ -896,42 +910,42 @@ export default function SettingsPage() {
                     {hasPassword && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          كلمة المرور الحالية
+                          {t('settings.currentPassword')}
                         </label>
                         <input
                           type="password"
                           value={currentPassword}
                           onChange={(e) => setCurrentPassword(e.target.value)}
                           className="input"
-                          placeholder="أدخل كلمة المرور الحالية"
+                          placeholder={t('settings.currentPasswordPlaceholder')}
                         />
                       </div>
                     )}
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        {hasPassword ? 'كلمة المرور الجديدة' : 'كلمة المرور'}
+                        {hasPassword ? t('settings.newPassword') : t('settings.setPassword')}
                       </label>
                       <input
                         type="password"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         className="input"
-                        placeholder="أدخل كلمة المرور"
+                        placeholder={t('settings.newPasswordPlaceholder')}
                         minLength={4}
                       />
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        تأكيد كلمة المرور
+                        {t('settings.confirmPassword')}
                       </label>
                       <input
                         type="password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         className="input"
-                        placeholder="أعد إدخال كلمة المرور"
+                        placeholder={t('settings.confirmPasswordPlaceholder')}
                         minLength={4}
                       />
                     </div>
@@ -940,17 +954,17 @@ export default function SettingsPage() {
                       <button
                         type="submit"
                         disabled={isSettingPassword || !newPassword || !confirmPassword}
-                        className="btn btn-primary"
+                        className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
                       >
                         {isSettingPassword ? (
                           <>
                             <div className="spinner w-5 h-5"></div>
-                            جاري الحفظ...
+                            {t('settings.saving')}
                           </>
                         ) : (
                           <>
                             <LockClosedIcon className="w-5 h-5" />
-                            {hasPassword ? 'تحديث كلمة المرور' : 'تفعيل الحماية'}
+                            {hasPassword ? t('settings.updatePassword') : t('settings.enableProtection')}
                           </>
                         )}
                       </button>
@@ -960,10 +974,10 @@ export default function SettingsPage() {
                           type="button"
                           onClick={handleRemovePassword}
                           disabled={isSettingPassword || !currentPassword}
-                          className="btn btn-danger"
+                          className="flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
                         >
                           <TrashIcon className="w-5 h-5" />
-                          إزالة الحماية
+                          {t('settings.removeProtection')}
                         </button>
                       )}
                     </div>
@@ -974,104 +988,102 @@ export default function SettingsPage() {
 
             {activeTab === 'backup' && (
               <div>
-                <h2 className="text-lg font-semibold mb-4 dark:text-white">النسخ الاحتياطي والاستعادة</h2>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{t('settings.backupAndRestore')}</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                  إنشاء نسخة احتياطية مشفرة من جميع بيانات النظام أو استعادة نسخة سابقة.
-                  النسخة الاحتياطية مشفرة ولا يمكن قراءتها إلا بواسطة هذا النظام فقط.
+                  {t('settings.backupDesc')}
                 </p>
 
                 {/* Create Backup Section */}
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 mb-6">
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-6 mb-6">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
                       <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                       </svg>
                     </div>
                     <div>
-                      <h3 className="font-medium dark:text-white">إنشاء نسخة احتياطية</h3>
+                      <h3 className="font-medium text-gray-900 dark:text-white">{t('settings.createBackup')}</h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        تحميل ملف مشفر يحتوي على جميع البيانات
+                        {t('settings.createBackupDesc')}
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={handleCreateBackup}
                     disabled={isCreatingBackup}
-                    className="btn btn-primary"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
                   >
                     {isCreatingBackup ? (
                       <>
                         <div className="spinner w-5 h-5"></div>
-                        جاري إنشاء النسخة...
+                        {t('settings.creatingBackup')}
                       </>
                     ) : (
                       <>
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
-                        إنشاء وتحميل نسخة احتياطية
+                        {t('settings.createAndDownloadBackup')}
                       </>
                     )}
                   </button>
                 </div>
 
                 {/* Export SQL Section */}
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 mb-6">
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-6 mb-6">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
                       <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
                       </svg>
                     </div>
                     <div>
-                      <h3 className="font-medium dark:text-white">تصدير SQL</h3>
+                      <h3 className="font-medium text-gray-900 dark:text-white">{t('settings.exportSql')}</h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        تحميل ملف SQL يمكن استيراده في أي قاعدة بيانات MySQL
+                        {t('settings.exportSqlDesc')}
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={handleExportSql}
                     disabled={isExportingSql}
-                    className="btn btn-primary"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
                   >
                     {isExportingSql ? (
                       <>
                         <div className="spinner w-5 h-5"></div>
-                        جاري التصدير...
+                        {t('settings.exportingSql')}
                       </>
                     ) : (
                       <>
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
                         </svg>
-                        تصدير قاعدة البيانات SQL
+                        {t('settings.exportSqlButton')}
                       </>
                     )}
                   </button>
                 </div>
 
                 {/* Restore Backup Section */}
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-6">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
                       <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m4-8l-4-4m0 0L16 8m4-4v12" />
                       </svg>
                     </div>
                     <div>
-                      <h3 className="font-medium dark:text-white">استعادة نسخة احتياطية</h3>
+                      <h3 className="font-medium text-gray-900 dark:text-white">{t('settings.restoreBackup')}</h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        رفع ملف .rbk لاستعادة البيانات
+                        {t('settings.restoreBackupDesc')}
                       </p>
                     </div>
                   </div>
 
-                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-4">
                     <p className="text-sm text-red-700 dark:text-red-400 font-medium">
-                      تحذير: استعادة نسخة احتياطية ستحذف جميع البيانات الحالية واستبدالها بالبيانات الموجودة في النسخة.
-                      هذا الإجراء لا يمكن التراجع عنه.
+                      {t('settings.restoreWarning')}
                     </p>
                   </div>
 
@@ -1085,57 +1097,57 @@ export default function SettingsPage() {
                   <button
                     onClick={() => backupFileInputRef.current?.click()}
                     disabled={isRestoringBackup}
-                    className="btn btn-secondary"
+                    className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl font-medium transition-colors disabled:opacity-50"
                   >
                     {isRestoringBackup ? (
                       <>
                         <div className="spinner w-5 h-5"></div>
-                        {restoreProgress || 'جاري الاستعادة...'}
+                        {restoreProgress || t('settings.restoring')}
                       </>
                     ) : (
                       <>
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m4-8l-4-4m0 0L16 8m4-4v12" />
                         </svg>
-                        اختيار ملف النسخة الاحتياطية
+                        {t('settings.selectBackupFile')}
                       </>
                     )}
                   </button>
 
                   {restoreProgress && !isRestoringBackup && (
-                    <p className="text-sm text-gray-500 mt-2">{restoreProgress}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{restoreProgress}</p>
                   )}
                 </div>
 
                 {/* Restore Confirmation Modal */}
                 {showRestoreConfirm && backupInfo && (
                   <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
-                      <h3 className="text-lg font-semibold mb-4 dark:text-white">تأكيد الاستعادة</h3>
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-6 max-w-md w-full mx-4">
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{t('settings.confirmRestore')}</h3>
 
-                      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 text-sm space-y-1">
-                        <p className="dark:text-gray-300"><strong>تاريخ النسخة:</strong> {new Date(backupInfo.created_at).toLocaleString('ar-DZ')}</p>
-                        <p className="dark:text-gray-300"><strong>أنشأها:</strong> {backupInfo.created_by}</p>
-                        <p className="dark:text-gray-300"><strong>الإصدار:</strong> {backupInfo.version}</p>
+                      <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 mb-4 text-sm space-y-1">
+                        <p className="text-gray-700 dark:text-gray-300"><strong>{t('settings.backupDate')}</strong> {new Date(backupInfo.created_at).toLocaleString(isRTL ? 'ar-DZ' : 'fr-DZ')}</p>
+                        <p className="text-gray-700 dark:text-gray-300"><strong>{t('settings.createdBy')}</strong> {backupInfo.created_by}</p>
+                        <p className="text-gray-700 dark:text-gray-300"><strong>{t('settings.version')}</strong> {backupInfo.version}</p>
                         {backupInfo.table_counts && (
-                          <p className="dark:text-gray-300">
-                            <strong>عدد الجداول:</strong> {Object.keys(backupInfo.table_counts).length}
+                          <p className="text-gray-700 dark:text-gray-300">
+                            <strong>{t('settings.tablesCount')}</strong> {Object.keys(backupInfo.table_counts).length}
                           </p>
                         )}
                       </div>
 
-                      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-4">
+                      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3 mb-4">
                         <p className="text-sm text-red-700 dark:text-red-400">
-                          سيتم حذف جميع البيانات الحالية واستبدالها. هل أنت متأكد؟
+                          {t('settings.confirmRestoreWarning')}
                         </p>
                       </div>
 
                       <div className="flex gap-3 justify-end">
-                        <button onClick={handleCancelRestore} className="btn btn-secondary">
-                          إلغاء
+                        <button onClick={handleCancelRestore} className="px-4 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl font-medium transition-colors">
+                          {t('settings.cancel')}
                         </button>
-                        <button onClick={handleConfirmRestore} className="btn btn-danger">
-                          تأكيد الاستعادة
+                        <button onClick={handleConfirmRestore} className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors">
+                          {t('settings.confirmRestoreButton')}
                         </button>
                       </div>
                     </div>
@@ -1145,23 +1157,23 @@ export default function SettingsPage() {
             )}
 
             {activeTab !== 'security' && activeTab !== 'backup' && (
-              <div className="mt-6 pt-4 border-t">
+              <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <button
                   onClick={handleSave}
                   disabled={isSaving}
-                  className="btn btn-primary"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
                 >
                   {isSaving ? (
                     <>
                       <div className="spinner w-5 h-5"></div>
-                      جاري الحفظ...
+                      {t('settings.saving')}
                     </>
                   ) : (
                     <>
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
-                      حفظ الإعدادات
+                      {t('settings.saveSettings')}
                     </>
                   )}
                 </button>

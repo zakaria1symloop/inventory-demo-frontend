@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { stockTransfersApi, productsApi, warehousesApi } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { useLocale } from '@/lib/i18n/context';
 
 interface AssignedUser {
   id: number;
@@ -51,6 +52,8 @@ export default function EditStockTransferPage() {
   const router = useRouter();
   const params = useParams();
   const transferId = Number(params.id);
+  const { t, locale, dir } = useLocale();
+  const isRTL = dir === 'rtl';
 
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -124,7 +127,7 @@ export default function EditStockTransferPage() {
 
       const transfer = transferRes.data;
       if (transfer.status !== 'pending') {
-        toast.error('لا يمكن تعديل تحويل تمت الموافقة عليه');
+        toast.error(t('stockTransfersEdit.cannotEditApproved'));
         router.push('/dashboard/stock-transfers');
         return;
       }
@@ -144,7 +147,7 @@ export default function EditStockTransferPage() {
         const unitCost = Number(product?.cost_price) || 0;
         return {
           product_id: ti.product_id,
-          product: product || { id: ti.product_id, name: 'غير معروف', cost_price: 0 },
+          product: product || { id: ti.product_id, name: t('stockTransfersEdit.unknown'), cost_price: 0 },
           quantity: cartons,
           extra_pieces: extraPieces,
           pieces_per_package: ppp,
@@ -156,7 +159,7 @@ export default function EditStockTransferPage() {
       });
       setItems(loadedItems);
     } catch {
-      toast.error('خطأ في تحميل البيانات');
+      toast.error(t('stockTransfersEdit.errorLoadingData'));
     } finally {
       setIsLoadingData(false);
     }
@@ -183,7 +186,7 @@ export default function EditStockTransferPage() {
   const addProduct = (product: Product, qty: number = 1) => {
     const stock = getStock(product.id);
     if (fromWarehouseId && stock <= 0) {
-      toast.error(`${product.name}: غير متوفر في المخزن المصدر`);
+      toast.error(`${product.name}: ${t('stockTransfersEdit.notAvailableInSource')}`);
       return;
     }
     const ppp = product.pieces_per_package || 1;
@@ -222,7 +225,7 @@ export default function EditStockTransferPage() {
     e.preventDefault();
     const product = products.find(p => p.barcode === barcodeInput.trim() || p.sku === barcodeInput.trim());
     if (product) addProduct(product);
-    else toast.error('منتج غير موجود بهذا الباركود');
+    else toast.error(t('stockTransfersEdit.productNotFoundBarcode'));
     setBarcodeInput('');
   };
 
@@ -293,15 +296,15 @@ export default function EditStockTransferPage() {
   const getTotalValue = () => items.reduce((sum, item) => sum + item.subtotal, 0);
 
   const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
+    new Intl.NumberFormat(locale === 'fr' ? 'fr-DZ' : 'ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
 
   const fmtStock = (totalPieces: number, ppp: number): string => {
     if (!ppp || ppp <= 1) return Math.round(totalPieces).toString();
     const cartons = Math.floor(totalPieces / ppp);
     const pieces = totalPieces % ppp;
-    if (cartons > 0 && pieces > 0) return `${cartons} كرتون ${pieces} قطعة`;
-    if (cartons > 0) return `${cartons} كرتون`;
-    if (pieces > 0) return `${pieces} قطعة`;
+    if (cartons > 0 && pieces > 0) return `${cartons} ${t('stockTransfersEdit.carton')} ${pieces} ${t('stockTransfersEdit.piece')}`;
+    if (cartons > 0) return `${cartons} ${t('stockTransfersEdit.carton')}`;
+    if (pieces > 0) return `${pieces} ${t('stockTransfersEdit.piece')}`;
     return '0';
   };
 
@@ -312,15 +315,15 @@ export default function EditStockTransferPage() {
 
   const handleSubmit = async () => {
     if (!fromWarehouseId || !toWarehouseId) {
-      toast.error('يرجى اختيار المستودعين');
+      toast.error(t('stockTransfersEdit.selectBothWarehouses'));
       return;
     }
     if (fromWarehouseId === toWarehouseId) {
-      toast.error('المستودع المصدر والوجهة يجب أن يكونا مختلفين');
+      toast.error(t('stockTransfersEdit.warehousesMustDiffer'));
       return;
     }
     if (items.length === 0) {
-      toast.error('يرجى إضافة منتج واحد على الأقل');
+      toast.error(t('stockTransfersEdit.addAtLeastOneProduct'));
       return;
     }
 
@@ -335,11 +338,11 @@ export default function EditStockTransferPage() {
           quantity: item.total_pieces,
         })),
       });
-      toast.success('تم تحديث التحويل بنجاح');
+      toast.success(t('stockTransfersEdit.updateSuccess'));
       router.push('/dashboard/stock-transfers');
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string; errors?: string[] } } };
-      const msg = err.response?.data?.errors?.join('\n') || err.response?.data?.message || 'خطأ في تحديث التحويل';
+      const msg = err.response?.data?.errors?.join('\n') || err.response?.data?.message || t('stockTransfersEdit.updateError');
       toast.error(msg);
     } finally {
       setIsSaving(false);
@@ -360,52 +363,52 @@ export default function EditStockTransferPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">تعديل التحويل</h1>
-          {reference && <p className="text-sm text-gray-500 mt-1">المرجع: {reference}</p>}
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('stockTransfersEdit.editTransfer')}</h1>
+          {reference && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('stockTransfersEdit.reference')}: {reference}</p>}
         </div>
-        <button onClick={() => router.push('/dashboard/stock-transfers')} className="btn btn-secondary">رجوع</button>
+        <button onClick={() => router.push('/dashboard/stock-transfers')} className="btn btn-secondary">{t('stockTransfersEdit.back')}</button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {/* Warehouses */}
           <div className="card">
-            <h2 className="text-lg font-semibold mb-4">معلومات التحويل</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('stockTransfersEdit.transferInfo')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">المستودع المصدر *</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stockTransfersEdit.sourceWarehouse')} *</label>
                 <select
                   value={fromWarehouseId}
                   onChange={(e) => { setFromWarehouseId(Number(e.target.value) || ''); }}
                   className="select"
                 >
-                  <option value="">اختر المستودع المصدر</option>
+                  <option value="">{t('stockTransfersEdit.selectSourceWarehouse')}</option>
                   {warehouses.map(w => (
                     <option key={w.id} value={w.id}>
-                      {w.name}{w.assigned_user ? ` (${w.assigned_user.name})` : ''}{w.is_main ? ' - رئيسي' : ''}
+                      {w.name}{w.assigned_user ? ` (${w.assigned_user.name})` : ''}{w.is_main ? ` - ${t('stockTransfersEdit.main')}` : ''}
                     </option>
                   ))}
                 </select>
-                {loadingStock && <p className="text-xs text-blue-500 mt-1">جاري تحميل المخزون...</p>}
+                {loadingStock && <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">{t('stockTransfersEdit.loadingStock')}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">المستودع الوجهة *</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stockTransfersEdit.destinationWarehouse')} *</label>
                 <select
                   value={toWarehouseId}
                   onChange={(e) => setToWarehouseId(Number(e.target.value) || '')}
                   className="select"
                 >
-                  <option value="">اختر المستودع الوجهة</option>
+                  <option value="">{t('stockTransfersEdit.selectDestWarehouse')}</option>
                   {warehouses.map(w => (
                     <option key={w.id} value={w.id}>
-                      {w.name}{w.assigned_user ? ` (${w.assigned_user.name})` : ''}{w.is_main ? ' - رئيسي' : ''}
+                      {w.name}{w.assigned_user ? ` (${w.assigned_user.name})` : ''}{w.is_main ? ` - ${t('stockTransfersEdit.main')}` : ''}
                     </option>
                   ))}
                 </select>
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">ملاحظات</label>
-                <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="ملاحظات إضافية..." className="input" />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stockTransfersEdit.notes')}</label>
+                <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t('stockTransfersEdit.notesPlaceholder')} className="input" />
               </div>
             </div>
           </div>
@@ -413,9 +416,9 @@ export default function EditStockTransferPage() {
           {/* Products */}
           <div className="card">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">المنتجات ({items.length})</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('stockTransfersEdit.products')} ({items.length})</h2>
               <button onClick={toggleSearchMode} className="btn btn-sm btn-outline">
-                {searchMode === 'barcode' ? 'البحث بالاسم' : 'البحث بالباركود'}
+                {searchMode === 'barcode' ? t('stockTransfersEdit.searchByName') : t('stockTransfersEdit.searchByBarcode')}
               </button>
             </div>
 
@@ -427,7 +430,7 @@ export default function EditStockTransferPage() {
                   value={barcodeInput}
                   onChange={(e) => setBarcodeInput(e.target.value)}
                   onKeyDown={handleBarcodeSubmit}
-                  placeholder="امسح الباركود أو اكتب الرمز ثم Enter..."
+                  placeholder={t('stockTransfersEdit.barcodePlaceholder')}
                   className="input w-full"
                   autoComplete="off"
                 />
@@ -448,14 +451,14 @@ export default function EditStockTransferPage() {
                     else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlightIndex(Math.max(highlightIndex - 1, 0)); }
                     else if (e.key === 'Enter') { e.preventDefault(); if (highlightIndex >= 0 && available[highlightIndex]) addProduct(available[highlightIndex]); else if (available.length === 1) addProduct(available[0]); }
                   }}
-                  placeholder="ابحث عن منتج بالاسم أو الباركود..."
+                  placeholder={t('stockTransfersEdit.searchPlaceholder')}
                   className="input w-full"
                   autoComplete="off"
                 />
                 {showDropdown && searchTerm && (
-                  <div ref={productListRef} className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  <div ref={productListRef} className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                     {filteredProducts.length === 0 ? (
-                      <div className="p-3 text-gray-500 text-center">لا توجد نتائج</div>
+                      <div className="p-3 text-gray-500 dark:text-gray-400 text-center">{t('stockTransfersEdit.noResults')}</div>
                     ) : (
                       (() => {
                         let availableIndex = -1;
@@ -467,19 +470,19 @@ export default function EditStockTransferPage() {
                           const alreadyAdded = items.some(item => item.product_id === product.id);
                           return (
                             <button key={product.id} type="button" onClick={() => !isOutOfStock && addProduct(product)} disabled={isOutOfStock}
-                              className={`w-full p-3 text-right border-b last:border-b-0 dark:border-gray-700 ${isOutOfStock ? 'bg-red-50 opacity-50 cursor-not-allowed' : isHighlighted ? 'bg-blue-100 dark:bg-blue-900/40' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                              className={`w-full p-3 text-start border-b last:border-b-0 border-gray-200 dark:border-gray-700 ${isOutOfStock ? 'bg-red-50 dark:bg-red-900/20 opacity-50 cursor-not-allowed' : isHighlighted ? 'bg-blue-100 dark:bg-blue-900/40' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
                               <div className="flex justify-between items-center">
-                                <span className="font-medium">{product.name}</span>
+                                <span className="font-medium text-gray-900 dark:text-white">{product.name}</span>
                                 <div className="flex items-center gap-2">
-                                  {alreadyAdded && <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">مضاف</span>}
+                                  {alreadyAdded && <span className="text-xs px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">{t('stockTransfersEdit.added')}</span>}
                                   {fromWarehouseId ? (
-                                    <span className={`text-sm font-bold ${isOutOfStock ? 'text-red-600' : 'text-green-600'}`}>
-                                      {stock > 0 ? `متوفر: ${fmtStock(stock, product.pieces_per_package || 1)}` : 'غير متوفر'}
+                                    <span className={`text-sm font-bold ${isOutOfStock ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                                      {stock > 0 ? `${t('stockTransfersEdit.available')}: ${fmtStock(stock, product.pieces_per_package || 1)}` : t('stockTransfersEdit.outOfStock')}
                                     </span>
-                                  ) : <span className="text-sm text-gray-500">{product.unit?.name || ''}</span>}
+                                  ) : <span className="text-sm text-gray-500 dark:text-gray-400">{product.unit?.name || ''}</span>}
                                 </div>
                               </div>
-                              <div className="text-sm text-gray-500">{product.barcode || product.sku || ''}</div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400">{product.barcode || product.sku || ''}</div>
                             </button>
                           );
                         });
@@ -494,21 +497,21 @@ export default function EditStockTransferPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-gray-100">
-                    <th className="px-2 py-2 text-center w-12">الرقم</th>
-                    <th className="px-2 py-2 text-right">التعيين</th>
-                    <th className="px-2 py-2 text-center w-28">كرتون/قطعة</th>
-                    <th className="px-2 py-2 text-center w-16">الوحدة</th>
-                    <th className="px-2 py-2 text-center w-20">العدد</th>
-                    <th className="px-2 py-2 text-center w-20">المتوفر</th>
-                    <th className="px-2 py-2 text-center w-24">س. الوحدة</th>
-                    <th className="px-2 py-2 text-center w-24">المبلغ</th>
+                  <tr className="bg-gray-100 dark:bg-gray-700/50">
+                    <th className="px-2 py-2 text-center w-12 text-gray-700 dark:text-gray-300">{t('stockTransfersEdit.colNum')}</th>
+                    <th className="px-2 py-2 text-start text-gray-700 dark:text-gray-300">{t('stockTransfersEdit.colDesignation')}</th>
+                    <th className="px-2 py-2 text-center w-28 text-gray-700 dark:text-gray-300">{t('stockTransfersEdit.colCartonPiece')}</th>
+                    <th className="px-2 py-2 text-center w-16 text-gray-700 dark:text-gray-300">{t('stockTransfersEdit.colUnit')}</th>
+                    <th className="px-2 py-2 text-center w-20 text-gray-700 dark:text-gray-300">{t('stockTransfersEdit.colCount')}</th>
+                    <th className="px-2 py-2 text-center w-20 text-gray-700 dark:text-gray-300">{t('stockTransfersEdit.colAvailable')}</th>
+                    <th className="px-2 py-2 text-center w-24 text-gray-700 dark:text-gray-300">{t('stockTransfersEdit.colUnitPrice')}</th>
+                    <th className="px-2 py-2 text-center w-24 text-gray-700 dark:text-gray-300">{t('stockTransfersEdit.colAmount')}</th>
                     <th className="px-2 py-2 w-10"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.length === 0 ? (
-                    <tr><td colSpan={9} className="text-center py-8 text-gray-500">لم تتم إضافة أي منتجات</td></tr>
+                    <tr><td colSpan={9} className="text-center py-8 text-gray-500 dark:text-gray-400">{t('stockTransfersEdit.noProducts')}</td></tr>
                   ) : (
                     items.map((item, index) => {
                       const stock = getStock(item.product_id);
@@ -516,43 +519,43 @@ export default function EditStockTransferPage() {
                       const ppp = item.pieces_per_package;
                       const hasPieces = ppp > 1;
                       return (
-                        <tr key={item.product_id} className={`border-b hover:bg-gray-50 ${overStock ? 'bg-red-50' : ''}`}>
-                          <td className="px-2 py-2 text-center font-medium text-gray-500">{index + 1}</td>
+                        <tr key={item.product_id} className={`border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30 ${overStock ? 'bg-red-50 dark:bg-red-900/20' : ''}`}>
+                          <td className="px-2 py-2 text-center font-medium text-gray-500 dark:text-gray-400">{index + 1}</td>
                           <td className="px-2 py-2">
-                            <div className="font-medium">{item.product.name}</div>
-                            <div className="text-xs text-gray-500">{item.product.barcode || item.product.sku || ''}</div>
+                            <div className="font-medium text-gray-900 dark:text-white">{item.product.name}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">{item.product.barcode || item.product.sku || ''}</div>
                           </td>
                           <td className="px-2 py-2">
                             <div className="space-y-1">
                               <div className="flex items-center gap-1">
-                                <button type="button" onClick={() => updateCartons(index, Math.max(0, item.quantity - 1))} className="w-6 h-6 flex items-center justify-center rounded border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold">-</button>
-                                <input ref={(el) => { inputRefs.current[`${index}-quantity`] = el; }} type="number" value={item.quantity} onChange={(e) => updateCartons(index, Math.max(0, parseInt(e.target.value) || 0))} onKeyDown={(e) => handleKeyDown(e, index, 'quantity')} onFocus={(e) => e.target.select()} className="input w-12 text-center text-sm py-0.5 border-blue-300" min="0" />
-                                <button type="button" onClick={() => updateCartons(index, item.quantity + 1)} className="w-6 h-6 flex items-center justify-center rounded border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold">+</button>
+                                <button type="button" onClick={() => updateCartons(index, Math.max(0, item.quantity - 1))} className="w-6 h-6 flex items-center justify-center rounded border border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-xs font-bold">-</button>
+                                <input ref={(el) => { inputRefs.current[`${index}-quantity`] = el; }} type="number" value={item.quantity} onChange={(e) => updateCartons(index, Math.max(0, parseInt(e.target.value) || 0))} onKeyDown={(e) => handleKeyDown(e, index, 'quantity')} onFocus={(e) => e.target.select()} className="input w-12 text-center text-sm py-0.5 !border-blue-300 dark:!border-blue-600" min="0" />
+                                <button type="button" onClick={() => updateCartons(index, item.quantity + 1)} className="w-6 h-6 flex items-center justify-center rounded border border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-xs font-bold">+</button>
                               </div>
                               {hasPieces && (
                                 <div className="flex items-center gap-1">
-                                  <button type="button" onClick={() => updateExtraPieces(index, Math.max(0, item.extra_pieces - 1))} className="w-6 h-6 flex items-center justify-center rounded border border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 text-xs font-bold">-</button>
-                                  <input ref={(el) => { inputRefs.current[`${index}-extra_pieces`] = el; }} type="number" value={item.extra_pieces} onChange={(e) => updateExtraPieces(index, parseInt(e.target.value) || 0)} onKeyDown={(e) => handleKeyDown(e, index, 'extra_pieces')} onFocus={(e) => e.target.select()} className="input w-12 text-center text-sm py-0.5 border-orange-300" min="0" max={ppp - 1} />
-                                  <button type="button" onClick={() => updateExtraPieces(index, item.extra_pieces + 1)} className="w-6 h-6 flex items-center justify-center rounded border border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 text-xs font-bold">+</button>
+                                  <button type="button" onClick={() => updateExtraPieces(index, Math.max(0, item.extra_pieces - 1))} className="w-6 h-6 flex items-center justify-center rounded border border-orange-300 dark:border-orange-600 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/50 text-xs font-bold">-</button>
+                                  <input ref={(el) => { inputRefs.current[`${index}-extra_pieces`] = el; }} type="number" value={item.extra_pieces} onChange={(e) => updateExtraPieces(index, parseInt(e.target.value) || 0)} onKeyDown={(e) => handleKeyDown(e, index, 'extra_pieces')} onFocus={(e) => e.target.select()} className="input w-12 text-center text-sm py-0.5 !border-orange-300 dark:!border-orange-600" min="0" max={ppp - 1} />
+                                  <button type="button" onClick={() => updateExtraPieces(index, item.extra_pieces + 1)} className="w-6 h-6 flex items-center justify-center rounded border border-orange-300 dark:border-orange-600 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/50 text-xs font-bold">+</button>
                                 </div>
                               )}
                             </div>
                           </td>
                           <td className="px-2 py-2 text-center text-sm">
-                            <div className="text-blue-600 font-medium">{ppp}</div>
+                            <div className="text-blue-600 dark:text-blue-400 font-medium">{ppp}</div>
                           </td>
                           <td className="px-2 py-2 text-center">
                             <input ref={(el) => { inputRefs.current[`${index}-total_pieces`] = el; }} type="number" value={item.total_pieces} onChange={(e) => updateTotalPieces(index, Math.max(0, parseInt(e.target.value) || 0))} onKeyDown={(e) => handleKeyDown(e, index, 'total_pieces')} onFocus={(e) => e.target.select()} className="input w-16 text-center text-sm py-0.5 font-medium" min="0" />
                           </td>
                           <td className="px-2 py-2 text-center">
                             {fromWarehouseId ? (
-                              <span className={`font-bold text-sm ${overStock ? 'text-red-600' : 'text-green-600'}`}>{fmtStock(stock, ppp)}</span>
+                              <span className={`font-bold text-sm ${overStock ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>{fmtStock(stock, ppp)}</span>
                             ) : '-'}
                           </td>
-                          <td className="px-2 py-2 text-center text-sm font-medium">{item.unit_cost.toFixed(2)}</td>
-                          <td className="px-2 py-2 text-center text-sm font-bold text-green-700">{item.subtotal.toFixed(2)}</td>
+                          <td className="px-2 py-2 text-center text-sm font-medium text-gray-900 dark:text-gray-200">{item.unit_cost.toFixed(2)}</td>
+                          <td className="px-2 py-2 text-center text-sm font-bold text-green-700 dark:text-green-400">{item.subtotal.toFixed(2)}</td>
                           <td className="px-2 py-2">
-                            <button type="button" onClick={() => removeItem(index)} className="text-red-600 hover:text-red-800 p-1">
+                            <button type="button" onClick={() => removeItem(index)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1">
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
                           </td>
@@ -569,51 +572,51 @@ export default function EditStockTransferPage() {
         {/* Summary */}
         <div className="lg:col-span-1">
           <div className="card sticky top-4">
-            <h2 className="text-lg font-semibold mb-4">ملخص التحويل</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('stockTransfersEdit.transferSummary')}</h2>
             <div className="space-y-3 mb-6">
               <div className="flex justify-between">
-                <span className="text-gray-600">المصدر:</span>
-                <span className="font-medium">{fromWarehouseId ? warehouses.find(w => w.id === fromWarehouseId)?.name : '-'}</span>
+                <span className="text-gray-600 dark:text-gray-400">{t('stockTransfersEdit.source')}:</span>
+                <span className="font-medium text-gray-900 dark:text-white">{fromWarehouseId ? warehouses.find(w => w.id === fromWarehouseId)?.name : '-'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">الوجهة:</span>
-                <span className="font-medium">{toWarehouseId ? warehouses.find(w => w.id === toWarehouseId)?.name : '-'}</span>
+                <span className="text-gray-600 dark:text-gray-400">{t('stockTransfersEdit.destination')}:</span>
+                <span className="font-medium text-gray-900 dark:text-white">{toWarehouseId ? warehouses.find(w => w.id === toWarehouseId)?.name : '-'}</span>
               </div>
-              <hr />
+              <hr className="border-gray-200 dark:border-gray-700" />
               <div className="flex justify-between">
-                <span className="text-gray-600">عدد المنتجات:</span>
-                <span className="font-medium">{items.length}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">إجمالي الكراتين:</span>
-                <span className="font-bold text-blue-600">{getTotalCartons()}</span>
+                <span className="text-gray-600 dark:text-gray-400">{t('stockTransfersEdit.productCount')}:</span>
+                <span className="font-medium text-gray-900 dark:text-white">{items.length}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">قطع إضافية:</span>
-                <span className="font-bold text-orange-600">{getTotalExtraPieces()}</span>
+                <span className="text-gray-600 dark:text-gray-400">{t('stockTransfersEdit.totalCartons')}:</span>
+                <span className="font-bold text-blue-600 dark:text-blue-400">{getTotalCartons()}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">إجمالي القطع:</span>
-                <span className="font-bold">{getTotalPieces()}</span>
+                <span className="text-gray-600 dark:text-gray-400">{t('stockTransfersEdit.extraPieces')}:</span>
+                <span className="font-bold text-orange-600 dark:text-orange-400">{getTotalExtraPieces()}</span>
               </div>
-              <hr />
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">{t('stockTransfersEdit.totalPieces')}:</span>
+                <span className="font-bold text-gray-900 dark:text-white">{getTotalPieces()}</span>
+              </div>
+              <hr className="border-gray-200 dark:border-gray-700" />
               <div className="flex justify-between text-lg">
-                <span className="font-semibold">القيمة الإجمالية:</span>
-                <span className="font-bold text-green-700">{formatCurrency(getTotalValue())}</span>
+                <span className="font-semibold text-gray-900 dark:text-white">{t('stockTransfersEdit.totalValue')}:</span>
+                <span className="font-bold text-green-700 dark:text-green-400">{formatCurrency(getTotalValue())}</span>
               </div>
             </div>
 
             {hasStockErrors() && (
-              <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">
-                بعض المنتجات تتجاوز الكمية المتوفرة
+              <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-lg text-sm border border-red-200 dark:border-red-800">
+                {t('stockTransfersEdit.stockExceeded')}
               </div>
             )}
 
             <div className="space-y-3">
               <button onClick={handleSubmit} disabled={isSaving || items.length === 0 || hasStockErrors()} className="btn btn-primary w-full">
-                {isSaving ? 'جاري الحفظ...' : 'حفظ التعديلات'}
+                {isSaving ? t('stockTransfersEdit.saving') : t('stockTransfersEdit.saveChanges')}
               </button>
-              <button onClick={() => router.push('/dashboard/stock-transfers')} className="btn btn-secondary w-full">إلغاء</button>
+              <button onClick={() => router.push('/dashboard/stock-transfers')} className="btn btn-secondary w-full">{t('stockTransfersEdit.cancel')}</button>
             </div>
           </div>
         </div>

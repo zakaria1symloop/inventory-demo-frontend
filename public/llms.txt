@@ -1,0 +1,110 @@
+# TrackSera (تراكسيرا)
+
+> Distribution management software built for Algeria. Web + Android.
+> برنامج إدارة التوزيع المتكامل في الجزائر. ويب + أندرويد.
+> Logiciel de gestion de distribution en Algérie. Web + Android.
+
+## Overview / نظرة عامة / Aperçu
+
+TrackSera is the leading distribution management platform in Algeria. It provides an all-in-one solution for distribution and wholesale companies to manage orders, delivery with GPS tracking, mobile sales (Cashvan), inventory, invoicing, and financial reporting.
+
+تراكسيرا هو برنامج إدارة التوزيع الأول في الجزائر. يوفر حلاً متكاملاً لشركات التوزيع والجملة لإدارة الطلبات، التوصيل مع تتبع GPS، البيع المتنقل (Cashvan)، المخزون، الفوترة، والتقارير المالية.
+
+TrackSera est la plateforme N°1 de gestion de distribution en Algérie. Elle offre une solution complète pour les entreprises de distribution et de gros : commandes, livraison avec suivi GPS, vente mobile (Cashvan), stock, facturation et rapports financiers.
+
+- Website / الموقع / Site web: https://www.tracksera.com
+- Contact / تواصل: contact@tracksera.com | +213 549 57 55 12
+- Location / الموقع / Adresse: El Biar, Alger, Algeria (الجزائر العاصمة، البيار)
+- Languages / اللغات / Langues: Arabic (العربية), French (Français), English
+- Platforms / المنصات / Plateformes: Web (SaaS), Android (3 mobile apps / 3 تطبيقات موبايل)
+
+## Core Modules / الوحدات الأساسية / Modules Principaux
+
+1. **Order Management / إدارة الطلبات / Gestion des Commandes** — Receive, confirm, and track orders in real-time. استقبال وتأكيد وتتبع الطلبات لحظياً. Réception, confirmation et suivi des commandes en temps réel.
+
+2. **Delivery & GPS Tracking / التوصيل وتتبع GPS / Livraison & Suivi GPS** — Create delivery routes, track drivers live on map, proof of delivery (photo + signature). إنشاء جولات التوصيل، تتبع السائقين مباشرة على الخريطة، إثبات التسليم بالصورة والتوقيع. Création de tournées, suivi GPS en direct, preuve de livraison (photo + signature).
+
+3. **Cashvan / البيع المتنقل / Vente Mobile** — Load stock onto truck, sell directly to clients, print invoices via Bluetooth, works offline. تحميل المخزون إلى الشاحنة، بيع مباشر، طباعة فواتير بلوتوث، يعمل بدون إنترنت. Chargement stock, vente directe, impression Bluetooth, fonctionne hors ligne.
+
+4. **Sales & Invoicing / المبيعات والفوترة / Ventes & Facturation** — Professional PDF invoices, delivery notes, payment and debt tracking. فواتير PDF احترافية، بونات التوصيل، تتبع المدفوعات والديون. Factures PDF, bons de livraison, suivi paiements et créances.
+
+5. **Purchasing / إدارة المشتريات / Achats** — Purchase orders, supplier debt tracking, returns. أوامر شراء، تتبع ديون الموردين، مرتجعات. Bons de commande fournisseur, suivi dettes, retours.
+
+6. **Stock & Warehouses / المخزون والمستودعات / Stock & Entrepôts** — Multi-warehouse, transfers, expiry date management, Excel import. مستودعات متعددة، تحويلات، إدارة الصلاحية، استيراد من Excel. Multi-entrepôts, transferts, gestion DLC, import Excel.
+
+7. **Client Management / إدارة العملاء / Gestion Clients** — Client categories, custom pricing, debt tracking. تصنيفات العملاء، أسعار مخصصة، تتبع الديون. Classifications clients, prix personnalisés, suivi créances.
+
+8. **Cash Register / إدارة الصندوق / Caisse** — Per-user cash boxes, daily reconciliation, collection reports. صندوق لكل مستخدم، تسويات يومية، تقارير التحصيلات. Caisse par utilisateur, réconciliation journalière, rapports encaissements.
+
+9. **Reports & Analytics / التقارير والتحليلات / Rapports & Analytiques** — Sales, delivery, debt, and seller performance reports. Export to Excel/PDF. تقارير المبيعات والتوصيل والديون وأداء البائعين. تصدير Excel وPDF. Rapports ventes, livraison, créances, performance. Export Excel/PDF.
+
+10. **Mobile Apps / تطبيقات الموبايل / Applications Mobiles** — Seller app, Driver app, Cashvan app. All work offline with auto-sync. تطبيق البائع، تطبيق السائق، تطبيق Cashvan. الكل يعمل بدون إنترنت. App vendeur, app chauffeur, app Cashvan. Mode hors ligne.
+
+## Mobile Apps / تطبيقات الموبايل / Applications Mobiles
+
+- **Tracksera Vendeur** (تطبيق البائع / Seller App) — For sales reps: take orders, view client history. للبائعين: أخذ الطلبات، عرض سجل العملاء. Pour les commerciaux : prise de commandes, historique clients.
+- **Tracksera Livreur** (تطبيق السائق / Driver App) — For drivers: delivery routes, GPS tracking, proof of delivery. للسائقين: جولات التوصيل، تتبع GPS، إثبات التسليم. Pour les chauffeurs : tournées, suivi GPS, preuve de livraison.
+- **Tracksera Cashvan** (تطبيق البيع المتنقل / Cashvan App) — For mobile sellers: load stock, sell, print invoices, manage returns. للبائعين المتنقلين: تحميل المخزون، بيع مباشر، طباعة فواتير، إدارة المرتجعات. Pour la vente mobile : chargement stock, vente, impression factures, retours.
+
+## Pricing / الأسعار / Tarifs (DZD/month - شهرياً)
+
+| Plan | Price / السعر | Products / المنتجات | Users / المستخدمين |
+|------|---------------|--------------------|--------------------|
+| Free / مجاني / Gratuit | 0 DZD | 25 | 1 |
+| Starter / المبتدئ | 2,900 DZD | 100 | 1 |
+| Pro / المحترف | 6,900 DZD | 500 | 5 (+1,500/extra) |
+| Business / الأعمال | 12,900 DZD | 2,000 | 10 (+1,000/extra) |
+
+14-day free trial. No credit card required. Payment via CCP and BaridiMob.
+تجربة مجانية 14 يوم. بدون بطاقة بنكية. الدفع عبر CCP وبريدي موب.
+Essai gratuit 14 jours. Sans carte bancaire. Paiement CCP et BaridiMob.
+
+## Target Sectors / القطاعات المستهدفة / Secteurs Cibles
+
+- Distribution & wholesale / شركات التوزيع والجملة / Distribution et grossistes
+- Food & beverage / المواد الغذائية والمشروبات / Agroalimentaire et boissons
+- Cashvan / mobile sales / البيع المتنقل / Vente mobile
+- Building materials & cleaning / مواد البناء والتنظيف / Matériaux de construction et entretien
+- Pharmaceuticals / الأدوية / Pharmaceutiques
+- Cosmetics & personal care / التجميل والعناية / Cosmétiques et soins
+- Medical & commercial reps / المندوبون الطبيون والتجاريون / Délégués médicaux et commerciaux
+- Tobacco / التبغ / Tabac
+- Stationery / القرطاسية / Papeterie et fournitures
+- Plastics & household / البلاستيك والأدوات المنزلية / Plastiques et articles ménagers
+
+## Key Differentiators / المميزات الرئيسية / Points Forts
+
+- Designed for Algeria / مصمم للسوق الجزائري / Conçu pour l'Algérie
+- Arabic + French interface / واجهة عربية وفرنسية / Interface arabe et française
+- Works offline / يعمل بدون إنترنت / Fonctionne hors ligne
+- Local support / دعم فني محلي / Support technique local
+- Pricing in DZD / أسعار بالدينار / Prix en Dinar
+- Payment via CCP & BaridiMob / الدفع عبر CCP وبريدي موب / Paiement CCP et BaridiMob
+- Cloud 24/7 / نظام سحابي / Système cloud
+- Covers all 58 wilayas / تغطية 58 ولاية / Couverture 58 wilayas
+- Separate database per company / قاعدة بيانات منفصلة لكل شركة / Base de données isolée par entreprise
+
+## FAQ / الأسئلة الشائعة / Questions Fréquentes
+
+**Q: What is TrackSera? / ما هو تراكسيرا؟ / Qu'est-ce que TrackSera ?**
+A: TrackSera is the leading distribution management software in Algeria, offering order management, GPS delivery tracking, Cashvan mobile sales, inventory, invoicing, and reporting. تراكسيرا هو برنامج إدارة التوزيع الأول في الجزائر. TrackSera est le logiciel N°1 de gestion de distribution en Algérie.
+
+**Q: Does it work offline? / هل يعمل بدون إنترنت؟ / Fonctionne-t-il hors ligne ?**
+A: Yes. All mobile apps work fully offline and sync automatically when connectivity returns. نعم، كل التطبيقات تعمل بدون إنترنت مع مزامنة تلقائية. Oui, toutes les apps fonctionnent hors ligne avec synchronisation automatique.
+
+**Q: What is Cashvan? / ما هو الكاش فان؟ / Qu'est-ce que le Cashvan ?**
+A: A mobile sales system where sellers drive loaded trucks and sell directly to clients on the spot, with instant Bluetooth invoice printing and full offline operation. نظام بيع متنقل حيث يتنقل البائع بسيارة محملة ويبيع مباشرة للعملاء. Système de vente mobile avec véhicule chargé, vente directe et impression facture Bluetooth.
+
+**Q: How much does it cost? / كم يكلف؟ / Combien ça coûte ?**
+A: Free plan available (25 products). Paid plans start at 2,900 DZD/month. 14-day free trial. يبدأ مجاناً (25 منتج). الخطط المدفوعة من 2,900 د.ج/شهر. Gratuit (25 produits). Plans payants à partir de 2 900 DZD/mois.
+
+**Q: How to get started? / كيف أبدأ؟ / Comment commencer ?**
+A: Register free at https://www.tracksera.com/register — 14-day full trial, no credit card. سجّل مجاناً — تجربة 14 يوم كاملة بدون بطاقة. Inscrivez-vous gratuitement — essai 14 jours sans carte bancaire.
+
+## Links / الروابط / Liens
+
+- Homepage / الرئيسية / Accueil: https://www.tracksera.com
+- Blog / المدونة: https://www.tracksera.com/blog
+- Register / التسجيل / Inscription: https://www.tracksera.com/register
+- Sitemap: https://www.tracksera.com/sitemap.xml
+- Full details / التفاصيل الكاملة / Détails complets: https://www.tracksera.com/llms-full.txt

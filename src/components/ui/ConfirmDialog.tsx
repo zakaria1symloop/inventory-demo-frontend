@@ -68,15 +68,15 @@ export default function ConfirmDialog({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-sm transform overflow-hidden rounded-xl bg-white p-6 shadow-xl transition-all">
+              <Dialog.Panel className="w-full max-w-sm transform overflow-hidden rounded-xl bg-white dark:bg-gray-800 dark:border dark:border-gray-700 p-6 shadow-xl transition-all">
                 <div className="flex flex-col items-center text-center">
                   <div
                     className={`w-12 h-12 rounded-full flex items-center justify-center ${variantClasses[variant].icon}`}
                   >
                     <ExclamationTriangleIcon className="w-6 h-6" />
                   </div>
-                  <Dialog.Title className="text-lg font-semibold mt-4">{title}</Dialog.Title>
-                  <p className="text-gray-500 mt-2">{message}</p>
+                  <Dialog.Title className="text-lg font-semibold mt-4 dark:text-white">{title}</Dialog.Title>
+                  <p className="text-gray-500 dark:text-gray-400 mt-2">{message}</p>
                 </div>
 
                 <div className="flex gap-3 mt-6">

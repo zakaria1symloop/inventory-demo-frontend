@@ -6,6 +6,7 @@ import Link from 'next/link';
 import DateInput from '@/components/ui/DateInput';
 import { purchaseOrdersApi, productsApi, suppliersApi, warehousesApi } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { useLocale } from '@/lib/i18n/context';
 
 interface Product {
   id: number;
@@ -44,6 +45,7 @@ interface OrderItem {
 
 export default function NewPurchaseOrderPage() {
   const router = useRouter();
+  const { t, locale, dir } = useLocale();
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const productSearchRef = useRef<HTMLInputElement>(null);
   const supplierSearchRef = useRef<HTMLInputElement>(null);
@@ -139,7 +141,7 @@ export default function NewPurchaseOrderPage() {
         setWarehouseId(whs[0].id.toString());
       }
     } catch (error) {
-      toast.error('خطأ في تحميل البيانات');
+      toast.error(t('purchases.dataLoadError'));
     } finally {
       setIsLoading(false);
     }
@@ -171,7 +173,7 @@ export default function NewPurchaseOrderPage() {
   // Open quick entry modal for product
   const openQuickEntryModal = (product: Product) => {
     if (!warehouseId) {
-      toast.error('الرجاء اختيار المستودع أولاً');
+      toast.error(t('purchases.selectWarehouseFirst'));
       return;
     }
     setQuickEntryModal({
@@ -191,7 +193,7 @@ export default function NewPurchaseOrderPage() {
     const { product, quantity, unitPrice } = quickEntryModal;
 
     if (quantity <= 0) {
-      toast.error('الكمية يجب أن تكون أكبر من صفر');
+      toast.error(t('purchases.qtyMustBePositive'));
       return;
     }
 
@@ -216,7 +218,7 @@ export default function NewPurchaseOrderPage() {
       const piecesPerPkg = product.pieces_per_package || 1;
       // baseAmount = price × pieces × qty
       const baseAmount = unitPrice * piecesPerPkg * quantity;
-      const unitName = product.unit_buy?.name || 'وحدة';
+      const unitName = product.unit_buy?.name || t('purchases.unit');
 
       const newItem: OrderItem = {
         product_id: product.id,
@@ -245,7 +247,7 @@ export default function NewPurchaseOrderPage() {
       if (product) {
         openQuickEntryModal(product);
       } else {
-        toast.error('المنتج غير موجود');
+        toast.error(t('purchases.productNotFound'));
       }
     }
   };
@@ -277,12 +279,12 @@ export default function NewPurchaseOrderPage() {
     e.preventDefault();
 
     if (!warehouseId) {
-      toast.error('الرجاء اختيار المستودع');
+      toast.error(t('purchases.selectWarehouseError'));
       return;
     }
 
     if (items.length === 0) {
-      toast.error('الرجاء إضافة منتج واحد على الأقل');
+      toast.error(t('purchases.addAtLeastOneProduct'));
       return;
     }
 
@@ -308,10 +310,10 @@ export default function NewPurchaseOrderPage() {
         })),
       });
 
-      toast.success('تم إنشاء بون الطلب بنجاح');
+      toast.success(t('purchases.createPoSuccess'));
       router.push('/dashboard/purchase-orders');
     } catch (error: any) {
-      const message = error.response?.data?.message || 'خطأ في إنشاء بون الطلب';
+      const message = error.response?.data?.message || t('purchases.createPoError');
       toast.error(message);
     } finally {
       setIsSaving(false);
@@ -320,7 +322,7 @@ export default function NewPurchaseOrderPage() {
 
   const formatCurrency = (value: number) => {
     const safeValue = isNaN(value) ? 0 : value;
-    return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(safeValue);
+    return new Intl.NumberFormat(locale === 'ar' ? 'ar-DZ' : 'fr-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(safeValue);
   };
 
   const filteredProducts = products.filter((p) =>
@@ -336,23 +338,23 @@ export default function NewPurchaseOrderPage() {
     <div>
       {/* Keyboard Shortcuts Bar */}
       <div className="bg-green-800 text-white px-4 py-2 rounded-lg mb-4 flex items-center gap-6 text-sm">
-        <span className="font-bold">اختصارات:</span>
-        <span><kbd className="bg-green-600 px-2 py-0.5 rounded">F1</kbd> المورد</span>
-        <span><kbd className="bg-green-600 px-2 py-0.5 rounded">F2</kbd> المنتج</span>
-        <span><kbd className="bg-green-600 px-2 py-0.5 rounded">F4</kbd> حفظ</span>
-        <span><kbd className="bg-green-600 px-2 py-0.5 rounded">↑↓</kbd> تنقل</span>
-        <span><kbd className="bg-green-600 px-2 py-0.5 rounded">Enter</kbd> تأكيد</span>
-        <span><kbd className="bg-green-600 px-2 py-0.5 rounded">Esc</kbd> إغلاق</span>
+        <span className="font-bold">{t('purchases.shortcuts')}:</span>
+        <span><kbd className="bg-green-600 px-2 py-0.5 rounded">F1</kbd> {t('purchases.supplierLabel')}</span>
+        <span><kbd className="bg-green-600 px-2 py-0.5 rounded">F2</kbd> {t('purchases.product')}</span>
+        <span><kbd className="bg-green-600 px-2 py-0.5 rounded">F4</kbd> {t('common.save')}</span>
+        <span><kbd className="bg-green-600 px-2 py-0.5 rounded">↑↓</kbd> {t('purchases.navigate')}</span>
+        <span><kbd className="bg-green-600 px-2 py-0.5 rounded">Enter</kbd> {t('purchases.confirm')}</span>
+        <span><kbd className="bg-green-600 px-2 py-0.5 rounded">Esc</kbd> {t('purchases.close')}</span>
       </div>
 
       {/* Quick Entry Modal */}
       {quickEntryModal.show && quickEntryModal.product && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-96 max-w-full mx-4">
-            <h3 className="text-lg font-bold mb-4 text-center">{quickEntryModal.product.name}</h3>
+            <h3 className="text-lg font-bold mb-4 text-center text-gray-900 dark:text-gray-100">{quickEntryModal.product.name}</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">الكمية</label>
+                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('purchases.quantity')}</label>
                 <input
                   ref={quickQtyRef}
                   type="number"
@@ -374,7 +376,7 @@ export default function NewPurchaseOrderPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">سعر الوحدة</label>
+                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('purchases.unitPrice')}</label>
                 <input
                   ref={quickPriceRef}
                   type="number"
@@ -393,10 +395,10 @@ export default function NewPurchaseOrderPage() {
                   min="0"
                 />
               </div>
-              <div className="text-center text-lg font-bold text-green-600">
-                المجموع: {formatCurrency(quickEntryModal.unitPrice * (quickEntryModal.product?.pieces_per_package || 1) * quickEntryModal.quantity)}
-                <div className="text-xs text-gray-500 font-normal">
-                  ({quickEntryModal.unitPrice} × {quickEntryModal.product?.pieces_per_package || 1} قطعة × {quickEntryModal.quantity})
+              <div className="text-center text-lg font-bold text-green-600 dark:text-green-400">
+                {t('purchases.subtotal')}: {formatCurrency(quickEntryModal.unitPrice * (quickEntryModal.product?.pieces_per_package || 1) * quickEntryModal.quantity)}
+                <div className="text-xs text-gray-500 dark:text-gray-400 font-normal">
+                  ({quickEntryModal.unitPrice} × {quickEntryModal.product?.pieces_per_package || 1} {t('purchases.piece')} × {quickEntryModal.quantity})
                 </div>
               </div>
               <div className="flex gap-2">
@@ -405,7 +407,7 @@ export default function NewPurchaseOrderPage() {
                   onClick={confirmQuickEntry}
                   className="btn btn-primary flex-1"
                 >
-                  إضافة (Enter)
+                  {t('purchases.add')} (Enter)
                 </button>
                 <button
                   type="button"
@@ -415,7 +417,7 @@ export default function NewPurchaseOrderPage() {
                   }}
                   className="btn btn-secondary flex-1"
                 >
-                  إلغاء (Esc)
+                  {t('purchases.cancel')} (Esc)
                 </button>
               </div>
             </div>
@@ -426,14 +428,14 @@ export default function NewPurchaseOrderPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <Link href="/dashboard/purchase-orders" className="text-gray-500 hover:text-gray-700">
+          <Link href="/dashboard/purchase-orders" className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold">بون طلب جديد</h1>
-            <p className="text-sm text-gray-500">Nouveau Bon de Commande</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('purchases.newPoTitle')}</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('purchases.newPoSubtitleFr')}</p>
           </div>
         </div>
       </div>
@@ -441,7 +443,7 @@ export default function NewPurchaseOrderPage() {
       {/* Info Box */}
       <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 mb-4">
         <p className="text-sm text-green-700 dark:text-green-300">
-          بون الطلب لا يؤثر على المخزون. عند استلام البضاعة، قم بتحويله إلى فاتورة شراء من صفحة بونات الطلب.
+          {t('purchases.poNoStockEffect')}
         </p>
       </div>
 
@@ -451,10 +453,10 @@ export default function NewPurchaseOrderPage() {
           <div className="lg:col-span-2 space-y-6">
             {/* Basic Info */}
             <div className="card">
-              <h2 className="text-lg font-semibold mb-4">معلومات الطلب</h2>
+              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">{t('purchases.orderInfo')}</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="relative">
-                  <label className="block text-sm font-medium mb-1">المورد</label>
+                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('purchases.supplierLabel')}</label>
                   <input
                     ref={supplierSearchRef}
                     type="text"
@@ -505,14 +507,14 @@ export default function NewPurchaseOrderPage() {
                         }
                       }
                     }}
-                    placeholder="ابحث عن مورد أو اتركه فارغاً"
+                    placeholder={t('purchases.searchSupplierPlaceholder')}
                     className="input w-full"
                     autoComplete="off"
                   />
                   {showSupplierDropdown && (
-                    <div ref={supplierListRef} className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    <div ref={supplierListRef} className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                       <div
-                        className={`px-3 py-2 cursor-pointer border-b ${supplierHighlightIndex === 0 ? 'bg-green-100 dark:bg-green-900' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                        className={`px-3 py-2 cursor-pointer border-b border-gray-200 dark:border-gray-700 ${supplierHighlightIndex === 0 ? 'bg-green-100 dark:bg-green-900' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                         onClick={() => {
                           setSupplierId('');
                           setSupplierSearch('');
@@ -520,7 +522,7 @@ export default function NewPurchaseOrderPage() {
                           setSupplierHighlightIndex(-1);
                         }}
                       >
-                        <span className="text-gray-500">بدون مورد</span>
+                        <span className="text-gray-500 dark:text-gray-400">{t('purchases.noSupplier')}</span>
                       </div>
                       {suppliers
                         .filter(s =>
@@ -539,8 +541,8 @@ export default function NewPurchaseOrderPage() {
                               setSupplierHighlightIndex(-1);
                             }}
                           >
-                            <div className="font-medium">{supplier.name}</div>
-                            {supplier.phone && <div className="text-sm text-gray-500">{supplier.phone}</div>}
+                            <div className="font-medium text-gray-900 dark:text-gray-100">{supplier.name}</div>
+                            {supplier.phone && <div className="text-sm text-gray-500 dark:text-gray-400">{supplier.phone}</div>}
                           </div>
                         ))}
                     </div>
@@ -553,21 +555,21 @@ export default function NewPurchaseOrderPage() {
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">المستودع *</label>
+                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('purchases.warehouseLabel')} *</label>
                   <select
                     value={warehouseId}
                     onChange={(e) => setWarehouseId(e.target.value)}
                     className="select w-full"
                     required
                   >
-                    <option value="">اختر المستودع</option>
+                    <option value="">{t('purchases.selectWarehouse')}</option>
                     {warehouses.map((warehouse) => (
                       <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">تاريخ الطلب *</label>
+                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('purchases.orderDate')} *</label>
                   <DateInput
                     value={date}
                     onChange={(v) => setDate(v)}
@@ -576,7 +578,7 @@ export default function NewPurchaseOrderPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">تاريخ التسليم المتوقع</label>
+                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('purchases.expectedDelivery')}</label>
                   <DateInput
                     value={expectedDeliveryDate}
                     onChange={(v) => setExpectedDeliveryDate(v)}
@@ -588,10 +590,10 @@ export default function NewPurchaseOrderPage() {
 
             {/* Product Search */}
             <div className="card">
-              <h2 className="text-lg font-semibold mb-4">إضافة المنتجات</h2>
+              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">{t('purchases.addProducts')}</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">البحث بالباركود</label>
+                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('purchases.barcodeSearch')}</label>
                   <input
                     ref={barcodeInputRef}
                     type="text"
@@ -599,11 +601,11 @@ export default function NewPurchaseOrderPage() {
                     onChange={(e) => setBarcodeInput(e.target.value)}
                     onKeyDown={handleBarcodeSearch}
                     className="input w-full"
-                    placeholder="امسح الباركود واضغط Enter..."
+                    placeholder={t('purchases.scanBarcode')}
                   />
                 </div>
                 <div className="relative">
-                  <label className="block text-sm font-medium mb-1">البحث بالاسم</label>
+                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('purchases.nameSearch')}</label>
                   <input
                     ref={productSearchRef}
                     type="text"
@@ -643,31 +645,31 @@ export default function NewPurchaseOrderPage() {
                       }
                     }}
                     className="input w-full"
-                    placeholder="ابحث عن منتج..."
+                    placeholder={t('purchases.searchProduct')}
                   />
                   {showProductSearch && searchTerm && (
-                    <div ref={productListRef} className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    <div ref={productListRef} className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                       {filteredProducts.length === 0 ? (
-                        <div className="p-3 text-gray-500 text-center">لا توجد نتائج</div>
+                        <div className="p-3 text-gray-500 dark:text-gray-400 text-center">{t('purchases.noResults')}</div>
                       ) : (
                         filteredProducts.slice(0, 10).map((product, index) => {
                           const piecesPerPkg = product.pieces_per_package || 1;
                           const unitPrice = Number(product.cost_price) || 0;
-                          const unitName = product.unit_buy?.short_name || 'وحدة';
+                          const unitName = product.unit_buy?.short_name || t('purchases.unit');
                           const isHighlighted = productHighlightIndex === index;
                           return (
                             <button
                               key={product.id}
                               type="button"
                               onClick={() => openQuickEntryModal(product)}
-                              className={`w-full p-3 text-right border-b last:border-b-0 ${isHighlighted ? 'bg-green-100 dark:bg-green-900' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                              className={`w-full p-3 text-start border-b last:border-b-0 border-gray-200 dark:border-gray-700 ${isHighlighted ? 'bg-green-100 dark:bg-green-900' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                             >
-                              <div className="font-medium">{product.name}</div>
-                              <div className="text-sm text-gray-500 flex justify-between">
+                              <div className="font-medium text-gray-900 dark:text-gray-100">{product.name}</div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400 flex justify-between">
                                 <span>{product.barcode}</span>
                                 <span>
                                   {formatCurrency(unitPrice)} / {unitName}
-                                  {piecesPerPkg > 1 && <span className="text-green-500 mr-1">({piecesPerPkg} قطعة)</span>}
+                                  {piecesPerPkg > 1 && <span className="text-green-500 dark:text-green-400 ms-1">({piecesPerPkg} {t('purchases.piece')})</span>}
                                 </span>
                               </div>
                             </button>
@@ -684,30 +686,30 @@ export default function NewPurchaseOrderPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-green-100 dark:bg-green-900/30">
-                      <th className="px-2 py-2 text-center w-12">الرقم</th>
-                      <th className="px-2 py-2 text-right">التعيين</th>
-                      <th className="px-2 py-2 text-center w-20">الكمية</th>
-                      <th className="px-2 py-2 text-center w-16">الوحدة</th>
-                      <th className="px-2 py-2 text-center w-24">س. الوحدة</th>
-                      <th className="px-2 py-2 text-center w-20">الخصم</th>
-                      <th className="px-2 py-2 text-center w-24">المبلغ</th>
+                      <th className="px-2 py-2 text-center w-12 text-gray-700 dark:text-gray-300">{t('purchases.number')}</th>
+                      <th className="px-2 py-2 text-start text-gray-700 dark:text-gray-300">{t('purchases.designation')}</th>
+                      <th className="px-2 py-2 text-center w-20 text-gray-700 dark:text-gray-300">{t('purchases.qty')}</th>
+                      <th className="px-2 py-2 text-center w-16 text-gray-700 dark:text-gray-300">{t('purchases.unit')}</th>
+                      <th className="px-2 py-2 text-center w-24 text-gray-700 dark:text-gray-300">{t('purchases.unitPrice')}</th>
+                      <th className="px-2 py-2 text-center w-20 text-gray-700 dark:text-gray-300">{t('purchases.discountLabel')}</th>
+                      <th className="px-2 py-2 text-center w-24 text-gray-700 dark:text-gray-300">{t('purchases.subtotal')}</th>
                       <th className="px-2 py-2 w-10"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {items.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="text-center py-8 text-gray-500">
-                          لم يتم إضافة منتجات بعد
+                        <td colSpan={8} className="text-center py-8 text-gray-500 dark:text-gray-400">
+                          {t('purchases.noProductsYet')}
                         </td>
                       </tr>
                     ) : (
                       items.map((item, index) => (
-                        <tr key={index} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
-                          <td className="px-2 py-2 text-center font-medium text-gray-500">{index + 1}</td>
+                        <tr key={index} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                          <td className="px-2 py-2 text-center font-medium text-gray-500 dark:text-gray-400">{index + 1}</td>
                           <td className="px-2 py-2">
-                            <div className="font-medium">{item.product_name}</div>
-                            <div className="text-xs text-gray-500">{item.barcode}</div>
+                            <div className="font-medium text-gray-900 dark:text-gray-100">{item.product_name}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">{item.barcode}</div>
                           </td>
                           <td className="px-2 py-2">
                             <input
@@ -722,7 +724,7 @@ export default function NewPurchaseOrderPage() {
                             />
                           </td>
                           <td className="px-2 py-2 text-center text-sm">
-                            <div className="text-green-600 font-medium">{item.unit_name}</div>
+                            <div className="text-green-600 dark:text-green-400 font-medium">{item.unit_name}</div>
                           </td>
                           <td className="px-2 py-2">
                             <input
@@ -748,14 +750,14 @@ export default function NewPurchaseOrderPage() {
                               step="0.01"
                             />
                           </td>
-                          <td className="px-2 py-2 text-center font-bold text-green-600">
+                          <td className="px-2 py-2 text-center font-bold text-green-600 dark:text-green-400">
                             {formatCurrency(Number(item.subtotal) || 0)}
                           </td>
                           <td className="px-2 py-2">
                             <button
                               type="button"
                               onClick={() => removeItem(index)}
-                              className="text-red-600 hover:text-red-800 p-1"
+                              className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-1"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -769,33 +771,33 @@ export default function NewPurchaseOrderPage() {
                 </table>
               </div>
 
-              <div className="mt-2 text-xs text-gray-500">
-                نصيحة: اضغط Enter للانتقال للحقل التالي
+              <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                {t('purchases.enterTip')}
               </div>
             </div>
 
             {/* Notes and Terms */}
             <div className="card">
-              <h2 className="text-lg font-semibold mb-4">ملاحظات وشروط</h2>
+              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">{t('purchases.notesAndTerms')}</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">ملاحظات</label>
+                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('purchases.notesLabel')}</label>
                   <textarea
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     className="input w-full"
                     rows={3}
-                    placeholder="ملاحظات إضافية..."
+                    placeholder={t('purchases.additionalNotes')}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">شروط التسليم</label>
+                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('purchases.deliveryTerms')}</label>
                   <textarea
                     value={terms}
                     onChange={(e) => setTerms(e.target.value)}
                     className="input w-full"
                     rows={3}
-                    placeholder="شروط التسليم والدفع..."
+                    placeholder={t('purchases.deliveryTermsPlaceholder')}
                   />
                 </div>
               </div>
@@ -805,16 +807,16 @@ export default function NewPurchaseOrderPage() {
           {/* Sidebar - Summary */}
           <div>
             <div className="card sticky top-24">
-              <h2 className="text-lg font-semibold mb-4">ملخص الطلب</h2>
+              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">{t('purchases.orderSummary')}</h2>
 
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-500">إجمالي المنتجات ({items.length})</span>
-                  <span className="font-medium">{formatCurrency(totalAmount)}</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t('purchases.totalProducts', { count: items.length })}</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">{formatCurrency(totalAmount)}</span>
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-500 mb-1">الخصم</label>
+                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">{t('purchases.discountLabel')}</label>
                   <input
                     type="number"
                     value={discount}
@@ -826,7 +828,7 @@ export default function NewPurchaseOrderPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-500 mb-1">الضريبة</label>
+                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">{t('purchases.taxLabel')}</label>
                   <input
                     type="number"
                     value={tax}
@@ -838,7 +840,7 @@ export default function NewPurchaseOrderPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-500 mb-1">الشحن</label>
+                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">{t('purchases.shippingLabel')}</label>
                   <input
                     type="number"
                     value={shipping}
@@ -849,11 +851,11 @@ export default function NewPurchaseOrderPage() {
                   />
                 </div>
 
-                <hr />
+                <hr className="border-gray-200 dark:border-gray-700" />
 
                 <div className="flex justify-between items-center text-lg font-bold">
-                  <span>الإجمالي النهائي</span>
-                  <span className="text-green-600">{formatCurrency(grandTotal)}</span>
+                  <span className="text-gray-900 dark:text-gray-100">{t('purchases.finalTotal')}</span>
+                  <span className="text-green-600 dark:text-green-400">{formatCurrency(grandTotal)}</span>
                 </div>
 
                 <button
@@ -862,11 +864,11 @@ export default function NewPurchaseOrderPage() {
                   disabled={isSaving || items.length === 0}
                   className="btn btn-primary w-full bg-green-600 hover:bg-green-700"
                 >
-                  {isSaving ? 'جاري الحفظ...' : 'إنشاء بون الطلب'}
+                  {isSaving ? t('purchases.saving') : t('purchases.createPo')}
                 </button>
 
                 <Link href="/dashboard/purchase-orders" className="btn btn-secondary w-full text-center block">
-                  إلغاء
+                  {t('purchases.cancel')}
                 </Link>
               </div>
             </div>

@@ -4,13 +4,14 @@ import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import toast from 'react-hot-toast';
 import { locationApi } from '@/lib/api';
+import { useLocale } from '@/lib/i18n/context';
 
 // Dynamically import the map component to avoid SSR issues with Leaflet
 const DriverMap = dynamic(() => import('./DriverMap'), {
   ssr: false,
   loading: () => (
-    <div className="h-[600px] bg-gray-100 rounded-lg flex items-center justify-center">
-      <div className="text-gray-500">جاري تحميل الخريطة...</div>
+    <div className="h-[600px] bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+      <div className="text-gray-500 dark:text-gray-400">...</div>
     </div>
   ),
 });
@@ -36,6 +37,7 @@ interface DriversData {
 }
 
 export default function DriversMapPage() {
+  const { t, locale } = useLocale();
   const [driversData, setDriversData] = useState<DriversData | null>(null);
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -48,11 +50,11 @@ export default function DriversMapPage() {
       setLastUpdate(new Date());
     } catch (error) {
       console.error('Error fetching drivers:', error);
-      toast.error('خطأ في تحميل مواقع السائقين');
+      toast.error(t('driversMap.errorLoading'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   // Initial fetch
   useEffect(() => {
@@ -78,9 +80,9 @@ export default function DriversMapPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">خريطة السائقين</h1>
-          <p className="text-gray-500 text-sm">
-            تتبع مواقع السائقين في الوقت الفعلي
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('driversMap.title')}</h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">
+            {t('driversMap.subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -91,7 +93,7 @@ export default function DriversMapPage() {
               onChange={(e) => setAutoRefresh(e.target.checked)}
               className="w-4 h-4 rounded"
             />
-            <span className="text-sm">تحديث تلقائي</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300">{t('driversMap.autoRefresh')}</span>
           </label>
           <button
             onClick={fetchDrivers}
@@ -101,7 +103,7 @@ export default function DriversMapPage() {
             <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            تحديث
+            {t('driversMap.refresh')}
           </button>
         </div>
       </div>
@@ -109,23 +111,23 @@ export default function DriversMapPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div className="card p-4">
-          <div className="text-sm text-gray-500">إجمالي السائقين</div>
-          <div className="text-2xl font-bold">{driversData?.total_count || 0}</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('driversMap.totalDrivers')}</div>
+          <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{driversData?.total_count || 0}</div>
         </div>
-        <div className="card p-4 bg-green-50">
-          <div className="text-sm text-green-700">متصلون</div>
-          <div className="text-2xl font-bold text-green-600">{driversData?.online_count || 0}</div>
+        <div className="card p-4 bg-green-50 dark:bg-green-900/20">
+          <div className="text-sm text-green-700 dark:text-green-300">{t('driversMap.online')}</div>
+          <div className="text-2xl font-bold text-green-600 dark:text-green-400">{driversData?.online_count || 0}</div>
         </div>
-        <div className="card p-4 bg-gray-50">
-          <div className="text-sm text-gray-500">غير متصلين</div>
-          <div className="text-2xl font-bold text-gray-400">
+        <div className="card p-4 bg-gray-50 dark:bg-gray-700/50">
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('driversMap.offline')}</div>
+          <div className="text-2xl font-bold text-gray-400 dark:text-gray-500">
             {(driversData?.total_count || 0) - (driversData?.online_count || 0)}
           </div>
         </div>
         <div className="card p-4">
-          <div className="text-sm text-gray-500">آخر تحديث</div>
-          <div className="text-lg font-medium">
-            {lastUpdate ? lastUpdate.toLocaleTimeString('ar-SA') : '-'}
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('driversMap.lastUpdate')}</div>
+          <div className="text-lg font-medium text-gray-900 dark:text-gray-100">
+            {lastUpdate ? lastUpdate.toLocaleTimeString(locale === 'fr' ? 'fr-DZ' : 'ar-DZ') : '-'}
           </div>
         </div>
       </div>
@@ -139,12 +141,12 @@ export default function DriversMapPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Online Drivers */}
         <div className="card">
-          <h3 className="font-semibold mb-4 flex items-center gap-2">
+          <h3 className="font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-gray-100">
             <span className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
-            السائقون المتصلون ({onlineDrivers.length})
+            {t('driversMap.onlineDrivers')} ({onlineDrivers.length})
           </h3>
           {onlineDrivers.length === 0 ? (
-            <div className="text-gray-500 text-center py-4">لا يوجد سائقون متصلون</div>
+            <div className="text-gray-500 dark:text-gray-400 text-center py-4">{t('driversMap.noOnlineDrivers')}</div>
           ) : (
             <div className="space-y-3">
               {onlineDrivers.map((driver) => (
@@ -156,12 +158,12 @@ export default function DriversMapPage() {
 
         {/* Offline Drivers */}
         <div className="card">
-          <h3 className="font-semibold mb-4 flex items-center gap-2">
+          <h3 className="font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-gray-100">
             <span className="w-3 h-3 bg-gray-400 rounded-full"></span>
-            السائقون غير المتصلين ({offlineDrivers.length})
+            {t('driversMap.offlineDrivers')} ({offlineDrivers.length})
           </h3>
           {offlineDrivers.length === 0 ? (
-            <div className="text-gray-500 text-center py-4">جميع السائقين متصلون</div>
+            <div className="text-gray-500 dark:text-gray-400 text-center py-4">{t('driversMap.allDriversOnline')}</div>
           ) : (
             <div className="space-y-3">
               {offlineDrivers.map((driver) => (
@@ -176,22 +178,24 @@ export default function DriversMapPage() {
 }
 
 function DriverCard({ driver }: { driver: Driver }) {
+  const { t } = useLocale();
+
   const getTimeSinceUpdate = () => {
-    if (!driver.last_location_at) return 'غير معروف';
+    if (!driver.last_location_at) return t('driversMap.unknown');
     const lastUpdate = new Date(driver.last_location_at);
     const now = new Date();
     const diffMs = now.getTime() - lastUpdate.getTime();
     const diffMins = Math.floor(diffMs / 60000);
 
-    if (diffMins < 1) return 'الآن';
-    if (diffMins < 60) return `منذ ${diffMins} دقيقة`;
+    if (diffMins < 1) return t('driversMap.justNow');
+    if (diffMins < 60) return t('driversMap.minutesAgo').replace('{count}', String(diffMins));
     const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `منذ ${diffHours} ساعة`;
-    return `منذ ${Math.floor(diffHours / 24)} يوم`;
+    if (diffHours < 24) return t('driversMap.hoursAgo').replace('{count}', String(diffHours));
+    return t('driversMap.daysAgo').replace('{count}', String(Math.floor(diffHours / 24)));
   };
 
   return (
-    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+    <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
       <div className="flex items-center gap-3">
         <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${
           driver.is_online ? 'bg-green-500' : 'bg-gray-400'
@@ -199,19 +203,19 @@ function DriverCard({ driver }: { driver: Driver }) {
           {driver.name.charAt(0)}
         </div>
         <div>
-          <div className="font-medium">{driver.name}</div>
-          <div className="text-sm text-gray-500">{driver.phone || '-'}</div>
+          <div className="font-medium text-gray-900 dark:text-gray-100">{driver.name}</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{driver.phone || '-'}</div>
         </div>
       </div>
-      <div className="text-left">
+      <div className="text-end">
         {driver.has_active_delivery && (
-          <div className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded mb-1">
+          <div className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-1 rounded mb-1">
             {driver.delivery_reference}
           </div>
         )}
-        <div className="text-xs text-gray-500">{getTimeSinceUpdate()}</div>
+        <div className="text-xs text-gray-500 dark:text-gray-400">{getTimeSinceUpdate()}</div>
         {driver.vehicle_name && (
-          <div className="text-xs text-gray-400">{driver.vehicle_name}</div>
+          <div className="text-xs text-gray-400 dark:text-gray-500">{driver.vehicle_name}</div>
         )}
       </div>
     </div>

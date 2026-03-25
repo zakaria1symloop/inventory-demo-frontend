@@ -4,12 +4,12 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/auth';
 import Link from 'next/link';
+import Image from 'next/image';
 import toast from 'react-hot-toast';
-
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuthStore();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -19,7 +19,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      await login(email, password);
+      await login(identifier, password);
       toast.success('تم تسجيل الدخول بنجاح');
       router.push('/dashboard');
     } catch (error: unknown) {
@@ -36,28 +36,29 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-6 sm:p-10 bg-white">
         <div className="w-full max-w-[420px]">
           {/* Logo & heading */}
-          <div className="inline-flex items-center gap-2.5 mb-10">
-            <span className="text-2xl font-bold text-blue-600">TrackSera</span>
-          </div>
+          <Link href="/" className="inline-flex items-center gap-2.5 mb-10 group">
+            <Image src="/t.png" alt="TrackSera" width={40} height={40} className="object-contain transition-transform group-hover:scale-105" />
+            <span className="text-lg font-bold text-gray-900">TrackSera</span>
+          </Link>
 
           <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">مرحباً بعودتك</h1>
           <p className="mt-2 text-gray-500">سجّل الدخول للوصول إلى لوحة التحكم</p>
 
-          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">البريد الإلكتروني</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">رقم الهاتف أو البريد الإلكتروني</label>
               <div className="relative">
                 <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                   </svg>
                 </span>
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  type="text"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
                   className="w-full pr-11 pl-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow bg-gray-50/50 placeholder:text-gray-400"
-                  placeholder="example@company.com"
+                  placeholder="0549575512 أو example@company.com"
                   required
                   autoFocus
                 />
@@ -123,12 +124,6 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p className="mt-8 text-center text-sm text-gray-500">
-            ليس لديك حساب؟{' '}
-            <Link href="/register" className="font-semibold text-blue-600 hover:text-blue-800 transition-colors">
-              سجّل مجاناً
-            </Link>
-          </p>
         </div>
       </div>
 

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { unitsApi } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { useLocale } from '@/lib/i18n/context';
 
 interface Unit {
   id: number;
@@ -31,6 +32,7 @@ export default function UnitsPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const { t } = useLocale();
 
   useEffect(() => {
     fetchUnits();
@@ -62,7 +64,7 @@ export default function UnitsPage() {
       const response = await unitsApi.getAll();
       setUnits(response.data.data || response.data);
     } catch (error) {
-      toast.error('خطأ في تحميل الوحدات');
+      toast.error(t('common.loadError', { item: t('stock.unitsTitle') }));
     } finally {
       setIsLoading(false);
     }
@@ -84,17 +86,17 @@ export default function UnitsPage() {
     try {
       if (editingUnit) {
         await unitsApi.update(editingUnit.id, data);
-        toast.success('تم تحديث الوحدة بنجاح');
+        toast.success(t('common.updatedSuccess', { item: t('stock.unitsTitle') }));
       } else {
         await unitsApi.create(data);
-        toast.success('تم إضافة الوحدة بنجاح');
+        toast.success(t('common.addedSuccess', { item: t('stock.unitsTitle') }));
       }
       setShowModal(false);
       setEditingUnit(null);
       resetForm();
       fetchUnits();
     } catch (error) {
-      toast.error('خطأ في حفظ الوحدة');
+      toast.error(t('common.saveError', { item: t('stock.unitsTitle') }));
     } finally {
       setIsSubmitting(false);
     }
@@ -125,14 +127,14 @@ export default function UnitsPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('هل أنت متأكد من حذف هذه الوحدة؟')) return;
+    if (!confirm(t('stock.confirmDeleteUnit'))) return;
 
     try {
       await unitsApi.delete(id);
-      toast.success('تم حذف الوحدة بنجاح');
+      toast.success(t('common.deletedSuccess', { item: t('stock.unitsTitle') }));
       fetchUnits();
     } catch (error) {
-      toast.error('خطأ في حذف الوحدة');
+      toast.error(t('common.deleteError', { item: t('stock.unitsTitle') }));
     }
   };
 
@@ -155,12 +157,12 @@ export default function UnitsPage() {
     <div>
       {/* Shortcuts hint */}
       <div className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg mb-4 flex items-center gap-6 text-sm">
-        <span className="font-medium">اختصارات:</span>
-        <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Insert</kbd> إضافة جديد</span>
+        <span className="font-medium">{t('common.shortcuts') + ':'}</span>
+        <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Insert</kbd> {t('common.addNew')}</span>
       </div>
 
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">الوحدات</h1>
+        <h1 className="text-2xl font-bold">{t('stock.unitsTitle')}</h1>
         <button
           onClick={() => {
             setEditingUnit(null);
@@ -172,8 +174,8 @@ export default function UnitsPage() {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          إضافة وحدة
-          <kbd className="bg-blue-700 px-1.5 py-0.5 rounded text-xs mr-2">Insert</kbd>
+          {t('stock.addUnit')}
+          <kbd className="bg-blue-700 px-1.5 py-0.5 rounded text-xs me-2">Insert</kbd>
         </button>
       </div>
 
@@ -181,7 +183,7 @@ export default function UnitsPage() {
         <div className="mb-4">
           <input
             type="text"
-            placeholder="بحث..."
+            placeholder={t('common.search')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="input max-w-xs"
@@ -192,19 +194,19 @@ export default function UnitsPage() {
           <thead>
             <tr>
               <th>#</th>
-              <th>الاسم</th>
-              <th>الاختصار</th>
-              <th>الوحدة الأساسية</th>
-              <th>التحويل</th>
-              <th>الحالة</th>
-              <th>الإجراءات</th>
+              <th>{t('common.name')}</th>
+              <th>{t('stock.shortName')}</th>
+              <th>{t('stock.baseUnit')}</th>
+              <th>{t('stock.conversion')}</th>
+              <th>{t('common.status')}</th>
+              <th>{t('common.actions')}</th>
             </tr>
           </thead>
           <tbody>
             {filteredUnits.length === 0 ? (
               <tr>
                 <td colSpan={7} className="text-center py-8 text-gray-500">
-                  لا توجد وحدات
+                  {t('stock.noUnits')}
                 </td>
               </tr>
             ) : (
@@ -221,7 +223,7 @@ export default function UnitsPage() {
                   </td>
                   <td>
                     <span className={`badge ${unit.is_active ? 'badge-success' : 'badge-danger'}`}>
-                      {unit.is_active ? 'نشط' : 'غير نشط'}
+                      {unit.is_active ? t('common.active') : t('common.inactive')}
                     </span>
                   </td>
                   <td>
@@ -257,33 +259,33 @@ export default function UnitsPage() {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <h2 className="text-xl font-bold mb-4">
-                {editingUnit ? 'تعديل الوحدة' : 'إضافة وحدة'}
+                {editingUnit ? t('stock.editUnit') : t('stock.addUnit')}
               </h2>
               <form onSubmit={handleSubmit}>
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      الاسم <span className="text-red-500">*</span>
+                      {t('common.name')} <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       className="input"
-                      placeholder="مثال: كيلوغرام"
+                      placeholder={t('stock.nameExample')}
                       required
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      الاختصار <span className="text-red-500">*</span>
+                      {t('stock.shortName')} <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       value={formData.short_name}
                       onChange={(e) => setFormData({ ...formData, short_name: e.target.value })}
                       className="input"
-                      placeholder="مثال: كغ"
+                      placeholder={t('stock.shortNameExample')}
                       required
                     />
                   </div>
@@ -291,14 +293,14 @@ export default function UnitsPage() {
 
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    الوحدة الأساسية (للتحويل)
+                    {t('stock.baseUnitConversion')}
                   </label>
                   <select
                     value={formData.base_unit_id}
                     onChange={(e) => setFormData({ ...formData, base_unit_id: e.target.value })}
                     className="select"
                   >
-                    <option value="">-- بدون وحدة أساسية --</option>
+                    <option value="">{t('stock.noBaseUnit')}</option>
                     {baseUnits.filter(u => u.id !== editingUnit?.id).map(unit => (
                       <option key={unit.id} value={unit.id}>
                         {unit.name} ({unit.short_name})
@@ -311,20 +313,20 @@ export default function UnitsPage() {
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        العملية
+                        {t('stock.operation')}
                       </label>
                       <select
                         value={formData.operator}
                         onChange={(e) => setFormData({ ...formData, operator: e.target.value as '*' | '/' })}
                         className="select"
                       >
-                        <option value="*">ضرب (×)</option>
-                        <option value="/">قسمة (÷)</option>
+                        <option value="*">{t('stock.multiply')}</option>
+                        <option value="/">{t('stock.divide')}</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        قيمة التحويل
+                        {t('stock.conversionValue')}
                       </label>
                       <input
                         type="number"
@@ -332,7 +334,7 @@ export default function UnitsPage() {
                         value={formData.operation_value}
                         onChange={(e) => setFormData({ ...formData, operation_value: e.target.value })}
                         className="input"
-                        placeholder="مثال: 1000"
+                        placeholder={t('stock.conversionExample')}
                       />
                     </div>
                   </div>
@@ -346,20 +348,20 @@ export default function UnitsPage() {
                       onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
                       className="w-4 h-4 text-blue-600 rounded"
                     />
-                    <span className="text-sm font-medium text-gray-700">نشط</span>
+                    <span className="text-sm font-medium text-gray-700">{t('common.active')}</span>
                   </label>
                 </div>
 
                 <div className="flex gap-3">
                   <button type="submit" disabled={isSubmitting} className="btn btn-primary flex-1">
-                    {isSubmitting ? 'جاري الحفظ...' : 'حفظ'}
+                    {isSubmitting ? t('common.saving') : t('common.save')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
                     className="btn btn-secondary flex-1"
                   >
-                    إلغاء
+                    {t('common.cancel')}
                   </button>
                 </div>
               </form>

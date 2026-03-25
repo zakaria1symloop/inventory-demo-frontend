@@ -9,8 +9,10 @@ import Modal from '@/components/ui/Modal';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import toast from 'react-hot-toast';
 import type { Category } from '@/lib/types';
+import { useLocale } from '@/lib/i18n/context';
 
 export default function CategoriesPage() {
+  const { t } = useLocale();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -34,10 +36,10 @@ export default function CategoriesPage() {
     mutationFn: (data: Record<string, unknown>) => categoriesApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
-      toast.success('تم إضافة الصنف بنجاح');
+      toast.success(t('common.addedSuccess', { item: t('stock.category') }));
       handleCloseModal();
     },
-    onError: () => toast.error('حدث خطأ أثناء الإضافة'),
+    onError: () => toast.error(t('common.errorAdd')),
   });
 
   const updateMutation = useMutation({
@@ -45,21 +47,21 @@ export default function CategoriesPage() {
       categoriesApi.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
-      toast.success('تم تحديث الصنف بنجاح');
+      toast.success(t('common.updatedSuccess', { item: t('stock.category') }));
       handleCloseModal();
     },
-    onError: () => toast.error('حدث خطأ أثناء التحديث'),
+    onError: () => toast.error(t('common.errorUpdate')),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => categoriesApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
-      toast.success('تم حذف الصنف بنجاح');
+      toast.success(t('common.deletedSuccess', { item: t('stock.category') }));
       setIsDeleteOpen(false);
       setSelectedCategory(null);
     },
-    onError: () => toast.error('حدث خطأ أثناء الحذف'),
+    onError: () => toast.error(t('common.errorDelete')),
   });
 
   const handleOpenCreate = () => {
@@ -99,29 +101,29 @@ export default function CategoriesPage() {
   };
 
   const columns = [
-    { key: 'name', title: 'الاسم' },
+    { key: 'name', title: t('common.name') },
     {
       key: 'parent',
-      title: 'الصنف الرئيسي',
+      title: t('stock.parentCategory'),
       render: (item: Category) => item.parent?.name || '-',
     },
     {
       key: 'products_count',
-      title: 'عدد المنتجات',
+      title: t('stock.productsCount'),
       render: (item: Category) => item.products_count || 0,
     },
     {
       key: 'is_active',
-      title: 'الحالة',
+      title: t('common.status'),
       render: (item: Category) => (
         <span className={`badge ${item.is_active ? 'badge-success' : 'badge-danger'}`}>
-          {item.is_active ? 'نشط' : 'معطل'}
+          {item.is_active ? t('common.active') : t('common.disabled')}
         </span>
       ),
     },
     {
       key: 'actions',
-      title: 'الإجراءات',
+      title: t('common.actions'),
       render: (item: Category) => (
         <div className="flex items-center gap-2">
           <button
@@ -169,19 +171,19 @@ export default function CategoriesPage() {
     <div className="space-y-6">
       {/* Shortcuts hint */}
       <div className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg mb-4 flex items-center gap-6 text-sm">
-        <span className="font-medium">اختصارات:</span>
-        <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Insert</kbd> إضافة جديد</span>
+        <span className="font-medium">{t('common.shortcuts') + ':'}</span>
+        <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Insert</kbd> {t('common.addNew')}</span>
       </div>
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">الأصناف</h1>
-          <p className="text-gray-500 mt-1">إدارة أصناف المنتجات</p>
+          <h1 className="text-2xl font-bold text-gray-800">{t('stock.categoriesTitle')}</h1>
+          <p className="text-gray-500 mt-1">{t('stock.categoriesSubtitle')}</p>
         </div>
         <button onClick={handleOpenCreate} className="btn btn-primary">
-          <kbd className="bg-blue-700 px-1.5 py-0.5 rounded text-xs mr-2">Insert</kbd>
+          <kbd className="bg-blue-700 px-1.5 py-0.5 rounded text-xs me-2">Insert</kbd>
           <PlusIcon className="w-5 h-5" />
-          إضافة صنف
+          {t('stock.addCategory')}
         </button>
       </div>
 
@@ -191,20 +193,20 @@ export default function CategoriesPage() {
           data={categories || []}
           isLoading={isLoading}
           searchable
-          searchPlaceholder="بحث عن صنف..."
+          searchPlaceholder={t('stock.searchCategory')}
           onSearch={setSearch}
-          emptyMessage="لا توجد أصناف"
+          emptyMessage={t('stock.noCategories')}
         />
       </div>
 
       <Modal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        title={selectedCategory ? 'تعديل الصنف' : 'إضافة صنف جديد'}
+        title={selectedCategory ? t('stock.editCategory') : t('stock.addNewCategory')}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">اسم الصنف</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('stock.categoryName')}</label>
             <input
               type="text"
               value={formData.name}
@@ -215,13 +217,13 @@ export default function CategoriesPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">الصنف الرئيسي</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('stock.parentCategory')}</label>
             <select
               value={formData.parent_id}
               onChange={(e) => setFormData((p) => ({ ...p, parent_id: e.target.value }))}
               className="select"
             >
-              <option value="">بدون صنف رئيسي</option>
+              <option value="">{t('stock.noParent')}</option>
               {parentCategories
                 .filter((c) => c.id !== selectedCategory?.id)
                 .map((cat) => (
@@ -240,13 +242,13 @@ export default function CategoriesPage() {
                 onChange={(e) => setFormData((p) => ({ ...p, is_active: e.target.checked }))}
                 className="w-4 h-4 text-blue-600 rounded"
               />
-              <span className="text-sm font-medium text-gray-700">صنف نشط</span>
+              <span className="text-sm font-medium text-gray-700">{t('stock.activeCategory')}</span>
             </label>
           </div>
 
           <div className="flex justify-end gap-3 pt-4">
             <button type="button" onClick={handleCloseModal} className="btn btn-secondary">
-              إلغاء
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
@@ -256,9 +258,9 @@ export default function CategoriesPage() {
               {createMutation.isPending || updateMutation.isPending ? (
                 <span className="spinner w-4 h-4"></span>
               ) : selectedCategory ? (
-                'تحديث'
+                t('common.update')
               ) : (
-                'إضافة'
+                t('common.add')
               )}
             </button>
           </div>
@@ -269,8 +271,8 @@ export default function CategoriesPage() {
         isOpen={isDeleteOpen}
         onClose={() => setIsDeleteOpen(false)}
         onConfirm={() => selectedCategory && deleteMutation.mutate(selectedCategory.id)}
-        title="حذف الصنف"
-        message={`هل أنت متأكد من حذف "${selectedCategory?.name}"؟`}
+        title={t('stock.deleteCategory')}
+        message={t('common.confirmDeleteMsg', { name: selectedCategory?.name || '' })}
         isLoading={deleteMutation.isPending}
       />
     </div>

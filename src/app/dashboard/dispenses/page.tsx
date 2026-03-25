@@ -1,9 +1,26 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { dispensesApi, employeesApi, usersApi } from '@/lib/api';
+import { useAuthStore } from '@/lib/store/auth';
+import { useLocale } from '@/lib/i18n/context';
 import DateInput from '@/components/ui/DateInput';
+import GuidedTour from '@/components/GuidedTour';
+import type { TourStep } from '@/components/GuidedTour';
 import toast from 'react-hot-toast';
+import {
+  BanknotesIcon,
+  FunnelIcon,
+  XMarkIcon,
+  TrashIcon,
+  PencilSquareIcon,
+  MagnifyingGlassIcon,
+  PlusIcon,
+  CurrencyDollarIcon,
+  DocumentTextIcon,
+  TagIcon,
+  ChartBarIcon,
+} from '@heroicons/react/24/outline';
 
 interface Dispense {
   id: number;
@@ -16,7 +33,7 @@ interface Dispense {
   description?: string;
   notes?: string;
   employee?: { id: number; name: string };
-  user?: { id: number; name: string };
+  user?: { id: number; name: string; role?: string };
 }
 
 interface Employee {
@@ -32,15 +49,34 @@ interface Summary {
   monthly: { month: string; total: number }[];
 }
 
-const categories: Record<string, string> = {
-  salary: 'راتب',
-  advance: 'سلفة',
-  transport: 'نقل',
-  maintenance: 'صيانة',
-  supplies: 'مستلزمات',
-  utilities: 'فواتير',
-  rent: 'إيجار',
-  other: 'أخرى',
+const CATEGORY_KEYS: Record<string, string> = {
+  salary: 'dispenses.salary',
+  advance: 'dispenses.advance',
+  transport: 'dispenses.transport',
+  maintenance: 'dispenses.maintenance',
+  supplies: 'dispenses.supplies',
+  utilities: 'dispenses.utilities',
+  rent: 'dispenses.rent',
+  other: 'dispenses.otherCategory',
+};
+
+const CATEGORY_COLORS: Record<string, { bg: string; text: string; darkBg: string; darkText: string }> = {
+  salary: { bg: 'bg-blue-50', text: 'text-blue-700', darkBg: 'dark:bg-blue-900/30', darkText: 'dark:text-blue-300' },
+  advance: { bg: 'bg-violet-50', text: 'text-violet-700', darkBg: 'dark:bg-violet-900/30', darkText: 'dark:text-violet-300' },
+  transport: { bg: 'bg-amber-50', text: 'text-amber-700', darkBg: 'dark:bg-amber-900/30', darkText: 'dark:text-amber-300' },
+  maintenance: { bg: 'bg-orange-50', text: 'text-orange-700', darkBg: 'dark:bg-orange-900/30', darkText: 'dark:text-orange-300' },
+  supplies: { bg: 'bg-cyan-50', text: 'text-cyan-700', darkBg: 'dark:bg-cyan-900/30', darkText: 'dark:text-cyan-300' },
+  utilities: { bg: 'bg-emerald-50', text: 'text-emerald-700', darkBg: 'dark:bg-emerald-900/30', darkText: 'dark:text-emerald-300' },
+  rent: { bg: 'bg-pink-50', text: 'text-pink-700', darkBg: 'dark:bg-pink-900/30', darkText: 'dark:text-pink-300' },
+  other: { bg: 'bg-gray-100', text: 'text-gray-700', darkBg: 'dark:bg-gray-700/30', darkText: 'dark:text-gray-300' },
+};
+
+const ROLE_KEYS: Record<string, string> = {
+  admin: 'dispenses.admin',
+  manager: 'dispenses.manager',
+  seller: 'dispenses.seller',
+  livreur: 'dispenses.driver',
+  cashvan: 'dispenses.cashvanRole',
 };
 
 const initialFormData = {
@@ -52,42 +88,133 @@ const initialFormData = {
   notes: '',
 };
 
-interface User {
-  id: number;
-  name: string;
-}
-
 export default function DispensesPage() {
+  const { user } = useAuthStore();
+  const { t, locale, dir } = useLocale();
+  const isRTL = dir === 'rtl';
+
   const [dispenses, setDispenses] = useState<Dispense[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<{ id: number; name: string; role: string }[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [filteredTotal, setFilteredTotal] = useState(0);
+
+  // Filters
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [userFilter, setUserFilter] = useState('');
+  const [employeeFilter, setEmployeeFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [showTour, setShowTour] = useState(false);
+
+  // Modal
   const [showModal, setShowModal] = useState(false);
-  const [showSummary, setShowSummary] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState(initialFormData);
   const [isSaving, setIsSaving] = useState(false);
-  const [filteredTotal, setFilteredTotal] = useState(0);
+
+  // Category labels using t()
+  const CATEGORIES = useMemo(() => {
+    const cats: Record<string, string> = {};
+    for (const key of Object.keys(CATEGORY_KEYS)) {
+      cats[key] = t(CATEGORY_KEYS[key] as any);
+    }
+    return cats;
+  }, [t]);
+
+  // Role labels using t()
+  const roleLabel = useMemo(() => {
+    return (role: string) => {
+      const key = ROLE_KEYS[role];
+      return key ? t(key as any) : role;
+    };
+  }, [t]);
+
+  // Tour steps with i18n
+  const dispensesTourSteps: TourStep[] = useMemo(() => [
+    {
+      target: '[data-tour="dispenses-title"]',
+      title: t('dispenses.tourTitleStep'),
+      desc: t('dispenses.tourTitleDesc'),
+      position: 'bottom' as const,
+    },
+    {
+      target: '[data-tour="dispenses-add"]',
+      title: t('dispenses.tourAdd'),
+      desc: t('dispenses.tourAddDesc'),
+      position: 'bottom' as const,
+    },
+    {
+      target: '[data-tour="dispenses-kpis"]',
+      title: t('dispenses.tourKpis'),
+      desc: t('dispenses.tourKpisDesc'),
+      position: 'bottom' as const,
+    },
+    {
+      target: '[data-tour="dispenses-search"]',
+      title: t('dispenses.tourSearch'),
+      desc: t('dispenses.tourSearchDesc'),
+      position: 'bottom' as const,
+    },
+    {
+      target: '[data-tour="dispenses-filter-btn"]',
+      title: t('dispenses.tourFilterBtn'),
+      desc: t('dispenses.tourFilterBtnDesc'),
+      position: 'bottom' as const,
+    },
+    {
+      target: '[data-tour="dispenses-quick-filters"]',
+      title: t('dispenses.tourQuickFilters'),
+      desc: t('dispenses.tourQuickFiltersDesc'),
+      position: 'bottom' as const,
+    },
+    {
+      target: '[data-tour="dispenses-table"]',
+      title: t('dispenses.tourTable'),
+      desc: t('dispenses.tourTableDesc'),
+      position: 'top' as const,
+    },
+  ], [t]);
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Load users & employees once
+  useEffect(() => {
+    Promise.all([
+      employeesApi.getActive(),
+      usersApi.getAll({ per_page: 1000 }),
+    ]).then(([empRes, usersRes]) => {
+      setEmployees(empRes.data);
+      setUsers(usersRes.data.data || usersRes.data || []);
+    }).catch(() => {});
+  }, []);
+
+  // Fetch dispenses + summary on filter change
+  useEffect(() => {
+    fetchDispenses();
+  }, [page, categoryFilter, userFilter, employeeFilter, dateFrom, dateTo, debouncedSearch]);
 
   useEffect(() => {
-    fetchData();
-  }, [categoryFilter, userFilter, dateFrom, dateTo]);
+    dispensesApi.getSummary({ date_from: dateFrom || undefined, date_to: dateTo || undefined })
+      .then(res => setSummary(res.data))
+      .catch(() => {});
+  }, [dateFrom, dateTo]);
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger if user is typing in an input/textarea
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) {
-        return;
-      }
-
-      // Insert key or Alt+N: open add modal
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
       if (e.key === 'Insert' || (e.altKey && e.key.toLowerCase() === 'n')) {
         e.preventDefault();
         setEditingId(null);
@@ -95,33 +222,29 @@ export default function DispensesPage() {
         setShowModal(true);
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const fetchData = async () => {
+  const fetchDispenses = async () => {
+    setIsLoading(true);
     try {
-      const [dispensesRes, employeesRes, summaryRes, usersRes] = await Promise.all([
-        dispensesApi.getAll({
-          per_page: 100,
-          category: categoryFilter || undefined,
-          user_id: userFilter || undefined,
-          date_from: dateFrom || undefined,
-          date_to: dateTo || undefined,
-        }),
-        employeesApi.getActive(),
-        dispensesApi.getSummary(),
-        usersApi.getAll({ per_page: 1000 }),
-      ]);
-      setDispenses(dispensesRes.data.data || dispensesRes.data);
-      setEmployees(employeesRes.data);
-      setSummary(summaryRes.data);
-      setFilteredTotal(dispensesRes.data.filtered_total ?? 0);
-      const users = usersRes.data.data || usersRes.data || [];
-      setAllUsers(users);
-    } catch (error) {
-      toast.error('خطأ في تحميل البيانات');
+      const params: Record<string, unknown> = { page, per_page: 20 };
+      if (categoryFilter) params.category = categoryFilter;
+      if (userFilter) params.user_id = userFilter;
+      if (employeeFilter) params.employee_id = employeeFilter;
+      if (dateFrom) params.date_from = dateFrom;
+      if (dateTo) params.date_to = dateTo;
+      if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
+
+      const response = await dispensesApi.getAll(params);
+      const data = response.data;
+      setDispenses(data.data || data);
+      setTotalPages(data.last_page || 1);
+      setTotal(data.total || 0);
+      setFilteredTotal(data.filtered_total ?? 0);
+    } catch {
+      toast.error(t('dispenses.loadError'));
     } finally {
       setIsLoading(false);
     }
@@ -130,30 +253,25 @@ export default function DispensesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.amount <= 0) {
-      toast.error('يرجى إدخال مبلغ صحيح');
+      toast.error(t('dispenses.invalidAmount'));
       return;
     }
-
     setIsSaving(true);
     try {
-      const data = {
-        ...formData,
-        employee_id: formData.employee_id || null,
-      };
-
+      const data = { ...formData, employee_id: formData.employee_id || null };
       if (editingId) {
         await dispensesApi.update(editingId, data);
-        toast.success('تم تحديث المصروف بنجاح');
+        toast.success(t('dispenses.updateSuccess'));
       } else {
         await dispensesApi.create(data);
-        toast.success('تم إضافة المصروف بنجاح');
+        toast.success(t('dispenses.createSuccess'));
       }
       setShowModal(false);
       setFormData(initialFormData);
       setEditingId(null);
-      fetchData();
-    } catch (error) {
-      toast.error('خطأ في حفظ البيانات');
+      fetchDispenses();
+    } catch {
+      toast.error(t('dispenses.saveError'));
     } finally {
       setIsSaving(false);
     }
@@ -173,269 +291,399 @@ export default function DispensesPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('هل أنت متأكد من حذف هذا المصروف؟')) return;
+    if (!confirm(t('dispenses.deleteConfirm'))) return;
     try {
       await dispensesApi.delete(id);
-      toast.success('تم حذف المصروف');
-      fetchData();
-    } catch (error) {
-      toast.error('خطأ في حذف المصروف');
+      toast.success(t('dispenses.deleteSuccess'));
+      fetchDispenses();
+    } catch {
+      toast.error(t('dispenses.deleteError'));
     }
   };
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
+    return new Intl.NumberFormat(locale === 'ar' ? 'ar-DZ' : 'fr-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
   };
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('ar-DZ');
+    try {
+      return new Date(date).toLocaleDateString(locale === 'ar' ? 'ar-DZ' : 'fr-DZ', { year: 'numeric', month: 'short', day: 'numeric' });
+    } catch { return date; }
   };
 
-  const filteredDispenses = dispenses.filter(d =>
-    d.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    d.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    d.employee?.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const activeFilterCount = [categoryFilter, userFilter, employeeFilter, dateFrom, dateTo].filter(Boolean).length;
 
-  const hasActiveFilters = !!(categoryFilter || userFilter || dateFrom || dateTo);
+  const clearFilters = () => {
+    setSearchTerm('');
+    setCategoryFilter('');
+    setUserFilter('');
+    setEmployeeFilter('');
+    setDateFrom('');
+    setDateTo('');
+    setPage(1);
+  };
 
-  if (isLoading) {
-    return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
-  }
+  // KPIs
+  const kpis = useMemo(() => {
+    const topCategory = summary?.by_category?.sort((a, b) => b.total - a.total)[0];
+    return {
+      total: filteredTotal,
+      count: total,
+      topCategory: topCategory ? CATEGORIES[topCategory.category] || topCategory.category : '-',
+      topCategoryAmount: topCategory?.total || 0,
+    };
+  }, [filteredTotal, total, summary, CATEGORIES]);
 
   return (
-    <div>
-      {/* Shortcuts hint */}
-      <div className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg mb-4 flex items-center gap-6 text-sm">
-        <span className="font-medium">اختصارات:</span>
-        <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Insert</kbd> إضافة جديد</span>
-      </div>
-
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold dark:text-white">المصروفات</h1>
-        <div className="flex gap-3">
-          <button onClick={() => setShowSummary(!showSummary)} className="btn btn-secondary">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            ملخص
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" data-tour="dispenses-title">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-500 to-orange-600 flex items-center justify-center shadow-lg shadow-red-500/20">
+            <BanknotesIcon className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('dispenses.title')}</h1>
+            <p className="text-sm text-gray-400 dark:text-gray-400 mt-1">{t('dispenses.subtitle')}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { localStorage.removeItem('dispenses_tour_step'); setShowTour(true); }}
+            className="flex items-center gap-1.5 text-sm text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 font-medium transition-colors"
+            title={t('dispenses.tourTitle')}
+          >
+            <span>{t('dispenses.tourTitle')}</span>
           </button>
           <button
-            onClick={() => {
-              setEditingId(null);
-              setFormData(initialFormData);
-              setShowModal(true);
-            }}
-            className="btn btn-primary"
+            data-tour="dispenses-add"
+            onClick={() => { setEditingId(null); setFormData(initialFormData); setShowModal(true); }}
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-l from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 rounded-xl shadow-sm transition-all"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            إضافة مصروف
-            <kbd className="bg-blue-700 px-1.5 py-0.5 rounded text-xs mr-1">Insert</kbd>
+            <PlusIcon className="w-4 h-4" />
+            <span className="hidden sm:inline">{t('dispenses.addDispense')}</span>
+            <span className="sm:hidden">{t('dispenses.addShort')}</span>
           </button>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      {showSummary && summary && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="card bg-red-50 dark:bg-red-900/20">
-            <h3 className="text-sm text-red-600 dark:text-red-400 mb-1">إجمالي المصروفات</h3>
-            <p className="text-2xl font-bold text-red-700 dark:text-red-300">{formatCurrency(summary.total)}</p>
-          </div>
-          <div className="card">
-            <h3 className="text-sm text-gray-600 dark:text-gray-400 mb-2">حسب الفئة</h3>
-            <div className="space-y-1">
-              {summary.by_category.slice(0, 4).map((item) => (
-                <div key={item.category} className="flex justify-between text-sm">
-                  <span>{categories[item.category] || item.category}</span>
-                  <span className="font-medium">{formatCurrency(item.total)}</span>
-                </div>
-              ))}
+      {/* KPI Strip */}
+      <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden" data-tour="dispenses-kpis">
+        <div className={`grid grid-cols-2 md:grid-cols-4 sm:divide-x ${isRTL ? 'sm:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
+          <div className="group relative p-5 hover:bg-red-50/40 dark:hover:bg-red-900/10 transition-colors duration-200">
+            <div className="absolute top-0 inset-x-0 h-[3px] bg-red-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 mb-2.5">
+                <CurrencyDollarIcon className="w-4 h-4" />
+              </div>
+              <div className="text-lg font-black text-red-600 dark:text-red-400 tabular-nums leading-none">{formatCurrency(kpis.total)}</div>
+              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('dispenses.totalAmount')}</div>
             </div>
           </div>
-          <div className="card">
-            <h3 className="text-sm text-gray-600 dark:text-gray-400 mb-2">حسب الموظف</h3>
-            <div className="space-y-1">
-              {summary.by_employee.slice(0, 4).map((item) => (
-                <div key={item.employee_id} className="flex justify-between text-sm">
-                  <span>{item.employee?.name || 'غير محدد'}</span>
-                  <span className="font-medium">{formatCurrency(item.total)}</span>
-                </div>
-              ))}
+          <div className="group relative p-5 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors duration-200">
+            <div className="absolute top-0 inset-x-0 h-[3px] bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mb-2.5">
+                <DocumentTextIcon className="w-4 h-4" />
+              </div>
+              <div className="text-3xl font-black text-blue-600 dark:text-blue-400 tabular-nums leading-none">{kpis.count}</div>
+              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('dispenses.operationsCount')}</div>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Filtered Total */}
-      <div className="card bg-red-50 dark:bg-red-900/20 mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm text-red-600 dark:text-red-400 mb-1">
-              {hasActiveFilters ? 'إجمالي المصروفات (مفلتر)' : 'إجمالي المصروفات'}
-            </h3>
-            <p className="text-2xl font-bold text-red-700 dark:text-red-300">{formatCurrency(filteredTotal)}</p>
+          <div className="group relative p-5 hover:bg-amber-50/40 dark:hover:bg-amber-900/10 transition-colors duration-200">
+            <div className="absolute top-0 inset-x-0 h-[3px] bg-amber-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 mb-2.5">
+                <TagIcon className="w-4 h-4" />
+              </div>
+              <div className="text-lg font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.topCategory}</div>
+              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('dispenses.topCategory')}</div>
+            </div>
           </div>
-          <div className="text-sm text-gray-500">
-            {filteredDispenses.length} مصروف
+          <div className="group relative p-5 hover:bg-orange-50/40 dark:hover:bg-orange-900/10 transition-colors duration-200">
+            <div className="absolute top-0 inset-x-0 h-[3px] bg-orange-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 mb-2.5">
+                <ChartBarIcon className="w-4 h-4" />
+              </div>
+              <div className="text-lg font-black text-orange-600 dark:text-orange-400 tabular-nums leading-none">{formatCurrency(kpis.topCategoryAmount)}</div>
+              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('dispenses.topCategoryAmount')}</div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="card">
-        <div className="flex flex-wrap gap-4 mb-4">
-          <input
-            type="text"
-            placeholder="بحث..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="input max-w-xs"
-          />
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="select max-w-xs"
+      {/* Search + Filters + Table */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm">
+        {/* Search bar */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+          <div className="relative flex-1" data-tour="dispenses-search">
+            <MagnifyingGlassIcon className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400`} />
+            <input
+              type="text"
+              placeholder={t('dispenses.search')}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={`input w-full text-sm ${isRTL ? 'pr-9' : 'pl-9'}`}
+            />
+          </div>
+          <button
+            data-tour="dispenses-filter-btn"
+            onClick={() => setShowFilters(!showFilters)}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl border transition-all ${
+              showFilters || activeFilterCount > 0
+                ? 'border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-600 dark:bg-orange-900/20 dark:text-orange-400'
+                : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+            }`}
           >
-            <option value="">كل الفئات</option>
-            {Object.entries(categories).map(([key, label]) => (
-              <option key={key} value={key}>{label}</option>
-            ))}
-          </select>
-          <select
-            value={userFilter}
-            onChange={(e) => setUserFilter(e.target.value)}
-            className="select max-w-xs"
-          >
-            <option value="">كل المستخدمين (بواسطة)</option>
-            {allUsers.map((u) => (
-              <option key={u.id} value={u.id}>{u.name}</option>
-            ))}
-          </select>
-          <DateInput
-            value={dateFrom}
-            onChange={(v) => setDateFrom(v)}
-            placeholder="من تاريخ"
-          />
-          <DateInput
-            value={dateTo}
-            onChange={(v) => setDateTo(v)}
-            placeholder="إلى تاريخ"
-          />
-          {hasActiveFilters && (
-            <button
-              onClick={() => { setCategoryFilter(''); setUserFilter(''); setDateFrom(''); setDateTo(''); }}
-              className="btn btn-secondary text-sm"
-            >
-              مسح الفلاتر
+            <FunnelIcon className="w-4 h-4" />
+            <span className="hidden sm:inline">{t('dispenses.filter')}</span>
+            {activeFilterCount > 0 && (
+              <span className="w-5 h-5 rounded-full bg-orange-600 text-white text-[10px] font-bold flex items-center justify-center">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+          {activeFilterCount > 0 && (
+            <button onClick={clearFilters} className="text-sm text-red-500 hover:text-red-700 font-medium flex items-center gap-1">
+              <XMarkIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('dispenses.clear')}</span>
             </button>
           )}
         </div>
 
-        <div className="overflow-x-auto">
-          <table>
-            <thead>
-              <tr>
-                <th>المرجع</th>
-                <th>التاريخ</th>
-                <th>الفئة</th>
-                <th>الموظف</th>
-                <th>الوصف</th>
-                <th>المبلغ</th>
-                <th>بواسطة</th>
-                <th>الإجراءات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredDispenses.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-8 text-gray-500">لا توجد مصروفات</td></tr>
-              ) : (
-                filteredDispenses.map((disp) => (
-                  <tr key={disp.id}>
-                    <td className="font-medium">{disp.reference}</td>
-                    <td>{formatDate(disp.date)}</td>
-                    <td>
-                      <span className="badge badge-secondary">{categories[disp.category] || disp.category}</span>
-                    </td>
-                    <td>{disp.employee?.name || '-'}</td>
-                    <td>{disp.description || '-'}</td>
-                    <td className="font-medium text-red-600">{formatCurrency(disp.amount)}</td>
-                    <td className="text-gray-500">{disp.user?.name || '-'}</td>
-                    <td>
-                      <div className="flex gap-2">
-                        <button onClick={() => handleEdit(disp)} className="text-blue-600 hover:text-blue-800">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                        <button onClick={() => handleDelete(disp.id)} className="text-red-600 hover:text-red-800">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        {/* Expanded Filters */}
+        {showFilters && (
+          <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              <select
+                value={categoryFilter}
+                onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
+                className="select"
+              >
+                <option value="">{t('dispenses.allCategories')}</option>
+                {Object.entries(CATEGORIES).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+              <select
+                value={userFilter}
+                onChange={(e) => { setUserFilter(e.target.value); setPage(1); }}
+                className="select"
+              >
+                <option value="">{t('dispenses.allUsers')}</option>
+                {users.map(u => (
+                  <option key={u.id} value={u.id}>{u.name} ({roleLabel(u.role)})</option>
+                ))}
+              </select>
+              <select
+                value={employeeFilter}
+                onChange={(e) => { setEmployeeFilter(e.target.value); setPage(1); }}
+                className="select"
+              >
+                <option value="">{t('dispenses.allEmployees')}</option>
+                {employees.map(emp => (
+                  <option key={emp.id} value={emp.id}>{emp.name}{emp.position ? ` (${emp.position})` : ''}</option>
+                ))}
+              </select>
+              <div>{/* spacer for alignment */}</div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <DateInput value={dateFrom} onChange={(v) => { setDateFrom(v); setPage(1); }} placeholder={t('dispenses.fromDate')} />
+              <DateInput value={dateTo} onChange={(v) => { setDateTo(v); setPage(1); }} placeholder={t('dispenses.toDate')} />
+            </div>
+          </div>
+        )}
+
+        {/* Quick Category Filters */}
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 dark:border-gray-700 overflow-x-auto" data-tour="dispenses-quick-filters">
+          <button
+            onClick={() => { setCategoryFilter(''); setPage(1); }}
+            className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+              !categoryFilter ? 'bg-orange-600 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+            }`}
+          >
+            {t('dispenses.all')}
+          </button>
+          {Object.entries(CATEGORIES).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => { setCategoryFilter(categoryFilter === key ? '' : key); setPage(1); }}
+              className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                categoryFilter === key ? 'bg-orange-600 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto" data-tour="dispenses-table">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="spinner w-8 h-8"></div>
+            </div>
+          ) : dispenses.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500">
+              <BanknotesIcon className="w-12 h-12 mb-3" />
+              <p className="text-lg font-semibold">{t('dispenses.noDispenses')}</p>
+              <p className="text-sm mt-1">{t('dispenses.noDispensesHint')}</p>
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-100 dark:border-gray-700">
+                  <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">{t('dispenses.reference')}</th>
+                  <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">{t('dispenses.date')}</th>
+                  <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">{t('dispenses.category')}</th>
+                  <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">{t('dispenses.employee')}</th>
+                  <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">{t('dispenses.description')}</th>
+                  <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">{t('dispenses.amount')}</th>
+                  <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">{t('dispenses.by')}</th>
+                  <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3 w-20"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
+                {dispenses.map((disp) => {
+                  const catColor = CATEGORY_COLORS[disp.category] || CATEGORY_COLORS.other;
+                  return (
+                    <tr key={disp.id} className="group hover:bg-orange-50/30 dark:hover:bg-orange-900/10 transition-colors">
+                      <td className="px-4 py-3.5">
+                        <span className="font-mono text-sm font-semibold text-gray-700 dark:text-gray-300">{disp.reference}</span>
+                      </td>
+                      <td className="px-4 py-3.5 text-sm text-gray-600 dark:text-gray-400 tabular-nums">
+                        {formatDate(disp.date)}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold ${catColor.bg} ${catColor.text} ${catColor.darkBg} ${catColor.darkText}`}>
+                          {CATEGORIES[disp.category] || disp.category}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 text-sm text-gray-700 dark:text-gray-300">
+                        {disp.employee?.name || <span className="text-gray-400 dark:text-gray-500">-</span>}
+                      </td>
+                      <td className="px-4 py-3.5 text-sm text-gray-600 dark:text-gray-400 max-w-[200px] truncate">
+                        {disp.description || <span className="text-gray-400 dark:text-gray-500">-</span>}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <span className="text-sm font-black tabular-nums text-red-600">
+                          {formatCurrency(Number(disp.amount))}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">{disp.user?.name || '-'}</span>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => handleEdit(disp)}
+                            className="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                            title={t('dispenses.editDispense')}
+                          >
+                            <PencilSquareIcon className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(disp.id)}
+                            className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                            title={t('dispenses.deleteConfirm')}
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-gray-700">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {t('dispenses.page')} {page} {t('dispenses.of')} {totalPages} — {total} {t('dispenses.dispense')}
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:text-gray-300"
+              >
+                {t('dispenses.previous')}
+              </button>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:text-gray-300"
+              >
+                {t('dispenses.next')}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Modal */}
+      {/* Add/Edit Modal */}
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-content p-6" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold mb-4 dark:text-white">
-              {editingId ? 'تعديل مصروف' : 'إضافة مصروف جديد'}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowModal(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full sm:w-[480px] mx-4 max-h-[90vh] overflow-y-auto border border-transparent dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                {editingId ? t('dispenses.editDispense') : t('dispenses.addNew')}
+              </h2>
+              <button onClick={() => setShowModal(false)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+                <XMarkIcon className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">التاريخ *</label>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{t('dispenses.dateLabel')} *</label>
                   <DateInput
                     value={formData.date}
                     onChange={(v) => setFormData({ ...formData, date: v })}
+                    className="input w-full text-sm"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">الفئة *</label>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{t('dispenses.categoryLabel')} *</label>
                   <select
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="select"
+                    className="select w-full text-sm"
                     required
                   >
-                    {Object.entries(categories).map(([key, label]) => (
+                    {Object.entries(CATEGORIES).map(([key, label]) => (
                       <option key={key} value={key}>{label}</option>
                     ))}
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">الموظف</label>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{t('dispenses.employeeLabel')}</label>
                   <select
                     value={formData.employee_id}
                     onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
-                    className="select"
+                    className="select w-full text-sm"
                   >
-                    <option value="">بدون موظف</option>
+                    <option value="">{t('dispenses.noEmployee')}</option>
                     {employees.map((emp) => (
                       <option key={emp.id} value={emp.id}>{emp.name}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">المبلغ *</label>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{t('dispenses.amountLabel')} *</label>
                   <input
                     type="number"
                     value={formData.amount}
                     onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
-                    className="input"
+                    className="input w-full text-sm"
                     min="0.01"
                     step="0.01"
                     required
@@ -443,35 +691,44 @@ export default function DispensesPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-gray-300">الوصف</label>
+                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{t('dispenses.descriptionLabel')}</label>
                 <input
                   type="text"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="input"
-                  placeholder="وصف مختصر للمصروف..."
+                  className="input w-full text-sm"
+                  placeholder={t('dispenses.descriptionPlaceholder')}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-gray-300">ملاحظات</label>
+                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{t('dispenses.notes')}</label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="input"
+                  className="input w-full text-sm"
                   rows={2}
                 />
               </div>
-              <div className="flex gap-3 pt-4">
-                <button type="submit" disabled={isSaving} className="btn btn-primary flex-1">
-                  {isSaving ? 'جاري الحفظ...' : editingId ? 'تحديث' : 'إضافة'}
+              <div className="flex gap-3 pt-2">
+                <button type="submit" disabled={isSaving} className="flex-1 px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-l from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 rounded-xl transition-all disabled:opacity-50">
+                  {isSaving ? t('dispenses.saving') : editingId ? t('dispenses.update') : t('dispenses.save')}
                 </button>
-                <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary">
-                  إلغاء
+                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl transition-colors">
+                  {t('dispenses.cancel')}
                 </button>
               </div>
             </form>
           </div>
         </div>
+      )}
+
+      {/* Guided Tour */}
+      {showTour && (
+        <GuidedTour
+          steps={dispensesTourSteps}
+          storageKey="dispenses_tour_step"
+          onComplete={() => setShowTour(false)}
+        />
       )}
     </div>
   );

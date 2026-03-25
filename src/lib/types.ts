@@ -132,6 +132,7 @@ export interface ProductCategoryPrice {
 export interface Client {
   id: number;
   name: string;
+  code?: string;
   phone?: string;
   email?: string;
   address?: string;

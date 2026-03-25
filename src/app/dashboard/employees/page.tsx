@@ -4,6 +4,15 @@ import { useState, useEffect } from 'react';
 import { employeesApi } from '@/lib/api';
 import DateInput from '@/components/ui/DateInput';
 import toast from 'react-hot-toast';
+import { useLocale } from '@/lib/i18n/context';
+import {
+  UsersIcon,
+  PlusIcon,
+  PencilSquareIcon,
+  TrashIcon,
+  MagnifyingGlassIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline';
 
 interface Employee {
   id: number;
@@ -28,6 +37,9 @@ const initialFormData = {
 };
 
 export default function EmployeesPage() {
+  const { t, locale } = useLocale();
+  const isRTL = locale === 'ar';
+
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -45,7 +57,7 @@ export default function EmployeesPage() {
       const response = await employeesApi.getAll({ per_page: 100 });
       setEmployees(response.data.data || response.data);
     } catch (error) {
-      toast.error('خطأ في تحميل الموظفين');
+      toast.error(t('employeesPage.toastLoadError'));
     } finally {
       setIsLoading(false);
     }
@@ -54,7 +66,7 @@ export default function EmployeesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) {
-      toast.error('يرجى إدخال اسم الموظف');
+      toast.error(t('employeesPage.toastNameRequired'));
       return;
     }
 
@@ -62,17 +74,17 @@ export default function EmployeesPage() {
     try {
       if (editingId) {
         await employeesApi.update(editingId, formData);
-        toast.success('تم تحديث الموظف بنجاح');
+        toast.success(t('employeesPage.toastUpdateSuccess'));
       } else {
         await employeesApi.create(formData);
-        toast.success('تم إضافة الموظف بنجاح');
+        toast.success(t('employeesPage.toastCreateSuccess'));
       }
       setShowModal(false);
       setFormData(initialFormData);
       setEditingId(null);
       fetchEmployees();
     } catch (error) {
-      toast.error('خطأ في حفظ البيانات');
+      toast.error(t('employeesPage.toastSaveError'));
     } finally {
       setIsSaving(false);
     }
@@ -93,13 +105,13 @@ export default function EmployeesPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('هل أنت متأكد من حذف هذا الموظف؟')) return;
+    if (!confirm(t('employeesPage.confirmDelete'))) return;
     try {
       await employeesApi.delete(id);
-      toast.success('تم حذف الموظف');
+      toast.success(t('employeesPage.toastDeleteSuccess'));
       fetchEmployees();
     } catch (error) {
-      toast.error('خطأ في حذف الموظف');
+      toast.error(t('employeesPage.toastDeleteError'));
     }
   };
 
@@ -108,16 +120,20 @@ export default function EmployeesPage() {
       await employeesApi.toggleActive(id);
       fetchEmployees();
     } catch (error) {
-      toast.error('خطأ في تحديث الحالة');
+      toast.error(t('employeesPage.toastStatusError'));
     }
   };
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
+    return new Intl.NumberFormat(locale === 'ar' ? 'ar-DZ' : 'fr-DZ', {
+      style: 'currency',
+      currency: 'DZD',
+      minimumFractionDigits: 0,
+    }).format(value);
   };
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('ar-DZ');
+    return new Date(date).toLocaleDateString(locale === 'ar' ? 'ar-DZ' : 'fr-DZ');
   };
 
   const filteredEmployees = employees.filter(e =>
@@ -152,88 +168,91 @@ export default function EmployeesPage() {
   }
 
   return (
-    <div>
-      {/* Shortcuts hint */}
-      <div className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg mb-4 flex items-center gap-6 text-sm">
-        <span className="font-medium">اختصارات:</span>
-        <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Insert</kbd> إضافة جديد</span>
-      </div>
-
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold dark:text-white">الموظفين</h1>
+    <div className="space-y-5">
+      {/* ─── Header ─── */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-teal-600 flex items-center justify-center">
+            <UsersIcon className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('employeesPage.pageTitle')}</h1>
+            <p className="text-sm text-gray-400 mt-1">{t('employeesPage.addEmployee')}</p>
+          </div>
+        </div>
         <button
           onClick={() => {
             setEditingId(null);
             setFormData(initialFormData);
             setShowModal(true);
           }}
-          className="btn btn-primary"
-          title="Insert أو Alt+N"
+          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold rounded-xl text-white bg-teal-600 hover:bg-teal-700 transition-colors"
+          title={t('employeesPage.shortcutHint')}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          إضافة موظف
-          <kbd className="bg-blue-700 px-1.5 py-0.5 rounded text-xs mr-1">Insert</kbd>
+          <PlusIcon className="w-4 h-4" />
+          {t('employeesPage.addEmployee')}
+          <kbd className="bg-white/20 px-1.5 py-0.5 rounded text-[10px] font-medium">Insert</kbd>
         </button>
       </div>
 
-      <div className="card">
-        <div className="mb-4">
-          <input
-            type="text"
-            placeholder="بحث..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="input max-w-xs"
-          />
+      {/* ─── Table Card ─── */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
+        {/* Search */}
+        <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+          <div className="relative max-w-sm">
+            <MagnifyingGlassIcon className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400`} />
+            <input
+              type="text"
+              placeholder={t('employeesPage.searchPlaceholder')}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={`input w-full ${isRTL ? 'pr-10' : 'pl-10'} text-sm`}
+            />
+          </div>
         </div>
 
+        {/* Table */}
         <div className="overflow-x-auto">
           <table>
             <thead>
               <tr>
-                <th>الاسم</th>
-                <th>الهاتف</th>
-                <th>المنصب</th>
-                <th>الراتب</th>
-                <th>تاريخ التوظيف</th>
-                <th>إجمالي المصروفات</th>
-                <th>الحالة</th>
-                <th>الإجراءات</th>
+                <th>{t('employeesPage.thName')}</th>
+                <th>{t('employeesPage.thPhone')}</th>
+                <th>{t('employeesPage.thPosition')}</th>
+                <th>{t('employeesPage.thSalary')}</th>
+                <th>{t('employeesPage.thHireDate')}</th>
+                <th>{t('employeesPage.thTotalDispenses')}</th>
+                <th>{t('employeesPage.thStatus')}</th>
+                <th>{t('employeesPage.thActions')}</th>
               </tr>
             </thead>
             <tbody>
               {filteredEmployees.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-8 text-gray-500">لا يوجد موظفين</td></tr>
+                <tr><td colSpan={8} className="text-center py-8 text-gray-500 dark:text-gray-400">{t('employeesPage.noEmployees')}</td></tr>
               ) : (
                 filteredEmployees.map((emp) => (
                   <tr key={emp.id}>
-                    <td className="font-medium">{emp.name}</td>
-                    <td dir="ltr">{emp.phone || '-'}</td>
-                    <td>{emp.position || '-'}</td>
-                    <td>{formatCurrency(emp.salary)}</td>
-                    <td>{emp.hire_date ? formatDate(emp.hire_date) : '-'}</td>
-                    <td className="text-red-600">{formatCurrency(emp.dispenses_sum_amount || 0)}</td>
+                    <td className="font-medium text-gray-900 dark:text-white">{emp.name}</td>
+                    <td dir="ltr" className="dark:text-gray-300">{emp.phone || '-'}</td>
+                    <td className="dark:text-gray-300">{emp.position || '-'}</td>
+                    <td className="dark:text-gray-300">{formatCurrency(emp.salary)}</td>
+                    <td className="dark:text-gray-300">{emp.hire_date ? formatDate(emp.hire_date) : '-'}</td>
+                    <td className="text-red-600 dark:text-red-400">{formatCurrency(emp.dispenses_sum_amount || 0)}</td>
                     <td>
                       <button
                         onClick={() => handleToggleActive(emp.id)}
                         className={`badge cursor-pointer ${emp.is_active ? 'badge-success' : 'badge-danger'}`}
                       >
-                        {emp.is_active ? 'نشط' : 'غير نشط'}
+                        {emp.is_active ? t('employeesPage.statusActive') : t('employeesPage.statusInactive')}
                       </button>
                     </td>
                     <td>
                       <div className="flex gap-2">
-                        <button onClick={() => handleEdit(emp)} className="text-blue-600 hover:text-blue-800">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
+                        <button onClick={() => handleEdit(emp)} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                          <PencilSquareIcon className="w-5 h-5" />
                         </button>
-                        <button onClick={() => handleDelete(emp.id)} className="text-red-600 hover:text-red-800">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
+                        <button onClick={() => handleDelete(emp.id)} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
+                          <TrashIcon className="w-5 h-5" />
                         </button>
                       </div>
                     </td>
@@ -245,93 +264,105 @@ export default function EmployeesPage() {
         </div>
       </div>
 
-      {/* Modal */}
+      {/* ─── Modal ─── */}
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-content p-6" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold mb-4 dark:text-white">
-              {editingId ? 'تعديل موظف' : 'إضافة موظف جديد'}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-gray-300">الاسم *</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="input"
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">الهاتف</label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="input"
-                    dir="ltr"
-                  />
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-gray-200/50 dark:border-gray-700/50" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="bg-gradient-to-l from-teal-600 to-cyan-600 px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
+                  <UsersIcon className="w-5 h-5 text-white" />
                 </div>
+                <h2 className="text-lg font-bold text-white">{editingId ? t('employeesPage.modalTitleEdit') : t('employeesPage.modalTitleAdd')}</h2>
+              </div>
+              <button onClick={() => setShowModal(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-all">
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            {/* Form body */}
+            <div className="p-6">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">المنصب</label>
+                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('employeesPage.labelName')} {t('employeesPage.required')}</label>
                   <input
                     type="text"
-                    value={formData.position}
-                    onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className="input"
+                    required
                   />
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('employeesPage.labelPhone')}</label>
+                    <input
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      className="input"
+                      dir="ltr"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('employeesPage.labelPosition')}</label>
+                    <input
+                      type="text"
+                      value={formData.position}
+                      onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                      className="input"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('employeesPage.labelSalary')}</label>
+                    <input
+                      type="number"
+                      value={formData.salary}
+                      onChange={(e) => setFormData({ ...formData, salary: parseFloat(e.target.value) || 0 })}
+                      className="input"
+                      min="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('employeesPage.labelHireDate')}</label>
+                    <DateInput
+                      value={formData.hire_date}
+                      onChange={(v) => setFormData({ ...formData, hire_date: v })}
+                    />
+                  </div>
+                </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">الراتب</label>
-                  <input
-                    type="number"
-                    value={formData.salary}
-                    onChange={(e) => setFormData({ ...formData, salary: parseFloat(e.target.value) || 0 })}
+                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('employeesPage.labelNotes')}</label>
+                  <textarea
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     className="input"
-                    min="0"
+                    rows={2}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">تاريخ التوظيف</label>
-                  <DateInput
-                    value={formData.hire_date}
-                    onChange={(v) => setFormData({ ...formData, hire_date: v })}
-                  />
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.is_active}
+                      onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                      className="w-4 h-4 text-blue-600 rounded"
+                    />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('employeesPage.labelActiveEmployee')}</span>
+                  </label>
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-gray-300">ملاحظات</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="input"
-                  rows={2}
-                />
-              </div>
-              <div>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.is_active}
-                    onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                    className="w-4 h-4 text-blue-600 rounded"
-                  />
-                  <span className="text-sm font-medium dark:text-gray-300">موظف نشط</span>
-                </label>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button type="submit" disabled={isSaving} className="btn btn-primary flex-1">
-                  {isSaving ? 'جاري الحفظ...' : editingId ? 'تحديث' : 'إضافة'}
-                </button>
-                <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary">
-                  إلغاء
-                </button>
-              </div>
-            </form>
+                <div className="flex gap-3 pt-4">
+                  <button type="submit" disabled={isSaving} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition-colors disabled:opacity-50">
+                    {isSaving ? t('employeesPage.saving') : editingId ? t('employeesPage.update') : t('employeesPage.add')}
+                  </button>
+                  <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2.5 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    {t('employeesPage.cancel')}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

@@ -1,11 +1,32 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { deliveriesApi, ordersApi, usersApi } from '@/lib/api';
 import DateInput from '@/components/ui/DateInput';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
+import GuidedTour from '@/components/GuidedTour';
+import type { TourStep } from '@/components/GuidedTour';
+import {
+  TruckIcon,
+  PlusIcon,
+  EyeIcon,
+  PlayIcon,
+  ClockIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  ExclamationTriangleIcon,
+  FunnelIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  QuestionMarkCircleIcon,
+  CubeIcon,
+  BanknotesIcon,
+  UserIcon,
+  CalendarDaysIcon,
+  MapPinIcon,
+} from '@heroicons/react/24/outline';
 
 interface Delivery {
   id: number;
@@ -41,12 +62,48 @@ interface Livreur {
   name: string;
 }
 
+// Tour steps
+const deliveryTourSteps: TourStep[] = [
+  {
+    target: '[data-tour="deliveries-title"]',
+    title: 'إدارة التوصيل',
+    desc: 'هنا تتابع جميع عمليات التوصيل. كل توصيلة تحتوي على مجموعة طلبات مسندة لسائق معين مع مركبة محددة.',
+    position: 'bottom',
+  },
+  {
+    target: '[data-tour="deliveries-add"]',
+    title: 'إنشاء توصيل جديد',
+    desc: 'اضغط هنا لإنشاء جولة توصيل جديدة. اختر السائق، المركبة، وأضف الطلبات المؤكدة التي تريد توصيلها.',
+    position: 'bottom',
+  },
+  {
+    target: '[data-tour="deliveries-kpis"]',
+    title: 'مؤشرات الأداء',
+    desc: 'نظرة سريعة على أداء التوصيل: عدد التوصيلات، نسبة النجاح، المبالغ المحصلة، والطلبات الجاهزة للتوزيع.',
+    position: 'bottom',
+  },
+  {
+    target: '[data-tour="deliveries-chips"]',
+    title: 'فلترة سريعة',
+    desc: 'اضغط على أي حالة للفلترة السريعة. يمكنك أيضاً فتح لوحة الفلاتر المتقدمة للبحث بدقة أكبر.',
+    position: 'bottom',
+  },
+  {
+    target: '[data-tour="deliveries-list"]',
+    title: 'قائمة التوصيلات',
+    desc: 'كل بطاقة تعرض تفاصيل التوصيلة: السائق، المركبة، عدد الطلبات، شريط التقدم، والمبالغ. اضغط "عرض" للتفاصيل الكاملة.',
+    position: 'top',
+  },
+];
+
 export default function DeliveriesPage() {
   const router = useRouter();
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [confirmedOrders, setConfirmedOrders] = useState<Order[]>([]);
   const [livreurs, setLivreurs] = useState<Livreur[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showTour, setShowTour] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState('');
@@ -54,6 +111,11 @@ export default function DeliveriesPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [collectionFilter, setCollectionFilter] = useState(''); // 'collected', 'pending', 'partial'
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const perPage = 20;
 
   useEffect(() => {
     fetchData();
@@ -91,48 +153,84 @@ export default function DeliveriesPage() {
     }
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
+  const formatCurrency = (value: number | string | null | undefined) => {
+    const num = typeof value === 'string' ? parseFloat(value) : (value ?? 0);
+    if (isNaN(num)) return '0 د.ج.';
+    return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(num);
   };
 
   const formatDate = (date: string) => new Date(date).toLocaleDateString('ar-DZ');
 
-  const getStatusBadge = (status: string) => {
-    const badges: Record<string, { class: string; text: string }> = {
-      preparing: { class: 'badge-warning', text: 'قيد التحضير' },
-      in_progress: { class: 'badge-info', text: 'جاري التوصيل' },
-      completed: { class: 'badge-success', text: 'مكتمل' },
-      cancelled: { class: 'badge-danger', text: 'ملغي' },
+  const getStatusConfig = (status: string) => {
+    const configs: Record<string, { class: string; text: string; color: string; bgColor: string; icon: React.ReactNode }> = {
+      preparing: {
+        class: 'badge-warning',
+        text: 'قيد التحضير',
+        color: 'text-amber-700 dark:text-amber-300',
+        bgColor: 'bg-amber-50 dark:bg-amber-900/20',
+        icon: <ClockIcon className="w-4 h-4" />,
+      },
+      in_progress: {
+        class: 'badge-info',
+        text: 'جاري التوصيل',
+        color: 'text-blue-700 dark:text-blue-300',
+        bgColor: 'bg-blue-50 dark:bg-blue-900/20',
+        icon: <TruckIcon className="w-4 h-4" />,
+      },
+      completed: {
+        class: 'badge-success',
+        text: 'مكتمل',
+        color: 'text-emerald-700 dark:text-emerald-300',
+        bgColor: 'bg-emerald-50 dark:bg-emerald-900/20',
+        icon: <CheckCircleIcon className="w-4 h-4" />,
+      },
+      cancelled: {
+        class: 'badge-danger',
+        text: 'ملغي',
+        color: 'text-red-700 dark:text-red-300',
+        bgColor: 'bg-red-50 dark:bg-red-900/20',
+        icon: <XCircleIcon className="w-4 h-4" />,
+      },
     };
-    return badges[status] || { class: 'badge-secondary', text: status };
+    return configs[status] || { class: 'badge-secondary', text: status, color: 'text-gray-700', bgColor: 'bg-gray-50', icon: null };
   };
 
   // Filtered deliveries
   const filteredDeliveries = useMemo(() => {
     return deliveries.filter(d => {
-      // Status filter
       if (statusFilter && d.status !== statusFilter) return false;
-
-      // Livreur filter
       if (livreurFilter && d.livreur_id !== parseInt(livreurFilter)) return false;
-
-      // Date from filter
       if (dateFrom && new Date(d.date) < new Date(dateFrom)) return false;
-
-      // Date to filter
       if (dateTo && new Date(d.date) > new Date(dateTo)) return false;
 
-      // Search query (reference or livreur name)
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         const matchesRef = d.reference?.toLowerCase().includes(query);
         const matchesLivreur = d.livreur?.name?.toLowerCase().includes(query);
-        if (!matchesRef && !matchesLivreur) return false;
+        const matchesVehicle = d.vehicle?.name?.toLowerCase().includes(query);
+        if (!matchesRef && !matchesLivreur && !matchesVehicle) return false;
+      }
+
+      // Collection filter
+      if (collectionFilter) {
+        const totalAmt = d.total_amount || 0;
+        const collectedAmt = d.collected_amount || 0;
+        if (collectionFilter === 'collected' && collectedAmt < totalAmt) return false;
+        if (collectionFilter === 'pending' && collectedAmt > 0) return false;
+        if (collectionFilter === 'partial' && (collectedAmt === 0 || collectedAmt >= totalAmt)) return false;
       }
 
       return true;
     });
-  }, [deliveries, statusFilter, livreurFilter, dateFrom, dateTo, searchQuery]);
+  }, [deliveries, statusFilter, livreurFilter, dateFrom, dateTo, searchQuery, collectionFilter]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredDeliveries.length / perPage);
+  const paginatedDeliveries = filteredDeliveries.slice((currentPage - 1) * perPage, currentPage * perPage);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, livreurFilter, dateFrom, dateTo, searchQuery, collectionFilter]);
 
   // Calculate KPIs
   const kpis = useMemo(() => {
@@ -142,7 +240,6 @@ export default function DeliveriesPage() {
     const totalOrders = filteredDeliveries.reduce((sum, d) => sum + d.total_orders, 0);
     const deliveredOrders = filteredDeliveries.reduce((sum, d) => sum + d.delivered_count, 0);
     const failedOrders = filteredDeliveries.reduce((sum, d) => sum + d.failed_count, 0);
-    const pendingOrders = totalOrders - deliveredOrders - failedOrders;
 
     const successRate = totalOrders > 0 ? ((deliveredOrders / totalOrders) * 100).toFixed(1) : '0';
 
@@ -160,7 +257,6 @@ export default function DeliveriesPage() {
       totalOrders,
       deliveredOrders,
       failedOrders,
-      pendingOrders,
       successRate,
       totalAmount,
       collectedAmount,
@@ -174,7 +270,10 @@ export default function DeliveriesPage() {
     setDateFrom('');
     setDateTo('');
     setSearchQuery('');
+    setCollectionFilter('');
   };
+
+  const hasActiveFilters = statusFilter || livreurFilter || dateFrom || dateTo || searchQuery || collectionFilter;
 
   const [startingId, setStartingId] = useState<number | null>(null);
 
@@ -193,361 +292,482 @@ export default function DeliveriesPage() {
     }
   };
 
-  const hasActiveFilters = statusFilter || livreurFilter || dateFrom || dateTo || searchQuery;
-
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
   }
 
   return (
-    <div className="space-y-6">
-      {/* Shortcuts hint */}
-      <div className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg flex items-center gap-6 text-sm">
-        <span className="font-medium">اختصارات:</span>
-        <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Insert</kbd> إضافة جديد</span>
+    <div className="space-y-5">
+      {showTour && (
+        <GuidedTour
+          steps={deliveryTourSteps}
+          onComplete={() => setShowTour(false)}
+          storageKey="deliveries_tour_step"
+        />
+      )}
+
+      {/* ─── Header ─── */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-3">
+        <div data-tour="deliveries-title" className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+            <TruckIcon className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">إدارة التوصيل</h1>
+            <p className="text-sm text-gray-400 mt-1.5">متابعة وإدارة عمليات التوصيل</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setShowTour(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium rounded-xl border-2 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+            title="جولة تعريفية"
+          >
+            <QuestionMarkCircleIcon className="w-5 h-5" />
+            جولة تعريفية
+          </button>
+          <Link
+            href="/dashboard/deliveries/new"
+            className="group inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20 hover:shadow-lg hover:shadow-indigo-600/30 active:scale-[0.98] transition-all duration-200"
+            data-tour="deliveries-add"
+          >
+            <PlusIcon className="w-5 h-5 group-hover:rotate-90 transition-transform duration-200" />
+            <span className="hidden sm:inline">إنشاء توصيل جديد</span>
+            <span className="sm:hidden">إضافة</span>
+            <kbd className="hidden sm:inline bg-white/20 px-1.5 py-0.5 rounded-md text-[10px] font-mono">Insert</kbd>
+          </Link>
+        </div>
       </div>
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">إدارة التوصيل</h1>
-          <p className="text-gray-500 mt-1">متابعة وإدارة عمليات التوصيل</p>
+      {/* ─── KPI Strip ─── */}
+      <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden" data-tour="deliveries-kpis">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 sm:divide-x sm:divide-x-reverse divide-gray-100 dark:divide-gray-700">
+          {/* Total deliveries */}
+          <div className="group relative p-5 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors duration-200">
+            <div className="absolute top-0 inset-x-0 h-[3px] bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mb-2.5">
+                <span className="text-sm font-black">#</span>
+              </div>
+              <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.totalDeliveries}</div>
+              <div className="text-[11px] font-semibold text-gray-400 mt-2">إجمالي التوصيلات</div>
+            </div>
+          </div>
+
+          {/* Success rate */}
+          <div className="group relative p-5 hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10 transition-colors duration-200">
+            <div className="absolute top-0 inset-x-0 h-[3px] bg-emerald-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 mb-2.5">
+                <CheckCircleIcon className="w-4 h-4" />
+              </div>
+              <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums leading-none">{kpis.successRate}%</div>
+              <div className="text-[11px] font-semibold text-gray-400 mt-2">نسبة النجاح</div>
+            </div>
+          </div>
+
+          {/* Orders delivered / total */}
+          <div className="group relative p-5 hover:bg-purple-50/40 dark:hover:bg-purple-900/10 transition-colors duration-200">
+            <div className="absolute top-0 inset-x-0 h-[3px] bg-purple-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 mb-2.5">
+                <CubeIcon className="w-4 h-4" />
+              </div>
+              <div className="text-2xl font-black text-gray-900 dark:text-white tabular-nums leading-none">
+                <span className="text-emerald-600 dark:text-emerald-400">{kpis.deliveredOrders}</span>
+                <span className="text-gray-300 dark:text-gray-600 mx-1">/</span>
+                <span>{kpis.totalOrders}</span>
+              </div>
+              <div className="text-[11px] font-semibold text-gray-400 mt-2">تم التسليم / الإجمالي</div>
+            </div>
+          </div>
+
+          {/* Failed */}
+          <div className="group relative p-5 hover:bg-red-50/40 dark:hover:bg-red-900/10 transition-colors duration-200">
+            <div className="absolute top-0 inset-x-0 h-[3px] bg-red-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 mb-2.5">
+                <XCircleIcon className="w-4 h-4" />
+              </div>
+              <div className="text-3xl font-black text-red-600 dark:text-red-400 tabular-nums leading-none">{kpis.failedOrders}</div>
+              <div className="text-[11px] font-semibold text-gray-400 mt-2">فشل / مرتجع</div>
+            </div>
+          </div>
+
+          {/* Collected amount */}
+          <div className="group relative p-5 hover:bg-teal-50/40 dark:hover:bg-teal-900/10 transition-colors duration-200">
+            <div className="absolute top-0 inset-x-0 h-[3px] bg-teal-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 mb-2.5">
+                <BanknotesIcon className="w-4 h-4" />
+              </div>
+              <div className="text-lg font-black text-teal-600 dark:text-teal-400 tabular-nums leading-none">{formatCurrency(kpis.collectedAmount)}</div>
+              <div className="text-[11px] font-semibold text-gray-400 mt-2">المحصل</div>
+            </div>
+          </div>
+
+          {/* Unassigned orders */}
+          <div className="group relative p-5 hover:bg-orange-50/40 dark:hover:bg-orange-900/10 transition-colors duration-200">
+            <div className="absolute top-0 inset-x-0 h-[3px] bg-orange-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 mb-2.5">
+                <ExclamationTriangleIcon className="w-4 h-4" />
+              </div>
+              <div className="text-3xl font-black text-orange-600 dark:text-orange-400 tabular-nums leading-none">{kpis.unassignedOrders}</div>
+              <div className="text-[11px] font-semibold text-gray-400 mt-2">طلبات جاهزة للتوزيع</div>
+            </div>
+          </div>
         </div>
-        <Link href="/dashboard/deliveries/new" className="btn btn-primary flex items-center gap-2">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+      </div>
+
+      {/* ─── Quick Filter Chips + Search ─── */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3" data-tour="deliveries-chips">
+        {/* Search */}
+        <div className="relative flex-1 max-w-sm">
+          <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-          إنشاء توصيل جديد
-          <kbd className="bg-blue-600 text-white px-1.5 py-0.5 rounded text-xs mr-1">Insert</kbd>
-        </Link>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="بحث بالمرجع، السائق، المركبة..."
+            className="input pr-10 text-sm"
+          />
+        </div>
+
+        {/* Status chips */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <button
+            onClick={() => setStatusFilter('')}
+            className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all duration-200 ${
+              !statusFilter
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+            }`}
+          >
+            الكل {kpis.totalDeliveries}
+          </button>
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'preparing' ? '' : 'preparing')}
+            className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all duration-200 ${
+              statusFilter === 'preparing'
+                ? 'bg-amber-500 text-white shadow-sm'
+                : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30'
+            }`}
+          >
+            تحضير {kpis.preparingCount}
+          </button>
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'in_progress' ? '' : 'in_progress')}
+            className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all duration-200 ${
+              statusFilter === 'in_progress'
+                ? 'bg-blue-500 text-white shadow-sm'
+                : 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30'
+            }`}
+          >
+            نشط {kpis.inProgressCount}
+          </button>
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'completed' ? '' : 'completed')}
+            className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all duration-200 ${
+              statusFilter === 'completed'
+                ? 'bg-emerald-500 text-white shadow-sm'
+                : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/30'
+            }`}
+          >
+            مكتمل {kpis.completedCount}
+          </button>
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'cancelled' ? '' : 'cancelled')}
+            className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all duration-200 ${
+              statusFilter === 'cancelled'
+                ? 'bg-red-500 text-white shadow-sm'
+                : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30'
+            }`}
+          >
+            ملغي {kpis.cancelledCount}
+          </button>
+        </div>
+
+        {/* Toggle filters */}
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-full transition-all duration-200 ${
+            showFilters || hasActiveFilters
+              ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+          }`}
+        >
+          <FunnelIcon className="w-3.5 h-3.5" />
+          فلاتر متقدمة
+          {showFilters ? <ChevronUpIcon className="w-3 h-3" /> : <ChevronDownIcon className="w-3 h-3" />}
+        </button>
+
+        {hasActiveFilters && (
+          <button onClick={clearFilters} className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 font-bold flex items-center gap-1">
+            <XCircleIcon className="w-3.5 h-3.5" />
+            مسح الكل
+          </button>
+        )}
       </div>
 
-      {/* KPIs Row 1 - Main Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        <div className="card bg-blue-50 border-2 border-blue-200">
-          <div className="flex items-center justify-between">
+      {/* ─── Expanded Filters ─── */}
+      {showFilters && (
+        <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm p-5 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Livreur Filter */}
             <div>
-              <div className="text-blue-600 text-sm font-medium">إجمالي التوصيلات</div>
-              <div className="text-3xl font-bold text-blue-700">{kpis.totalDeliveries}</div>
+              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">السائق</label>
+              <select value={livreurFilter} onChange={(e) => setLivreurFilter(e.target.value)} className="select text-sm">
+                <option value="">كل السائقين</option>
+                {livreurs.map(livreur => (
+                  <option key={livreur.id} value={livreur.id}>{livreur.name}</option>
+                ))}
+              </select>
             </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          </div>
-        </div>
-        <div className="card bg-green-50 border-2 border-green-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-green-600 text-sm font-medium">نسبة النجاح</div>
-              <div className="text-3xl font-bold text-green-700">{kpis.successRate}%</div>
-            </div>
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          </div>
-        </div>
-        <div className="card bg-purple-50 border-2 border-purple-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-purple-600 text-sm font-medium">إجمالي الطلبات</div>
-              <div className="text-3xl font-bold text-purple-700">{kpis.totalOrders}</div>
-            </div>
-            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-            </div>
-          </div>
-        </div>
-        <div className="card bg-emerald-50 border-2 border-emerald-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-emerald-600 text-sm font-medium">تم التسليم</div>
-              <div className="text-3xl font-bold text-emerald-700">{kpis.deliveredOrders}</div>
-            </div>
-            <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-          </div>
-        </div>
-        <div className="card bg-red-50 border-2 border-red-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-red-600 text-sm font-medium">فشل/مرجع</div>
-              <div className="text-3xl font-bold text-red-700">{kpis.failedOrders}</div>
-            </div>
-            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </div>
-          </div>
-        </div>
-        <div className="card bg-orange-50 border-2 border-orange-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-orange-600 text-sm font-medium">طلبات جاهزة</div>
-              <div className="text-3xl font-bold text-orange-700">{kpis.unassignedOrders}</div>
-            </div>
-            <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* KPIs Row 2 - Status Breakdown */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="card bg-yellow-50 border border-yellow-200 cursor-pointer hover:shadow-md transition-shadow"
-             onClick={() => setStatusFilter(statusFilter === 'preparing' ? '' : 'preparing')}>
-          <div className="flex items-center justify-between">
+            {/* Collection Filter */}
             <div>
-              <div className="text-yellow-600 text-sm">قيد التحضير</div>
-              <div className="text-2xl font-bold text-yellow-700">{kpis.preparingCount}</div>
+              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">حالة التحصيل</label>
+              <select value={collectionFilter} onChange={(e) => setCollectionFilter(e.target.value)} className="select text-sm">
+                <option value="">الكل</option>
+                <option value="collected">تم التحصيل بالكامل</option>
+                <option value="partial">تحصيل جزئي</option>
+                <option value="pending">لم يتم التحصيل</option>
+              </select>
             </div>
-            <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          </div>
-        </div>
-        <div className="card bg-blue-50 border border-blue-200 cursor-pointer hover:shadow-md transition-shadow"
-             onClick={() => setStatusFilter(statusFilter === 'in_progress' ? '' : 'in_progress')}>
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-blue-600 text-sm">جاري التوصيل</div>
-              <div className="text-2xl font-bold text-blue-700">{kpis.inProgressCount}</div>
-            </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-          </div>
-        </div>
-        <div className="card bg-green-50 border border-green-200 cursor-pointer hover:shadow-md transition-shadow"
-             onClick={() => setStatusFilter(statusFilter === 'completed' ? '' : 'completed')}>
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-green-600 text-sm">مكتمل</div>
-              <div className="text-2xl font-bold text-green-700">{kpis.completedCount}</div>
-            </div>
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-          </div>
-        </div>
-        <div className="card bg-red-50 border border-red-200 cursor-pointer hover:shadow-md transition-shadow"
-             onClick={() => setStatusFilter(statusFilter === 'cancelled' ? '' : 'cancelled')}>
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-red-600 text-sm">ملغي</div>
-              <div className="text-2xl font-bold text-red-700">{kpis.cancelledCount}</div>
-            </div>
-            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </div>
-          </div>
-        </div>
-        <div className="card bg-indigo-50 border border-indigo-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-indigo-600 text-sm">توصيلات اليوم</div>
-              <div className="text-2xl font-bold text-indigo-700">{kpis.todayDeliveries}</div>
-              <div className="text-xs text-indigo-500">{kpis.todayInProgress} نشط</div>
-            </div>
-            <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Filters */}
-      <div className="card">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-gray-700 flex items-center gap-2">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-            </svg>
-            الفلاتر
-          </h3>
-          {hasActiveFilters && (
-            <button onClick={clearFilters} className="text-sm text-red-600 hover:text-red-800 flex items-center gap-1">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              مسح الفلاتر
-            </button>
+            {/* Date From */}
+            <div>
+              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">من تاريخ</label>
+              <DateInput
+                value={dateFrom}
+                onChange={(v) => setDateFrom(v)}
+                placeholder="من تاريخ"
+              />
+            </div>
+
+            {/* Date To */}
+            <div>
+              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">إلى تاريخ</label>
+              <DateInput
+                value={dateTo}
+                onChange={(v) => setDateTo(v)}
+                placeholder="إلى تاريخ"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Deliveries List ─── */}
+      <div data-tour="deliveries-list">
+        {/* Results count */}
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            {filteredDeliveries.length} توصيلة
+            {hasActiveFilters && ` (من أصل ${deliveries.length})`}
+          </span>
+          {kpis.todayDeliveries > 0 && (
+            <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2.5 py-1 rounded-full">
+              اليوم: {kpis.todayDeliveries} توصيلة ({kpis.todayInProgress} نشط)
+            </span>
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          {/* Search */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">بحث</label>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="رقم المرجع أو اسم السائق..."
-              className="input"
-            />
+        {paginatedDeliveries.length === 0 ? (
+          <div className="rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 p-12 text-center">
+            <TruckIcon className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+            <p className="text-gray-500 dark:text-gray-400 font-medium">لا توجد توصيلات مطابقة</p>
+            {hasActiveFilters && (
+              <button onClick={clearFilters} className="mt-2 text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 font-bold">
+                مسح الفلاتر
+              </button>
+            )}
           </div>
+        ) : (
+          <div className="space-y-2.5">
+            {paginatedDeliveries.map((delivery) => {
+              const status = getStatusConfig(delivery.status);
+              const pendingCount = delivery.total_orders - delivery.delivered_count - delivery.failed_count;
+              const progressPercent = delivery.total_orders > 0
+                ? Math.round((delivery.delivered_count / delivery.total_orders) * 100)
+                : 0;
+              const totalAmt = delivery.total_amount || 0;
+              const collectedAmt = delivery.collected_amount || 0;
+              const collectionPercent = totalAmt > 0 ? Math.round((collectedAmt / totalAmt) * 100) : 0;
 
-          {/* Status Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">الحالة</label>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select">
-              <option value="">كل الحالات</option>
-              <option value="preparing">قيد التحضير</option>
-              <option value="in_progress">جاري التوصيل</option>
-              <option value="completed">مكتمل</option>
-              <option value="cancelled">ملغي</option>
-            </select>
-          </div>
+              return (
+                <div
+                  key={delivery.id}
+                  className="group rounded-xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 overflow-hidden"
+                >
+                  <div className="flex flex-col sm:flex-row items-stretch">
+                    {/* Status indicator strip */}
+                    <div className={`sm:w-1.5 h-1.5 sm:h-auto ${
+                      delivery.status === 'preparing' ? 'bg-amber-400' :
+                      delivery.status === 'in_progress' ? 'bg-blue-500' :
+                      delivery.status === 'completed' ? 'bg-emerald-500' :
+                      'bg-red-400'
+                    }`} />
 
-          {/* Livreur Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">السائق</label>
-            <select value={livreurFilter} onChange={(e) => setLivreurFilter(e.target.value)} className="select">
-              <option value="">كل السائقين</option>
-              {livreurs.map(livreur => (
-                <option key={livreur.id} value={livreur.id}>{livreur.name}</option>
-              ))}
-            </select>
-          </div>
+                    {/* Main content */}
+                    <div className="flex-1 p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                        {/* Left: Reference + Status */}
+                        <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
+                          <div className={`w-9 h-9 rounded-xl ${status.bgColor} flex items-center justify-center ${status.color}`}>
+                            {status.icon}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold text-gray-900 dark:text-white">{delivery.reference}</span>
+                              <span className={`badge ${status.class} text-[10px]`}>{status.text}</span>
+                            </div>
+                            <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400">
+                              <span className="flex items-center gap-1">
+                                <CalendarDaysIcon className="w-3 h-3" />
+                                {formatDate(delivery.date)}
+                              </span>
+                              {delivery.start_time && (
+                                <span className="flex items-center gap-1">
+                                  <ClockIcon className="w-3 h-3" />
+                                  {delivery.start_time}
+                                  {delivery.end_time && ` - ${delivery.end_time}`}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
 
-          {/* Date From */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">من تاريخ</label>
-            <DateInput
-              value={dateFrom}
-              onChange={(v) => setDateFrom(v)}
-              placeholder="من تاريخ"
-            />
-          </div>
-
-          {/* Date To */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">إلى تاريخ</label>
-            <DateInput
-              value={dateTo}
-              onChange={(v) => setDateTo(v)}
-              placeholder="إلى تاريخ"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Deliveries List */}
-      <div className="card">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-gray-700">قائمة التوصيلات ({filteredDeliveries.length})</h3>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr>
-                <th>المرجع</th>
-                <th>السائق</th>
-                <th>المركبة</th>
-                <th>التاريخ</th>
-                <th>الطلبات</th>
-                <th>تم التسليم</th>
-                <th>فشل/مرجع</th>
-                <th>معلق</th>
-                <th>الحالة</th>
-                <th>الإجراءات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredDeliveries.length === 0 ? (
-                <tr><td colSpan={10} className="text-center py-8 text-gray-500">لا توجد توصيلات مطابقة للفلاتر</td></tr>
-              ) : (
-                filteredDeliveries.map((delivery) => {
-                  const statusBadge = getStatusBadge(delivery.status);
-                  const pendingCount = delivery.total_orders - delivery.delivered_count - delivery.failed_count;
-                  const progressPercent = delivery.total_orders > 0
-                    ? ((delivery.delivered_count / delivery.total_orders) * 100).toFixed(0)
-                    : 0;
-                  return (
-                    <tr key={delivery.id} className="hover:bg-gray-50">
-                      <td className="font-medium">{delivery.reference}</td>
-                      <td>{delivery.livreur?.name || '-'}</td>
-                      <td>{delivery.vehicle?.name || '-'}</td>
-                      <td>{formatDate(delivery.date)}</td>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <span>{delivery.total_orders}</span>
-                          {delivery.status === 'in_progress' && delivery.total_orders > 0 && (
-                            <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-green-500 rounded-full"
-                                style={{ width: `${progressPercent}%` }}
-                              />
+                        {/* Middle: Driver + Vehicle */}
+                        <div className="flex items-center gap-4 text-sm flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
+                            <UserIcon className="w-3.5 h-3.5 text-gray-400" />
+                            <span className="truncate">{delivery.livreur?.name || '-'}</span>
+                          </div>
+                          {delivery.vehicle && (
+                            <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
+                              <TruckIcon className="w-3.5 h-3.5 text-gray-400" />
+                              <span className="truncate">{delivery.vehicle.name}</span>
                             </div>
                           )}
                         </div>
-                      </td>
-                      <td className="text-green-600 font-medium">{delivery.delivered_count}</td>
-                      <td className="text-red-600">{delivery.failed_count}</td>
-                      <td className="text-yellow-600">{pendingCount > 0 ? pendingCount : '-'}</td>
-                      <td><span className={`badge ${statusBadge.class}`}>{statusBadge.text}</span></td>
-                      <td>
-                        <div className="flex items-center gap-1.5">
+
+                        {/* Orders progress */}
+                        <div className="flex items-center gap-4 flex-shrink-0">
+                          <div className="text-center min-w-[100px]">
+                            <div className="flex items-center justify-center gap-1.5 text-xs mb-1">
+                              <span className="text-emerald-600 dark:text-emerald-400 font-bold">{delivery.delivered_count}</span>
+                              <span className="text-gray-300 dark:text-gray-600">/</span>
+                              <span className="text-gray-600 dark:text-gray-300 font-medium">{delivery.total_orders}</span>
+                              {delivery.failed_count > 0 && (
+                                <span className="text-red-500 text-[10px] font-bold">({delivery.failed_count} فشل)</span>
+                              )}
+                            </div>
+                            {delivery.total_orders > 0 && (
+                              <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                                <div className="h-full flex">
+                                  <div
+                                    className="bg-emerald-500 rounded-r-full"
+                                    style={{ width: `${progressPercent}%` }}
+                                  />
+                                  {delivery.failed_count > 0 && (
+                                    <div
+                                      className="bg-red-400"
+                                      style={{ width: `${Math.round((delivery.failed_count / delivery.total_orders) * 100)}%` }}
+                                    />
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Amount */}
+                          {totalAmt > 0 && (
+                            <div className="text-center min-w-[90px] hidden md:block">
+                              <div className="text-xs font-bold text-gray-900 dark:text-white">{formatCurrency(totalAmt)}</div>
+                              {collectedAmt > 0 && (
+                                <div className="text-[10px] text-teal-600 dark:text-teal-400 font-medium mt-0.5">
+                                  محصل: {collectionPercent}%
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
                           {delivery.status === 'preparing' && (
                             <button
                               onClick={() => handleStartDelivery(delivery.id)}
                               disabled={startingId === delivery.id}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 shadow-sm transition-all"
                             >
                               {startingId === delivery.id ? (
                                 <div className="spinner w-3.5 h-3.5 border-white"></div>
                               ) : (
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
+                                <PlayIcon className="w-3.5 h-3.5" />
                               )}
                               بدء
                             </button>
                           )}
                           <button
                             onClick={() => router.push(`/dashboard/deliveries/${delivery.id}`)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all"
                           >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
+                            <EyeIcon className="w-3.5 h-3.5" />
                             عرض
                           </button>
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-1.5 mt-6">
+            <button
+              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              السابق
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
+              .map((page, i, arr) => (
+                <span key={page} className="flex items-center">
+                  {i > 0 && arr[i - 1] !== page - 1 && (
+                    <span className="px-1.5 text-gray-400">…</span>
+                  )}
+                  <button
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-9 h-9 text-sm font-bold rounded-lg transition-all ${
+                      page === currentPage
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                </span>
+              ))}
+            <button
+              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              التالي
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { brandsApi } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { useLocale } from '@/lib/i18n/context';
 
 interface Brand {
   id: number;
@@ -20,6 +21,7 @@ export default function BrandsPage() {
   const [formData, setFormData] = useState({ name: '', is_active: true });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const { t } = useLocale();
 
   useEffect(() => {
     fetchBrands();
@@ -51,7 +53,7 @@ export default function BrandsPage() {
       const response = await brandsApi.getAll();
       setBrands(response.data.data || response.data);
     } catch (error) {
-      toast.error('خطأ في تحميل العلامات التجارية');
+      toast.error(t('common.loadError', { item: t('stock.brandsTitle') }));
     } finally {
       setIsLoading(false);
     }
@@ -64,17 +66,17 @@ export default function BrandsPage() {
     try {
       if (editingBrand) {
         await brandsApi.update(editingBrand.id, formData);
-        toast.success('تم تحديث العلامة التجارية بنجاح');
+        toast.success(t('common.updatedSuccess', { item: t('stock.brandFull') }));
       } else {
         await brandsApi.create(formData);
-        toast.success('تم إضافة العلامة التجارية بنجاح');
+        toast.success(t('common.addedSuccess', { item: t('stock.brandFull') }));
       }
       setShowModal(false);
       setEditingBrand(null);
       setFormData({ name: '', is_active: true });
       fetchBrands();
     } catch (error) {
-      toast.error('خطأ في حفظ العلامة التجارية');
+      toast.error(t('common.saveError', { item: t('stock.brandFull') }));
     } finally {
       setIsSubmitting(false);
     }
@@ -87,14 +89,14 @@ export default function BrandsPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('هل أنت متأكد من حذف هذه العلامة التجارية؟')) return;
+    if (!confirm(t('stock.confirmDeleteBrand'))) return;
 
     try {
       await brandsApi.delete(id);
-      toast.success('تم حذف العلامة التجارية بنجاح');
+      toast.success(t('common.deletedSuccess', { item: t('stock.brandFull') }));
       fetchBrands();
     } catch (error) {
-      toast.error('خطأ في حذف العلامة التجارية');
+      toast.error(t('common.deleteError', { item: t('stock.brandFull') }));
     }
   };
 
@@ -114,12 +116,12 @@ export default function BrandsPage() {
     <div>
       {/* Shortcuts hint */}
       <div className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg mb-4 flex items-center gap-6 text-sm">
-        <span className="font-medium">اختصارات:</span>
-        <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Insert</kbd> إضافة جديد</span>
+        <span className="font-medium">{t('common.shortcuts') + ':'}</span>
+        <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Insert</kbd> {t('common.addNew')}</span>
       </div>
 
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">العلامات التجارية</h1>
+        <h1 className="text-2xl font-bold">{t('stock.brandsTitle')}</h1>
         <button
           onClick={() => {
             setEditingBrand(null);
@@ -131,8 +133,8 @@ export default function BrandsPage() {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          إضافة علامة تجارية
-          <kbd className="bg-blue-700 px-1.5 py-0.5 rounded text-xs mr-2">Insert</kbd>
+          {t('stock.addBrand')}
+          <kbd className="bg-blue-700 px-1.5 py-0.5 rounded text-xs me-2">Insert</kbd>
         </button>
       </div>
 
@@ -140,7 +142,7 @@ export default function BrandsPage() {
         <div className="mb-4">
           <input
             type="text"
-            placeholder="بحث..."
+            placeholder={t('common.search')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="input max-w-xs"
@@ -151,16 +153,16 @@ export default function BrandsPage() {
           <thead>
             <tr>
               <th>#</th>
-              <th>الاسم</th>
-              <th>الحالة</th>
-              <th>الإجراءات</th>
+              <th>{t('common.name')}</th>
+              <th>{t('common.status')}</th>
+              <th>{t('common.actions')}</th>
             </tr>
           </thead>
           <tbody>
             {filteredBrands.length === 0 ? (
               <tr>
                 <td colSpan={4} className="text-center py-8 text-gray-500">
-                  لا توجد علامات تجارية
+                  {t('stock.noBrands')}
                 </td>
               </tr>
             ) : (
@@ -170,7 +172,7 @@ export default function BrandsPage() {
                   <td className="font-medium">{brand.name}</td>
                   <td>
                     <span className={`badge ${brand.is_active ? 'badge-success' : 'badge-danger'}`}>
-                      {brand.is_active ? 'نشط' : 'غير نشط'}
+                      {brand.is_active ? t('common.active') : t('common.inactive')}
                     </span>
                   </td>
                   <td>
@@ -206,12 +208,12 @@ export default function BrandsPage() {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <h2 className="text-xl font-bold mb-4">
-                {editingBrand ? 'تعديل العلامة التجارية' : 'إضافة علامة تجارية'}
+                {editingBrand ? t('stock.editBrand') : t('stock.addBrand')}
               </h2>
               <form onSubmit={handleSubmit}>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    الاسم <span className="text-red-500">*</span>
+                    {t('common.name')} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -230,20 +232,20 @@ export default function BrandsPage() {
                       onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
                       className="w-4 h-4 text-blue-600 rounded"
                     />
-                    <span className="text-sm font-medium text-gray-700">نشط</span>
+                    <span className="text-sm font-medium text-gray-700">{t('common.active')}</span>
                   </label>
                 </div>
 
                 <div className="flex gap-3">
                   <button type="submit" disabled={isSubmitting} className="btn btn-primary flex-1">
-                    {isSubmitting ? 'جاري الحفظ...' : 'حفظ'}
+                    {isSubmitting ? t('common.saving') : t('common.save')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
                     className="btn btn-secondary flex-1"
                   >
-                    إلغاء
+                    {t('common.cancel')}
                   </button>
                 </div>
               </form>

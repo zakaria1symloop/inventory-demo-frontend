@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -9,6 +9,12 @@ import {
 import Image from 'next/image';
 import { useAuthStore } from '@/lib/store/auth';
 import { settingsApi } from '@/lib/api';
+import GuidedTour from './GuidedTour';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
+import { useLocale } from '@/lib/i18n/context';
+import type { TranslationKey } from '@/lib/i18n/context';
+import type { TourStep } from './GuidedTour';
+
 import {
   HomeIcon,
   CubeIcon,
@@ -37,19 +43,23 @@ import {
   WrenchScrewdriverIcon,
   DocumentDuplicateIcon,
   DevicePhoneMobileIcon,
+  ChartBarSquareIcon,
+  ReceiptPercentIcon,
+  BuildingLibraryIcon,
+  ScaleIcon,
 } from '@heroicons/react/24/outline';
 
 interface MenuItem {
-  name: string;
+  nameKey: TranslationKey;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   roles?: string[];
-  badge?: string;
+  badgeKey?: TranslationKey;
   feature?: string;
 }
 
 interface MenuSection {
-  name: string;
+  nameKey: TranslationKey;
   icon: React.ComponentType<{ className?: string }>;
   items: MenuItem[];
   roles?: string[];
@@ -57,73 +67,106 @@ interface MenuSection {
 
 const menuSections: MenuSection[] = [
   {
-    name: 'المخزون',
+    nameKey: 'sidebar.inventory',
     icon: ArchiveBoxIcon,
     items: [
-      { name: 'إدارة المخزون', href: '/dashboard/inventory', icon: ClipboardDocumentListIcon, feature: 'inventory' },
-      { name: 'المنتجات', href: '/dashboard/products', icon: CubeIcon, feature: 'products' },
-      { name: 'الأصناف', href: '/dashboard/categories', icon: TagIcon, feature: 'categories' },
-      { name: 'العلامات التجارية', href: '/dashboard/brands', icon: RectangleStackIcon, feature: 'brands' },
-      { name: 'الوحدات', href: '/dashboard/units', icon: BuildingStorefrontIcon, feature: 'units' },
-      { name: 'المستودعات', href: '/dashboard/warehouses', icon: BuildingStorefrontIcon, feature: 'warehouses' },
-      { name: 'حركات المخزون', href: '/dashboard/stock-movements', icon: ArrowPathIcon, feature: 'stock_movements' },
-      { name: 'التعديلات', href: '/dashboard/adjustments', icon: ClipboardDocumentListIcon, feature: 'adjustments' },
+      { nameKey: 'sidebar.inventoryMgmt', href: '/dashboard/inventory', icon: ClipboardDocumentListIcon, feature: 'inventory' },
+      { nameKey: 'sidebar.productsMenu', href: '/dashboard/products', icon: CubeIcon, feature: 'products' },
+      { nameKey: 'sidebar.categories', href: '/dashboard/categories', icon: TagIcon, feature: 'categories' },
+      { nameKey: 'sidebar.brands', href: '/dashboard/brands', icon: RectangleStackIcon, feature: 'brands' },
+      { nameKey: 'sidebar.units', href: '/dashboard/units', icon: BuildingStorefrontIcon, feature: 'units' },
+      { nameKey: 'sidebar.warehouses', href: '/dashboard/warehouses', icon: BuildingStorefrontIcon, feature: 'warehouses' },
+      { nameKey: 'sidebar.stockMovements', href: '/dashboard/stock-movements', icon: ArrowPathIcon, feature: 'stock_movements' },
+      { nameKey: 'sidebar.adjustments', href: '/dashboard/adjustments', icon: ClipboardDocumentListIcon, feature: 'adjustments' },
     ],
   },
   {
-    name: 'المشتريات',
+    nameKey: 'sidebar.purchasesSection',
     icon: ArrowTrendingDownIcon,
     items: [
-      { name: 'فواتير الشراء', href: '/dashboard/purchases', icon: ArrowTrendingDownIcon, feature: 'purchases' },
-      { name: 'بونات الطلب', href: '/dashboard/purchase-orders', icon: DocumentDuplicateIcon, badge: 'جديد', feature: 'purchase_orders' },
-      { name: 'الموردين', href: '/dashboard/suppliers', icon: TruckIcon, feature: 'suppliers' },
-      { name: 'مرتجعات الشراء', href: '/dashboard/purchase-returns', icon: ArrowUturnLeftIcon, feature: 'purchase_returns' },
+      { nameKey: 'sidebar.purchaseInvoices', href: '/dashboard/purchases', icon: ArrowTrendingDownIcon, feature: 'purchases' },
+      { nameKey: 'sidebar.purchaseOrders', href: '/dashboard/purchase-orders', icon: DocumentDuplicateIcon, badgeKey: 'sidebar.new', feature: 'purchase_orders' },
+      { nameKey: 'sidebar.suppliers', href: '/dashboard/suppliers', icon: TruckIcon, feature: 'suppliers' },
+      { nameKey: 'sidebar.purchaseReturns', href: '/dashboard/purchase-returns', icon: ArrowUturnLeftIcon, feature: 'purchase_returns' },
     ],
   },
   {
-    name: 'المبيعات',
+    nameKey: 'sidebar.salesSection',
     icon: ArrowTrendingUpIcon,
     items: [
-      { name: 'فواتير البيع', href: '/dashboard/sales', icon: ArrowTrendingUpIcon, feature: 'sales' },
-      { name: 'العملاء', href: '/dashboard/clients', icon: UserGroupIcon, feature: 'clients' },
-      { name: 'فئات العملاء', href: '/dashboard/client-categories', icon: TagIcon, badge: 'جديد', feature: 'client_categories' },
-      { name: 'مرتجعات المبيعات', href: '/dashboard/sale-returns', icon: ArrowUturnLeftIcon, feature: 'sale_returns' },
+      { nameKey: 'sidebar.saleInvoices', href: '/dashboard/sales', icon: ArrowTrendingUpIcon, feature: 'sales' },
+      { nameKey: 'sidebar.clients', href: '/dashboard/clients', icon: UserGroupIcon, feature: 'clients' },
+      { nameKey: 'sidebar.clientCategories', href: '/dashboard/client-categories', icon: TagIcon, badgeKey: 'sidebar.new', feature: 'client_categories' },
+      { nameKey: 'sidebar.saleReturns', href: '/dashboard/sale-returns', icon: ArrowUturnLeftIcon, feature: 'sale_returns' },
     ],
   },
   {
-    name: 'الطلبات والتوصيل',
+    nameKey: 'sidebar.seller',
     icon: ShoppingCartIcon,
     items: [
-      { name: 'الطلبات', href: '/dashboard/orders', icon: ShoppingCartIcon, feature: 'orders' },
-      { name: 'الجولات', href: '/dashboard/trips', icon: MapPinIcon, feature: 'trips' },
-      { name: 'التوصيل', href: '/dashboard/deliveries', icon: TruckIcon, feature: 'deliveries' },
-      { name: 'تحويلات المخزون', href: '/dashboard/stock-transfers', icon: ArrowPathIcon, badge: 'جديد', feature: 'stock_transfers' },
-      { name: 'طلبات المنتجات', href: '/dashboard/product-requests', icon: ClipboardDocumentListIcon, feature: 'product_requests' },
-      { name: 'مخزون السائقين', href: '/dashboard/livreur-stock', icon: ArchiveBoxIcon, feature: 'livreur_stock' },
-      { name: 'السائقين', href: '/dashboard/drivers', icon: UsersIcon, feature: 'deliveries' },
-      { name: 'خريطة السائقين', href: '/dashboard/drivers-map', icon: MapPinIcon, badge: 'جديد', feature: 'drivers_map' },
-      { name: 'المركبات', href: '/dashboard/vehicles', icon: TruckIcon, feature: 'vehicles' },
+      { nameKey: 'sidebar.orders', href: '/dashboard/orders', icon: ShoppingCartIcon, feature: 'orders' },
     ],
   },
   {
-    name: 'المالية',
+    nameKey: 'sidebar.driver',
+    icon: MapPinIcon,
+    items: [
+      { nameKey: 'sidebar.trips', href: '/dashboard/trips', icon: MapPinIcon, feature: 'trips' },
+      { nameKey: 'sidebar.deliveries', href: '/dashboard/deliveries', icon: TruckIcon, feature: 'deliveries' },
+      { nameKey: 'sidebar.driverStock', href: '/dashboard/livreur-stock', icon: ArchiveBoxIcon, feature: 'livreur_stock' },
+      { nameKey: 'sidebar.driversMap', href: '/dashboard/drivers-map', icon: MapPinIcon, badgeKey: 'sidebar.new', feature: 'drivers_map' },
+      { nameKey: 'sidebar.productRequests', href: '/dashboard/livreur-product-requests', icon: ClipboardDocumentListIcon, feature: 'product_requests' },
+    ],
+  },
+  {
+    nameKey: 'sidebar.cashvan',
+    icon: DevicePhoneMobileIcon,
+    items: [
+      { nameKey: 'sidebar.vanSessions', href: '/dashboard/van-sessions', icon: ClipboardDocumentListIcon, feature: 'van_sessions' },
+      { nameKey: 'sidebar.vanSales', href: '/dashboard/van-sales', icon: ArrowTrendingUpIcon, feature: 'van_sessions' },
+      { nameKey: 'sidebar.stockTransfers', href: '/dashboard/stock-transfers', icon: ArrowPathIcon, feature: 'stock_transfers' },
+      { nameKey: 'sidebar.cashvanStock', href: '/dashboard/cashvan-stock', icon: ArchiveBoxIcon, feature: 'livreur_stock' },
+      { nameKey: 'sidebar.cashvanProductRequests', href: '/dashboard/cashvan-product-requests', icon: ClipboardDocumentListIcon, feature: 'product_requests' },
+    ],
+  },
+  {
+    nameKey: 'sidebar.vehicles',
+    icon: TruckIcon,
+    items: [
+      { nameKey: 'sidebar.vehiclesMenu', href: '/dashboard/vehicles', icon: TruckIcon, feature: 'vehicles' },
+    ],
+  },
+  {
+    nameKey: 'sidebar.finance',
     icon: BanknotesIcon,
     items: [
-      { name: 'الصناديق', href: '/dashboard/caisses', icon: BanknotesIcon, badge: 'جديد', feature: 'caisses' },
-      { name: 'المدفوعات', href: '/dashboard/payments', icon: CurrencyDollarIcon, feature: 'payments' },
-      { name: 'المصروفات', href: '/dashboard/dispenses', icon: BanknotesIcon, badge: 'جديد', feature: 'dispenses' },
-      { name: 'التقارير', href: '/dashboard/reports', icon: ChartBarIcon, feature: 'reports' },
+      { nameKey: 'sidebar.caisses', href: '/dashboard/caisses', icon: BanknotesIcon, badgeKey: 'sidebar.new', feature: 'caisses' },
+      { nameKey: 'sidebar.payments', href: '/dashboard/payments', icon: CurrencyDollarIcon, feature: 'payments' },
+      { nameKey: 'sidebar.expenses', href: '/dashboard/dispenses', icon: BanknotesIcon, badgeKey: 'sidebar.new', feature: 'dispenses' },
     ],
   },
   {
-    name: 'الإدارة',
+    nameKey: 'sidebar.reportsSection',
+    icon: ChartBarSquareIcon,
+    items: [
+      { nameKey: 'sidebar.reports', href: '/dashboard/reports', icon: ChartBarIcon, feature: 'reports' },
+      { nameKey: 'sidebar.transactionsReport', href: '/dashboard/reports/transactions', icon: ReceiptPercentIcon, feature: 'reports' },
+      { nameKey: 'sidebar.cashFlowReport', href: '/dashboard/reports/cash-flow', icon: BuildingLibraryIcon, feature: 'reports' },
+      { nameKey: 'sidebar.sellersReport', href: '/dashboard/reports/sellers', icon: UsersIcon, feature: 'reports' },
+      { nameKey: 'sidebar.profitLossReport', href: '/dashboard/reports/profit-loss', icon: ScaleIcon, feature: 'reports' },
+      { nameKey: 'sidebar.returnRatioReport', href: '/dashboard/reports/return-ratio', icon: ArrowUturnLeftIcon, feature: 'reports' },
+    ],
+  },
+  {
+    nameKey: 'sidebar.admin',
     icon: WrenchScrewdriverIcon,
     roles: ['admin'],
     items: [
-      { name: 'الموظفين', href: '/dashboard/employees', icon: UsersIcon, badge: 'جديد', feature: 'employees' },
-      { name: 'المستخدمين', href: '/dashboard/users', icon: UsersIcon, feature: 'users' },
-      { name: 'تطبيق الموبايل', href: '/dashboard/mobile-app', icon: DevicePhoneMobileIcon, badge: 'جديد' },
-      { name: 'الإعدادات', href: '/dashboard/settings', icon: Cog6ToothIcon, feature: 'settings' },
+      { nameKey: 'sidebar.fieldEmployees', href: '/dashboard/drivers', icon: UsersIcon, feature: 'deliveries' },
+      { nameKey: 'sidebar.employees', href: '/dashboard/employees', icon: UsersIcon, badgeKey: 'sidebar.new', feature: 'employees' },
+      { nameKey: 'sidebar.users', href: '/dashboard/users', icon: UsersIcon, feature: 'users' },
+      { nameKey: 'sidebar.mobileApp', href: '/dashboard/mobile-app', icon: DevicePhoneMobileIcon, badgeKey: 'sidebar.new' },
+      { nameKey: 'sidebar.settings', href: '/dashboard/settings', icon: Cog6ToothIcon, feature: 'settings' },
     ],
   },
 ];
@@ -131,26 +174,21 @@ const menuSections: MenuSection[] = [
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isLoading, isAuthenticated, checkAuth, logout } = useAuthStore();
+  const { user, isLoading, isAuthenticated, checkAuth, logout, hasFeature } = useAuthStore();
+  const { t, dir } = useLocale();
 
-  // Impersonation detection - read credentials from URL
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    const impData = params.get('imp');
-    if (impData) {
-      try {
-        const { token } = JSON.parse(atob(decodeURIComponent(impData)));
-        if (token) {
-          localStorage.setItem('token', token);
-          localStorage.setItem('auth-storage', JSON.stringify({ state: { token } }));
-          window.location.href = '/dashboard';
-        }
-      } catch {
-        // Invalid impersonation data
-      }
-    }
-  }, []);
+  const sidebarTourSteps: TourStep[] = useMemo(() => [
+    { target: '[data-tour="dashboard-link"]', title: t('tour.dashboardTitle'), desc: t('tour.dashboardDesc'), position: 'auto' },
+    { target: '[data-tour="section-sidebar.inventory"]', title: t('tour.inventoryTitle'), desc: t('tour.inventoryDesc'), position: 'auto' },
+    { target: '[data-tour="section-sidebar.purchasesSection"]', title: t('tour.purchasesTitle'), desc: t('tour.purchasesDesc'), position: 'auto' },
+    { target: '[data-tour="section-sidebar.salesSection"]', title: t('tour.salesTitle'), desc: t('tour.salesDesc'), position: 'auto' },
+    { target: '[data-tour="section-sidebar.seller"]', title: t('tour.sellerTitle'), desc: t('tour.sellerDesc'), position: 'auto' },
+    { target: '[data-tour="section-sidebar.driver"]', title: t('tour.driverTitle'), desc: t('tour.driverDesc'), position: 'auto' },
+    { target: '[data-tour="section-sidebar.cashvan"]', title: t('tour.cashvanTitle'), desc: t('tour.cashvanDesc'), position: 'auto' },
+    { target: '[data-tour="section-sidebar.finance"]', title: t('tour.financeTitle'), desc: t('tour.financeDesc'), position: 'auto' },
+    { target: '[data-tour="section-sidebar.admin"]', title: t('tour.adminTitle'), desc: t('tour.adminDesc'), position: 'auto' },
+  ], [t]);
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -160,7 +198,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   });
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
   const [companyLogo, setCompanyLogo] = useState<string | null>(null);
-  const [companyName, setCompanyName] = useState('TrackSera');
+  const [companyName, setCompanyName] = useState('المخزون');
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [isFirstTimeTour, setIsFirstTimeTour] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('darkMode') === 'true';
@@ -179,6 +219,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }
         if (settings.company_name) {
           setCompanyName(settings.company_name);
+        }
+        // Check onboarding — only for admin users
+        if (user?.role === 'admin' && settings.onboarding_completed !== 'true') {
+          setIsFirstTimeTour(true);
+          setShowOnboarding(true);
+          setSidebarCollapsed(false);
+          setSidebarOpen(true);
+          setExpandedSections([]);
         }
       } catch (error) {
         // Use defaults if settings fail to load
@@ -235,7 +283,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const hasActiveItem = section.items.some((item) => pathname === item.href || pathname.startsWith(item.href + '/'));
       if (hasActiveItem) {
         setExpandedSections((prev) =>
-          prev.includes(section.name) ? prev : [...prev, section.name]
+          prev.includes(section.nameKey) ? prev : [...prev, section.nameKey]
         );
       }
     });
@@ -246,11 +294,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push('/login');
   };
 
-  const toggleSection = (sectionName: string) => {
+  const toggleSection = (sectionKey: string) => {
     setExpandedSections((prev) =>
-      prev.includes(sectionName)
-        ? prev.filter((s) => s !== sectionName)
-        : [...prev, sectionName]
+      prev.includes(sectionKey)
+        ? prev.filter((s) => s !== sectionKey)
+        : [...prev, sectionKey]
     );
   };
 
@@ -308,6 +356,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (!section.roles) return true;
       return user && section.roles.includes(user.role);
     })
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => {
+        if (!item.feature) return true;
+        return hasFeature(item.feature);
+      }),
+    }))
     .filter((section) => section.items.length > 0);
 
   if (isLoading) {
@@ -324,6 +379,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Guided tour for first-time admin users */}
+      {showOnboarding && (
+        <GuidedTour
+          steps={sidebarTourSteps}
+          storageKey="sidebar_tour_step"
+          saveOnComplete={isFirstTimeTour}
+          onComplete={() => setShowOnboarding(false)}
+        />
+      )}
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
@@ -334,8 +398,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 right-0 z-50 h-full bg-white dark:bg-gray-800 shadow-lg transform transition-all duration-200 ease-in-out lg:translate-x-0 ${
-          sidebarOpen ? 'translate-x-0 w-64' : 'translate-x-full lg:translate-x-0'
+        className={`fixed top-0 ${dir === 'rtl' ? 'right-0' : 'left-0'} z-50 h-full bg-white dark:bg-gray-800 shadow-lg transform transition-all duration-200 ease-in-out lg:translate-x-0 ${
+          sidebarOpen ? 'translate-x-0 w-64' : (dir === 'rtl' ? 'translate-x-full' : '-translate-x-full') + ' lg:translate-x-0'
         } ${sidebarCollapsed ? 'lg:w-16' : 'lg:w-64'}`}
       >
         <div className="flex flex-col h-full">
@@ -392,7 +456,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Link
               href="/dashboard"
               onClick={() => setSidebarOpen(false)}
-              title="لوحة التحكم"
+              title={t('sidebar.dashboard')}
+              data-tour="dashboard-link"
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors mb-2 ${
                 pathname === '/dashboard'
                   ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
@@ -400,22 +465,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               } ${sidebarCollapsed ? 'justify-center' : ''}`}
             >
               <HomeIcon className="w-5 h-5 flex-shrink-0" />
-              {!sidebarCollapsed && <span className="text-sm font-medium">لوحة التحكم</span>}
+              {!sidebarCollapsed && <span className="text-sm font-medium">{t('sidebar.dashboard')}</span>}
             </Link>
 
             {/* Accordion Sections */}
             <div className="space-y-1">
               {filteredSections.map((section) => {
-                const isExpanded = expandedSections.includes(section.name);
+                const isExpanded = expandedSections.includes(section.nameKey);
                 const hasActiveItem = section.items.some(
                   (item) => pathname === item.href || pathname.startsWith(item.href + '/')
                 );
+                const sectionName = t(section.nameKey);
 
                 return (
-                  <div key={section.name}>
+                  <div key={section.nameKey}>
                     <button
-                      onClick={() => !sidebarCollapsed && toggleSection(section.name)}
-                      title={section.name}
+                      onClick={() => !sidebarCollapsed && toggleSection(section.nameKey)}
+                      title={sectionName}
+                      data-tour={`section-${section.nameKey}`}
                       className={`flex items-center w-full px-3 py-2.5 rounded-lg transition-colors ${
                         hasActiveItem
                           ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
@@ -424,7 +491,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     >
                       <div className={`flex items-center gap-3 ${sidebarCollapsed ? '' : ''}`}>
                         <section.icon className="w-5 h-5 flex-shrink-0" />
-                        {!sidebarCollapsed && <span className="text-sm font-medium">{section.name}</span>}
+                        {!sidebarCollapsed && <span className="text-sm font-medium">{sectionName}</span>}
                       </div>
                       {!sidebarCollapsed && (
                         <ChevronDownIcon
@@ -442,9 +509,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
                         }`}
                       >
-                        <ul className="mt-1 mr-4 space-y-1 border-r-2 border-gray-100 dark:border-gray-700">
+                        <ul className={`mt-1 space-y-1 ${dir === 'rtl' ? 'mr-4 border-r-2' : 'ml-4 border-l-2'} border-gray-100 dark:border-gray-700`}>
                           {section.items.map((item) => {
-                            const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                            const isActive = pathname === item.href || (pathname.startsWith(item.href + '/') && !section.items.some(other => other.href !== item.href && pathname.startsWith(other.href)));
                             return (
                               <li key={item.href}>
                                 <Link
@@ -457,10 +524,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                   }`}
                                 >
                                   <item.icon className="w-4 h-4" />
-                                  <span className="flex-1">{item.name}</span>
-                                  {item.badge && (
+                                  <span className="flex-1">{t(item.nameKey)}</span>
+                                  {item.badgeKey && (
                                     <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-emerald-500 text-white leading-none">
-                                      {item.badge}
+                                      {t(item.badgeKey)}
                                     </span>
                                   )}
                                 </Link>
@@ -493,24 +560,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
             <button
               onClick={handleLogout}
-              title="تسجيل الخروج"
+              title={t('sidebar.logout')}
               className={`flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors ${sidebarCollapsed ? 'justify-center' : ''}`}
             >
               <ArrowRightOnRectangleIcon className="w-5 h-5 flex-shrink-0" />
-              {!sidebarCollapsed && 'تسجيل الخروج'}
+              {!sidebarCollapsed && t('sidebar.logout')}
             </button>
             {/* Collapse toggle button */}
             <button
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              title={sidebarCollapsed ? 'توسيع القائمة' : 'تصغير القائمة'}
+              title={sidebarCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
               className={`hidden lg:flex items-center gap-2 w-full px-3 py-2 mt-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors ${sidebarCollapsed ? 'justify-center' : ''}`}
             >
               <Bars3Icon className="w-5 h-5 flex-shrink-0" />
-              {!sidebarCollapsed && 'تصغير القائمة'}
+              {!sidebarCollapsed && t('sidebar.collapse')}
             </button>
             {!sidebarCollapsed && (
               <Link href="/dashboard/changelog" className="block text-center text-[10px] text-gray-400 dark:text-gray-500 mt-2 hover:text-blue-500 dark:hover:text-blue-400 transition-colors">
-                v1.0.7
+                v1.0.6
               </Link>
             )}
           </div>
@@ -518,7 +585,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* Main content */}
-      <div className={`transition-all duration-200 ${sidebarCollapsed ? 'lg:mr-16' : 'lg:mr-64'}`}>
+      <div className={`transition-all duration-200 ${dir === 'rtl' ? (sidebarCollapsed ? 'lg:mr-16' : 'lg:mr-64') : (sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64')}`}>
         {/* Header */}
         <header className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b dark:border-gray-700">
           <div className="flex items-center justify-between px-4 py-3">
@@ -528,20 +595,78 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             >
               <Bars3Icon className="w-6 h-6 dark:text-white" />
             </button>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <LanguageSwitcher />
+              <button
+                onClick={() => {
+                  const next = !darkMode;
+                  setDarkMode(next);
+                  localStorage.setItem('darkMode', String(next));
+                }}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title={darkMode ? 'Light mode' : 'Dark mode'}
+              >
+                {darkMode ? (
+                  <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+                  </svg>
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  localStorage.removeItem('sidebar_tour_step');
+                  setIsFirstTimeTour(false);
+                  setSidebarCollapsed(false);
+                  setSidebarOpen(true);
+                  setExpandedSections([]);
+                  setShowOnboarding(true);
+                }}
+                title={t('header.guidedTour')}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded-lg transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+                </svg>
+                {t('header.guidedTour')}
+              </button>
               <span className="text-sm text-gray-500 dark:text-gray-400">
-                مرحبا، {user?.name}
+                {t('header.hello', { name: user?.name || '' })}
               </span>
             </div>
           </div>
         </header>
 
+        {/* Email verification banner */}
+        {user && !user.email_verified_at && (
+          <div className="mx-4 lg:mx-6 mt-4 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-xl p-4 flex items-center gap-3">
+            <div className="w-10 h-10 bg-amber-100 dark:bg-amber-800 rounded-full flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">{t('header.emailNotVerified')}</p>
+              <p className="text-xs text-amber-600 dark:text-amber-400">{t('header.emailVerifyDesc')}</p>
+            </div>
+            <Link
+              href="/verify-email"
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors flex-shrink-0"
+            >
+              {t('header.verifyNow')}
+            </Link>
+          </div>
+        )}
+
         {/* Page content */}
-        <main className="p-4 lg:p-6 pb-20">{children}</main>
+        <main className="p-4 pb-24 lg:px-6 lg:pt-6 lg:pb-24">{children}</main>
 
         {/* Global Shortcuts Footer Bar */}
         <footer className="fixed bottom-0 left-0 right-0 z-40 bg-gray-900 text-white shadow-lg">
-          <div className={`transition-all duration-200 ${sidebarCollapsed ? 'lg:mr-16' : 'lg:mr-64'}`}>
+          <div className={`transition-all duration-200 ${dir === 'rtl' ? (sidebarCollapsed ? 'lg:mr-16' : 'lg:mr-64') : (sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64')}`}>
             <div className="flex items-center justify-between px-4 py-2">
               {/* Quick Actions */}
               <div className="flex items-center gap-2">
@@ -550,7 +675,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium transition-colors"
                 >
                   <PlusIcon className="w-4 h-4" />
-                  <span className="hidden sm:inline">بيع جديد</span>
+                  <span className="hidden sm:inline">{t('footer.newSale')}</span>
                   <kbd className="hidden md:inline bg-green-700 px-1.5 py-0.5 rounded text-xs">Alt+S</kbd>
                 </Link>
                 <Link
@@ -558,7 +683,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition-colors"
                 >
                   <PlusIcon className="w-4 h-4" />
-                  <span className="hidden sm:inline">شراء جديد</span>
+                  <span className="hidden sm:inline">{t('footer.newPurchase')}</span>
                   <kbd className="hidden md:inline bg-blue-700 px-1.5 py-0.5 rounded text-xs">Alt+P</kbd>
                 </Link>
                 <Link
@@ -566,7 +691,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium transition-colors"
                 >
                   <CubeIcon className="w-4 h-4" />
-                  <span className="hidden sm:inline">المنتجات</span>
+                  <span className="hidden sm:inline">{t('footer.productsFooter')}</span>
                   <kbd className="hidden md:inline bg-purple-700 px-1.5 py-0.5 rounded text-xs">Alt+N</kbd>
                 </Link>
               </div>
@@ -575,19 +700,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="hidden lg:flex items-center gap-4 text-xs text-gray-400">
                 <span className="flex items-center gap-1">
                   <kbd className="bg-gray-700 px-1.5 py-0.5 rounded">Alt+H</kbd>
-                  <span>الرئيسية</span>
+                  <span>{t('footer.home')}</span>
                 </span>
                 <span className="flex items-center gap-1">
                   <kbd className="bg-gray-700 px-1.5 py-0.5 rounded">Alt+C</kbd>
-                  <span>العملاء</span>
+                  <span>{t('footer.clientsFooter')}</span>
                 </span>
                 <span className="flex items-center gap-1">
                   <kbd className="bg-gray-700 px-1.5 py-0.5 rounded">Alt+F</kbd>
-                  <span>الموردين</span>
+                  <span>{t('footer.suppliersFooter')}</span>
                 </span>
                 <span className="flex items-center gap-1">
                   <kbd className="bg-gray-700 px-1.5 py-0.5 rounded">Alt+I</kbd>
-                  <span>المخزون</span>
+                  <span>{t('footer.inventoryFooter')}</span>
                 </span>
               </div>
             </div>

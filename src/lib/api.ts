@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://logistics-demo.symloop.com/api';
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://rafik.tracksera.com/api';
 console.log('API Base URL configured:', apiBaseUrl);
 
 const api = axios.create({
@@ -41,10 +41,19 @@ export default api;
 
 // Auth API
 export const authApi = {
-  login: (email: string, password: string) =>
-    api.post('/login', { email, password }),
-  register: (data: { company_name?: string; name: string; email: string; password: string; password_confirmation?: string }) =>
-    api.post('/register', data),
+  login: (identifier: string, password: string) =>
+    api.post('/login', { identifier, password }),
+  register: (data: {
+    register_with: 'email' | 'phone';
+    company_name: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    password: string;
+    password_confirmation: string;
+  }) => api.post('/saas/register', data),
+  googleAuth: (data: { credential: string; company_name?: string }) =>
+    api.post('/saas/google-auth', data),
   logout: () => api.post('/logout'),
   getUser: () => api.get('/user'),
   updateProfile: (data: { name: string; phone?: string }) =>
@@ -53,12 +62,29 @@ export const authApi = {
     api.put('/change-password', data),
 };
 
-// Password Reset API
-export const passwordApi = {
+// SaaS API (public, no tenant header)
+export const saasApi = {
   forgotPassword: (email: string) =>
-    api.post('/forgot-password', { email }),
+    api.post('/saas/forgot-password', { email }),
   resetPassword: (data: { email: string; otp: string; password: string; password_confirmation: string }) =>
-    api.post('/reset-password', data),
+    api.post('/saas/reset-password', data),
+  sendVerificationOtp: (email: string) =>
+    api.post('/saas/send-verification-otp', { email }),
+  verifyEmail: (data: { email: string; otp: string }) =>
+    api.post('/saas/verify-email', data),
+};
+
+// Tenant API
+export const tenantApi = {
+  getPlan: () => api.get('/tenant/plan'),
+  getApps: () => api.get('/tenant/apps'),
+};
+
+// SaaS Payment API
+export const saasPaymentApi = {
+  upgrade: (plan: string) => api.post('/saas/payments/upgrade', { plan }),
+  getStatus: (paymentId: number) => api.get(`/saas/payments/${paymentId}/status`),
+  getHistory: () => api.get('/saas/payments/history'),
 };
 
 // Dashboard API
@@ -71,10 +97,6 @@ export const dashboardApi = {
   getSystemHealth: () => api.get('/dashboard/system-health'),
   fixMissingCaisses: () => api.post('/dashboard/fix-caisses'),
   getAppVersions: () => api.get('/tenant/apps'),
-  uploadApk: (formData: FormData) => api.post('/apps/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  }),
-  deleteApk: (type: string) => api.post('/apps/delete', { type }),
 };
 
 // Products API

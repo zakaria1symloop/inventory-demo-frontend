@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { purchaseOrdersApi, suppliersApi } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { useLocale } from '@/lib/i18n/context';
 import {
   DocumentDuplicateIcon,
   EyeIcon,
@@ -41,6 +42,7 @@ interface Supplier { id: number; name: string; }
 
 export default function PurchaseOrdersPage() {
   const router = useRouter();
+  const { t, locale, dir } = useLocale();
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -61,20 +63,20 @@ export default function PurchaseOrdersPage() {
       setOrders(ordersRes.data.data || ordersRes.data);
       setSuppliers(suppliersRes.data.data || suppliersRes.data);
     } catch (error) {
-      toast.error('خطأ في تحميل البيانات');
+      toast.error(t('purchases.dataLoadError'));
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('هل أنت متأكد من حذف بون الطلب؟')) return;
+    if (!confirm(t('purchases.deletePoConfirm'))) return;
     try {
       await purchaseOrdersApi.delete(id);
-      toast.success('تم حذف بون الطلب بنجاح');
+      toast.success(t('purchases.deletePoSuccess'));
       fetchData();
     } catch (error: any) {
-      const message = error.response?.data?.message || 'خطأ في حذف بون الطلب';
+      const message = error.response?.data?.message || t('purchases.deletePoError');
       toast.error(message);
     }
   };
@@ -82,22 +84,22 @@ export default function PurchaseOrdersPage() {
   const handleUpdateStatus = async (id: number, status: string) => {
     try {
       await purchaseOrdersApi.updateStatus(id, status);
-      toast.success('تم تحديث الحالة بنجاح');
+      toast.success(t('purchases.statusUpdateSuccess'));
       fetchData();
     } catch (error: any) {
-      const message = error.response?.data?.message || 'خطأ في تحديث الحالة';
+      const message = error.response?.data?.message || t('purchases.statusUpdateError');
       toast.error(message);
     }
   };
 
   const handleConvertToPurchase = async (id: number) => {
-    if (!confirm('هل تريد استلام هذا الطلب وتحويله إلى فاتورة شراء؟\nسيتم إضافة المنتجات للمخزون.')) return;
+    if (!confirm(t('purchases.convertConfirm'))) return;
     try {
       await purchaseOrdersApi.convertToPurchase(id);
-      toast.success('تم استلام الطلب وإنشاء فاتورة الشراء بنجاح');
+      toast.success(t('purchases.convertSuccess'));
       fetchData();
     } catch (error: any) {
-      const message = error.response?.data?.message || 'خطأ في استلام الطلب';
+      const message = error.response?.data?.message || t('purchases.convertError');
       toast.error(message);
     }
   };
@@ -114,9 +116,9 @@ export default function PurchaseOrdersPage() {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      toast.success('تم تحميل بون الطلب بنجاح');
+      toast.success(t('purchases.downloadPoSuccess'));
     } catch (error) {
-      toast.error('خطأ في تحميل بون الطلب');
+      toast.error(t('purchases.downloadPoError'));
     }
   };
 
@@ -132,27 +134,27 @@ export default function PurchaseOrdersPage() {
         };
       }
     } catch (error) {
-      toast.error('خطأ في طباعة بون الطلب');
+      toast.error(t('purchases.printPoError'));
     }
   };
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
+    return new Intl.NumberFormat(locale === 'ar' ? 'ar-DZ' : 'fr-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
   };
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('ar-DZ');
+    return new Date(date).toLocaleDateString(locale === 'ar' ? 'ar-DZ' : 'fr-DZ');
   };
 
   const getStatusBadge = (status: string) => {
     const badges: Record<string, { class: string; text: string }> = {
-      draft: { class: 'bg-gray-100 text-gray-800', text: 'مسودة' },
-      sent: { class: 'bg-blue-100 text-blue-800', text: 'مرسل' },
-      confirmed: { class: 'bg-green-100 text-green-800', text: 'مؤكد' },
-      received: { class: 'bg-emerald-100 text-emerald-800', text: 'مستلم' },
-      cancelled: { class: 'bg-red-100 text-red-800', text: 'ملغي' },
+      draft: { class: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200', text: t('purchases.draft') },
+      sent: { class: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300', text: t('purchases.sent') },
+      confirmed: { class: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300', text: t('purchases.confirmed') },
+      received: { class: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300', text: t('purchases.received') },
+      cancelled: { class: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300', text: t('purchases.cancelled') },
     };
-    return badges[status] || { class: 'bg-gray-100 text-gray-800', text: status };
+    return badges[status] || { class: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200', text: status };
   };
 
   const filteredOrders = orders.filter(o => {
@@ -173,8 +175,8 @@ export default function PurchaseOrdersPage() {
         <div className="flex items-center gap-3">
           <DocumentDuplicateIcon className="w-8 h-8 text-green-600" />
           <div>
-            <h1 className="text-2xl font-bold">بونات الطلب</h1>
-            <p className="text-sm text-gray-500">Bons de Commande - طلبات الشراء من الموردين</p>
+            <h1 className="text-2xl font-bold dark:text-gray-200">{t('purchases.poTitle')}</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('purchases.poSubtitle')}</p>
           </div>
         </div>
         <Link
@@ -184,19 +186,18 @@ export default function PurchaseOrdersPage() {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          إضافة بون طلب جديد
+          {t('purchases.addNewPo')}
         </Link>
       </div>
 
       {/* Info Box */}
       <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-6">
         <div className="flex items-start gap-3">
-          <DocumentDuplicateIcon className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
+          <DocumentDuplicateIcon className="w-6 h-6 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
           <div>
-            <h3 className="font-medium text-green-800 dark:text-green-200">ما هو بون الطلب؟</h3>
+            <h3 className="font-medium text-green-800 dark:text-green-200">{t('purchases.whatIsPo')}</h3>
             <p className="text-sm text-green-700 dark:text-green-300 mt-1">
-              بون الطلب هو وثيقة لطلب المنتجات من المورد. لا يؤثر على المخزون حتى يتم استلام البضاعة.
-              عند الاستلام، يمكنك تحويله إلى فاتورة شراء وسيتم إضافة المنتجات للمخزون تلقائياً.
+              {t('purchases.poExplanation')}
             </p>
           </div>
         </div>
@@ -206,7 +207,7 @@ export default function PurchaseOrdersPage() {
         <div className="flex flex-wrap gap-4 mb-4">
           <input
             type="text"
-            placeholder="بحث بالمرجع أو المورد..."
+            placeholder={t('purchases.searchRefOrSupplier')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="input max-w-xs"
@@ -216,19 +217,19 @@ export default function PurchaseOrdersPage() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="select max-w-xs"
           >
-            <option value="">كل الحالات</option>
-            <option value="draft">مسودة</option>
-            <option value="sent">مرسل</option>
-            <option value="confirmed">مؤكد</option>
-            <option value="received">مستلم</option>
-            <option value="cancelled">ملغي</option>
+            <option value="">{t('purchases.allStatuses')}</option>
+            <option value="draft">{t('purchases.draft')}</option>
+            <option value="sent">{t('purchases.sent')}</option>
+            <option value="confirmed">{t('purchases.confirmed')}</option>
+            <option value="received">{t('purchases.received')}</option>
+            <option value="cancelled">{t('purchases.cancelled')}</option>
           </select>
           <select
             value={supplierFilter}
             onChange={(e) => setSupplierFilter(e.target.value)}
             className="select max-w-xs"
           >
-            <option value="">كل الموردين</option>
+            <option value="">{t('purchases.allSuppliers')}</option>
             {suppliers.map(supplier => (
               <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
             ))}
@@ -239,18 +240,18 @@ export default function PurchaseOrdersPage() {
           <table>
             <thead>
               <tr>
-                <th>المرجع</th>
-                <th>المورد</th>
-                <th>المستودع</th>
-                <th>التاريخ</th>
-                <th>الإجمالي</th>
-                <th>الحالة</th>
-                <th>الإجراءات</th>
+                <th>{t('purchases.reference')}</th>
+                <th>{t('purchases.supplier')}</th>
+                <th>{t('purchases.warehouse')}</th>
+                <th>{t('purchases.date')}</th>
+                <th>{t('purchases.total')}</th>
+                <th>{t('purchases.status')}</th>
+                <th>{t('purchases.actions')}</th>
               </tr>
             </thead>
             <tbody>
               {filteredOrders.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-8 text-gray-500">لا توجد بونات طلب</td></tr>
+                <tr><td colSpan={7} className="text-center py-8 text-gray-500 dark:text-gray-400">{t('purchases.noPurchaseOrders')}</td></tr>
               ) : (
                 filteredOrders.map((order) => {
                   const statusBadge = getStatusBadge(order.status);
@@ -260,11 +261,11 @@ export default function PurchaseOrdersPage() {
 
                   return (
                     <tr key={order.id}>
-                      <td className="font-medium">{order.reference}</td>
-                      <td>{order.supplier?.name || '-'}</td>
-                      <td>{order.warehouse?.name || '-'}</td>
-                      <td>{formatDate(order.date)}</td>
-                      <td className="font-semibold">{formatCurrency(order.grand_total)}</td>
+                      <td className="font-medium dark:text-gray-200">{order.reference}</td>
+                      <td className="dark:text-gray-300">{order.supplier?.name || '-'}</td>
+                      <td className="dark:text-gray-300">{order.warehouse?.name || '-'}</td>
+                      <td className="dark:text-gray-300">{formatDate(order.date)}</td>
+                      <td className="font-semibold dark:text-gray-200">{formatCurrency(order.grand_total)}</td>
                       <td>
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusBadge.class}`}>
                           {statusBadge.text}
@@ -275,8 +276,8 @@ export default function PurchaseOrdersPage() {
                           {/* View */}
                           <Link
                             href={`/dashboard/purchase-orders/${order.id}`}
-                            className="p-1.5 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
-                            title="عرض التفاصيل"
+                            className="p-1.5 text-gray-600 hover:text-gray-800 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700 rounded"
+                            title={t('purchases.viewDetails')}
                           >
                             <EyeIcon className="w-4 h-4" />
                           </Link>
@@ -285,8 +286,8 @@ export default function PurchaseOrdersPage() {
                           {canEdit && (
                             <Link
                               href={`/dashboard/purchase-orders/${order.id}/edit`}
-                              className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded"
-                              title="تعديل"
+                              className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-100 dark:text-blue-400 dark:hover:text-blue-200 dark:hover:bg-blue-900/40 rounded"
+                              title={t('purchases.edit')}
                             >
                               <PencilIcon className="w-4 h-4" />
                             </Link>
@@ -295,8 +296,8 @@ export default function PurchaseOrdersPage() {
                           {/* Download PDF */}
                           <button
                             onClick={() => handleDownloadPdf(order.id, order.reference)}
-                            className="p-1.5 text-green-600 hover:text-green-800 hover:bg-green-100 rounded"
-                            title="تحميل PDF"
+                            className="p-1.5 text-green-600 hover:text-green-800 hover:bg-green-100 dark:text-green-400 dark:hover:text-green-200 dark:hover:bg-green-900/40 rounded"
+                            title={t('purchases.downloadPdf')}
                           >
                             <ArrowDownTrayIcon className="w-4 h-4" />
                           </button>
@@ -304,8 +305,8 @@ export default function PurchaseOrdersPage() {
                           {/* Print */}
                           <button
                             onClick={() => handlePrintPdf(order.id)}
-                            className="p-1.5 text-purple-600 hover:text-purple-800 hover:bg-purple-100 rounded"
-                            title="طباعة"
+                            className="p-1.5 text-purple-600 hover:text-purple-800 hover:bg-purple-100 dark:text-purple-400 dark:hover:text-purple-200 dark:hover:bg-purple-900/40 rounded"
+                            title={t('purchases.printBtn')}
                           >
                             <PrinterIcon className="w-4 h-4" />
                           </button>
@@ -314,8 +315,8 @@ export default function PurchaseOrdersPage() {
                           {order.status === 'draft' && (
                             <button
                               onClick={() => handleUpdateStatus(order.id, 'sent')}
-                              className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded"
-                              title="إرسال للمورد"
+                              className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-100 dark:text-blue-400 dark:hover:text-blue-200 dark:hover:bg-blue-900/40 rounded"
+                              title={t('purchases.sendToSupplier')}
                             >
                               <PaperAirplaneIcon className="w-4 h-4" />
                             </button>
@@ -324,8 +325,8 @@ export default function PurchaseOrdersPage() {
                           {order.status === 'sent' && (
                             <button
                               onClick={() => handleUpdateStatus(order.id, 'confirmed')}
-                              className="p-1.5 text-green-600 hover:text-green-800 hover:bg-green-100 rounded"
-                              title="تأكيد الطلب"
+                              className="p-1.5 text-green-600 hover:text-green-800 hover:bg-green-100 dark:text-green-400 dark:hover:text-green-200 dark:hover:bg-green-900/40 rounded"
+                              title={t('purchases.confirmOrder')}
                             >
                               <CheckCircleIcon className="w-4 h-4" />
                             </button>
@@ -335,8 +336,8 @@ export default function PurchaseOrdersPage() {
                           {canConvert && (
                             <button
                               onClick={() => handleConvertToPurchase(order.id)}
-                              className="p-1.5 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-100 rounded"
-                              title="استلام وتحويل لفاتورة شراء"
+                              className="p-1.5 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-100 dark:text-emerald-400 dark:hover:text-emerald-200 dark:hover:bg-emerald-900/40 rounded"
+                              title={t('purchases.receiveAndConvert')}
                             >
                               <ArrowPathIcon className="w-4 h-4" />
                             </button>
@@ -346,8 +347,8 @@ export default function PurchaseOrdersPage() {
                           {canDelete && (
                             <button
                               onClick={() => handleDelete(order.id)}
-                              className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-100 rounded"
-                              title="حذف"
+                              className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-200 dark:hover:bg-red-900/40 rounded"
+                              title={t('purchases.delete')}
                             >
                               <TrashIcon className="w-4 h-4" />
                             </button>

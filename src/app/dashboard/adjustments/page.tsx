@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { adjustmentsApi } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { useLocale } from '@/lib/i18n/context';
 
 interface Adjustment {
   id: number;
@@ -25,6 +26,7 @@ export default function AdjustmentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const { t, locale } = useLocale();
 
   useEffect(() => {
     fetchAdjustments();
@@ -54,53 +56,53 @@ export default function AdjustmentsPage() {
       const response = await adjustmentsApi.getAll();
       setAdjustments(response.data.data || response.data);
     } catch (error) {
-      toast.error('خطأ في تحميل التعديلات');
+      toast.error(t('common.loadError', { item: t('stock.adjustmentsTitle') }));
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleApprove = async (id: number) => {
-    if (!confirm('هل أنت متأكد من الموافقة على هذا التعديل؟')) return;
+    if (!confirm(t('stock.confirmApprove'))) return;
     try {
       await adjustmentsApi.approve(id);
-      toast.success('تمت الموافقة بنجاح');
+      toast.success(t('stock.approvedSuccess'));
       fetchAdjustments();
     } catch (error) {
-      toast.error('خطأ في الموافقة');
+      toast.error(t('stock.approveError'));
     }
   };
 
   const handleReject = async (id: number) => {
-    if (!confirm('هل أنت متأكد من رفض هذا التعديل؟')) return;
+    if (!confirm(t('stock.confirmReject'))) return;
     try {
       await adjustmentsApi.reject(id);
-      toast.success('تم الرفض بنجاح');
+      toast.success(t('stock.rejectedSuccess'));
       fetchAdjustments();
     } catch (error) {
-      toast.error('خطأ في الرفض');
+      toast.error(t('stock.rejectError'));
     }
   };
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
+    return new Intl.NumberFormat(locale === 'fr' ? 'fr-DZ' : 'ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
   };
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('ar-DZ');
+    return new Date(date).toLocaleDateString(locale === 'fr' ? 'fr-DZ' : 'ar-DZ');
   };
 
   const getTypeBadge = (type: string) => {
     return type === 'addition'
-      ? { class: 'badge-success', text: 'إضافة' }
-      : { class: 'badge-danger', text: 'خصم' };
+      ? { class: 'badge-success', text: t('stock.addition') }
+      : { class: 'badge-danger', text: t('stock.subtraction') };
   };
 
   const getStatusBadge = (status: string) => {
     const badges: Record<string, { class: string; text: string }> = {
-      pending: { class: 'badge-warning', text: 'معلق' },
-      approved: { class: 'badge-success', text: 'موافق عليه' },
-      rejected: { class: 'badge-danger', text: 'مرفوض' },
+      pending: { class: 'badge-warning', text: t('stock.pending') },
+      approved: { class: 'badge-success', text: t('stock.approved') },
+      rejected: { class: 'badge-danger', text: t('stock.rejected') },
     };
     return badges[status] || { class: 'badge-secondary', text: status };
   };
@@ -119,49 +121,49 @@ export default function AdjustmentsPage() {
     <div>
       {/* Shortcuts hint */}
       <div className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg mb-4 flex items-center gap-6 text-sm">
-        <span className="font-medium">اختصارات:</span>
-        <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Insert</kbd> إضافة جديد</span>
+        <span className="font-medium">{t('common.shortcuts') + ':'}</span>
+        <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Insert</kbd> {t('common.addNew')}</span>
       </div>
 
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">تعديلات المخزون</h1>
+        <h1 className="text-2xl font-bold">{t('stock.adjustmentsTitle')}</h1>
         <button onClick={() => router.push('/dashboard/adjustments/new')} className="btn btn-primary">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          إضافة تعديل
-          <kbd className="bg-blue-700 px-1.5 py-0.5 rounded text-xs mr-2">Insert</kbd>
+          {t('stock.addAdjustment')}
+          <kbd className="bg-blue-700 px-1.5 py-0.5 rounded text-xs me-2">Insert</kbd>
         </button>
       </div>
 
       <div className="card">
         <div className="flex gap-4 mb-4">
-          <input type="text" placeholder="بحث..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="input max-w-xs" />
+          <input type="text" placeholder={t('common.search')} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="input max-w-xs" />
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select max-w-xs">
-            <option value="">كل الحالات</option>
-            <option value="pending">معلق</option>
-            <option value="approved">موافق عليه</option>
-            <option value="rejected">مرفوض</option>
+            <option value="">{t('stock.allStatuses')}</option>
+            <option value="pending">{t('stock.pending')}</option>
+            <option value="approved">{t('stock.approved')}</option>
+            <option value="rejected">{t('stock.rejected')}</option>
           </select>
         </div>
 
         <table>
           <thead>
             <tr>
-              <th>المرجع</th>
-              <th>المستودع</th>
-              <th>المستخدم</th>
-              <th>التاريخ</th>
-              <th>النوع</th>
-              <th>القيمة</th>
-              <th>السبب</th>
-              <th>الحالة</th>
-              <th>الإجراءات</th>
+              <th>{t('stock.reference')}</th>
+              <th>{t('stock.warehouse')}</th>
+              <th>{t('stock.userCol')}</th>
+              <th>{t('common.date')}</th>
+              <th>{t('stock.type')}</th>
+              <th>{t('stock.value')}</th>
+              <th>{t('stock.reason')}</th>
+              <th>{t('common.status')}</th>
+              <th>{t('common.actions')}</th>
             </tr>
           </thead>
           <tbody>
             {filteredAdjustments.length === 0 ? (
-              <tr><td colSpan={9} className="text-center py-8 text-gray-500">لا توجد تعديلات</td></tr>
+              <tr><td colSpan={9} className="text-center py-8 text-gray-500">{t('stock.noAdjustments')}</td></tr>
             ) : (
               filteredAdjustments.map((adj) => {
                 const typeBadge = getTypeBadge(adj.type);
@@ -178,7 +180,7 @@ export default function AdjustmentsPage() {
                     <td><span className={`badge ${statusBadge.class}`}>{statusBadge.text}</span></td>
                     <td>
                       <div className="flex gap-2">
-                        <button onClick={() => router.push(`/dashboard/adjustments/${adj.id}`)} className="text-blue-600 hover:text-blue-800" title="عرض التفاصيل">
+                        <button onClick={() => router.push(`/dashboard/adjustments/${adj.id}`)} className="text-blue-600 hover:text-blue-800" title={t('stock.viewDetails')}>
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -186,12 +188,12 @@ export default function AdjustmentsPage() {
                         </button>
                         {adj.status === 'pending' && (
                           <>
-                            <button onClick={() => handleApprove(adj.id)} className="text-green-600 hover:text-green-800" title="موافقة">
+                            <button onClick={() => handleApprove(adj.id)} className="text-green-600 hover:text-green-800" title={t('stock.approve')}>
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                               </svg>
                             </button>
-                            <button onClick={() => handleReject(adj.id)} className="text-red-600 hover:text-red-800" title="رفض">
+                            <button onClick={() => handleReject(adj.id)} className="text-red-600 hover:text-red-800" title={t('stock.reject')}>
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                               </svg>

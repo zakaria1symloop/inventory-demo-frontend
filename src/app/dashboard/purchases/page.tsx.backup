@@ -1,0 +1,686 @@
+'use client';
+
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import Link from 'next/link';
+import { purchasesApi, suppliersApi, warehousesApi } from '@/lib/api';
+import toast from 'react-hot-toast';
+import PurchaseForm from './_components/PurchaseForm';
+import DateInput from '@/components/ui/DateInput';
+import {
+  PlusIcon,
+  XMarkIcon,
+  ListBulletIcon,
+  DocumentPlusIcon,
+  PencilSquareIcon,
+  EyeIcon,
+  DocumentTextIcon,
+  ClipboardDocumentListIcon,
+  TrashIcon,
+  BanknotesIcon,
+  CheckCircleIcon,
+  QuestionMarkCircleIcon,
+} from '@heroicons/react/24/outline';
+import GuidedTour from '@/components/GuidedTour';
+import type { TourStep } from '@/components/GuidedTour';
+
+interface Purchase {
+  id: number;
+  reference: string;
+  supplier_id: number;
+  warehouse_id: number;
+  date: string;
+  total_amount: number;
+  discount: number;
+  tax: number;
+  grand_total: number;
+  paid_amount: number;
+  due_amount: number;
+  status: 'pending' | 'received' | 'partial';
+  payment_status: 'unpaid' | 'partial' | 'paid';
+  note?: string;
+  supplier?: { id: number; name: string };
+  warehouse?: { id: number; name: string };
+}
+
+interface Tab {
+  id: string;
+  type: 'list' | 'new' | 'edit' | 'view';
+  title: string;
+  purchaseId?: number;
+  reference?: string;
+}
+
+const purchasesTourSteps: TourStep[] = [
+  {
+    target: '[data-tour="purchases-title"]',
+    title: 'صفحة المشتريات',
+    desc: 'هنا تسجّل جميع فواتير الشراء من الموردين. كل فاتورة تدخل المنتجات للمخزون تلقائياً.',
+    position: 'bottom',
+  },
+  {
+    target: '[data-tour="purchases-add"]',
+    title: 'إضافة فاتورة شراء',
+    desc: 'اضغط هنا لإنشاء فاتورة شراء جديدة. اختر المورد، أضف المنتجات والكميات، وحدد طريقة الدفع.',
+    position: 'bottom',
+  },
+  {
+    target: '[data-tour="purchases-creditors"]',
+    title: 'الديون للموردين',
+    desc: 'تابع جميع الديون المستحقة للموردين. هنا ترى المبالغ المتبقية وتسجّل المدفوعات.',
+    position: 'bottom',
+  },
+  {
+    target: '[data-tour="purchases-tabs"]',
+    title: 'نظام التبويبات',
+    desc: 'يمكنك فتح عدة فواتير في نفس الوقت! كل فاتورة تفتح في تبويب جديد. اضغط + لإضافة فاتورة أو Ctrl+W لإغلاق التبويب.',
+    position: 'bottom',
+  },
+  {
+    target: '[data-tour="purchases-filters"]',
+    title: 'البحث والفلترة',
+    desc: 'ابحث بالمرجع أو اسم المورد. فلتر حسب الحالة، حالة الدفع (غير مدفوع، جزئي، مدفوع)، المورد، المستودع، والتاريخ.',
+    position: 'bottom',
+  },
+  {
+    target: '[data-tour="purchases-table"]',
+    title: 'جدول الفواتير',
+    desc: 'هنا تظهر جميع الفواتير مع المبالغ وحالة الدفع. اضغط على أيقونة العين لعرض التفاصيل أو القلم للتعديل.',
+    position: 'top',
+  },
+];
+
+export default function PurchasesPage() {
+  // Tab state
+  const [tabs, setTabs] = useState<Tab[]>([
+    { id: 'list', type: 'list', title: 'قائمة الفواتير' }
+  ]);
+  const [activeTabId, setActiveTabId] = useState('list');
+  const [showTour, setShowTour] = useState(false);
+
+  // List data
+  const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Filters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState('');
+  const [supplierFilter, setSupplierFilter] = useState('');
+  const [warehouseFilter, setWarehouseFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+
+  // Data for filters
+  const [suppliers, setSuppliers] = useState<{ id: number; name: string }[]>([]);
+  const [warehouses, setWarehouses] = useState<{ id: number; name: string }[]>([]);
+
+  // Generate unique tab ID
+  const generateTabId = () => `tab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+  // Open new tab
+  const openNewTab = useCallback(() => {
+    const newTab: Tab = {
+      id: generateTabId(),
+      type: 'new',
+      title: 'فاتورة جديدة',
+    };
+    setTabs(prev => [...prev, newTab]);
+    setActiveTabId(newTab.id);
+  }, []);
+
+  // Open edit tab
+  const openEditTab = useCallback((purchaseId: number, reference: string) => {
+    // Check if tab already exists
+    const existingTab = tabs.find(t => t.type === 'edit' && t.purchaseId === purchaseId);
+    if (existingTab) {
+      setActiveTabId(existingTab.id);
+      return;
+    }
+
+    const newTab: Tab = {
+      id: generateTabId(),
+      type: 'edit',
+      title: `تعديل ${reference}`,
+      purchaseId,
+      reference,
+    };
+    setTabs(prev => [...prev, newTab]);
+    setActiveTabId(newTab.id);
+  }, [tabs]);
+
+  // Close tab
+  const closeTab = useCallback((tabId: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+
+    if (tabId === 'list') return; // Can't close list tab
+
+    setTabs(prev => {
+      const newTabs = prev.filter(t => t.id !== tabId);
+      // If closing active tab, switch to previous tab or list
+      if (activeTabId === tabId) {
+        const closedIndex = prev.findIndex(t => t.id === tabId);
+        const newActiveTab = newTabs[closedIndex - 1] || newTabs[0];
+        setActiveTabId(newActiveTab.id);
+      }
+      return newTabs;
+    });
+  }, [activeTabId]);
+
+  // Handle form success (close tab and refresh list)
+  const handleFormSuccess = useCallback((tabId: string) => {
+    closeTab(tabId);
+    setActiveTabId('list');
+    fetchData();
+  }, [closeTab]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') {
+        return;
+      }
+
+      if (e.key === 'Insert' || (e.altKey && e.key.toLowerCase() === 'n')) {
+        e.preventDefault();
+        openNewTab();
+      } else if (e.ctrlKey && e.key.toLowerCase() === 'w') {
+        e.preventDefault();
+        if (activeTabId !== 'list') {
+          closeTab(activeTabId);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [openNewTab, closeTab, activeTabId]);
+
+  const fetchData = async () => {
+    try {
+      const [purchasesRes] = await Promise.all([
+        purchasesApi.getAll(),
+      ]);
+      setPurchases(purchasesRes.data.data || purchasesRes.data);
+    } catch (error) {
+      toast.error('خطأ في تحميل البيانات');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchFilterData = async () => {
+    try {
+      const [suppliersRes, warehousesRes] = await Promise.all([
+        suppliersApi.getAll({ per_page: 1000 }),
+        warehousesApi.getAll(),
+      ]);
+      setSuppliers(suppliersRes.data?.data || suppliersRes.data || []);
+      setWarehouses(warehousesRes.data?.data || warehousesRes.data || []);
+    } catch (error) {
+      console.error('Error fetching filter data:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+    fetchFilterData();
+  }, []);
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('هل أنت متأكد من حذف هذه الفاتورة؟')) return;
+    try {
+      await purchasesApi.delete(id);
+      toast.success('تم حذف الفاتورة بنجاح');
+      fetchData();
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'خطأ في حذف الفاتورة';
+      toast.error(message);
+    }
+  };
+
+  const canDelete = (purchase: Purchase) => {
+    if (purchase.status === 'pending') return true;
+    return purchase.payment_status === 'unpaid' && purchase.paid_amount === 0;
+  };
+
+  const handleConfirmPurchase = async (id: number) => {
+    if (!confirm('هل تريد تأكيد استلام هذه الفاتورة؟')) return;
+    try {
+      await purchasesApi.confirm(id);
+      toast.success('تم تأكيد الفاتورة بنجاح');
+      fetchData();
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'خطأ في تأكيد الفاتورة';
+      toast.error(message);
+    }
+  };
+
+  const handleDownloadFacture = async (id: number, reference: string) => {
+    try {
+      const response = await purchasesApi.downloadFacture(id);
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `bon-achat-${reference}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('تم تحميل الفاتورة بنجاح');
+    } catch (error) {
+      toast.error('خطأ في تحميل الفاتورة');
+    }
+  };
+
+  const handleDownloadBonCommande = async (id: number, reference: string) => {
+    try {
+      const response = await purchasesApi.downloadBonCommande(id);
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `bon-commande-${reference}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('تم تحميل بون الطلب بنجاح');
+    } catch (error) {
+      toast.error('خطأ في تحميل بون الطلب');
+    }
+  };
+
+  const formatCurrency = (value: number | string | null | undefined) => {
+    const num = typeof value === 'string' ? parseFloat(value) : (value ?? 0);
+    if (isNaN(num)) return '0 د.ج.';
+    return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(num);
+  };
+
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString('ar-DZ');
+  };
+
+  const getStatusBadge = (status: string) => {
+    const badges: Record<string, { class: string; text: string }> = {
+      pending: { class: 'badge-warning', text: 'معلق' },
+      received: { class: 'badge-success', text: 'مستلم' },
+      partial: { class: 'badge-info', text: 'جزئي' },
+    };
+    return badges[status] || { class: 'badge-secondary', text: status };
+  };
+
+  const getPaymentBadge = (status: string) => {
+    const badges: Record<string, { class: string; text: string }> = {
+      unpaid: { class: 'badge-danger', text: 'غير مدفوع' },
+      partial: { class: 'badge-warning', text: 'جزئي' },
+      paid: { class: 'badge-success', text: 'مدفوع' },
+    };
+    return badges[status] || { class: 'badge-secondary', text: status };
+  };
+
+  const filteredPurchases = useMemo(() => {
+    return purchases.filter(p => {
+      if (searchTerm) {
+        const query = searchTerm.toLowerCase();
+        const matchesRef = p.reference?.toLowerCase().includes(query);
+        const matchesSupplier = p.supplier?.name?.toLowerCase().includes(query);
+        if (!matchesRef && !matchesSupplier) return false;
+      }
+      if (statusFilter && p.status !== statusFilter) return false;
+      if (paymentStatusFilter && p.payment_status !== paymentStatusFilter) return false;
+      if (supplierFilter && p.supplier_id !== parseInt(supplierFilter)) return false;
+      if (warehouseFilter && p.warehouse_id !== parseInt(warehouseFilter)) return false;
+      if (dateFrom && new Date(p.date) < new Date(dateFrom)) return false;
+      if (dateTo && new Date(p.date) > new Date(dateTo)) return false;
+      return true;
+    });
+  }, [purchases, searchTerm, statusFilter, paymentStatusFilter, supplierFilter, warehouseFilter, dateFrom, dateTo]);
+
+  // KPIs
+  const kpis = useMemo(() => {
+    const parseNum = (val: any) => {
+      const num = typeof val === 'string' ? parseFloat(val) : (val ?? 0);
+      return isNaN(num) ? 0 : num;
+    };
+    const totalAmount = filteredPurchases.reduce((sum, p) => sum + parseNum(p.grand_total), 0);
+    const paidAmount = filteredPurchases.reduce((sum, p) => sum + parseNum(p.paid_amount), 0);
+    const dueAmount = filteredPurchases.reduce((sum, p) => sum + parseNum(p.due_amount), 0);
+    return {
+      totalCount: filteredPurchases.length,
+      totalAmount,
+      paidAmount,
+      dueAmount,
+      unpaidCount: filteredPurchases.filter(p => p.payment_status === 'unpaid').length,
+      partialCount: filteredPurchases.filter(p => p.payment_status === 'partial').length,
+      paidCount: filteredPurchases.filter(p => p.payment_status === 'paid').length,
+    };
+  }, [filteredPurchases]);
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('');
+    setPaymentStatusFilter('');
+    setSupplierFilter('');
+    setWarehouseFilter('');
+    setDateFrom('');
+    setDateTo('');
+  };
+
+  const hasActiveFilters = searchTerm || statusFilter || paymentStatusFilter || supplierFilter || warehouseFilter || dateFrom || dateTo;
+
+  // Render tab content
+  const renderTabContent = (tab: Tab) => {
+    switch (tab.type) {
+      case 'list':
+        return (
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div data-tour="purchases-title">
+                <h1 className="text-2xl font-bold">المشتريات</h1>
+                <p className="text-gray-500 mt-1">إدارة فواتير الشراء من الموردين</p>
+              </div>
+              <div className="flex gap-3">
+                <Link
+                  href="/dashboard/purchases/creditors"
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-red-300 text-red-700 bg-red-50 hover:bg-red-100 transition-colors"
+                  data-tour="purchases-creditors"
+                >
+                  <BanknotesIcon className="w-5 h-5" />
+                  الديون للموردين
+                </Link>
+                <button onClick={openNewTab} className="btn btn-primary inline-flex items-center gap-2" data-tour="purchases-add">
+                  <PlusIcon className="w-5 h-5" />
+                  إضافة فاتورة شراء
+                  <kbd className="bg-blue-700 px-1.5 py-0.5 rounded text-xs">Insert</kbd>
+                </button>
+              </div>
+            </div>
+
+            {/* KPI Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              <div className="card bg-blue-50 border-2 border-blue-200">
+                <div className="text-blue-600 text-sm font-medium">إجمالي الفواتير</div>
+                <div className="text-3xl font-bold text-blue-700">{kpis.totalCount}</div>
+              </div>
+              <div className="card bg-purple-50 border-2 border-purple-200">
+                <div className="text-purple-600 text-sm font-medium">إجمالي المشتريات</div>
+                <div className="text-lg font-bold text-purple-700">{formatCurrency(kpis.totalAmount)}</div>
+              </div>
+              <div className="card bg-green-50 border-2 border-green-200">
+                <div className="text-green-600 text-sm font-medium">المدفوع</div>
+                <div className="text-lg font-bold text-green-700">{formatCurrency(kpis.paidAmount)}</div>
+              </div>
+              <div className="card bg-red-50 border-2 border-red-200">
+                <div className="text-red-600 text-sm font-medium">الديون المتبقية</div>
+                <div className="text-lg font-bold text-red-700">{formatCurrency(kpis.dueAmount)}</div>
+              </div>
+              <div className="card bg-amber-50 border-2 border-amber-200">
+                <div className="text-amber-600 text-sm font-medium">غير مدفوع</div>
+                <div className="text-3xl font-bold text-amber-700">{kpis.unpaidCount}</div>
+              </div>
+              <div className="card bg-orange-50 border-2 border-orange-200">
+                <div className="text-orange-600 text-sm font-medium">دفع جزئي</div>
+                <div className="text-3xl font-bold text-orange-700">{kpis.partialCount}</div>
+              </div>
+            </div>
+
+            {/* Filters */}
+            <div className="card" data-tour="purchases-filters">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-700 flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                  </svg>
+                  الفلاتر
+                </h3>
+                {hasActiveFilters && (
+                  <button onClick={clearFilters} className="text-sm text-red-600 hover:text-red-800 flex items-center gap-1">
+                    <XMarkIcon className="w-4 h-4" />
+                    مسح الفلاتر
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="رقم المرجع أو اسم المورد..."
+                  className="input"
+                />
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select">
+                  <option value="">كل الحالات</option>
+                  <option value="pending">معلق</option>
+                  <option value="received">مستلم</option>
+                  <option value="partial">جزئي</option>
+                </select>
+                <select value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value)} className="select">
+                  <option value="">حالة الدفع</option>
+                  <option value="unpaid">غير مدفوع</option>
+                  <option value="partial">جزئي</option>
+                  <option value="paid">مدفوع</option>
+                </select>
+                <select value={supplierFilter} onChange={(e) => setSupplierFilter(e.target.value)} className="select">
+                  <option value="">كل الموردين</option>
+                  {suppliers.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <select value={warehouseFilter} onChange={(e) => setWarehouseFilter(e.target.value)} className="select">
+                  <option value="">كل المستودعات</option>
+                  {warehouses.map(w => (
+                    <option key={w.id} value={w.id}>{w.name}</option>
+                  ))}
+                </select>
+                <DateInput value={dateFrom} onChange={(v) => setDateFrom(v)} placeholder="من تاريخ" />
+                <DateInput value={dateTo} onChange={(v) => setDateTo(v)} placeholder="إلى تاريخ" />
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="card" data-tour="purchases-table">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-700">قائمة الفواتير ({filteredPurchases.length})</h3>
+              </div>
+
+              {isLoading ? (
+                <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>
+              ) : (
+                <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr>
+                      <th>المرجع</th>
+                      <th>المورد</th>
+                      <th>المستودع</th>
+                      <th>التاريخ</th>
+                      <th>الإجمالي</th>
+                      <th>المدفوع</th>
+                      <th>المتبقي</th>
+                      <th>الحالة</th>
+                      <th>الدفع</th>
+                      <th>الإجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredPurchases.length === 0 ? (
+                      <tr><td colSpan={10} className="text-center py-8 text-gray-500">لا توجد فواتير شراء</td></tr>
+                    ) : (
+                      filteredPurchases.map((purchase) => {
+                        const statusBadge = getStatusBadge(purchase.status);
+                        const paymentBadge = getPaymentBadge(purchase.payment_status);
+                        return (
+                          <tr key={purchase.id}>
+                            <td className="font-medium">{purchase.reference}</td>
+                            <td>{purchase.supplier?.name || '-'}</td>
+                            <td>{purchase.warehouse?.name || '-'}</td>
+                            <td>{formatDate(purchase.date)}</td>
+                            <td>{formatCurrency(purchase.grand_total)}</td>
+                            <td className="text-green-600">{formatCurrency(purchase.paid_amount)}</td>
+                            <td className="text-red-600">{formatCurrency(purchase.due_amount)}</td>
+                            <td><span className={`badge ${statusBadge.class}`}>{statusBadge.text}</span></td>
+                            <td><span className={`badge ${paymentBadge.class}`}>{paymentBadge.text}</span></td>
+                            <td>
+                              <div className="flex gap-2">
+                                {purchase.status === 'pending' && (
+                                  <button onClick={() => handleConfirmPurchase(purchase.id)} className="text-green-600 hover:text-green-800" title="تأكيد الاستلام">
+                                    <CheckCircleIcon className="w-5 h-5" />
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => openEditTab(purchase.id, purchase.reference)}
+                                  className="text-amber-600 hover:text-amber-800"
+                                  title="تعديل"
+                                >
+                                  <PencilSquareIcon className="w-5 h-5" />
+                                </button>
+                                <Link href={`/dashboard/purchases/${purchase.id}`} className="text-gray-600 hover:text-gray-800" title="عرض">
+                                  <EyeIcon className="w-5 h-5" />
+                                </Link>
+                                <button onClick={() => handleDownloadFacture(purchase.id, purchase.reference)} className="text-blue-600 hover:text-blue-800" title="بون الشراء">
+                                  <DocumentTextIcon className="w-5 h-5" />
+                                </button>
+                                <button onClick={() => handleDownloadBonCommande(purchase.id, purchase.reference)} className="text-green-600 hover:text-green-800" title="بون الطلب">
+                                  <ClipboardDocumentListIcon className="w-5 h-5" />
+                                </button>
+                                {canDelete(purchase) && (
+                                  <button onClick={() => handleDelete(purchase.id)} className="text-red-600 hover:text-red-800" title="حذف">
+                                    <TrashIcon className="w-5 h-5" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+      case 'new':
+        return (
+          <PurchaseForm
+            key={tab.id}
+            onSuccess={() => handleFormSuccess(tab.id)}
+            onCancel={() => closeTab(tab.id)}
+          />
+        );
+
+      case 'edit':
+        return (
+          <PurchaseForm
+            key={tab.id}
+            purchaseId={tab.purchaseId}
+            onSuccess={() => handleFormSuccess(tab.id)}
+            onCancel={() => closeTab(tab.id)}
+          />
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  const getTabIcon = (type: Tab['type']) => {
+    switch (type) {
+      case 'list':
+        return <ListBulletIcon className="w-4 h-4" />;
+      case 'new':
+        return <DocumentPlusIcon className="w-4 h-4" />;
+      case 'edit':
+        return <PencilSquareIcon className="w-4 h-4" />;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Shortcuts hint */}
+      <div className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg mb-2 flex items-center justify-between text-sm">
+        <div className="flex items-center gap-6">
+          <span className="font-medium">اختصارات:</span>
+          <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Insert</kbd> فاتورة جديدة</span>
+          <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Ctrl+W</kbd> إغلاق التبويب</span>
+        </div>
+        <button
+          onClick={() => { localStorage.removeItem('purchases_tour_step'); setShowTour(true); }}
+          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded-lg transition-colors"
+        >
+          <QuestionMarkCircleIcon className="w-4 h-4" />
+          جولة تعريفية
+        </button>
+      </div>
+
+      {showTour && (
+        <GuidedTour
+          steps={purchasesTourSteps}
+          storageKey="purchases_tour_step"
+          onComplete={() => setShowTour(false)}
+        />
+      )}
+
+      {/* Tab Bar */}
+      <div className="flex items-center gap-1 border-b border-gray-200 bg-gray-50 px-2 pt-2 overflow-x-auto" data-tour="purchases-tabs">
+        {tabs.map((tab) => (
+          <div
+            key={tab.id}
+            onClick={() => setActiveTabId(tab.id)}
+            className={`
+              flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-t-lg border border-b-0 transition-colors cursor-pointer
+              ${activeTabId === tab.id
+                ? 'bg-white border-gray-200 text-blue-600'
+                : 'bg-gray-100 border-transparent text-gray-600 hover:bg-gray-200'
+              }
+            `}
+          >
+            {getTabIcon(tab.type)}
+            <span className="max-w-[150px] truncate">{tab.title}</span>
+            {tab.type !== 'list' && (
+              <button
+                onClick={(e) => closeTab(tab.id, e)}
+                className="p-0.5 rounded hover:bg-gray-300 text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        ))}
+
+        {/* Add New Tab Button */}
+        <button
+          onClick={openNewTab}
+          className="flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-colors"
+          title="فاتورة جديدة"
+        >
+          <PlusIcon className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      <div className="flex-1 bg-white p-4 overflow-auto">
+        {tabs.map((tab) => (
+          <div
+            key={tab.id}
+            className={activeTabId === tab.id ? 'block' : 'hidden'}
+          >
+            {renderTabContent(tab)}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

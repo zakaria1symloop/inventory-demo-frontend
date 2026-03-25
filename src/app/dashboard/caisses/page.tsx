@@ -1,19 +1,33 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { caissesApi, dispensesApi, usersApi } from '@/lib/api';
 import DateInput from '@/components/ui/DateInput';
 import { Caisse, CaisseTransaction, CaisseSettlement, CaisseSummary } from '@/lib/types';
 import toast from 'react-hot-toast';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
-
-const typeLabels: Record<string, string> = {
-  principale: 'رئيسية',
-  vendeur: 'بائع',
-  livreur: 'سائق',
-  cashvan: 'متنقل',
-};
+import GuidedTour, { TourStep } from '@/components/GuidedTour';
+import { useLocale } from '@/lib/i18n/context';
+import {
+  BanknotesIcon,
+  CurrencyDollarIcon,
+  ArrowTrendingUpIcon,
+  ArrowTrendingDownIcon,
+  CheckCircleIcon,
+  XMarkIcon,
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  PlusIcon,
+  ArrowsRightLeftIcon,
+  ArrowDownTrayIcon,
+  PencilSquareIcon,
+  MinusCircleIcon,
+  ArrowUpCircleIcon,
+  PlusCircleIcon,
+  FunnelIcon,
+  QuestionMarkCircleIcon,
+} from '@heroicons/react/24/outline';
 
 const typeBadgeColors: Record<string, string> = {
   principale: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
@@ -22,26 +36,80 @@ const typeBadgeColors: Record<string, string> = {
   cashvan: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
 };
 
-const sourceTypeLabels: Record<string, string> = {
-  van_sale: 'بيع متنقل',
-  sale: 'فاتورة بيع',
-  delivery: 'توصيل',
-  payment: 'دفعة',
-  purchase: 'فاتورة شراء',
-  dispense: 'مصروف',
-  settlement: 'تحصيل',
-  adjustment: 'تعديل',
-  transfer: 'تحويل',
-  sale_return: 'مرتجع بيع',
-  purchase_return: 'مرتجع شراء',
-  stock_transfer: 'تحويل مخزون',
-  'App\\Models\\Sale': 'فاتورة بيع',
-  'App\\Models\\Purchase': 'فاتورة شراء',
-  'App\\Models\\SaleReturn': 'مرتجع بيع',
-  'App\\Models\\PurchaseReturn': 'مرتجع شراء',
-};
-
 export default function CaissesPage() {
+  const { t, locale, dir } = useLocale();
+  const isRTL = dir === 'rtl';
+  const BackArrowIcon = isRTL ? ArrowRightIcon : ArrowLeftIcon;
+
+  // Translate backend Arabic descriptions to current locale
+  const translateDescription = useCallback((desc: string | undefined | null): string => {
+    if (!desc) return '-';
+    if (locale === 'ar') return desc;
+    // Replace Arabic patterns with translated equivalents (order matters - longest first)
+    const replacements: [string, string][] = [
+      ['دفعة لفاتورة شراء', t('caisses.descPaymentForPurchase')],
+      ['دفعة لفاتورة بيع', t('caisses.descPaymentForSale')],
+      ['دفعة لمرتجع شراء', t('caisses.descPaymentForPurchaseReturn')],
+      ['دفعة لمرتجع بيع', t('caisses.descPaymentForSaleReturn')],
+      ['دفع دين للعميل', t('caisses.descDebtPayment')],
+      ['دفع دين', t('caisses.descDebtPaymentShort')],
+      ['تحصيل كامل الرصيد', t('caisses.collectAllBalanceNotes')],
+      ['تحويل مخزون', t('caisses.descStockTransfer')],
+      ['تحويل من', t('caisses.descTransferFrom')],
+      ['تحويل إلى', t('caisses.descTransferTo')],
+      ['مرتجع شراء', t('caisses.descPurchaseReturn')],
+      ['مرتجع بيع', t('caisses.descSaleReturn')],
+      ['فاتورة شراء', t('caisses.descPurchaseInvoice')],
+      ['فاتورة بيع', t('caisses.descSaleInvoice')],
+      ['بيع متنقل', t('caisses.descVanSale')],
+      ['تعديل رصيد', t('caisses.descAdjustment')],
+      ['للعميل:', t('caisses.descForClient') + ':'],
+      ['العميل:', t('caisses.descClient') + ':'],
+      ['مصروف', t('caisses.descExpense')],
+      ['تحصيل', t('caisses.descSettlement')],
+      ['توصيل', t('caisses.descDelivery')],
+    ];
+    let result = desc;
+    for (const [ar, translated] of replacements) {
+      result = result.replaceAll(ar, translated);
+    }
+    return result;
+  }, [locale, t]);
+
+  const typeLabels: Record<string, string> = {
+    principale: t('caisses.principale'),
+    vendeur: t('caisses.vendeur'),
+    livreur: t('caisses.livreur'),
+    cashvan: t('caisses.cashvan'),
+  };
+
+  const sourceTypeLabels: Record<string, string> = {
+    van_sale: t('caisses.sourceVanSale'),
+    sale: t('caisses.sourceSale'),
+    delivery: t('caisses.sourceDelivery'),
+    payment: t('caisses.sourcePayment'),
+    purchase: t('caisses.sourcePurchase'),
+    dispense: t('caisses.sourceDispense'),
+    settlement: t('caisses.sourceSettlement'),
+    adjustment: t('caisses.sourceAdjustment'),
+    transfer: t('caisses.sourceTransfer'),
+    sale_return: t('caisses.sourceSaleReturn'),
+    purchase_return: t('caisses.sourcePurchaseReturn'),
+    stock_transfer: t('caisses.sourceStockTransfer'),
+    'App\\Models\\Sale': t('caisses.sourceSale'),
+    'App\\Models\\Purchase': t('caisses.sourcePurchase'),
+    'App\\Models\\SaleReturn': t('caisses.sourceSaleReturn'),
+    'App\\Models\\PurchaseReturn': t('caisses.sourcePurchaseReturn'),
+  };
+
+  const roleLabels: Record<string, string> = {
+    admin: t('caisses.roleAdmin'),
+    manager: t('caisses.roleManager'),
+    seller: t('caisses.roleSeller'),
+    livreur: t('caisses.roleLivreur'),
+    cashvan: t('caisses.roleCashvan'),
+  };
+
   const [summary, setSummary] = useState<CaisseSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCaisse, setSelectedCaisse] = useState<Caisse | null>(null);
@@ -109,6 +177,30 @@ export default function CaissesPage() {
   const [listSearch, setListSearch] = useState('');
   const [listTypeFilter, setListTypeFilter] = useState('');
 
+  // Guided tour
+  const [showTour, setShowTour] = useState(false);
+
+  const tourSteps: TourStep[] = useMemo(() => [
+    {
+      target: '[data-tour="caisses-header"]',
+      title: t('caisses.tourHeaderStep'),
+      desc: t('caisses.tourHeaderDesc'),
+      position: 'bottom' as const,
+    },
+    {
+      target: '[data-tour="caisses-summary"]',
+      title: t('caisses.tourSummary'),
+      desc: t('caisses.tourSummaryDesc'),
+      position: 'bottom' as const,
+    },
+    {
+      target: '[data-tour="caisses-grid"]',
+      title: t('caisses.tourGrid'),
+      desc: t('caisses.tourGridDesc'),
+      position: 'top' as const,
+    },
+  ], [t]);
+
   useEffect(() => {
     fetchSummary();
   }, []);
@@ -118,18 +210,10 @@ export default function CaissesPage() {
       const res = await caissesApi.getSummary();
       setSummary(res.data);
     } catch {
-      toast.error('خطأ في تحميل البيانات');
+      toast.error(t('caisses.loadError'));
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const roleLabels: Record<string, string> = {
-    admin: 'مدير',
-    manager: 'مسير',
-    seller: 'بائع',
-    livreur: 'سائق',
-    cashvan: 'متنقل',
   };
 
   const openCreateModal = async () => {
@@ -149,7 +233,7 @@ export default function CaissesPage() {
         }));
       setUsersWithoutCaisse(available);
     } catch {
-      toast.error('خطأ في تحميل المستخدمين');
+      toast.error(t('caisses.loadUsersError'));
     } finally {
       setIsLoadingUsers(false);
     }
@@ -158,18 +242,18 @@ export default function CaissesPage() {
   const handleCreateCaisse = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUserId) {
-      toast.error('يرجى اختيار مستخدم');
+      toast.error(t('caisses.selectUserError'));
       return;
     }
     setIsCreating(true);
     try {
       await caissesApi.create({ user_id: selectedUserId, name: newCaisseName || undefined });
-      toast.success('تم إنشاء الصندوق بنجاح');
+      toast.success(t('caisses.createSuccess'));
       setShowCreateModal(false);
       await fetchSummary();
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'خطأ في إنشاء الصندوق');
+      toast.error(err.response?.data?.message || t('caisses.createError'));
     } finally {
       setIsCreating(false);
     }
@@ -180,13 +264,13 @@ export default function CaissesPage() {
     setIsRenaming(true);
     try {
       await caissesApi.update(renameCaisse.id, { name: renameValue || null });
-      toast.success('تم تحديث الاسم بنجاح');
+      toast.success(t('caisses.renameSuccess'));
       setShowRenameModal(false);
       setRenameCaisse(null);
       await fetchSummary();
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'خطأ في تحديث الاسم');
+      toast.error(err.response?.data?.message || t('caisses.renameError'));
     } finally {
       setIsRenaming(false);
     }
@@ -213,7 +297,7 @@ export default function CaissesPage() {
         setFilteredTotals(txRes.data.totals);
       }
     } catch {
-      toast.error('خطأ في تحميل تفاصيل الصندوق');
+      toast.error(t('caisses.loadDetailError'));
     } finally {
       setIsLoadingDetail(false);
     }
@@ -237,7 +321,7 @@ export default function CaissesPage() {
         setFilteredTotals(res.data.totals);
       }
     } catch {
-      toast.error('خطأ في تحميل الحركات');
+      toast.error(t('caisses.loadTransactionsError'));
     }
   };
 
@@ -277,14 +361,14 @@ export default function CaissesPage() {
       await caissesApi.settle(selectedCaisse.id, {
         amount: Number(selectedCaisse.balance),
         type: 'admin_collect',
-        notes: 'تحصيل كامل الرصيد',
+        notes: t('caisses.collectAllBalanceNotes'),
       });
-      toast.success('تم تحصيل كامل الرصيد بنجاح');
+      toast.success(t('caisses.collectAllSuccess'));
       setShowCollectAllConfirm(false);
       await Promise.all([fetchSummary(), openCaisseDetail(selectedCaisse)]);
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'خطأ في التحصيل');
+      toast.error(err.response?.data?.message || t('caisses.collectError'));
     } finally {
       setIsCollectingAll(false);
     }
@@ -301,13 +385,13 @@ export default function CaissesPage() {
         type: 'add',
         notes: addMoneyForm.notes || undefined,
       });
-      toast.success('تم إضافة الرصيد بنجاح');
+      toast.success(t('caisses.addMoneySuccess'));
       setShowAddMoneyModal(false);
       setAddMoneyForm({ amount: 0, notes: '' });
       await Promise.all([fetchSummary(), openCaisseDetail(selectedCaisse)]);
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'خطأ في إضافة الرصيد');
+      toast.error(err.response?.data?.message || t('caisses.addMoneyError'));
     } finally {
       setIsAddingMoney(false);
     }
@@ -316,14 +400,14 @@ export default function CaissesPage() {
   const handleSettle = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCaisse || settleForm.amount <= 0) {
-      toast.error('يرجى إدخال مبلغ صحيح');
+      toast.error(t('caisses.invalidAmount'));
       return;
     }
 
     setIsSettling(true);
     try {
       await caissesApi.settle(selectedCaisse.id, settleForm);
-      toast.success('تمت عملية التحصيل بنجاح');
+      toast.success(t('caisses.collectSuccess'));
       setShowSettleModal(false);
       setSettleForm({ amount: 0, type: 'admin_collect', notes: '' });
       // Refresh data
@@ -333,7 +417,7 @@ export default function CaissesPage() {
       ]);
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'خطأ في عملية التحصيل');
+      toast.error(err.response?.data?.message || t('caisses.collectError'));
     } finally {
       setIsSettling(false);
     }
@@ -342,20 +426,23 @@ export default function CaissesPage() {
   const handleTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!transferForm.from_caisse_id || !transferForm.to_caisse_id || transferForm.amount <= 0) {
-      toast.error('يرجى ملء جميع الحقول المطلوبة');
+      toast.error(t('caisses.fillAllFields'));
       return;
     }
 
     setIsTransferring(true);
     try {
       await caissesApi.transfer(transferForm);
-      toast.success('تم التحويل بنجاح');
+      toast.success(t('caisses.transferSuccess'));
       setShowTransferModal(false);
       setTransferForm({ from_caisse_id: 0, to_caisse_id: 0, amount: 0, notes: '' });
-      await fetchSummary();
+      await Promise.all([
+        fetchSummary(),
+        selectedCaisse ? openCaisseDetail(selectedCaisse) : Promise.resolve(),
+      ]);
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'خطأ في عملية التحويل');
+      toast.error(err.response?.data?.message || t('caisses.transferError'));
     } finally {
       setIsTransferring(false);
     }
@@ -364,7 +451,7 @@ export default function CaissesPage() {
   const handleCreateExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCaisse || expenseForm.amount <= 0) {
-      toast.error('يرجى إدخال مبلغ صحيح');
+      toast.error(t('caisses.invalidAmount'));
       return;
     }
 
@@ -378,7 +465,7 @@ export default function CaissesPage() {
         notes: expenseForm.notes,
         caisse_id: selectedCaisse.id,
       });
-      toast.success('تم إضافة المصروف بنجاح');
+      toast.success(t('caisses.expenseSuccess'));
       setShowExpenseModal(false);
       setExpenseForm({ category: 'other', amount: 0, description: '', notes: '' });
       await Promise.all([
@@ -387,7 +474,7 @@ export default function CaissesPage() {
       ]);
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'خطأ في إضافة المصروف');
+      toast.error(err.response?.data?.message || t('caisses.expenseError'));
     } finally {
       setIsCreatingExpense(false);
     }
@@ -395,11 +482,11 @@ export default function CaissesPage() {
 
   const formatCurrency = (value: unknown) => {
     const num = Number(value) || 0;
-    return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 2 }).format(num);
+    return new Intl.NumberFormat(locale === 'ar' ? 'ar-DZ' : 'fr-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 2 }).format(num);
   };
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('ar-DZ', {
+    return new Date(date).toLocaleDateString(locale === 'ar' ? 'ar-DZ' : 'fr-DZ', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -418,11 +505,17 @@ export default function CaissesPage() {
   const exportCaissesExcel = async () => {
     if (!summary) return;
     const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('الصناديق');
-    ws.views = [{ rightToLeft: true }];
+    const ws = wb.addWorksheet(t('caisses.title'));
+    ws.views = [{ rightToLeft: isRTL }];
 
     // Header
-    const headerRow = ws.addRow(['الصندوق', 'المستخدم', 'النوع', 'الرصيد', 'الحالة']);
+    const headerRow = ws.addRow([
+      t('caisses.caisseLabel'),
+      t('caisses.selectUser'),
+      t('caisses.txType'),
+      t('caisses.balance'),
+      t('caisses.active'),
+    ]);
     headerRow.eachCell((cell) => {
       cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
@@ -436,7 +529,7 @@ export default function CaissesPage() {
         c.user?.name || '-',
         typeLabels[c.type] || c.type,
         Number(c.balance),
-        c.is_active ? 'نشط' : 'غير نشط',
+        c.is_active ? t('caisses.active') : t('caisses.inactiveStatus'),
       ]);
       row.getCell(4).numFmt = '#,##0.00';
       const bal = Number(c.balance);
@@ -445,7 +538,7 @@ export default function CaissesPage() {
     });
 
     // Summary row
-    const totalRow = ws.addRow(['', '', 'الإجمالي', filteredCaisses.reduce((s, c) => s + Number(c.balance), 0), '']);
+    const totalRow = ws.addRow(['', '', t('caisses.totalBalance'), filteredCaisses.reduce((s, c) => s + Number(c.balance), 0), '']);
     totalRow.eachCell((cell) => { cell.font = { bold: true, size: 12 }; });
     totalRow.getCell(4).numFmt = '#,##0.00';
 
@@ -453,8 +546,8 @@ export default function CaissesPage() {
     ws.columns.forEach((col) => { col.width = 20; });
 
     const buffer = await wb.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), `صناديق_${new Date().toISOString().split('T')[0]}.xlsx`);
-    toast.success('تم تصدير الملف');
+    saveAs(new Blob([buffer]), `${t('caisses.title')}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    toast.success(t('caisses.exportSuccess'));
   };
 
   if (isLoading) {
@@ -464,43 +557,43 @@ export default function CaissesPage() {
   // Detail view
   if (selectedCaisse) {
     return (
-      <div>
-        <button
-          onClick={() => setSelectedCaisse(null)}
-          className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline mb-4"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-          العودة للقائمة
-        </button>
-
-        {/* Caisse Info Header */}
-        <div className="card mb-4">
+      <>
+      <div className="space-y-5">
+        {/* Detail Header Card */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-2xl font-bold dark:text-white mb-1">
-                {selectedCaisse.name || `صندوق ${selectedCaisse.user?.name}`}
-              </h1>
-              <div className="flex items-center gap-2">
-                <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${typeBadgeColors[selectedCaisse.type]}`}>
-                  {typeLabels[selectedCaisse.type]}
-                </span>
-                {selectedCaisse.user?.name && (
-                  <span className="text-sm text-gray-500 dark:text-gray-400">{selectedCaisse.user.name}</span>
-                )}
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setSelectedCaisse(null)}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+              >
+                <BackArrowIcon className="w-4 h-4" />
+                {t('caisses.back')}
+              </button>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+                  {selectedCaisse.name || `${t('caisses.caisseLabel')} ${selectedCaisse.user?.name}`}
+                </h1>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${typeBadgeColors[selectedCaisse.type]}`}>
+                    {typeLabels[selectedCaisse.type]}
+                  </span>
+                  {selectedCaisse.user?.name && (
+                    <span className="text-sm text-gray-500 dark:text-gray-400">{selectedCaisse.user.name}</span>
+                  )}
+                </div>
               </div>
             </div>
-            <div className="text-left">
-              <p className="text-sm text-gray-500 dark:text-gray-400">الرصيد الحالي</p>
-              <p className={`text-3xl font-bold ${Number(selectedCaisse.balance) > 0 ? 'text-green-600 dark:text-green-400' : Number(selectedCaisse.balance) < 0 ? 'text-red-600' : 'text-gray-600 dark:text-gray-300'}`}>
+            <div className={isRTL ? 'text-left' : 'text-right'}>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('caisses.currentBalance')}</p>
+              <p className={`text-3xl font-bold ${Number(selectedCaisse.balance) > 0 ? 'text-green-600 dark:text-green-400' : Number(selectedCaisse.balance) < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-300'}`}>
                 {formatCurrency(selectedCaisse.balance)}
               </p>
             </div>
           </div>
 
           {/* Admin Actions */}
-          <div className="flex flex-wrap gap-2 pt-3 border-t dark:border-gray-700">
+          <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-200/80 dark:border-gray-700">
             {/* Collect partial */}
             <button
               onClick={() => {
@@ -508,43 +601,35 @@ export default function CaissesPage() {
                 setShowSettleModal(true);
               }}
               disabled={Number(selectedCaisse.balance) <= 0}
-              className="btn btn-primary btn-sm"
+              className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              تحصيل مبلغ
+              <CurrencyDollarIcon className="w-4 h-4" />
+              {t('caisses.collectPartial')}
             </button>
             {/* Collect all */}
             <button
               onClick={() => setShowCollectAllConfirm(true)}
               disabled={Number(selectedCaisse.balance) <= 0}
-              className="btn bg-green-600 text-white hover:bg-green-700 btn-sm"
+              className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-xl bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              تحصيل كامل الرصيد
+              <CheckCircleIcon className="w-4 h-4" />
+              {t('caisses.collectAll')}
             </button>
             {/* Add money */}
             <button
               onClick={() => { setAddMoneyForm({ amount: 0, notes: '' }); setShowAddMoneyModal(true); }}
-              className="btn bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/40 btn-sm"
+              className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800 transition-all active:scale-[0.98]"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              إضافة رصيد
+              <PlusCircleIcon className="w-4 h-4" />
+              {t('caisses.addMoney')}
             </button>
             {/* Expense */}
             <button
               onClick={() => { setExpenseForm({ category: 'other', amount: 0, description: '', notes: '' }); setShowExpenseModal(true); }}
-              className="btn bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 btn-sm"
+              className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-xl bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-800 transition-all active:scale-[0.98]"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              مصروف
+              <MinusCircleIcon className="w-4 h-4" />
+              {t('caisses.expense')}
             </button>
             {/* Transfer to another caisse */}
             <button
@@ -553,28 +638,27 @@ export default function CaissesPage() {
                 setShowTransferModal(true);
               }}
               disabled={Number(selectedCaisse.balance) <= 0}
-              className="btn bg-purple-50 text-purple-600 hover:bg-purple-100 dark:bg-purple-900/20 dark:text-purple-400 dark:hover:bg-purple-900/40 btn-sm"
+              className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-xl bg-purple-50 text-purple-600 hover:bg-purple-100 dark:bg-purple-900/20 dark:text-purple-400 dark:hover:bg-purple-900/40 border border-purple-200 dark:border-purple-800 disabled:opacity-50 transition-all active:scale-[0.98]"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-              </svg>
-              تحويل لصندوق آخر
+              <ArrowsRightLeftIcon className="w-4 h-4" />
+              {t('caisses.transferToOther')}
             </button>
           </div>
         </div>
 
         {/* Filters + Quick dates */}
-        <div className="card mb-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm p-5">
           <div className="flex flex-wrap items-center gap-2 mb-3">
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">فترة سريعة:</span>
-            <button onClick={() => setQuickDate('today')} className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${dateFrom === new Date().toISOString().split('T')[0] && dateTo === new Date().toISOString().split('T')[0] ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-blue-100 dark:hover:bg-blue-900/30'}`}>
-              اليوم
+            <FunnelIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('caisses.quickPeriod')}</span>
+            <button onClick={() => setQuickDate('today')} className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${dateFrom === new Date().toISOString().split('T')[0] && dateTo === new Date().toISOString().split('T')[0] ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-gray-200 dark:border-gray-700'}`}>
+              {t('caisses.today')}
             </button>
-            <button onClick={() => setQuickDate('week')} className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
-              هذا الأسبوع
+            <button onClick={() => setQuickDate('week')} className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-gray-200 dark:border-gray-700 transition-colors">
+              {t('caisses.thisWeek')}
             </button>
-            <button onClick={() => setQuickDate('month')} className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
-              هذا الشهر
+            <button onClick={() => setQuickDate('month')} className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-gray-200 dark:border-gray-700 transition-colors">
+              {t('caisses.thisMonth')}
             </button>
             {hasActiveFilters && (
               <button
@@ -585,9 +669,9 @@ export default function CaissesPage() {
                   setDateTo('');
                   reloadTransactions({ filter: '', source: '', from: '', to: '' });
                 }}
-                className="px-3 py-1 rounded-full text-xs font-medium bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 transition-colors"
+                className="px-3 py-1 rounded-full text-xs font-medium bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 border border-red-200 dark:border-red-800 transition-colors"
               >
-                مسح الفلاتر
+                {t('caisses.clearActiveFilters')}
               </button>
             )}
           </div>
@@ -600,9 +684,9 @@ export default function CaissesPage() {
               }}
               className="select text-sm"
             >
-              <option value="">كل الحركات</option>
-              <option value="in">وارد</option>
-              <option value="out">صادر</option>
+              <option value="">{t('caisses.allTransactions')}</option>
+              <option value="in">{t('caisses.incoming')}</option>
+              <option value="out">{t('caisses.outgoing')}</option>
             </select>
             <select
               value={sourceFilter}
@@ -612,15 +696,15 @@ export default function CaissesPage() {
               }}
               className="select text-sm"
             >
-              <option value="">كل المصادر</option>
-              <option value="van_sale">بيع متنقل</option>
-              <option value="delivery">توصيل</option>
-              <option value="payment">دفعة</option>
-              <option value="dispense">مصروف</option>
-              <option value="settlement">تحصيل</option>
-              <option value="transfer">تحويل</option>
-              <option value="sale">فاتورة بيع</option>
-              <option value="purchase">فاتورة شراء</option>
+              <option value="">{t('caisses.allSources')}</option>
+              <option value="van_sale">{t('caisses.vanSale')}</option>
+              <option value="delivery">{t('caisses.delivery')}</option>
+              <option value="payment">{t('caisses.payment')}</option>
+              <option value="dispense">{t('caisses.dispenseSource')}</option>
+              <option value="settlement">{t('caisses.settlement')}</option>
+              <option value="transfer">{t('caisses.transferSource')}</option>
+              <option value="sale">{t('caisses.saleInvoice')}</option>
+              <option value="purchase">{t('caisses.purchaseInvoice')}</option>
             </select>
             <DateInput
               value={dateFrom}
@@ -628,7 +712,7 @@ export default function CaissesPage() {
                 setDateFrom(v);
                 reloadTransactions({ from: v });
               }}
-              placeholder="من تاريخ"
+              placeholder={t('caisses.fromDate')}
               className="text-sm"
             />
             <DateInput
@@ -637,7 +721,7 @@ export default function CaissesPage() {
                 setDateTo(v);
                 reloadTransactions({ to: v });
               }}
-              placeholder="إلى تاريخ"
+              placeholder={t('caisses.toDate')}
               className="text-sm"
             />
           </div>
@@ -645,30 +729,48 @@ export default function CaissesPage() {
 
         {/* Summary Cards - always visible */}
         {filteredTotals && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <div className="card bg-green-50 dark:bg-green-900/20 py-3">
-              <p className="text-xs text-green-600 dark:text-green-400">إجمالي الوارد</p>
-              <p className="text-xl font-bold text-green-700 dark:text-green-300">
-                {formatCurrency(filteredTotals.total_in)}
-              </p>
-            </div>
-            <div className="card bg-red-50 dark:bg-red-900/20 py-3">
-              <p className="text-xs text-red-600 dark:text-red-400">إجمالي الصادر</p>
-              <p className="text-xl font-bold text-red-700 dark:text-red-300">
-                {formatCurrency(filteredTotals.total_out)}
-              </p>
-            </div>
-            <div className="card bg-gray-50 dark:bg-gray-800 py-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400">الصافي{hasActiveFilters ? ' (مفلتر)' : ''}</p>
-              <p className={`text-xl font-bold ${Number(filteredTotals.net) >= 0 ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
-                {formatCurrency(filteredTotals.net)}
-              </p>
-            </div>
-            <div className="card bg-blue-50 dark:bg-blue-900/20 py-3 border-2 border-blue-200 dark:border-blue-800">
-              <p className="text-xs text-blue-600 dark:text-blue-400">الرصيد الحالي (للتحصيل)</p>
-              <p className={`text-xl font-bold ${Number(selectedCaisse.balance) > 0 ? 'text-blue-700 dark:text-blue-300' : Number(selectedCaisse.balance) < 0 ? 'text-red-700 dark:text-red-300' : 'text-gray-500'}`}>
-                {formatCurrency(selectedCaisse.balance)}
-              </p>
+          <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
+            <div className={`grid grid-cols-2 md:grid-cols-4 sm:divide-x ${isRTL ? 'sm:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
+              <div className="group relative p-5 hover:bg-green-50/40 dark:hover:bg-green-900/10 transition-colors duration-200">
+                <div className="absolute top-0 inset-x-0 h-[3px] bg-green-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+                <div className="text-center">
+                  <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 mb-2.5">
+                    <ArrowTrendingUpIcon className="w-4 h-4" />
+                  </div>
+                  <div className="text-lg font-black text-green-600 dark:text-green-400 tabular-nums leading-none">{formatCurrency(filteredTotals.total_in)}</div>
+                  <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('caisses.totalIn')}</div>
+                </div>
+              </div>
+              <div className="group relative p-5 hover:bg-red-50/40 dark:hover:bg-red-900/10 transition-colors duration-200">
+                <div className="absolute top-0 inset-x-0 h-[3px] bg-red-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+                <div className="text-center">
+                  <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 mb-2.5">
+                    <ArrowTrendingDownIcon className="w-4 h-4" />
+                  </div>
+                  <div className="text-lg font-black text-red-600 dark:text-red-400 tabular-nums leading-none">{formatCurrency(filteredTotals.total_out)}</div>
+                  <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('caisses.totalOut')}</div>
+                </div>
+              </div>
+              <div className="group relative p-5 hover:bg-gray-50/40 dark:hover:bg-gray-700/20 transition-colors duration-200">
+                <div className="absolute top-0 inset-x-0 h-[3px] bg-gray-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+                <div className="text-center">
+                  <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 mb-2.5">
+                    <BanknotesIcon className="w-4 h-4" />
+                  </div>
+                  <div className={`text-lg font-black tabular-nums leading-none ${Number(filteredTotals.net) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatCurrency(filteredTotals.net)}</div>
+                  <div className="text-[11px] font-semibold text-gray-400 mt-2">{hasActiveFilters ? t('caisses.netFiltered') : t('caisses.net')}</div>
+                </div>
+              </div>
+              <div className="group relative p-5 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors duration-200">
+                <div className="absolute top-0 inset-x-0 h-[3px] bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+                <div className="text-center">
+                  <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mb-2.5">
+                    <CurrencyDollarIcon className="w-4 h-4" />
+                  </div>
+                  <div className={`text-lg font-black tabular-nums leading-none ${Number(selectedCaisse.balance) > 0 ? 'text-blue-600 dark:text-blue-400' : Number(selectedCaisse.balance) < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>{formatCurrency(selectedCaisse.balance)}</div>
+                  <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('caisses.currentBalanceForCollection')}</div>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -678,43 +780,43 @@ export default function CaissesPage() {
         ) : (
           <>
             {/* Transactions Table */}
-            <div className="card mb-6">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
-                <table>
+                <table className="w-full">
                   <thead>
-                    <tr>
-                      <th>التاريخ</th>
-                      <th>النوع</th>
-                      <th>المصدر</th>
-                      <th>الوصف</th>
-                      <th>بواسطة</th>
-                      <th>المبلغ</th>
-                      <th>الرصيد بعد</th>
+                    <tr className="bg-gray-50/80 dark:bg-gray-800/60">
+                      <th className="px-4 py-3 text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('caisses.txDate')}</th>
+                      <th className="px-4 py-3 text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('caisses.txType')}</th>
+                      <th className="px-4 py-3 text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('caisses.txSource')}</th>
+                      <th className="px-4 py-3 text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('caisses.txDescription')}</th>
+                      <th className="px-4 py-3 text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('caisses.txBy')}</th>
+                      <th className="px-4 py-3 text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('caisses.txAmount')}</th>
+                      <th className="px-4 py-3 text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('caisses.txBalanceAfter')}</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                     {transactions.length === 0 ? (
-                      <tr><td colSpan={7} className="text-center py-8 text-gray-500">لا توجد حركات</td></tr>
+                      <tr><td colSpan={7} className="text-center py-8 text-gray-500 dark:text-gray-400">{t('caisses.noTransactions')}</td></tr>
                     ) : (
                       transactions.map((tx) => (
-                        <tr key={tx.id}>
-                          <td className="text-sm">{formatDate(tx.created_at)}</td>
-                          <td>
-                            <span className={`badge ${tx.type === 'in' ? 'badge-success' : 'badge-danger'}`}>
-                              {tx.type === 'in' ? 'وارد' : 'صادر'}
+                        <tr key={tx.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors">
+                          <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{formatDate(tx.created_at)}</td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-medium ${tx.type === 'in' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                              {tx.type === 'in' ? t('caisses.incoming') : t('caisses.outgoing')}
                             </span>
                           </td>
-                          <td>
-                            <span className="badge badge-secondary">
+                          <td className="px-4 py-3">
+                            <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
                               {sourceTypeLabels[tx.source_type || ''] || tx.source_type || '-'}
                             </span>
                           </td>
-                          <td className="text-sm">{tx.description || '-'}</td>
-                          <td className="text-sm text-gray-600 dark:text-gray-400">{tx.creator?.name || '-'}</td>
-                          <td className={`font-medium ${tx.type === 'in' ? 'text-green-600' : 'text-red-600'}`}>
+                          <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{translateDescription(tx.description)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{tx.creator?.name || '-'}</td>
+                          <td className={`px-4 py-3 font-medium ${tx.type === 'in' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                             {tx.type === 'in' ? '+' : '-'}{formatCurrency(tx.amount)}
                           </td>
-                          <td className="font-medium">{formatCurrency(tx.balance_after)}</td>
+                          <td className="px-4 py-3 font-medium text-gray-700 dark:text-gray-300">{formatCurrency(tx.balance_after)}</td>
                         </tr>
                       ))
                     )}
@@ -724,23 +826,23 @@ export default function CaissesPage() {
 
               {/* Pagination */}
               {transactionTotal > 1 && (
-                <div className="flex items-center justify-center gap-2 mt-4">
+                <div className="flex items-center justify-center gap-2 px-4 py-3 border-t border-gray-100 dark:border-gray-800">
                   <button
                     onClick={() => reloadTransactions({ page: transactionPage - 1 })}
                     disabled={transactionPage <= 1}
-                    className="btn btn-secondary btn-sm"
+                    className="px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
                   >
-                    السابق
+                    {t('caisses.previous')}
                   </button>
-                  <span className="text-sm dark:text-gray-300">
-                    صفحة {transactionPage} من {transactionTotal}
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {t('caisses.page')} {transactionPage} {t('caisses.of')} {transactionTotal}
                   </span>
                   <button
                     onClick={() => reloadTransactions({ page: transactionPage + 1 })}
                     disabled={transactionPage >= transactionTotal}
-                    className="btn btn-secondary btn-sm"
+                    className="px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
                   >
-                    التالي
+                    {t('caisses.next')}
                   </button>
                 </div>
               )}
@@ -748,35 +850,37 @@ export default function CaissesPage() {
 
             {/* Settlement History */}
             {settlements.length > 0 && (
-              <div className="card">
-                <h2 className="text-lg font-semibold dark:text-white mb-4">سجل التحصيلات</h2>
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+                  <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{t('caisses.settlementHistory')}</h2>
+                </div>
                 <div className="overflow-x-auto">
-                  <table>
+                  <table className="w-full">
                     <thead>
-                      <tr>
-                        <th>التاريخ</th>
-                        <th>النوع</th>
-                        <th>المبلغ</th>
-                        <th>الرصيد قبل</th>
-                        <th>الرصيد بعد</th>
-                        <th>بواسطة</th>
-                        <th>ملاحظات</th>
+                      <tr className="bg-gray-50/80 dark:bg-gray-800/60">
+                        <th className="px-4 py-3 text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('caisses.stlDate')}</th>
+                        <th className="px-4 py-3 text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('caisses.stlType')}</th>
+                        <th className="px-4 py-3 text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('caisses.stlAmount')}</th>
+                        <th className="px-4 py-3 text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('caisses.stlBalanceBefore')}</th>
+                        <th className="px-4 py-3 text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('caisses.stlBalanceAfter')}</th>
+                        <th className="px-4 py-3 text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('caisses.stlBy')}</th>
+                        <th className="px-4 py-3 text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('caisses.stlNotes')}</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                       {settlements.map((s) => (
-                        <tr key={s.id}>
-                          <td className="text-sm">{formatDate(s.created_at)}</td>
-                          <td>
-                            <span className="badge badge-primary">
-                              {s.type === 'admin_collect' ? 'تحصيل إداري' : 'إيداع بائع'}
+                        <tr key={s.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors">
+                          <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{formatDate(s.created_at)}</td>
+                          <td className="px-4 py-3">
+                            <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                              {s.type === 'admin_collect' ? t('caisses.adminCollect') : t('caisses.sellerDeposit')}
                             </span>
                           </td>
-                          <td className="font-medium text-red-600">{formatCurrency(s.amount)}</td>
-                          <td>{formatCurrency(s.balance_before)}</td>
-                          <td>{formatCurrency(s.balance_after)}</td>
-                          <td>{s.settler?.name || '-'}</td>
-                          <td className="text-sm">{s.notes || '-'}</td>
+                          <td className="px-4 py-3 font-medium text-red-600 dark:text-red-400">{formatCurrency(s.amount)}</td>
+                          <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{formatCurrency(s.balance_before)}</td>
+                          <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{formatCurrency(s.balance_after)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{s.settler?.name || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{translateDescription(s.notes)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -789,173 +893,205 @@ export default function CaissesPage() {
 
         {/* Expense Modal */}
         {showExpenseModal && selectedCaisse && (
-          <div className="modal-overlay" onClick={() => setShowExpenseModal(false)}>
-            <div className="modal-content p-6" onClick={(e) => e.stopPropagation()}>
-              <h2 className="text-lg font-semibold mb-4 dark:text-white">
-                مصروف من صندوق {selectedCaisse.user?.name}
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                الرصيد الحالي: <span className="font-bold text-green-600">{formatCurrency(selectedCaisse.balance)}</span>
-              </p>
-              <form onSubmit={handleCreateExpense} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">التصنيف *</label>
-                  <select
-                    value={expenseForm.category}
-                    onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })}
-                    className="select"
-                    required
-                  >
-                    <option value="salary">رواتب</option>
-                    <option value="transport">نقل</option>
-                    <option value="maintenance">صيانة</option>
-                    <option value="supplies">لوازم</option>
-                    <option value="other">أخرى</option>
-                  </select>
+          <div className="fixed inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowExpenseModal(false)}>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md mx-4 shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              {/* Modal Header */}
+              <div className="bg-gradient-to-l from-blue-600 to-indigo-600 px-6 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                    <MinusCircleIcon className="w-5 h-5 text-white" />
+                  </div>
+                  <h2 className="text-lg font-bold text-white">
+                    {t('caisses.expenseFromCaisse')} {selectedCaisse.user?.name}
+                  </h2>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">المبلغ *</label>
-                  <input
-                    type="number"
-                    value={expenseForm.amount || ''}
-                    onChange={(e) => setExpenseForm({ ...expenseForm, amount: parseFloat(e.target.value) || 0 })}
-                    className="input"
-                    min="0.01"
-                    step="0.01"
-                    placeholder="0.00"
-                    required
-                    autoFocus
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">الوصف *</label>
-                  <input
-                    type="text"
-                    value={expenseForm.description}
-                    onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })}
-                    className="input"
-                    placeholder="وصف المصروف..."
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">ملاحظات</label>
-                  <textarea
-                    value={expenseForm.notes}
-                    onChange={(e) => setExpenseForm({ ...expenseForm, notes: e.target.value })}
-                    className="input"
-                    rows={2}
-                    placeholder="ملاحظات اختيارية..."
-                  />
-                </div>
-                <div className="flex gap-3 pt-4">
-                  <button type="submit" disabled={isCreatingExpense} className="btn bg-red-600 text-white hover:bg-red-700 flex-1">
-                    {isCreatingExpense ? 'جاري الإضافة...' : 'تأكيد المصروف'}
-                  </button>
-                  <button type="button" onClick={() => setShowExpenseModal(false)} className="btn btn-secondary">
-                    إلغاء
-                  </button>
-                </div>
-              </form>
+                <button onClick={() => setShowExpenseModal(false)} className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors">
+                  <XMarkIcon className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  {t('caisses.currentBalanceLabel')} <span className="font-bold text-green-600 dark:text-green-400">{formatCurrency(selectedCaisse.balance)}</span>
+                </p>
+                <form onSubmit={handleCreateExpense} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('caisses.expenseCategory')} *</label>
+                    <select
+                      value={expenseForm.category}
+                      onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })}
+                      className="select"
+                      required
+                    >
+                      <option value="salary">{t('caisses.categorySalary')}</option>
+                      <option value="transport">{t('caisses.categoryTransport')}</option>
+                      <option value="maintenance">{t('caisses.categoryMaintenance')}</option>
+                      <option value="supplies">{t('caisses.categorySupplies')}</option>
+                      <option value="other">{t('caisses.categoryOther')}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('caisses.expenseAmount')} *</label>
+                    <input
+                      type="number"
+                      value={expenseForm.amount || ''}
+                      onChange={(e) => setExpenseForm({ ...expenseForm, amount: parseFloat(e.target.value) || 0 })}
+                      className="input"
+                      min="0.01"
+                      step="0.01"
+                      placeholder="0.00"
+                      required
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('caisses.expenseDescriptionRequired')} *</label>
+                    <input
+                      type="text"
+                      value={expenseForm.description}
+                      onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })}
+                      className="input"
+                      placeholder={t('caisses.expenseDescPlaceholder')}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('caisses.expenseNotes')}</label>
+                    <textarea
+                      value={expenseForm.notes}
+                      onChange={(e) => setExpenseForm({ ...expenseForm, notes: e.target.value })}
+                      className="input"
+                      rows={2}
+                      placeholder={t('caisses.notesPlaceholder')}
+                    />
+                  </div>
+                  <div className="flex gap-3 pt-4">
+                    <button type="submit" disabled={isCreatingExpense} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors disabled:opacity-50">
+                      {isCreatingExpense ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : t('caisses.confirmExpense')}
+                    </button>
+                    <button type="button" onClick={() => setShowExpenseModal(false)} className="px-4 py-2.5 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                      {t('caisses.cancel')}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
         )}
 
         {/* Settlement Modal */}
         {showSettleModal && (
-          <div className="modal-overlay" onClick={() => setShowSettleModal(false)}>
-            <div className="modal-content p-6" onClick={(e) => e.stopPropagation()}>
-              <h2 className="text-lg font-semibold mb-4 dark:text-white">
-                تحصيل من صندوق {selectedCaisse.user?.name}
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                الرصيد الحالي: <span className="font-bold text-green-600">{formatCurrency(selectedCaisse.balance)}</span>
-              </p>
-              <form onSubmit={handleSettle} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">المبلغ *</label>
-                  <input
-                    type="number"
-                    value={settleForm.amount}
-                    onChange={(e) => setSettleForm({ ...settleForm, amount: parseFloat(e.target.value) || 0 })}
-                    className="input"
-                    min="0.01"
-                    max={selectedCaisse.balance}
-                    step="0.01"
-                    required
-                  />
+          <div className="fixed inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowSettleModal(false)}>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md mx-4 shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              {/* Modal Header */}
+              <div className="bg-gradient-to-l from-blue-600 to-indigo-600 px-6 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                    <CurrencyDollarIcon className="w-5 h-5 text-white" />
+                  </div>
+                  <h2 className="text-lg font-bold text-white">
+                    {t('caisses.collectFromCaisse')} {selectedCaisse.user?.name}
+                  </h2>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">نوع العملية *</label>
-                  <select
-                    value={settleForm.type}
-                    onChange={(e) => setSettleForm({ ...settleForm, type: e.target.value })}
-                    className="select"
-                    required
-                  >
-                    <option value="admin_collect">تحصيل إداري</option>
-                    <option value="seller_deposit">إيداع بائع</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">ملاحظات</label>
-                  <textarea
-                    value={settleForm.notes}
-                    onChange={(e) => setSettleForm({ ...settleForm, notes: e.target.value })}
-                    className="input"
-                    rows={2}
-                    placeholder="ملاحظات اختيارية..."
-                  />
-                </div>
-                <div className="flex gap-3 pt-4">
-                  <button type="submit" disabled={isSettling} className="btn btn-primary flex-1">
-                    {isSettling ? 'جاري التحصيل...' : 'تأكيد التحصيل'}
-                  </button>
-                  <button type="button" onClick={() => setShowSettleModal(false)} className="btn btn-secondary">
-                    إلغاء
-                  </button>
-                </div>
-              </form>
+                <button onClick={() => setShowSettleModal(false)} className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors">
+                  <XMarkIcon className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  {t('caisses.currentBalanceLabel')} <span className="font-bold text-green-600 dark:text-green-400">{formatCurrency(selectedCaisse.balance)}</span>
+                </p>
+                <form onSubmit={handleSettle} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('caisses.amountLabel')} *</label>
+                    <input
+                      type="number"
+                      value={settleForm.amount}
+                      onChange={(e) => setSettleForm({ ...settleForm, amount: parseFloat(e.target.value) || 0 })}
+                      className="input"
+                      min="0.01"
+                      max={selectedCaisse.balance}
+                      step="0.01"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('caisses.operationType')} *</label>
+                    <select
+                      value={settleForm.type}
+                      onChange={(e) => setSettleForm({ ...settleForm, type: e.target.value })}
+                      className="select"
+                      required
+                    >
+                      <option value="admin_collect">{t('caisses.adminCollect')}</option>
+                      <option value="seller_deposit">{t('caisses.sellerDeposit')}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('caisses.notesLabel')}</label>
+                    <textarea
+                      value={settleForm.notes}
+                      onChange={(e) => setSettleForm({ ...settleForm, notes: e.target.value })}
+                      className="input"
+                      rows={2}
+                      placeholder={t('caisses.notesPlaceholder')}
+                    />
+                  </div>
+                  <div className="flex gap-3 pt-4">
+                    <button type="submit" disabled={isSettling} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors disabled:opacity-50">
+                      {isSettling ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : t('caisses.confirmCollect')}
+                    </button>
+                    <button type="button" onClick={() => setShowSettleModal(false)} className="px-4 py-2.5 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                      {t('caisses.cancel')}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
         )}
 
         {/* Collect All Confirmation */}
         {showCollectAllConfirm && (
-          <div className="modal-overlay" onClick={() => setShowCollectAllConfirm(false)}>
-            <div className="modal-content p-6" onClick={(e) => e.stopPropagation()}>
-              <div className="text-center mb-4">
-                <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+          <div className="fixed inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowCollectAllConfirm(false)}>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md mx-4 shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              {/* Modal Header */}
+              <div className="bg-gradient-to-l from-green-600 to-emerald-600 px-6 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                    <CheckCircleIcon className="w-5 h-5 text-white" />
+                  </div>
+                  <h2 className="text-lg font-bold text-white">{t('caisses.collectAllTitle')}</h2>
                 </div>
-                <h2 className="text-lg font-semibold dark:text-white">تحصيل كامل الرصيد</h2>
-              </div>
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">الصندوق</span>
-                  <span className="font-medium dark:text-white">{selectedCaisse.name || selectedCaisse.user?.name}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">المبلغ للتحصيل</span>
-                  <span className="font-bold text-green-600 text-lg">{formatCurrency(selectedCaisse.balance)}</span>
-                </div>
-              </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-4">
-                سيتم خصم كامل الرصيد من هذا الصندوق. هل أنت متأكد؟
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={handleCollectAll}
-                  disabled={isCollectingAll}
-                  className="btn bg-green-600 text-white hover:bg-green-700 flex-1"
-                >
-                  {isCollectingAll ? 'جاري التحصيل...' : 'تأكيد التحصيل'}
+                <button onClick={() => setShowCollectAllConfirm(false)} className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors">
+                  <XMarkIcon className="w-5 h-5" />
                 </button>
-                <button onClick={() => setShowCollectAllConfirm(false)} className="btn btn-secondary">
-                  إلغاء
-                </button>
+              </div>
+              <div className="p-6">
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 mb-4 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">{t('caisses.caisseLabel')}</span>
+                    <span className="font-medium text-gray-800 dark:text-gray-100">{selectedCaisse.name || selectedCaisse.user?.name}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">{t('caisses.amountToCollect')}</span>
+                    <span className="font-bold text-green-600 dark:text-green-400 text-lg">{formatCurrency(selectedCaisse.balance)}</span>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-4">
+                  {t('caisses.collectAllConfirm')}
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleCollectAll}
+                    disabled={isCollectingAll}
+                    className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded-xl transition-colors disabled:opacity-50"
+                  >
+                    {isCollectingAll ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : t('caisses.confirmCollect')}
+                  </button>
+                  <button onClick={() => setShowCollectAllConfirm(false)} className="px-4 py-2.5 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                    {t('caisses.cancel')}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -963,195 +1099,299 @@ export default function CaissesPage() {
 
         {/* Add Money Modal */}
         {showAddMoneyModal && (
-          <div className="modal-overlay" onClick={() => setShowAddMoneyModal(false)}>
-            <div className="modal-content p-6" onClick={(e) => e.stopPropagation()}>
-              <h2 className="text-lg font-semibold mb-2 dark:text-white">
-                إضافة رصيد لصندوق {selectedCaisse.user?.name}
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                سيتم التحويل من الصندوق الرئيسي إلى هذا الصندوق
-              </p>
-              <form onSubmit={handleAddMoney} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">المبلغ *</label>
-                  <input
-                    type="number"
-                    value={addMoneyForm.amount || ''}
-                    onChange={(e) => setAddMoneyForm({ ...addMoneyForm, amount: parseFloat(e.target.value) || 0 })}
-                    className="input"
-                    min="0.01"
-                    step="0.01"
-                    placeholder="0.00"
-                    required
-                    autoFocus
-                  />
+          <div className="fixed inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowAddMoneyModal(false)}>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md mx-4 shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              {/* Modal Header */}
+              <div className="bg-gradient-to-l from-blue-600 to-indigo-600 px-6 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                    <PlusCircleIcon className="w-5 h-5 text-white" />
+                  </div>
+                  <h2 className="text-lg font-bold text-white">
+                    {t('caisses.addMoneyTitle')} {selectedCaisse.user?.name}
+                  </h2>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">ملاحظات</label>
-                  <textarea
-                    value={addMoneyForm.notes}
-                    onChange={(e) => setAddMoneyForm({ ...addMoneyForm, notes: e.target.value })}
-                    className="input"
-                    rows={2}
-                    placeholder="مثال: رصيد بداية اليوم..."
-                  />
-                </div>
-                <div className="flex gap-3 pt-4">
-                  <button type="submit" disabled={isAddingMoney} className="btn bg-emerald-600 text-white hover:bg-emerald-700 flex-1">
-                    {isAddingMoney ? 'جاري الإضافة...' : 'تأكيد الإضافة'}
-                  </button>
-                  <button type="button" onClick={() => setShowAddMoneyModal(false)} className="btn btn-secondary">
-                    إلغاء
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Transfer Modal */}
-        {showTransferModal && summary && (
-          <div className="modal-overlay" onClick={() => setShowTransferModal(false)}>
-            <div className="modal-content p-6" onClick={(e) => e.stopPropagation()}>
-              <h2 className="text-lg font-semibold mb-4 dark:text-white">تحويل بين الصناديق</h2>
-              <form onSubmit={handleTransfer} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">من صندوق *</label>
-                  <select
-                    value={transferForm.from_caisse_id}
-                    onChange={(e) => setTransferForm({ ...transferForm, from_caisse_id: parseInt(e.target.value) || 0, to_caisse_id: transferForm.to_caisse_id === parseInt(e.target.value) ? 0 : transferForm.to_caisse_id })}
-                    className="select"
-                    required
-                  >
-                    <option value={0}>اختر الصندوق المصدر</option>
-                    {summary.caisses.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name || c.user?.name} ({typeLabels[c.type]}) - {formatCurrency(c.balance)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">إلى صندوق *</label>
-                  <select
-                    value={transferForm.to_caisse_id}
-                    onChange={(e) => setTransferForm({ ...transferForm, to_caisse_id: parseInt(e.target.value) || 0 })}
-                    className="select"
-                    required
-                  >
-                    <option value={0}>اختر الصندوق الوجهة</option>
-                    {summary.caisses
-                      .filter((c) => c.id !== transferForm.from_caisse_id)
-                      .map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name || c.user?.name} ({typeLabels[c.type]}) - {formatCurrency(c.balance)}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">المبلغ *</label>
-                  <input
-                    type="number"
-                    value={transferForm.amount || ''}
-                    onChange={(e) => setTransferForm({ ...transferForm, amount: parseFloat(e.target.value) || 0 })}
-                    className="input"
-                    min="0.01"
-                    step="0.01"
-                    placeholder="0.00"
-                    required
-                  />
-                  {transferForm.from_caisse_id > 0 && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      الرصيد المتاح: {formatCurrency(summary.caisses.find((c) => c.id === transferForm.from_caisse_id)?.balance || 0)}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">ملاحظات</label>
-                  <textarea
-                    value={transferForm.notes}
-                    onChange={(e) => setTransferForm({ ...transferForm, notes: e.target.value })}
-                    className="input"
-                    rows={2}
-                    placeholder="ملاحظات اختيارية..."
-                  />
-                </div>
-                <div className="flex gap-3 pt-4">
-                  <button type="submit" disabled={isTransferring} className="btn btn-primary flex-1">
-                    {isTransferring ? 'جاري التحويل...' : 'تأكيد التحويل'}
-                  </button>
-                  <button type="button" onClick={() => setShowTransferModal(false)} className="btn btn-secondary">
-                    إلغاء
-                  </button>
-                </div>
-              </form>
+                <button onClick={() => setShowAddMoneyModal(false)} className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors">
+                  <XMarkIcon className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  {t('caisses.addMoneyHint')}
+                </p>
+                <form onSubmit={handleAddMoney} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('caisses.amountLabel')} *</label>
+                    <input
+                      type="number"
+                      value={addMoneyForm.amount || ''}
+                      onChange={(e) => setAddMoneyForm({ ...addMoneyForm, amount: parseFloat(e.target.value) || 0 })}
+                      className="input"
+                      min="0.01"
+                      step="0.01"
+                      placeholder="0.00"
+                      required
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('caisses.notesLabel')}</label>
+                    <textarea
+                      value={addMoneyForm.notes}
+                      onChange={(e) => setAddMoneyForm({ ...addMoneyForm, notes: e.target.value })}
+                      className="input"
+                      rows={2}
+                      placeholder={t('caisses.addMoneyPlaceholder')}
+                    />
+                  </div>
+                  <div className="flex gap-3 pt-4">
+                    <button type="submit" disabled={isAddingMoney} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors disabled:opacity-50">
+                      {isAddingMoney ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : t('caisses.confirmAdd')}
+                    </button>
+                    <button type="button" onClick={() => setShowAddMoneyModal(false)} className="px-4 py-2.5 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                      {t('caisses.cancel')}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
         )}
       </div>
+
+      {/* Transfer Modal (must be outside detail div for z-index) */}
+      {showTransferModal && summary && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4" onClick={() => setShowTransferModal(false)}>
+          <div
+            className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg shadow-2xl shadow-indigo-500/10 dark:shadow-black/40 overflow-hidden border border-gray-200/50 dark:border-gray-700/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* ── Header with gradient ── */}
+            <div className="relative bg-gradient-to-l from-violet-600 via-indigo-600 to-blue-600 px-6 py-5 overflow-hidden">
+              <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'40\' height=\'40\' viewBox=\'0 0 40 40\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M20 0L40 20L20 40L0 20z\' fill=\'%23fff\' fill-opacity=\'0.15\'/%3E%3C/svg%3E")', backgroundSize: '20px 20px' }} />
+              <div className="relative flex items-center justify-between">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-11 h-11 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/20">
+                    <ArrowsRightLeftIcon className="w-5.5 h-5.5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-white tracking-tight">{t('caisses.transferTitle')}</h2>
+                    <p className="text-xs text-white/60 mt-0.5">{t('caisses.title')}</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowTransferModal(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-all">
+                  <XMarkIcon className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* ── Form body ── */}
+            <form onSubmit={handleTransfer} className="p-6 space-y-5">
+              {/* Source & Destination with visual flow */}
+              <div className="space-y-3">
+                <div className="rounded-xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700/50 p-4">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">
+                    <div className="w-5 h-5 rounded-md bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                      <ArrowTrendingDownIcon className="w-3 h-3 text-red-500 dark:text-red-400" />
+                    </div>
+                    {t('caisses.fromCaisse')}
+                  </label>
+                  <select
+                    value={transferForm.from_caisse_id}
+                    onChange={(e) => setTransferForm({ ...transferForm, from_caisse_id: parseInt(e.target.value) || 0, to_caisse_id: transferForm.to_caisse_id === parseInt(e.target.value) ? 0 : transferForm.to_caisse_id })}
+                    className="select w-full text-sm"
+                    required
+                  >
+                    <option value={0}>{t('caisses.selectSource')}</option>
+                    {summary.caisses.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name || c.user?.name} ({typeLabels[c.type]}) — {formatCurrency(c.balance)}
+                      </option>
+                    ))}
+                  </select>
+                  {transferForm.from_caisse_id > 0 && (
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                        {t('caisses.availableBalance')}{' '}
+                        <span className="text-green-600 dark:text-green-400 font-bold">
+                          {formatCurrency(summary.caisses.find((c) => c.id === transferForm.from_caisse_id)?.balance || 0)}
+                        </span>
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Direction indicator */}
+                <div className="flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center border-2 border-white dark:border-gray-800 shadow-sm">
+                    <svg className="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3" /></svg>
+                  </div>
+                </div>
+
+                <div className="rounded-xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700/50 p-4">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">
+                    <div className="w-5 h-5 rounded-md bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                      <ArrowTrendingUpIcon className="w-3 h-3 text-green-500 dark:text-green-400" />
+                    </div>
+                    {t('caisses.toCaisse')}
+                  </label>
+                  <select
+                    value={transferForm.to_caisse_id}
+                    onChange={(e) => setTransferForm({ ...transferForm, to_caisse_id: parseInt(e.target.value) || 0 })}
+                    className="select w-full text-sm"
+                    required
+                  >
+                    <option value={0}>{t('caisses.selectDestination')}</option>
+                    {summary.caisses
+                      .filter((c) => c.id !== transferForm.from_caisse_id)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name || c.user?.name} ({typeLabels[c.type]}) — {formatCurrency(c.balance)}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Amount — prominent field */}
+              <div className="rounded-xl border-2 border-indigo-200 dark:border-indigo-800/50 bg-indigo-50/50 dark:bg-indigo-950/20 p-4">
+                <label className="block text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-2">
+                  {t('caisses.transferAmount')} *
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={transferForm.amount || ''}
+                    onChange={(e) => setTransferForm({ ...transferForm, amount: parseFloat(e.target.value) || 0 })}
+                    className="input w-full text-lg font-bold tabular-nums"
+                    min="0.01"
+                    step="0.01"
+                    placeholder="0.00"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">{t('caisses.notesLabel')}</label>
+                <textarea
+                  value={transferForm.notes}
+                  onChange={(e) => setTransferForm({ ...transferForm, notes: e.target.value })}
+                  className="input w-full text-sm"
+                  rows={2}
+                  placeholder={t('caisses.notesPlaceholder')}
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={isTransferring}
+                  className="flex-1 inline-flex items-center justify-center gap-2.5 px-5 py-3 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl active:scale-[0.98] transition-all disabled:opacity-50"
+                >
+                  {isTransferring ? (
+                    <div className="w-4.5 h-4.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <ArrowsRightLeftIcon className="w-4 h-4" />
+                      {t('caisses.confirmTransfer')}
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowTransferModal(false)}
+                  className="px-5 py-3 text-sm font-semibold rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 active:scale-[0.98] transition-all"
+                >
+                  {t('caisses.cancel')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      </>
     );
   }
 
   // List view
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold dark:text-white">الصناديق</h1>
-        <div className="flex gap-2">
-          <button onClick={exportCaissesExcel} className="btn bg-emerald-600 text-white hover:bg-emerald-700 btn-sm">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Excel
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between" data-tour="caisses-header">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center">
+            <BanknotesIcon className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{t('caisses.title')}</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{t('caisses.subtitle')}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowTour(true)} className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors">
+            {t('caisses.tourTitle')}
           </button>
-          <button onClick={openCreateModal} className="btn bg-green-600 text-white hover:bg-green-700 btn-sm">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            إضافة صندوق
+          <button onClick={exportCaissesExcel} className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">
+            <ArrowDownTrayIcon className="w-4 h-4" />
+            {t('caisses.exportExcel')}
+          </button>
+          <button onClick={openCreateModal} className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-bold rounded-xl bg-green-600 text-white hover:bg-green-700 transition-colors">
+            <PlusIcon className="w-4 h-4" />
+            {t('caisses.addCaisse')}
           </button>
           <button
             onClick={() => { setTransferForm({ from_caisse_id: 0, to_caisse_id: 0, amount: 0, notes: '' }); setShowTransferModal(true); }}
-            className="btn btn-primary btn-sm"
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-            </svg>
-            تحويل بين الصناديق
+            <ArrowsRightLeftIcon className="w-4 h-4" />
+            {t('caisses.transfer')}
           </button>
         </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* KPI Strip */}
       {summary && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-          <div className="card bg-blue-50 dark:bg-blue-900/20">
-            <h3 className="text-sm text-blue-600 dark:text-blue-400 mb-1">إجمالي الأرصدة</h3>
-            <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{formatCurrency(summary.total_balance)}</p>
-          </div>
-          <div className="card bg-green-50 dark:bg-green-900/20">
-            <h3 className="text-sm text-green-600 dark:text-green-400 mb-1">وارد اليوم</h3>
-            <p className="text-2xl font-bold text-green-700 dark:text-green-300">{formatCurrency(summary.today.total_in)}</p>
-          </div>
-          <div className="card bg-red-50 dark:bg-red-900/20">
-            <h3 className="text-sm text-red-600 dark:text-red-400 mb-1">صادر اليوم</h3>
-            <p className="text-2xl font-bold text-red-700 dark:text-red-300">{formatCurrency(summary.today.total_out)}</p>
-          </div>
-          <div className="card bg-purple-50 dark:bg-purple-900/20">
-            <h3 className="text-sm text-purple-600 dark:text-purple-400 mb-1">محصّل اليوم</h3>
-            <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">{formatCurrency(summary.today.total_settled)}</p>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden" data-tour="caisses-summary">
+          <div className={`grid grid-cols-2 md:grid-cols-4 md:divide-x ${isRTL ? 'md:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-800`}>
+            <div className="group relative px-5 py-4 text-center hover:bg-blue-50/30 dark:hover:bg-blue-900/20 transition-colors">
+              <div className={`absolute top-0 right-0 left-0 h-[3px] ${isRTL ? 'rounded-tr-2xl' : 'rounded-tl-2xl'} bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform ${isRTL ? 'origin-right' : 'origin-left'}`} />
+              <CurrencyDollarIcon className="w-5 h-5 mx-auto mb-1.5 text-blue-500" />
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-0.5">{t('caisses.totalBalance')}</p>
+              <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{formatCurrency(summary.total_balance)}</p>
+            </div>
+            <div className="group relative px-5 py-4 text-center hover:bg-green-50/30 dark:hover:bg-green-900/20 transition-colors">
+              <div className="absolute top-0 right-0 left-0 h-[3px] bg-green-500 scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
+              <ArrowTrendingUpIcon className="w-5 h-5 mx-auto mb-1.5 text-green-500" />
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-0.5">{t('caisses.todayIn')}</p>
+              <p className="text-lg font-bold text-green-600 dark:text-green-400">{formatCurrency(summary.today.total_in)}</p>
+            </div>
+            <div className="group relative px-5 py-4 text-center hover:bg-red-50/30 dark:hover:bg-red-900/20 transition-colors">
+              <div className="absolute top-0 right-0 left-0 h-[3px] bg-red-500 scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
+              <ArrowTrendingDownIcon className="w-5 h-5 mx-auto mb-1.5 text-red-500" />
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-0.5">{t('caisses.todayOut')}</p>
+              <p className="text-lg font-bold text-red-600 dark:text-red-400">{formatCurrency(summary.today.total_out)}</p>
+            </div>
+            <div className="group relative px-5 py-4 text-center hover:bg-purple-50/30 dark:hover:bg-purple-900/20 transition-colors">
+              <div className={`absolute top-0 right-0 left-0 h-[3px] ${isRTL ? 'rounded-tl-2xl' : 'rounded-tr-2xl'} bg-purple-500 scale-x-0 group-hover:scale-x-100 transition-transform ${isRTL ? 'origin-right' : 'origin-left'}`} />
+              <CheckCircleIcon className="w-5 h-5 mx-auto mb-1.5 text-purple-500" />
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-0.5">{t('caisses.todaySettled')}</p>
+              <p className="text-lg font-bold text-purple-600 dark:text-purple-400">{formatCurrency(summary.today.total_settled)}</p>
+            </div>
           </div>
         </div>
       )}
 
       {/* Filters */}
-      <div className="flex gap-3 mb-4">
+      <div className="flex flex-wrap gap-3 items-center">
         <input
           type="text"
           value={listSearch}
           onChange={(e) => setListSearch(e.target.value)}
-          placeholder="بحث بالاسم..."
+          placeholder={t('caisses.searchByName')}
           className="input text-sm max-w-xs"
         />
         <select
@@ -1159,38 +1399,38 @@ export default function CaissesPage() {
           onChange={(e) => setListTypeFilter(e.target.value)}
           className="select text-sm max-w-xs"
         >
-          <option value="">كل الأنواع</option>
-          <option value="principale">رئيسية</option>
-          <option value="vendeur">بائع</option>
-          <option value="livreur">سائق</option>
-          <option value="cashvan">متنقل</option>
+          <option value="">{t('caisses.allTypes')}</option>
+          <option value="principale">{t('caisses.principale')}</option>
+          <option value="vendeur">{t('caisses.vendeur')}</option>
+          <option value="livreur">{t('caisses.livreur')}</option>
+          <option value="cashvan">{t('caisses.cashvan')}</option>
         </select>
         {(listSearch || listTypeFilter) && (
-          <button onClick={() => { setListSearch(''); setListTypeFilter(''); }} className="text-xs text-blue-600 hover:underline self-center">
-            مسح
+          <button onClick={() => { setListSearch(''); setListTypeFilter(''); }} className="text-xs text-blue-600 dark:text-blue-400 hover:underline self-center">
+            {t('caisses.clearFilters')}
           </button>
         )}
-        <span className="text-sm text-gray-400 self-center mr-auto">{filteredCaisses.length} صندوق</span>
+        <span className={`text-sm text-gray-400 dark:text-gray-500 self-center ${isRTL ? 'mr-auto' : 'ml-auto'}`}>{filteredCaisses.length} {t('caisses.caisseCount')}</span>
       </div>
 
       {/* Caisses Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" data-tour="caisses-grid">
         {filteredCaisses.map((caisse) => (
           <div
             key={caisse.id}
             onClick={() => openCaisseDetail(caisse)}
-            className="card hover:shadow-lg transition-shadow cursor-pointer border-2 border-transparent hover:border-blue-300 dark:hover:border-blue-600"
+            className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 shadow-sm hover:shadow-lg cursor-pointer transition-all p-5"
           >
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center">
+                <div className="w-11 h-11 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/50 dark:to-indigo-900/50 rounded-full flex items-center justify-center">
                   <span className="text-blue-600 dark:text-blue-400 font-bold text-lg">
                     {caisse.user?.name?.charAt(0) || '?'}
                   </span>
                 </div>
                 <div>
-                  <h3 className="font-semibold dark:text-white">{caisse.name || caisse.user?.name}</h3>
-                  <div className="flex items-center gap-1">
+                  <h3 className="font-semibold text-gray-800 dark:text-gray-100">{caisse.name || caisse.user?.name}</h3>
+                  <div className="flex items-center gap-1.5 mt-0.5">
                     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${typeBadgeColors[caisse.type]}`}>
                       {typeLabels[caisse.type]}
                     </span>
@@ -1203,21 +1443,21 @@ export default function CaissesPage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={(e) => { e.stopPropagation(); setRenameCaisse(caisse); setRenameValue(caisse.name || ''); setShowRenameModal(true); }}
-                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-400 hover:text-gray-600"
-                  title="تغيير الاسم"
+                  className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  title={t('caisses.rename')}
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                  <PencilSquareIcon className="w-4 h-4" />
                 </button>
                 {caisse.is_active ? (
-                  <span className="w-3 h-3 bg-green-500 rounded-full" title="نشط"></span>
+                  <span className="w-3 h-3 bg-green-500 rounded-full" title={t('caisses.active')}></span>
                 ) : (
-                  <span className="w-3 h-3 bg-gray-400 rounded-full" title="غير نشط"></span>
+                  <span className="w-3 h-3 bg-gray-400 rounded-full" title={t('caisses.inactiveStatus')}></span>
                 )}
               </div>
             </div>
-            <div className="border-t dark:border-gray-700 pt-3">
-              <p className="text-sm text-gray-500 dark:text-gray-400">الرصيد</p>
-              <p className={`text-2xl font-bold ${Number(caisse.balance) > 0 ? 'text-green-600 dark:text-green-400' : Number(caisse.balance) < 0 ? 'text-red-600' : 'text-gray-500'}`}>
+            <div className="border-t border-gray-100 dark:border-gray-800 pt-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t('caisses.balance')}</p>
+              <p className={`text-2xl font-bold ${Number(caisse.balance) > 0 ? 'text-green-600 dark:text-green-400' : Number(caisse.balance) < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
                 {formatCurrency(caisse.balance)}
               </p>
             </div>
@@ -1226,104 +1466,297 @@ export default function CaissesPage() {
       </div>
 
       {filteredCaisses.length === 0 && (
-        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-          {(listSearch || listTypeFilter) ? 'لا توجد نتائج' : 'لا توجد صناديق'}
+        <div className="text-center py-12">
+          <BanknotesIcon className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+          <p className="text-gray-500 dark:text-gray-400">
+            {(listSearch || listTypeFilter) ? t('caisses.noResults') : t('caisses.noCaisses')}
+          </p>
         </div>
       )}
 
       {/* Create Caisse Modal */}
       {showCreateModal && (
-        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
-          <div className="modal-content p-6" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold mb-4 dark:text-white">إضافة صندوق جديد</h2>
-            {isLoadingUsers ? (
-              <div className="flex items-center justify-center py-8"><div className="spinner"></div></div>
-            ) : (
-              <form onSubmit={handleCreateCaisse} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">المستخدم *</label>
+        <div className="fixed inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowCreateModal(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md mx-4 shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="bg-gradient-to-l from-blue-600 to-indigo-600 px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <PlusIcon className="w-5 h-5 text-white" />
+                </div>
+                <h2 className="text-lg font-bold text-white">{t('caisses.createCaisseTitle')}</h2>
+              </div>
+              <button onClick={() => setShowCreateModal(false)} className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors">
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              {isLoadingUsers ? (
+                <div className="flex items-center justify-center py-8"><div className="spinner"></div></div>
+              ) : (
+                <form onSubmit={handleCreateCaisse} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('caisses.selectUser')} *</label>
+                    <select
+                      value={selectedUserId}
+                      onChange={(e) => setSelectedUserId(parseInt(e.target.value) || 0)}
+                      className="select"
+                      required
+                    >
+                      <option value={0}>{t('caisses.selectUserPlaceholder')}</option>
+                      {usersWithoutCaisse.filter(u => !u.hasCaisse).length > 0 && (
+                        <optgroup label={t('caisses.withoutCaisse')}>
+                          {usersWithoutCaisse.filter(u => !u.hasCaisse).map((u) => (
+                            <option key={u.id} value={u.id}>
+                              {u.name} ({roleLabels[u.role] || u.role})
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {usersWithoutCaisse.filter(u => u.hasCaisse).length > 0 && (
+                        <optgroup label={t('caisses.hasCaisse')}>
+                          {usersWithoutCaisse.filter(u => u.hasCaisse).map((u) => (
+                            <option key={u.id} value={u.id}>
+                              {u.name} ({roleLabels[u.role] || u.role})
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </select>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('caisses.caisseTypeHint')}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('caisses.caisseName')}</label>
+                    <input
+                      type="text"
+                      value={newCaisseName}
+                      onChange={(e) => setNewCaisseName(e.target.value)}
+                      className="input w-full"
+                      placeholder={t('caisses.caisseNamePlaceholder')}
+                    />
+                  </div>
+                  <div className="flex gap-3 pt-4">
+                    <button type="submit" disabled={isCreating || !selectedUserId} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors disabled:opacity-50">
+                      {isCreating ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : t('caisses.createCaisse')}
+                    </button>
+                    <button type="button" onClick={() => setShowCreateModal(false)} className="px-4 py-2.5 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                      {t('caisses.cancel')}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Transfer Modal */}
+      {showTransferModal && summary && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4" onClick={() => setShowTransferModal(false)}>
+          <div
+            className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg shadow-2xl shadow-indigo-500/10 dark:shadow-black/40 overflow-hidden border border-gray-200/50 dark:border-gray-700/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* ── Header with gradient ── */}
+            <div className="relative bg-gradient-to-l from-violet-600 via-indigo-600 to-blue-600 px-6 py-5 overflow-hidden">
+              <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'40\' height=\'40\' viewBox=\'0 0 40 40\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M20 0L40 20L20 40L0 20z\' fill=\'%23fff\' fill-opacity=\'0.15\'/%3E%3C/svg%3E")', backgroundSize: '20px 20px' }} />
+              <div className="relative flex items-center justify-between">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-11 h-11 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/20">
+                    <ArrowsRightLeftIcon className="w-5.5 h-5.5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-white tracking-tight">{t('caisses.transferTitle')}</h2>
+                    <p className="text-xs text-white/60 mt-0.5">{t('caisses.title')}</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowTransferModal(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-all">
+                  <XMarkIcon className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* ── Form body ── */}
+            <form onSubmit={handleTransfer} className="p-6 space-y-5">
+              {/* Source & Destination with visual flow */}
+              <div className="space-y-3">
+                <div className="rounded-xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700/50 p-4">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">
+                    <div className="w-5 h-5 rounded-md bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                      <ArrowTrendingDownIcon className="w-3 h-3 text-red-500 dark:text-red-400" />
+                    </div>
+                    {t('caisses.fromCaisse')}
+                  </label>
                   <select
-                    value={selectedUserId}
-                    onChange={(e) => setSelectedUserId(parseInt(e.target.value) || 0)}
-                    className="select"
+                    value={transferForm.from_caisse_id}
+                    onChange={(e) => setTransferForm({ ...transferForm, from_caisse_id: parseInt(e.target.value) || 0, to_caisse_id: transferForm.to_caisse_id === parseInt(e.target.value) ? 0 : transferForm.to_caisse_id })}
+                    className="select w-full text-sm"
                     required
                   >
-                    <option value={0}>اختر المستخدم</option>
-                    {usersWithoutCaisse.filter(u => !u.hasCaisse).length > 0 && (
-                      <optgroup label="بدون صندوق">
-                        {usersWithoutCaisse.filter(u => !u.hasCaisse).map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.name} ({roleLabels[u.role] || u.role})
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                    {usersWithoutCaisse.filter(u => u.hasCaisse).length > 0 && (
-                      <optgroup label="لديهم صندوق">
-                        {usersWithoutCaisse.filter(u => u.hasCaisse).map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.name} ({roleLabels[u.role] || u.role})
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
+                    <option value={0}>{t('caisses.selectSource')}</option>
+                    {summary.caisses.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name || c.user?.name} ({typeLabels[c.type]}) — {formatCurrency(c.balance)}
+                      </option>
+                    ))}
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">سيتم تحديد نوع الصندوق تلقائياً حسب دور المستخدم</p>
+                  {transferForm.from_caisse_id > 0 && (
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                        {t('caisses.availableBalance')}{' '}
+                        <span className="text-green-600 dark:text-green-400 font-bold">
+                          {formatCurrency(summary.caisses.find((c) => c.id === transferForm.from_caisse_id)?.balance || 0)}
+                        </span>
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">اسم الصندوق</label>
+
+                {/* Direction indicator */}
+                <div className="flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center border-2 border-white dark:border-gray-800 shadow-sm">
+                    <svg className="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3" /></svg>
+                  </div>
+                </div>
+
+                <div className="rounded-xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700/50 p-4">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">
+                    <div className="w-5 h-5 rounded-md bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                      <ArrowTrendingUpIcon className="w-3 h-3 text-green-500 dark:text-green-400" />
+                    </div>
+                    {t('caisses.toCaisse')}
+                  </label>
+                  <select
+                    value={transferForm.to_caisse_id}
+                    onChange={(e) => setTransferForm({ ...transferForm, to_caisse_id: parseInt(e.target.value) || 0 })}
+                    className="select w-full text-sm"
+                    required
+                  >
+                    <option value={0}>{t('caisses.selectDestination')}</option>
+                    {summary.caisses
+                      .filter((c) => c.id !== transferForm.from_caisse_id)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name || c.user?.name} ({typeLabels[c.type]}) — {formatCurrency(c.balance)}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Amount — prominent field */}
+              <div className="rounded-xl border-2 border-indigo-200 dark:border-indigo-800/50 bg-indigo-50/50 dark:bg-indigo-950/20 p-4">
+                <label className="block text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-2">
+                  {t('caisses.transferAmount')} *
+                </label>
+                <div className="relative">
                   <input
-                    type="text"
-                    value={newCaisseName}
-                    onChange={(e) => setNewCaisseName(e.target.value)}
-                    className="input w-full"
-                    placeholder="اختياري - مثال: صندوق المبيعات"
+                    type="number"
+                    value={transferForm.amount || ''}
+                    onChange={(e) => setTransferForm({ ...transferForm, amount: parseFloat(e.target.value) || 0 })}
+                    className="input w-full text-lg font-bold tabular-nums"
+                    min="0.01"
+                    step="0.01"
+                    placeholder="0.00"
+                    required
                   />
                 </div>
-                <div className="flex gap-3 pt-4">
-                  <button type="submit" disabled={isCreating || !selectedUserId} className="btn btn-primary flex-1">
-                    {isCreating ? 'جاري الإنشاء...' : 'إنشاء الصندوق'}
-                  </button>
-                  <button type="button" onClick={() => setShowCreateModal(false)} className="btn btn-secondary">
-                    إلغاء
-                  </button>
-                </div>
-              </form>
-            )}
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">{t('caisses.notesLabel')}</label>
+                <textarea
+                  value={transferForm.notes}
+                  onChange={(e) => setTransferForm({ ...transferForm, notes: e.target.value })}
+                  className="input w-full text-sm"
+                  rows={2}
+                  placeholder={t('caisses.notesPlaceholder')}
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={isTransferring}
+                  className="flex-1 inline-flex items-center justify-center gap-2.5 px-5 py-3 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl active:scale-[0.98] transition-all disabled:opacity-50"
+                >
+                  {isTransferring ? (
+                    <div className="w-4.5 h-4.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <ArrowsRightLeftIcon className="w-4 h-4" />
+                      {t('caisses.confirmTransfer')}
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowTransferModal(false)}
+                  className="px-5 py-3 text-sm font-semibold rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 active:scale-[0.98] transition-all"
+                >
+                  {t('caisses.cancel')}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
       {/* Rename Caisse Modal */}
       {showRenameModal && renameCaisse && (
-        <div className="modal-overlay" onClick={() => setShowRenameModal(false)}>
-          <div className="modal-content p-6" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold mb-4 dark:text-white">تغيير اسم الصندوق</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{renameCaisse.user?.name} - {typeLabels[renameCaisse.type]}</p>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-gray-300">الاسم الجديد</label>
-                <input
-                  type="text"
-                  value={renameValue}
-                  onChange={(e) => setRenameValue(e.target.value)}
-                  className="input w-full"
-                  placeholder="اسم الصندوق"
-                  autoFocus
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleRename(); } }}
-                />
+        <div className="fixed inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowRenameModal(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md mx-4 shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="bg-gradient-to-l from-blue-600 to-indigo-600 px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <PencilSquareIcon className="w-5 h-5 text-white" />
+                </div>
+                <h2 className="text-lg font-bold text-white">{t('caisses.renameTitle')}</h2>
               </div>
-              <div className="flex gap-3">
-                <button onClick={handleRename} disabled={isRenaming} className="btn btn-primary flex-1">
-                  {isRenaming ? 'جاري الحفظ...' : 'حفظ'}
-                </button>
-                <button onClick={() => setShowRenameModal(false)} className="btn btn-secondary">
-                  إلغاء
-                </button>
+              <button onClick={() => setShowRenameModal(false)} className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors">
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{renameCaisse.user?.name} - {typeLabels[renameCaisse.type]}</p>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('caisses.newName')}</label>
+                  <input
+                    type="text"
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    className="input w-full"
+                    placeholder={t('caisses.newNamePlaceholder')}
+                    autoFocus
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleRename(); } }}
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={handleRename} disabled={isRenaming} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors disabled:opacity-50">
+                    {isRenaming ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : t('caisses.saveRename')}
+                  </button>
+                  <button onClick={() => setShowRenameModal(false)} className="px-4 py-2.5 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                    {t('caisses.cancel')}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Guided Tour */}
+      {showTour && (
+        <GuidedTour
+          steps={tourSteps}
+          onComplete={() => setShowTour(false)}
+          storageKey="caisses_tour_step"
+        />
       )}
     </div>
   );

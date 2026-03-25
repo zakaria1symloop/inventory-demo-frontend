@@ -1,1766 +1,1007 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import toast from 'react-hot-toast';
-import { reportsApi, productsApi, warehousesApi } from '@/lib/api';
+import { useState, useMemo, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { purchasesApi, salesApi, saleReturnsApi, purchaseReturnsApi } from '@/lib/api';
+import Link from 'next/link';
+import { useLocale, type TranslationKey } from '@/lib/i18n/context';
 import DateInput from '@/components/ui/DateInput';
+import toast from 'react-hot-toast';
+import type { Purchase, Sale } from '@/lib/types';
+import {
+  ChartBarSquareIcon,
+  ShoppingCartIcon,
+  BanknotesIcon,
+  ArrowUturnLeftIcon,
+  ArrowUturnRightIcon,
+  ArrowDownTrayIcon,
+  ArrowPathIcon,
+  ClipboardDocumentListIcon,
+  CurrencyDollarIcon,
+  CheckCircleIcon,
+  ExclamationCircleIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  UserGroupIcon,
+  ReceiptRefundIcon,
+  FunnelIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline';
+import {
+  BarChart, Bar, AreaChart, Area,
+  XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Cell,
+} from 'recharts';
 
-// Tab definitions
-const tabs = [
-  { id: 'sales', name: 'المبيعات', icon: '📈' },
-  { id: 'delivery', name: 'التوصيل', icon: '🚚' },
-  { id: 'stock', name: 'المخزون', icon: '📦' },
-  { id: 'financial', name: 'المالية', icon: '💰' },
-  { id: 'debt', name: 'الديون', icon: '💳' },
+// ─── Types ───
+type TabKey = 'purchases' | 'sales' | 'saleReturns' | 'purchaseReturns';
+
+interface SaleReturn {
+  id: number;
+  reference: string;
+  sale_id: number;
+  client_id?: number;
+  date: string;
+  total_amount: number;
+  status: string;
+  sale?: { id: number; reference: string };
+  client?: { id: number; name: string };
+}
+
+interface PurchaseReturn {
+  id: number;
+  reference: string;
+  purchase_id: number;
+  supplier_id?: number;
+  date: string;
+  total_amount: number;
+  status: string;
+  purchase?: { id: number; reference: string };
+  supplier?: { id: number; name: string };
+}
+
+// ─── Tab config ───
+interface TabDef {
+  key: TabKey;
+  labelKey: TranslationKey;
+  icon: React.ReactNode;
+}
+
+const TABS: TabDef[] = [
+  { key: 'purchases', labelKey: 'reports.tabPurchases', icon: <ShoppingCartIcon className="w-4 h-4" /> },
+  { key: 'sales', labelKey: 'reports.tabSales', icon: <BanknotesIcon className="w-4 h-4" /> },
+  { key: 'saleReturns', labelKey: 'reports.tabSaleReturns', icon: <ArrowUturnLeftIcon className="w-4 h-4" /> },
+  { key: 'purchaseReturns', labelKey: 'reports.tabPurchaseReturns', icon: <ArrowUturnRightIcon className="w-4 h-4" /> },
 ];
 
-// Sub-tabs for each main tab
-const subTabs: Record<string, { id: string; name: string }[]> = {
-  sales: [
-    { id: 'summary', name: 'ملخص' },
-    { id: 'by-product', name: 'حسب المنتج' },
-    { id: 'by-client', name: 'حسب العميل' },
-    { id: 'by-seller', name: 'حسب البائع' },
-  ],
-  delivery: [
-    { id: 'summary', name: 'ملخص' },
-    { id: 'by-livreur', name: 'حسب السائق' },
-    { id: 'details', name: 'التفاصيل' },
-  ],
-  stock: [
-    { id: 'summary', name: 'المخزون الحالي' },
-    { id: 'movements', name: 'الحركات' },
-    { id: 'low-stock', name: 'نقص المخزون' },
-  ],
-  financial: [
-    { id: 'summary', name: 'ملخص مالي' },
-    { id: 'client-balances', name: 'أرصدة العملاء' },
-    { id: 'collections', name: 'التحصيلات' },
-  ],
-  debt: [
-    { id: 'summary', name: 'ملخص الديون' },
-    { id: 'details', name: 'تفاصيل الديون' },
-    { id: 'aging', name: 'تقادم الديون' },
-  ],
-};
+// ─── Chart colors ───
+const BAR_COLORS = ['#6366f1', '#8b5cf6', '#a78bfa', '#7c3aed', '#6d28d9', '#5b21b6', '#4f46e5', '#4338ca', '#818cf8', '#c4b5fd'];
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ReportData = any;
+// ─── Shared Components ───
+function ChartTooltip({ active, payload, label, formatter }: { active?: boolean; payload?: Array<{ value: number }>; label?: string; formatter: (v: number) => string }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-gray-900 dark:bg-gray-700 text-white px-3.5 py-2 rounded-lg text-xs shadow-lg border border-gray-700 dark:border-gray-600">
+      <p className="font-medium text-gray-300 mb-0.5">{label}</p>
+      <p className="font-bold text-sm tabular-nums">{formatter(payload[0].value)}</p>
+    </div>
+  );
+}
 
-export default function ReportsPage() {
-  const [activeTab, setActiveTab] = useState('sales');
-  const [activeSubTab, setActiveSubTab] = useState('summary');
-  const [dateFrom, setDateFrom] = useState(() => {
-    const date = new Date();
-    date.setDate(1); // First day of month
-    return date.toISOString().split('T')[0];
-  });
-  const [dateTo, setDateTo] = useState(() => new Date().toISOString().split('T')[0]);
-  const [loading, setLoading] = useState(false);
-  const [reportData, setReportData] = useState<ReportData>(null);
-
-  // Product & Warehouse filters for by-product report
-  const [products, setProducts] = useState<Array<{id: number; name: string; barcode?: string}>>([]);
-  const [warehouses, setWarehouses] = useState<Array<{id: number; name: string}>>([]);
-  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<number | null>(null);
-  const [productSearch, setProductSearch] = useState('');
-  const [showProductDropdown, setShowProductDropdown] = useState(false);
-
-  // Fetch report data
-  const fetchReport = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params: Record<string, unknown> = { from_date: dateFrom, to_date: dateTo };
-      let response;
-
-      // Add product/warehouse filters for by-product tab
-      if (activeTab === 'sales' && activeSubTab === 'by-product') {
-        if (selectedProductId) params.product_id = selectedProductId;
-        if (selectedWarehouseId) params.warehouse_id = selectedWarehouseId;
-      }
-
-      // Determine which API to call based on tabs
-      if (activeTab === 'sales') {
-        if (activeSubTab === 'summary') response = await reportsApi.salesSummary(params);
-        else if (activeSubTab === 'by-product') response = await reportsApi.salesByProduct(params);
-        else if (activeSubTab === 'by-client') response = await reportsApi.salesByClient(params);
-        else if (activeSubTab === 'by-seller') response = await reportsApi.salesBySeller(params);
-      } else if (activeTab === 'delivery') {
-        if (activeSubTab === 'summary') response = await reportsApi.deliverySummary(params);
-        else if (activeSubTab === 'by-livreur') response = await reportsApi.deliveryByLivreur(params);
-        else if (activeSubTab === 'details') response = await reportsApi.deliveryDetails(params);
-      } else if (activeTab === 'stock') {
-        if (activeSubTab === 'summary') response = await reportsApi.stockSummary(params);
-        else if (activeSubTab === 'movements') response = await reportsApi.stockMovements(params);
-        else if (activeSubTab === 'low-stock') response = await reportsApi.lowStockAlert(params);
-      } else if (activeTab === 'financial') {
-        if (activeSubTab === 'summary') response = await reportsApi.financialSummary(params);
-        else if (activeSubTab === 'client-balances') response = await reportsApi.clientBalances(params);
-        else if (activeSubTab === 'collections') response = await reportsApi.collectionsReport(params);
-      } else if (activeTab === 'debt') {
-        if (activeSubTab === 'summary') response = await reportsApi.debtSummary(params);
-        else if (activeSubTab === 'details') response = await reportsApi.debtDetails(params);
-        else if (activeSubTab === 'aging') response = await reportsApi.debtAging(params);
-      }
-
-      if (response) {
-        setReportData(response.data);
-      }
-    } catch (error) {
-      console.error('Error fetching report:', error);
-      toast.error('خطأ في تحميل التقرير');
-    } finally {
-      setLoading(false);
-    }
-  }, [activeTab, activeSubTab, dateFrom, dateTo, selectedProductId, selectedWarehouseId]);
-
-  useEffect(() => {
-    fetchReport();
-  }, [fetchReport]);
-
-  // Fetch products & warehouses for filters
-  useEffect(() => {
-    const fetchFilterData = async () => {
-      try {
-        const [productsRes, warehousesRes] = await Promise.all([
-          productsApi.getAll({ per_page: 1000 }),
-          warehousesApi.getAll(),
-        ]);
-        setProducts(productsRes.data.data || productsRes.data);
-        setWarehouses(warehousesRes.data.data || warehousesRes.data);
-      } catch (error) {
-        console.error('Error fetching filter data:', error);
-      }
-    };
-    fetchFilterData();
-  }, []);
-
-  // Close dropdowns on outside click
-  useEffect(() => {
-    const handleClick = () => {
-      setShowProductDropdown(false);
-    };
-    document.addEventListener('click', handleClick);
-    return () => document.removeEventListener('click', handleClick);
-  }, []);
-
-  // Reset sub-tab when main tab changes
-  useEffect(() => {
-    setActiveSubTab(subTabs[activeTab]?.[0]?.id || 'summary');
-    setSelectedProductId(null);
-    setSelectedWarehouseId(null);
-    setProductSearch('');
-  }, [activeTab]);
-
-  // Export to Excel
-  const exportToExcel = () => {
-    if (!reportData) {
-      toast.error('لا توجد بيانات للتصدير');
-      return;
-    }
-
-    const data = reportData.data || [];
-    if (data.length === 0) {
-      toast.error('لا توجد بيانات للتصدير');
-      return;
-    }
-
-    // Create CSV content
-    const headers = Object.keys(data[0]);
-    const csvContent = [
-      headers.join(','),
-      ...data.map((row: Record<string, unknown>) =>
-        headers.map(h => {
-          const val = row[h];
-          // Handle commas and quotes in values
-          if (typeof val === 'string' && (val.includes(',') || val.includes('"'))) {
-            return `"${val.replace(/"/g, '""')}"`;
-          }
-          return val ?? '';
-        }).join(',')
-      )
-    ].join('\n');
-
-    // Add BOM for Arabic support
-    const BOM = '\uFEFF';
-    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `report_${activeTab}_${activeSubTab}_${dateFrom}_${dateTo}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-    toast.success('تم تصدير التقرير بنجاح');
+function StatusBadge({ status, type, t }: { status: string; type: 'status' | 'payment' | 'returnStatus'; t: (k: TranslationKey) => string }) {
+  const configs: Record<string, Record<string, { bg: string; text: string; label: string }>> = {
+    status: {
+      pending: { bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-700 dark:text-amber-300', label: t('reports.statusPending') },
+      received: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-300', label: t('reports.statusReceived') },
+      partial: { bg: 'bg-blue-50 dark:bg-blue-900/20', text: 'text-blue-700 dark:text-blue-300', label: t('reports.statusPartial') },
+      completed: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-300', label: t('reports.statusCompleted') },
+      cancelled: { bg: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-700 dark:text-red-300', label: t('reports.statusCancelled') },
+    },
+    payment: {
+      unpaid: { bg: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-700 dark:text-red-300', label: t('reports.payUnpaid') },
+      partial: { bg: 'bg-orange-50 dark:bg-orange-900/20', text: 'text-orange-700 dark:text-orange-300', label: t('reports.payPartial') },
+      paid: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-300', label: t('reports.payPaid') },
+    },
+    returnStatus: {
+      pending: { bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-700 dark:text-amber-300', label: t('reports.statusPending') },
+      approved: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-300', label: t('reports.statusApproved') },
+      completed: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-300', label: t('reports.statusCompleted') },
+      rejected: { bg: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-700 dark:text-red-300', label: t('reports.statusRejected') },
+    },
   };
-
-  // Export to PDF
-  const exportToPdf = () => {
-    if (!reportData) {
-      toast.error('لا توجد بيانات للتصدير');
-      return;
-    }
-
-    // Create print-friendly HTML
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      toast.error('يرجى السماح بالنوافذ المنبثقة');
-      return;
-    }
-
-    const tabName = tabs.find(t => t.id === activeTab)?.name || '';
-    const subTabName = subTabs[activeTab]?.find(s => s.id === activeSubTab)?.name || '';
-
-    let tableHtml = '';
-    const data = reportData.data || [];
-
-    if (data.length > 0) {
-      const headers = Object.keys(data[0]);
-      const headerLabels = getColumnLabels(activeTab, activeSubTab);
-
-      tableHtml = `
-        <table style="width:100%; border-collapse: collapse; margin-top: 20px;">
-          <thead>
-            <tr style="background-color: #f3f4f6;">
-              ${headers.map(h => `<th style="border: 1px solid #ddd; padding: 12px; text-align: right;">${headerLabels[h] || h}</th>`).join('')}
-            </tr>
-          </thead>
-          <tbody>
-            ${data.map((row: Record<string, unknown>) => `
-              <tr>
-                ${headers.map(h => `<td style="border: 1px solid #ddd; padding: 10px; text-align: right;">${formatValue(row[h], h)}</td>`).join('')}
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
-    }
-
-    // Add summary section if available
-    let summaryHtml = '';
-    if (reportData.summary || reportData.totals) {
-      const summaryData = reportData.summary || reportData.totals;
-      summaryHtml = `
-        <div style="margin-top: 20px; padding: 15px; background: #f9fafb; border-radius: 8px;">
-          <h3 style="margin-bottom: 10px;">ملخص</h3>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
-            ${Object.entries(summaryData).map(([key, value]) => `
-              <div>
-                <div style="color: #6b7280; font-size: 12px;">${getSummaryLabel(key)}</div>
-                <div style="font-weight: bold; font-size: 18px;">${formatValue(value, key)}</div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      `;
-    }
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html dir="rtl" lang="ar">
-      <head>
-        <meta charset="UTF-8">
-        <title>تقرير ${tabName} - ${subTabName}</title>
-        <style>
-          body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 40px; direction: rtl; }
-          h1 { color: #1f2937; margin-bottom: 5px; }
-          .period { color: #6b7280; margin-bottom: 20px; }
-          @media print { body { padding: 20px; } }
-        </style>
-      </head>
-      <body>
-        <h1>تقرير ${tabName} - ${subTabName}</h1>
-        <div class="period">الفترة: ${dateFrom} إلى ${dateTo}</div>
-        ${summaryHtml}
-        ${tableHtml}
-        <div style="margin-top: 30px; text-align: center; color: #9ca3af; font-size: 12px;">
-          تم إنشاء التقرير بتاريخ ${new Date().toLocaleString('ar-SA')}
-        </div>
-      </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.print();
-    toast.success('جاري طباعة التقرير');
-  };
-
+  const c = configs[type]?.[status] || { bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-600 dark:text-gray-300', label: status };
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">التقارير</h1>
-        <div className="flex gap-2">
-          <button onClick={exportToExcel} className="btn btn-secondary flex items-center gap-2">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-            </svg>
-            Excel
-          </button>
-          <button onClick={exportToPdf} className="btn btn-secondary flex items-center gap-2">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-            </svg>
-            PDF
-          </button>
-        </div>
-      </div>
-
-      {/* Main Tabs */}
-      <div className="card mb-4">
-        <div className="flex border-b">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 py-3 px-4 text-center font-medium transition-colors ${
-                activeTab === tab.id
-                  ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
-                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-              }`}
-            >
-              <span className="ml-2">{tab.icon}</span>
-              {tab.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Sub-tabs and Filters */}
-      <div className="card mb-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          {/* Sub-tabs */}
-          <div className="flex gap-2">
-            {subTabs[activeTab]?.map((subTab) => (
-              <button
-                key={subTab.id}
-                onClick={() => setActiveSubTab(subTab.id)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  activeSubTab === subTab.id
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {subTab.name}
-              </button>
-            ))}
-          </div>
-
-          {/* Date Filters */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600">من:</label>
-              <DateInput
-                value={dateFrom}
-                onChange={(v) => setDateFrom(v)}
-                placeholder="من تاريخ"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600">إلى:</label>
-              <DateInput
-                value={dateTo}
-                onChange={(v) => setDateTo(v)}
-                placeholder="إلى تاريخ"
-              />
-            </div>
-            <button
-              onClick={fetchReport}
-              className="btn btn-primary py-1.5"
-              disabled={loading}
-            >
-              {loading ? 'جاري التحميل...' : 'تحديث'}
-            </button>
-          </div>
-        </div>
-
-        {/* Product & Client Filters - only for by-product tab */}
-        {activeTab === 'sales' && activeSubTab === 'by-product' && (
-          <div className="flex flex-wrap items-center gap-4 mt-3 pt-3 border-t">
-            {/* Product Filter */}
-            <div className="relative" onClick={(e) => e.stopPropagation()}>
-              <label className="text-sm text-gray-600 ml-2">المنتج:</label>
-              <div className="relative inline-block">
-                <input
-                  type="text"
-                  value={productSearch}
-                  onChange={(e) => {
-                    setProductSearch(e.target.value);
-                    setShowProductDropdown(true);
-                    if (!e.target.value) setSelectedProductId(null);
-                  }}
-                  onFocus={() => setShowProductDropdown(true)}
-                  placeholder="ابحث عن منتج..."
-                  className="input w-56 text-sm py-1.5 pl-8"
-                />
-                {selectedProductId && (
-                  <button
-                    onClick={() => { setSelectedProductId(null); setProductSearch(''); }}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-lg"
-                  >
-                    &times;
-                  </button>
-                )}
-                {showProductDropdown && productSearch && !selectedProductId && (
-                  <div className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                    {products
-                      .filter(p =>
-                        p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-                        p.barcode?.includes(productSearch)
-                      )
-                      .slice(0, 10)
-                      .map((product) => (
-                        <div
-                          key={product.id}
-                          onClick={() => {
-                            setSelectedProductId(product.id);
-                            setProductSearch(product.name);
-                            setShowProductDropdown(false);
-                          }}
-                          className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0 text-sm"
-                        >
-                          <div className="font-medium">{product.name}</div>
-                          {product.barcode && <div className="text-xs text-gray-500">{product.barcode}</div>}
-                        </div>
-                      ))
-                    }
-                    {products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()) || p.barcode?.includes(productSearch)).length === 0 && (
-                      <div className="p-2 text-sm text-gray-500 text-center">لا توجد نتائج</div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Warehouse Filter */}
-            <div>
-              <label className="text-sm text-gray-600 ml-2">المستودع:</label>
-              <select
-                value={selectedWarehouseId ?? ''}
-                onChange={(e) => setSelectedWarehouseId(e.target.value ? Number(e.target.value) : null)}
-                className="input w-48 text-sm py-1.5"
-              >
-                <option value="">الكل</option>
-                {warehouses.map((w) => (
-                  <option key={w.id} value={w.id}>{w.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Clear filters */}
-            {(selectedProductId || selectedWarehouseId) && (
-              <button
-                onClick={() => {
-                  setSelectedProductId(null);
-                  setSelectedWarehouseId(null);
-                  setProductSearch('');
-                }}
-                className="text-sm text-red-600 hover:text-red-800 underline"
-              >
-                مسح الفلاتر
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Report Content */}
-      <div className="card">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          </div>
-        ) : reportData ? (
-          <ReportContent
-            tab={activeTab}
-            subTab={activeSubTab}
-            data={reportData}
-          />
-        ) : (
-          <div className="text-center py-12 text-gray-500">
-            لا توجد بيانات
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// Report content component
-function ReportContent({ tab, subTab, data }: { tab: string; subTab: string; data: ReportData }) {
-  // Sales Summary
-  if (tab === 'sales' && subTab === 'summary') {
-    return <SalesSummaryReport data={data} />;
-  }
-
-  // Sales by Product
-  if (tab === 'sales' && subTab === 'by-product') {
-    return <SalesByProductReport data={data} />;
-  }
-
-  // Sales by Client
-  if (tab === 'sales' && subTab === 'by-client') {
-    return <SalesByClientReport data={data} />;
-  }
-
-  // Sales by Seller
-  if (tab === 'sales' && subTab === 'by-seller') {
-    return <SalesBySellerReport data={data} />;
-  }
-
-  // Delivery Summary
-  if (tab === 'delivery' && subTab === 'summary') {
-    return <DeliverySummaryReport data={data} />;
-  }
-
-  // Delivery by Livreur
-  if (tab === 'delivery' && subTab === 'by-livreur') {
-    return <DeliveryByLivreurReport data={data} />;
-  }
-
-  // Delivery Details
-  if (tab === 'delivery' && subTab === 'details') {
-    return <DeliveryDetailsReport data={data} />;
-  }
-
-  // Stock Summary
-  if (tab === 'stock' && subTab === 'summary') {
-    return <StockSummaryReport data={data} />;
-  }
-
-  // Stock Movements
-  if (tab === 'stock' && subTab === 'movements') {
-    return <StockMovementsReport data={data} />;
-  }
-
-  // Low Stock
-  if (tab === 'stock' && subTab === 'low-stock') {
-    return <LowStockReport data={data} />;
-  }
-
-  // Financial Summary
-  if (tab === 'financial' && subTab === 'summary') {
-    return <FinancialSummaryReport data={data} />;
-  }
-
-  // Client Balances
-  if (tab === 'financial' && subTab === 'client-balances') {
-    return <ClientBalancesReport data={data} />;
-  }
-
-  // Collections
-  if (tab === 'financial' && subTab === 'collections') {
-    return <CollectionsReport data={data} />;
-  }
-
-  // Debt Summary
-  if (tab === 'debt' && subTab === 'summary') {
-    return <DebtSummaryReport data={data} />;
-  }
-
-  // Debt Details
-  if (tab === 'debt' && subTab === 'details') {
-    return <DebtDetailsReport data={data} />;
-  }
-
-  // Debt Aging
-  if (tab === 'debt' && subTab === 'aging') {
-    return <DebtAgingReport data={data} />;
-  }
-
-  return <div className="text-center py-8 text-gray-500">تقرير غير متوفر</div>;
-}
-
-// ============ Sales Reports ============
-
-function SalesSummaryReport({ data }: { data: ReportData }) {
-  const { summary, sales_by_day, top_products, top_clients } = data;
-
-  return (
-    <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard title="إجمالي الطلبات" value={summary?.total_orders || 0} />
-        <StatCard title="الطلبات المسلمة" value={summary?.delivered_orders || 0} color="green" />
-        <StatCard title="الطلبات الملغاة" value={summary?.cancelled_orders || 0} color="red" />
-        <StatCard title="الإيرادات" value={formatCurrency(summary?.total_revenue)} color="blue" />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Products */}
-        <div>
-          <h3 className="font-semibold mb-3">أفضل المنتجات</h3>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50">
-                <th className="text-right p-2">المنتج</th>
-                <th className="text-right p-2">الكمية</th>
-                <th className="text-right p-2">الإيرادات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {top_products?.map((p: ReportData, i: number) => (
-                <tr key={i} className="border-b">
-                  <td className="p-2">{p.name}</td>
-                  <td className="p-2">{p.total_quantity}</td>
-                  <td className="p-2">{formatCurrency(p.total_revenue)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Top Clients */}
-        <div>
-          <h3 className="font-semibold mb-3">أفضل العملاء</h3>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50">
-                <th className="text-right p-2">العميل</th>
-                <th className="text-right p-2">الطلبات</th>
-                <th className="text-right p-2">الإيرادات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {top_clients?.map((c: ReportData, i: number) => (
-                <tr key={i} className="border-b">
-                  <td className="p-2">{c.name}</td>
-                  <td className="p-2">{c.total_orders}</td>
-                  <td className="p-2">{formatCurrency(c.total_revenue)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Sales by Day Chart (simple table for now) */}
-      <div>
-        <h3 className="font-semibold mb-3">المبيعات حسب اليوم</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50">
-                <th className="text-right p-2">التاريخ</th>
-                <th className="text-right p-2">الطلبات</th>
-                <th className="text-right p-2">الإيرادات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sales_by_day?.map((d: ReportData, i: number) => (
-                <tr key={i} className="border-b">
-                  <td className="p-2">{d.date}</td>
-                  <td className="p-2">{d.orders}</td>
-                  <td className="p-2">{formatCurrency(d.revenue)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SalesByProductReport({ data }: { data: ReportData }) {
-  const { data: rows, totals, mode } = data;
-
-  return (
-    <div>
-      {/* Totals */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard title="إجمالي الكمية" value={totals?.total_quantity || 0} />
-        <StatCard title="إجمالي الإيرادات" value={formatCurrency(totals?.total_revenue)} color="blue" />
-        <StatCard title="إجمالي التكلفة" value={formatCurrency(totals?.total_cost)} color="orange" />
-        <StatCard title="إجمالي الربح" value={formatCurrency(totals?.total_profit)} color="green" />
-      </div>
-
-      {/* Table */}
-      <div className="overflow-x-auto">
-        {mode === 'detailed' ? (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50">
-                <th className="text-right p-3">المنتج</th>
-                <th className="text-right p-3">المستودع</th>
-                <th className="text-right p-3">العميل</th>
-                <th className="text-right p-3">الهاتف</th>
-                <th className="text-right p-3">عدد الفواتير</th>
-                <th className="text-right p-3">الكمية</th>
-                <th className="text-right p-3">متوسط السعر</th>
-                <th className="text-right p-3">الإيرادات</th>
-                <th className="text-right p-3">التكلفة</th>
-                <th className="text-right p-3">الربح</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows?.map((row: ReportData, i: number) => (
-                <tr key={i} className="border-b hover:bg-gray-50">
-                  <td className="p-3">
-                    <div className="font-medium">{row.product_name}</div>
-                    <div className="text-xs text-gray-500">{row.barcode}</div>
-                  </td>
-                  <td className="p-3">{row.warehouse_name}</td>
-                  <td className="p-3 font-medium">{row.client_name}</td>
-                  <td className="p-3 text-gray-600">{row.client_phone || '-'}</td>
-                  <td className="p-3">{row.sale_count}</td>
-                  <td className="p-3">{row.total_quantity}</td>
-                  <td className="p-3">{formatCurrency(row.avg_unit_price)}</td>
-                  <td className="p-3">{formatCurrency(row.total_revenue)}</td>
-                  <td className="p-3">{formatCurrency(row.total_cost)}</td>
-                  <td className="p-3">
-                    <span className={row.profit >= 0 ? 'text-green-600' : 'text-red-600'}>
-                      {formatCurrency(row.profit)}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50">
-                <th className="text-right p-3">المنتج</th>
-                <th className="text-right p-3">الفئة</th>
-                <th className="text-right p-3">المستودع</th>
-                <th className="text-right p-3">الكمية</th>
-                <th className="text-right p-3">الإيرادات</th>
-                <th className="text-right p-3">التكلفة</th>
-                <th className="text-right p-3">الربح</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows?.map((p: ReportData, i: number) => (
-                <tr key={i} className="border-b hover:bg-gray-50">
-                  <td className="p-3">
-                    <div className="font-medium">{p.name}</div>
-                    <div className="text-xs text-gray-500">{p.barcode}</div>
-                  </td>
-                  <td className="p-3">{p.category_name || '-'}</td>
-                  <td className="p-3">{p.warehouse_name}</td>
-                  <td className="p-3">{p.total_quantity}</td>
-                  <td className="p-3">{formatCurrency(p.total_revenue)}</td>
-                  <td className="p-3">{formatCurrency(p.total_cost)}</td>
-                  <td className="p-3">
-                    <span className={p.profit >= 0 ? 'text-green-600' : 'text-red-600'}>
-                      {formatCurrency(p.profit)}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function SalesByClientReport({ data }: { data: ReportData }) {
-  const { data: clients, totals } = data;
-
-  return (
-    <div>
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <StatCard title="عدد العملاء" value={totals?.total_clients || 0} />
-        <StatCard title="إجمالي الطلبات" value={totals?.total_orders || 0} color="blue" />
-        <StatCard title="إجمالي الإيرادات" value={formatCurrency(totals?.total_revenue)} color="green" />
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-50">
-              <th className="text-right p-3">العميل</th>
-              <th className="text-right p-3">الهاتف</th>
-              <th className="text-right p-3">العنوان</th>
-              <th className="text-right p-3">الطلبات</th>
-              <th className="text-right p-3">الإيرادات</th>
-              <th className="text-right p-3">متوسط الطلب</th>
-            </tr>
-          </thead>
-          <tbody>
-            {clients?.map((c: ReportData, i: number) => (
-              <tr key={i} className="border-b hover:bg-gray-50">
-                <td className="p-3 font-medium">{c.name}</td>
-                <td className="p-3">{c.phone || '-'}</td>
-                <td className="p-3 max-w-xs truncate">{c.address || '-'}</td>
-                <td className="p-3">{c.total_orders}</td>
-                <td className="p-3">{formatCurrency(c.total_revenue)}</td>
-                <td className="p-3">{formatCurrency(c.avg_order_value)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function SalesBySellerReport({ data }: { data: ReportData }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="bg-gray-50">
-            <th className="text-right p-3">البائع</th>
-            <th className="text-right p-3">إجمالي الطلبات</th>
-            <th className="text-right p-3">المسلمة</th>
-            <th className="text-right p-3">الملغاة</th>
-            <th className="text-right p-3">الإيرادات</th>
-            <th className="text-right p-3">متوسط الطلب</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.data?.map((s: ReportData, i: number) => (
-            <tr key={i} className="border-b hover:bg-gray-50">
-              <td className="p-3 font-medium">{s.name}</td>
-              <td className="p-3">{s.total_orders}</td>
-              <td className="p-3 text-green-600">{s.delivered_orders}</td>
-              <td className="p-3 text-red-600">{s.cancelled_orders}</td>
-              <td className="p-3">{formatCurrency(s.total_revenue)}</td>
-              <td className="p-3">{formatCurrency(s.avg_order_value)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-// ============ Delivery Reports ============
-
-function DeliverySummaryReport({ data }: { data: ReportData }) {
-  const { summary, by_day } = data;
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <StatCard title="إجمالي الرحلات" value={summary?.total_deliveries || 0} />
-        <StatCard title="المكتملة" value={summary?.completed_deliveries || 0} color="green" />
-        <StatCard title="إجمالي الطلبات" value={summary?.total_orders || 0} />
-        <StatCard title="المسلمة" value={summary?.delivered_orders || 0} color="green" />
-        <StatCard title="نسبة النجاح" value={`${summary?.success_rate || 0}%`} color="blue" />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <StatCard title="المبلغ المستحق" value={formatCurrency(summary?.total_amount)} color="orange" />
-        <StatCard title="المبلغ المحصل" value={formatCurrency(summary?.collected_amount)} color="green" />
-      </div>
-
-      <div>
-        <h3 className="font-semibold mb-3">التوصيل حسب اليوم</h3>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-50">
-              <th className="text-right p-2">التاريخ</th>
-              <th className="text-right p-2">الرحلات</th>
-              <th className="text-right p-2">المسلمة</th>
-              <th className="text-right p-2">الفاشلة</th>
-              <th className="text-right p-2">المحصل</th>
-            </tr>
-          </thead>
-          <tbody>
-            {by_day?.map((d: ReportData, i: number) => (
-              <tr key={i} className="border-b">
-                <td className="p-2">{d.date}</td>
-                <td className="p-2">{d.deliveries}</td>
-                <td className="p-2 text-green-600">{d.delivered}</td>
-                <td className="p-2 text-red-600">{d.failed}</td>
-                <td className="p-2">{formatCurrency(d.collected)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function DeliveryByLivreurReport({ data }: { data: ReportData }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="bg-gray-50">
-            <th className="text-right p-3">السائق</th>
-            <th className="text-right p-3">الرحلات</th>
-            <th className="text-right p-3">الطلبات</th>
-            <th className="text-right p-3">المسلمة</th>
-            <th className="text-right p-3">الفاشلة</th>
-            <th className="text-right p-3">نسبة النجاح</th>
-            <th className="text-right p-3">المحصل</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.data?.map((l: ReportData, i: number) => (
-            <tr key={i} className="border-b hover:bg-gray-50">
-              <td className="p-3 font-medium">{l.name}</td>
-              <td className="p-3">{l.total_deliveries}</td>
-              <td className="p-3">{l.total_orders}</td>
-              <td className="p-3 text-green-600">{l.delivered_orders}</td>
-              <td className="p-3 text-red-600">{l.failed_orders}</td>
-              <td className="p-3">
-                <span className={`px-2 py-1 rounded text-xs ${
-                  (l.success_rate || 0) >= 80 ? 'bg-green-100 text-green-800' :
-                  (l.success_rate || 0) >= 60 ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-red-100 text-red-800'
-                }`}>
-                  {l.success_rate || 0}%
-                </span>
-              </td>
-              <td className="p-3">{formatCurrency(l.collected_amount)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function DeliveryDetailsReport({ data }: { data: ReportData }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="bg-gray-50">
-            <th className="text-right p-3">المرجع</th>
-            <th className="text-right p-3">التاريخ</th>
-            <th className="text-right p-3">السائق</th>
-            <th className="text-right p-3">الحالة</th>
-            <th className="text-right p-3">الطلبات</th>
-            <th className="text-right p-3">المسلمة</th>
-            <th className="text-right p-3">نسبة النجاح</th>
-            <th className="text-right p-3">المحصل</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.data?.map((d: ReportData, i: number) => (
-            <tr key={i} className="border-b hover:bg-gray-50">
-              <td className="p-3 font-mono text-xs">{d.reference}</td>
-              <td className="p-3">{d.date}</td>
-              <td className="p-3">{d.livreur_name}</td>
-              <td className="p-3">
-                <StatusBadge status={d.status} />
-              </td>
-              <td className="p-3">{d.total_orders}</td>
-              <td className="p-3">{d.delivered_count}</td>
-              <td className="p-3">{d.success_rate}%</td>
-              <td className="p-3">{formatCurrency(d.collected_amount)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-// ============ Stock Reports ============
-
-function StockSummaryReport({ data }: { data: ReportData }) {
-  const { data: stocks, totals } = data;
-
-  return (
-    <div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard title="عدد المنتجات" value={totals?.total_products || 0} />
-        <StatCard title="إجمالي الكمية" value={totals?.total_quantity || 0} color="blue" />
-        <StatCard title="قيمة المخزون" value={formatCurrency(totals?.total_value)} color="green" />
-        <StatCard title="نقص المخزون" value={totals?.low_stock_count || 0} color="red" />
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-50">
-              <th className="text-right p-3">المنتج</th>
-              <th className="text-right p-3">الفئة</th>
-              <th className="text-right p-3">المستودع</th>
-              <th className="text-right p-3">الكمية</th>
-              <th className="text-right p-3">الحد الأدنى</th>
-              <th className="text-right p-3">القيمة</th>
-              <th className="text-right p-3">الحالة</th>
-            </tr>
-          </thead>
-          <tbody>
-            {stocks?.map((s: ReportData, i: number) => (
-              <tr key={i} className="border-b hover:bg-gray-50">
-                <td className="p-3">
-                  <div className="font-medium">{s.name}</div>
-                  <div className="text-xs text-gray-500">{s.barcode}</div>
-                </td>
-                <td className="p-3">{s.category_name || '-'}</td>
-                <td className="p-3">{s.warehouse_name}</td>
-                <td className="p-3">{s.quantity}</td>
-                <td className="p-3">{s.min_stock}</td>
-                <td className="p-3">{formatCurrency(s.stock_value)}</td>
-                <td className="p-3">
-                  {s.is_low_stock ? (
-                    <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs">نقص</span>
-                  ) : (
-                    <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">جيد</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-// Movement type labels in Arabic
-const movementTypeLabels: Record<string, string> = {
-  purchase: 'شراء',
-  sale: 'بيع',
-  adjustment_add: 'تعديل إضافة',
-  adjustment_sub: 'تعديل نقص',
-  transfer_in: 'تحويل وارد',
-  transfer_out: 'تحويل صادر',
-  delivery_out: 'خروج للتوصيل',
-  delivery_return: 'مرتجع من التوصيل',
-  initial: 'رصيد افتتاحي',
-};
-
-function StockMovementsReport({ data }: { data: ReportData }) {
-  const getMovementColor = (type: string): string => {
-    if (type === 'purchase' || type === 'adjustment_add' || type === 'transfer_in' || type === 'delivery_return') {
-      return 'green';
-    }
-    if (type === 'sale' || type === 'adjustment_sub' || type === 'transfer_out' || type === 'delivery_out') {
-      return 'red';
-    }
-    return 'gray';
-  };
-
-  return (
-    <div>
-      {/* Loss Summary */}
-      {data.losses && data.losses.count > 0 && (
-        <div className="mb-6 p-4 bg-red-50 rounded-lg border border-red-200">
-          <h3 className="font-semibold mb-3 text-red-800">ملخص الخسائر</h3>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <div className="text-sm text-red-600">عدد الخسائر</div>
-              <div className="text-xl font-bold text-red-700">{data.losses.count}</div>
-            </div>
-            <div>
-              <div className="text-sm text-red-600">إجمالي الكمية</div>
-              <div className="text-xl font-bold text-red-700">{data.losses.total_quantity}</div>
-            </div>
-            <div>
-              <div className="text-sm text-red-600">قيمة الخسائر</div>
-              <div className="text-xl font-bold text-red-700">{formatCurrency(data.losses.total_value)}</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Summary by type */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        {data.summary?.map((s: ReportData, i: number) => (
-          <StatCard
-            key={i}
-            title={movementTypeLabels[s.type] || s.type}
-            value={`${s.total_quantity} (${s.count})`}
-            color={getMovementColor(s.type)}
-          />
-        ))}
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-50">
-              <th className="text-right p-3">التاريخ</th>
-              <th className="text-right p-3">المنتج</th>
-              <th className="text-right p-3">المستودع</th>
-              <th className="text-right p-3">النوع</th>
-              <th className="text-right p-3">الكمية</th>
-              <th className="text-right p-3">قبل</th>
-              <th className="text-right p-3">بعد</th>
-              <th className="text-right p-3">المرجع</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.data?.map((m: ReportData, i: number) => {
-              const isIncoming = ['purchase', 'adjustment_add', 'transfer_in', 'delivery_return', 'initial'].includes(m.type) || m.quantity > 0;
-              const isLoss = m.is_loss || (m.reference && m.reference.startsWith('LOSS-'));
-              const badgeColor = isLoss ? 'bg-red-200 text-red-900 font-bold' : isIncoming ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
-              return (
-                <tr key={i} className={`border-b hover:bg-gray-50 ${isLoss ? 'bg-red-50' : ''}`}>
-                  <td className="p-3 text-xs">{m.date}</td>
-                  <td className="p-3">{m.product_name}</td>
-                  <td className="p-3">{m.warehouse_name}</td>
-                  <td className="p-3">
-                    <span className={`px-2 py-1 rounded text-xs ${badgeColor}`}>
-                      {m.type_label || movementTypeLabels[m.type] || m.type}
-                    </span>
-                  </td>
-                  <td className={`p-3 font-medium ${isIncoming ? 'text-green-600' : 'text-red-600'}`}>
-                    {isIncoming ? '+' : ''}{m.quantity}
-                  </td>
-                  <td className="p-3 text-gray-500">{m.before_quantity}</td>
-                  <td className="p-3">{m.after_quantity}</td>
-                  <td className="p-3 text-xs font-mono">{m.reference}</td>
-                  {isLoss && m.loss_value && (
-                    <td className="p-3 text-red-600 font-bold">{formatCurrency(m.loss_value)}</td>
-                  )}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function LowStockReport({ data }: { data: ReportData }) {
-  return (
-    <div>
-      <div className="mb-4 p-4 bg-red-50 rounded-lg">
-        <span className="text-red-800 font-medium">
-          {data.total_alerts} منتج يحتاج إلى إعادة تعبئة
-        </span>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-50">
-              <th className="text-right p-3">المنتج</th>
-              <th className="text-right p-3">الفئة</th>
-              <th className="text-right p-3">المستودع</th>
-              <th className="text-right p-3">المخزون الحالي</th>
-              <th className="text-right p-3">الحد الأدنى</th>
-              <th className="text-right p-3">النقص</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.data?.map((s: ReportData, i: number) => (
-              <tr key={i} className="border-b hover:bg-gray-50">
-                <td className="p-3">
-                  <div className="font-medium">{s.name}</div>
-                  <div className="text-xs text-gray-500">{s.barcode}</div>
-                </td>
-                <td className="p-3">{s.category_name || '-'}</td>
-                <td className="p-3">{s.warehouse_name}</td>
-                <td className="p-3 text-red-600 font-medium">{s.current_stock}</td>
-                <td className="p-3">{s.min_stock}</td>
-                <td className="p-3">
-                  <span className="px-2 py-1 bg-red-100 text-red-800 rounded font-medium">
-                    -{s.shortage}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-// ============ Financial Reports ============
-
-const expenseCategories: Record<string, string> = {
-  salary: 'راتب',
-  advance: 'سلفة',
-  transport: 'نقل',
-  maintenance: 'صيانة',
-  supplies: 'مستلزمات',
-  utilities: 'فواتير',
-  rent: 'إيجار',
-  other: 'أخرى',
-};
-
-function FinancialSummaryReport({ data }: { data: ReportData }) {
-  const { summary, stock_losses_detail, expenses_by_category, outstanding } = data;
-
-  return (
-    <div className="space-y-6">
-      {/* Revenue & Costs */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <StatCard title="إيرادات المبيعات" value={formatCurrency(summary?.sales_revenue)} color="green" />
-        <StatCard title="تكلفة المشتريات" value={formatCurrency(summary?.purchase_costs)} color="orange" />
-        <StatCard title="إجمالي المصروفات" value={formatCurrency(summary?.total_expenses)} color="red" />
-        <StatCard title="خسائر المخزون" value={formatCurrency(summary?.stock_losses)} color="red" />
-        <StatCard title="الربح الإجمالي" value={formatCurrency(summary?.gross_profit)} color="blue" />
-      </div>
-
-      {/* Stock Losses Detail */}
-      {stock_losses_detail && stock_losses_detail.count > 0 && (
-        <div className="p-4 bg-red-50 rounded-lg border border-red-200">
-          <h3 className="font-semibold mb-2 text-red-800">تفاصيل خسائر المخزون</h3>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <div className="text-sm text-red-600">عدد الخسائر</div>
-              <div className="text-xl font-bold text-red-700">{stock_losses_detail.count}</div>
-            </div>
-            <div>
-              <div className="text-sm text-red-600">إجمالي الكمية</div>
-              <div className="text-xl font-bold text-red-700">{stock_losses_detail.total_quantity}</div>
-            </div>
-            <div>
-              <div className="text-sm text-red-600">القيمة الإجمالية</div>
-              <div className="text-xl font-bold text-red-700">{formatCurrency(stock_losses_detail.total_value)}</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Net Profit */}
-      <div className={`p-4 rounded-lg ${(summary?.net_profit || 0) >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
-        <h3 className="font-semibold mb-2">صافي الربح (بعد المصروفات والخسائر)</h3>
-        <div className={`text-2xl font-bold ${(summary?.net_profit || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-          {formatCurrency(summary?.net_profit)}
-        </div>
-        <p className="text-sm text-gray-600 mt-1">
-          المبيعات ({formatCurrency(summary?.sales_revenue)}) - المشتريات ({formatCurrency(summary?.purchase_costs)}) - المصروفات ({formatCurrency(summary?.total_expenses)}) - الخسائر ({formatCurrency(summary?.stock_losses)})
-        </p>
-      </div>
-
-      {/* Expenses by Category */}
-      {expenses_by_category && expenses_by_category.length > 0 && (
-        <div className="p-4 bg-gray-50 rounded-lg">
-          <h3 className="font-semibold mb-3">المصروفات حسب الفئة</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {expenses_by_category.map((item: ReportData, index: number) => (
-              <div key={index} className="bg-white p-3 rounded-lg border">
-                <div className="text-sm text-gray-600">{expenseCategories[item.category] || item.category}</div>
-                <div className="text-lg font-bold text-red-600">{formatCurrency(item.total)}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Cash Flow */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <StatCard title="التحصيلات" value={formatCurrency(summary?.collections)} color="green" />
-        <StatCard title="المدفوعات المستلمة" value={formatCurrency(summary?.payments_received)} color="green" />
-        <StatCard title="المدفوعات للموردين" value={formatCurrency(summary?.payments_made)} color="orange" />
-      </div>
-
-      <div className="bg-blue-50 p-4 rounded-lg">
-        <h3 className="font-semibold mb-2">صافي التدفق النقدي</h3>
-        <div className={`text-2xl font-bold ${(summary?.net_cash_flow || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-          {formatCurrency(summary?.net_cash_flow)}
-        </div>
-      </div>
-
-      {/* Outstanding */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="p-4 bg-green-50 rounded-lg">
-          <h3 className="text-green-800 font-semibold mb-1">مستحقات من العملاء</h3>
-          <div className="text-xl font-bold text-green-600">
-            {formatCurrency(outstanding?.clients_receivable)}
-          </div>
-        </div>
-        <div className="p-4 bg-red-50 rounded-lg">
-          <h3 className="text-red-800 font-semibold mb-1">مستحقات للموردين</h3>
-          <div className="text-xl font-bold text-red-600">
-            {formatCurrency(outstanding?.suppliers_payable)}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ClientBalancesReport({ data }: { data: ReportData }) {
-  const { data: clients, totals } = data;
-
-  return (
-    <div>
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <StatCard title="عدد العملاء" value={totals?.total_clients || 0} />
-        <StatCard title="إجمالي الأرصدة" value={formatCurrency(totals?.total_balance)} color="blue" />
-        <StatCard title="تجاوز الحد" value={totals?.over_limit_count || 0} color="red" />
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-50">
-              <th className="text-right p-3">العميل</th>
-              <th className="text-right p-3">الهاتف</th>
-              <th className="text-right p-3">العنوان</th>
-              <th className="text-right p-3">الرصيد</th>
-              <th className="text-right p-3">حد الائتمان</th>
-              <th className="text-right p-3">الحالة</th>
-            </tr>
-          </thead>
-          <tbody>
-            {clients?.map((c: ReportData, i: number) => (
-              <tr key={i} className="border-b hover:bg-gray-50">
-                <td className="p-3 font-medium">{c.name}</td>
-                <td className="p-3">{c.phone || '-'}</td>
-                <td className="p-3 max-w-xs truncate">{c.address || '-'}</td>
-                <td className="p-3 font-medium">{formatCurrency(c.balance)}</td>
-                <td className="p-3">{formatCurrency(c.credit_limit)}</td>
-                <td className="p-3">
-                  {c.over_limit ? (
-                    <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs">تجاوز الحد</span>
-                  ) : (
-                    <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">عادي</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function CollectionsReport({ data }: { data: ReportData }) {
-  const { collections, by_livreur, totals } = data;
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-3 gap-4">
-        <StatCard title="المستحق" value={formatCurrency(totals?.expected)} color="orange" />
-        <StatCard title="المحصل" value={formatCurrency(totals?.collected)} color="green" />
-        <StatCard title="المتبقي" value={formatCurrency(totals?.pending)} color="red" />
-      </div>
-
-      <div>
-        <h3 className="font-semibold mb-3">حسب السائق</h3>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-50">
-              <th className="text-right p-2">السائق</th>
-              <th className="text-right p-2">المستحق</th>
-              <th className="text-right p-2">المحصل</th>
-              <th className="text-right p-2">المتبقي</th>
-            </tr>
-          </thead>
-          <tbody>
-            {by_livreur?.map((l: ReportData, i: number) => (
-              <tr key={i} className="border-b">
-                <td className="p-2 font-medium">{l.name}</td>
-                <td className="p-2">{formatCurrency(l.expected)}</td>
-                <td className="p-2 text-green-600">{formatCurrency(l.collected)}</td>
-                <td className="p-2 text-red-600">{formatCurrency(l.pending)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div>
-        <h3 className="font-semibold mb-3">التفاصيل</h3>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-50">
-              <th className="text-right p-2">التاريخ</th>
-              <th className="text-right p-2">المرجع</th>
-              <th className="text-right p-2">السائق</th>
-              <th className="text-right p-2">المستحق</th>
-              <th className="text-right p-2">المحصل</th>
-            </tr>
-          </thead>
-          <tbody>
-            {collections?.map((c: ReportData, i: number) => (
-              <tr key={i} className="border-b">
-                <td className="p-2">{c.date}</td>
-                <td className="p-2 font-mono text-xs">{c.reference}</td>
-                <td className="p-2">{c.livreur}</td>
-                <td className="p-2">{formatCurrency(c.expected)}</td>
-                <td className="p-2 text-green-600">{formatCurrency(c.amount)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-// ============ Debt Reports ============
-
-function DebtSummaryReport({ data }: { data: ReportData }) {
-  const { summary, aging, top_debtors } = data;
-
-  return (
-    <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard title="إجمالي الديون" value={formatCurrency(summary?.total_debt)} color="red" />
-        <StatCard title="عدد المدينين" value={summary?.clients_with_debt || 0} color="orange" />
-        <StatCard title="متوسط الدين" value={formatCurrency(summary?.average_debt)} color="blue" />
-        <StatCard title="تجاوز الحد" value={summary?.over_limit_clients || 0} color="red" />
-      </div>
-
-      {/* Aging Summary */}
-      <div className="p-4 bg-gray-50 rounded-lg">
-        <h3 className="font-semibold mb-4">تقادم الديون</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white p-3 rounded-lg border border-green-200">
-            <div className="text-sm text-gray-600">0-7 أيام</div>
-            <div className="text-lg font-bold text-green-600">{formatCurrency(aging?.days_0_7)}</div>
-          </div>
-          <div className="bg-white p-3 rounded-lg border border-yellow-200">
-            <div className="text-sm text-gray-600">8-30 يوم</div>
-            <div className="text-lg font-bold text-yellow-600">{formatCurrency(aging?.days_8_30)}</div>
-          </div>
-          <div className="bg-white p-3 rounded-lg border border-orange-200">
-            <div className="text-sm text-gray-600">31-60 يوم</div>
-            <div className="text-lg font-bold text-orange-600">{formatCurrency(aging?.days_31_60)}</div>
-          </div>
-          <div className="bg-white p-3 rounded-lg border border-red-200">
-            <div className="text-sm text-gray-600">أكثر من 60 يوم</div>
-            <div className="text-lg font-bold text-red-600">{formatCurrency(aging?.days_over_60)}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Top Debtors */}
-      <div>
-        <h3 className="font-semibold mb-3">أكبر المدينين</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50">
-                <th className="text-right p-3">العميل</th>
-                <th className="text-right p-3">الهاتف</th>
-                <th className="text-right p-3">العنوان</th>
-                <th className="text-right p-3">الرصيد</th>
-                <th className="text-right p-3">حد الائتمان</th>
-                <th className="text-right p-3">الحالة</th>
-              </tr>
-            </thead>
-            <tbody>
-              {top_debtors?.map((c: ReportData, i: number) => (
-                <tr key={i} className="border-b hover:bg-gray-50">
-                  <td className="p-3 font-medium">{c.name}</td>
-                  <td className="p-3">{c.phone || '-'}</td>
-                  <td className="p-3 max-w-xs truncate">{c.address || '-'}</td>
-                  <td className="p-3 font-bold text-red-600">{formatCurrency(c.balance)}</td>
-                  <td className="p-3">{formatCurrency(c.credit_limit)}</td>
-                  <td className="p-3">
-                    {c.balance > c.credit_limit ? (
-                      <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs">تجاوز الحد</span>
-                    ) : (
-                      <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs">مدين</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DebtDetailsReport({ data }: { data: ReportData }) {
-  const { data: clients, totals } = data;
-
-  return (
-    <div>
-      {/* Summary */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <StatCard title="عدد المدينين" value={totals?.total_clients || 0} />
-        <StatCard title="إجمالي الديون" value={formatCurrency(totals?.total_debt)} color="red" />
-        <StatCard title="عدد الطلبات غير المسددة" value={totals?.total_unpaid_orders || 0} color="orange" />
-      </div>
-
-      {/* Clients with Debt Details */}
-      <div className="space-y-4">
-        {clients?.map((client: ReportData, index: number) => {
-          // Check for data consistency
-          const hasDiscrepancy = client.calculated_debt !== undefined &&
-            Math.abs(client.total_debt - client.calculated_debt) > 0.01;
-
-          return (
-            <div key={index} className="border rounded-lg overflow-hidden">
-              {/* Client Header */}
-              <div className="bg-gray-50 p-4 flex justify-between items-center">
-                <div>
-                  <div className="font-semibold text-lg">{client.name}</div>
-                  <div className="text-sm text-gray-600">
-                    {client.phone && <span className="ml-4">{client.phone}</span>}
-                    {client.address && <span>{client.address}</span>}
-                  </div>
-                  {hasDiscrepancy && (
-                    <div className="text-xs text-orange-600 mt-1 flex items-center gap-1">
-                      <span>⚠️</span>
-                      <span>فرق في الحساب: الرصيد {formatCurrency(client.total_debt)} ≠ مجموع الطلبات {formatCurrency(client.calculated_debt)}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="text-left">
-                  <div className="text-2xl font-bold text-red-600">{formatCurrency(client.total_debt)}</div>
-                  <div className="text-xs text-gray-500">حد الائتمان: {formatCurrency(client.credit_limit)}</div>
-                </div>
-              </div>
-
-              {/* Unpaid Orders */}
-              {client.unpaid_orders && client.unpaid_orders.length > 0 && (
-                <div className="p-4">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-gray-600">
-                        <th className="text-right p-2">المرجع</th>
-                        <th className="text-right p-2">تاريخ التسليم</th>
-                        <th className="text-right p-2">المبلغ المستحق</th>
-                        <th className="text-right p-2">المدفوع</th>
-                        <th className="text-right p-2">المتبقي</th>
-                        <th className="text-right p-2">العمر</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {client.unpaid_orders.map((order: ReportData, i: number) => {
-                        const daysOld = order.days_old ?? 0;
-                        return (
-                          <tr key={i} className="border-t">
-                            <td className="p-2 font-mono text-xs">{order.reference}</td>
-                            <td className="p-2">{order.delivered_at || '-'}</td>
-                            <td className="p-2">{formatCurrency(order.amount_due)}</td>
-                            <td className="p-2 text-green-600">{formatCurrency(order.amount_collected)}</td>
-                            <td className="p-2 font-medium text-red-600">{formatCurrency(order.remaining)}</td>
-                            <td className="p-2">
-                              <span className={`px-2 py-1 rounded text-xs ${
-                                daysOld <= 7 ? 'bg-green-100 text-green-800' :
-                                daysOld <= 30 ? 'bg-yellow-100 text-yellow-800' :
-                                daysOld <= 60 ? 'bg-orange-100 text-orange-800' :
-                                'bg-red-100 text-red-800'
-                              }`}>
-                                {daysOld} يوم
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {(!clients || clients.length === 0) && (
-        <div className="text-center py-12 text-gray-500">
-          لا يوجد عملاء مدينين
-        </div>
-      )}
-    </div>
-  );
-}
-
-function DebtAgingReport({ data }: { data: ReportData }) {
-  const { data: clients, totals } = data;
-
-  return (
-    <div>
-      {/* Totals by Age */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <div className="bg-green-50 p-4 rounded-lg">
-          <div className="text-sm text-green-700">0-7 أيام</div>
-          <div className="text-xl font-bold text-green-600">{formatCurrency(totals?.current)}</div>
-        </div>
-        <div className="bg-yellow-50 p-4 rounded-lg">
-          <div className="text-sm text-yellow-700">8-30 يوم</div>
-          <div className="text-xl font-bold text-yellow-600">{formatCurrency(totals?.days_30)}</div>
-        </div>
-        <div className="bg-orange-50 p-4 rounded-lg">
-          <div className="text-sm text-orange-700">31-60 يوم</div>
-          <div className="text-xl font-bold text-orange-600">{formatCurrency(totals?.days_60)}</div>
-        </div>
-        <div className="bg-red-50 p-4 rounded-lg">
-          <div className="text-sm text-red-700">أكثر من 60 يوم</div>
-          <div className="text-xl font-bold text-red-600">{formatCurrency(totals?.over_60)}</div>
-        </div>
-        <div className="bg-gray-100 p-4 rounded-lg">
-          <div className="text-sm text-gray-700">الإجمالي</div>
-          <div className="text-xl font-bold text-gray-800">{formatCurrency(totals?.total)}</div>
-        </div>
-      </div>
-
-      {/* Aging Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-50">
-              <th className="text-right p-3">العميل</th>
-              <th className="text-right p-3">الهاتف</th>
-              <th className="text-right p-3 bg-green-50">0-7 أيام</th>
-              <th className="text-right p-3 bg-yellow-50">8-30 يوم</th>
-              <th className="text-right p-3 bg-orange-50">31-60 يوم</th>
-              <th className="text-right p-3 bg-red-50">+60 يوم</th>
-              <th className="text-right p-3">الإجمالي</th>
-            </tr>
-          </thead>
-          <tbody>
-            {clients?.map((c: ReportData, i: number) => (
-              <tr key={i} className="border-b hover:bg-gray-50">
-                <td className="p-3 font-medium">{c.name}</td>
-                <td className="p-3 text-gray-600">{c.phone || '-'}</td>
-                <td className="p-3 bg-green-50/50">
-                  {c.current > 0 ? <span className="text-green-700">{formatCurrency(c.current)}</span> : '-'}
-                </td>
-                <td className="p-3 bg-yellow-50/50">
-                  {c.days_30 > 0 ? <span className="text-yellow-700">{formatCurrency(c.days_30)}</span> : '-'}
-                </td>
-                <td className="p-3 bg-orange-50/50">
-                  {c.days_60 > 0 ? <span className="text-orange-700">{formatCurrency(c.days_60)}</span> : '-'}
-                </td>
-                <td className="p-3 bg-red-50/50">
-                  {c.over_60 > 0 ? <span className="text-red-700 font-medium">{formatCurrency(c.over_60)}</span> : '-'}
-                </td>
-                <td className="p-3 font-bold">{formatCurrency(c.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {(!clients || clients.length === 0) && (
-        <div className="text-center py-12 text-gray-500">
-          لا يوجد عملاء مدينين
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ============ Helper Components ============
-
-function StatCard({ title, value, color = 'gray' }: { title: string; value: string | number; color?: string }) {
-  const colors: Record<string, string> = {
-    gray: 'bg-gray-50 text-gray-800',
-    blue: 'bg-blue-50 text-blue-800',
-    green: 'bg-green-50 text-green-800',
-    red: 'bg-red-50 text-red-800',
-    orange: 'bg-orange-50 text-orange-800',
-  };
-
-  return (
-    <div className={`p-4 rounded-lg ${colors[color]}`}>
-      <div className="text-sm opacity-75">{title}</div>
-      <div className="text-xl font-bold mt-1">{value}</div>
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    completed: 'bg-green-100 text-green-800',
-    in_progress: 'bg-blue-100 text-blue-800',
-    preparing: 'bg-yellow-100 text-yellow-800',
-    cancelled: 'bg-red-100 text-red-800',
-  };
-
-  const labels: Record<string, string> = {
-    completed: 'مكتمل',
-    in_progress: 'قيد التنفيذ',
-    preparing: 'قيد التحضير',
-    cancelled: 'ملغي',
-  };
-
-  return (
-    <span className={`px-2 py-1 rounded text-xs ${styles[status] || 'bg-gray-100'}`}>
-      {labels[status] || status}
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold ${c.bg} ${c.text}`}>
+      {c.label}
     </span>
   );
 }
 
-// ============ Helper Functions ============
+// ─── KPI color map ───
+const colorMap: Record<string, { hover: string; hoverDark: string; bar: string; iconBg: string; iconText: string; valueText: string }> = {
+  indigo: { hover: 'hover:bg-indigo-50/40', hoverDark: 'dark:hover:bg-indigo-900/10', bar: 'bg-indigo-500', iconBg: 'bg-indigo-100 dark:bg-indigo-900/30', iconText: 'text-indigo-600 dark:text-indigo-400', valueText: 'text-indigo-600 dark:text-indigo-400' },
+  emerald: { hover: 'hover:bg-emerald-50/40', hoverDark: 'dark:hover:bg-emerald-900/10', bar: 'bg-emerald-500', iconBg: 'bg-emerald-100 dark:bg-emerald-900/30', iconText: 'text-emerald-600 dark:text-emerald-400', valueText: 'text-emerald-600 dark:text-emerald-400' },
+  blue: { hover: 'hover:bg-blue-50/40', hoverDark: 'dark:hover:bg-blue-900/10', bar: 'bg-blue-500', iconBg: 'bg-blue-100 dark:bg-blue-900/30', iconText: 'text-blue-600 dark:text-blue-400', valueText: 'text-blue-600 dark:text-blue-400' },
+  red: { hover: 'hover:bg-red-50/40', hoverDark: 'dark:hover:bg-red-900/10', bar: 'bg-red-500', iconBg: 'bg-red-100 dark:bg-red-900/30', iconText: 'text-red-600 dark:text-red-400', valueText: 'text-red-600 dark:text-red-400' },
+  violet: { hover: 'hover:bg-violet-50/40', hoverDark: 'dark:hover:bg-violet-900/10', bar: 'bg-violet-500', iconBg: 'bg-violet-100 dark:bg-violet-900/30', iconText: 'text-violet-600 dark:text-violet-400', valueText: 'text-violet-600 dark:text-violet-400' },
+  amber: { hover: 'hover:bg-amber-50/40', hoverDark: 'dark:hover:bg-amber-900/10', bar: 'bg-amber-500', iconBg: 'bg-amber-100 dark:bg-amber-900/30', iconText: 'text-amber-600 dark:text-amber-400', valueText: 'text-amber-600 dark:text-amber-400' },
+};
 
-function formatCurrency(value: number | string | null | undefined): string {
-  if (value === null || value === undefined) return '0 د.ج';
-  const num = typeof value === 'string' ? parseFloat(value) : value;
-  return `${num.toLocaleString('ar-DZ')} د.ج`;
-}
+const PER_PAGE = 15;
+const today = () => new Date().toISOString().split('T')[0];
+const thirtyDaysAgo = () => new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
 
-function formatValue(value: unknown, key: string): string {
-  if (value === null || value === undefined) return '-';
+export default function ReportsPage() {
+  const { t, locale } = useLocale();
+  const isRTL = locale === 'ar';
 
-  // Currency fields
-  if (key.includes('amount') || key.includes('revenue') || key.includes('cost') ||
-      key.includes('profit') || key.includes('balance') || key.includes('price') ||
-      key.includes('collected') || key.includes('total') || key.includes('value')) {
-    return formatCurrency(value as number);
-  }
+  // ─── State ───
+  const [activeTab, setActiveTab] = useState<TabKey>('purchases');
 
-  // Percentage fields
-  if (key.includes('rate')) {
-    return `${value}%`;
-  }
+  // Per-tab date filters
+  const [purchasesDateFrom, setPurchasesDateFrom] = useState(thirtyDaysAgo);
+  const [purchasesDateTo, setPurchasesDateTo] = useState(today);
+  const [salesDateFrom, setSalesDateFrom] = useState(thirtyDaysAgo);
+  const [salesDateTo, setSalesDateTo] = useState(today);
+  const [saleReturnsDateFrom, setSaleReturnsDateFrom] = useState(thirtyDaysAgo);
+  const [saleReturnsDateTo, setSaleReturnsDateTo] = useState(today);
+  const [purchaseReturnsDateFrom, setPurchaseReturnsDateFrom] = useState(thirtyDaysAgo);
+  const [purchaseReturnsDateTo, setPurchaseReturnsDateTo] = useState(today);
 
-  return String(value);
-}
+  // Per-tab pagination
+  const [purchasesPage, setPurchasesPage] = useState(1);
+  const [salesPage, setSalesPage] = useState(1);
+  const [saleReturnsPage, setSaleReturnsPage] = useState(1);
+  const [purchaseReturnsPage, setPurchaseReturnsPage] = useState(1);
 
-function getColumnLabels(tab: string, subTab: string): Record<string, string> {
-  // Common labels
-  const labels: Record<string, string> = {
-    id: 'المعرف',
-    name: 'الاسم',
-    phone: 'الهاتف',
-    address: 'العنوان',
-    date: 'التاريخ',
-    status: 'الحالة',
-    reference: 'المرجع',
-    barcode: 'الباركود',
-    quantity: 'الكمية',
-    total_quantity: 'إجمالي الكمية',
-    total_orders: 'إجمالي الطلبات',
-    total_revenue: 'إجمالي الإيرادات',
-    total_cost: 'إجمالي التكلفة',
-    profit: 'الربح',
-    category_name: 'الفئة',
-    warehouse_name: 'المستودع',
-    livreur_name: 'السائق',
-    success_rate: 'نسبة النجاح',
-    delivered_orders: 'الطلبات المسلمة',
-    failed_orders: 'الطلبات الفاشلة',
-    collected_amount: 'المبلغ المحصل',
-    total_amount: 'المبلغ الإجمالي',
-    balance: 'الرصيد',
-    credit_limit: 'حد الائتمان',
-    min_stock: 'الحد الأدنى',
-    current_stock: 'المخزون الحالي',
-    shortage: 'النقص',
-    stock_value: 'قيمة المخزون',
+  // Purchases filters
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterRef, setFilterRef] = useState('');
+  const [filterSupplier, setFilterSupplier] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterPayment, setFilterPayment] = useState('');
+
+  // ─── Formatters ───
+  const formatCurrency = useCallback((value: number) => {
+    if (!isFinite(value)) return '0';
+    return new Intl.NumberFormat(locale === 'ar' ? 'ar-DZ' : 'fr-DZ', {
+      style: 'currency', currency: 'DZD', minimumFractionDigits: 0,
+    }).format(value);
+  }, [locale]);
+
+  const formatDate = useCallback((date: string) => {
+    return new Date(date).toLocaleDateString(locale === 'ar' ? 'ar-DZ' : 'fr-DZ', {
+      year: 'numeric', month: 'short', day: 'numeric',
+    });
+  }, [locale]);
+
+  const formatShortDate = useCallback((date: string) => {
+    return new Date(date).toLocaleDateString(locale === 'ar' ? 'ar-DZ' : 'fr-DZ', {
+      month: 'short', day: 'numeric',
+    });
+  }, [locale]);
+
+  const PrevChevron = isRTL ? ChevronRightIcon : ChevronLeftIcon;
+  const NextChevron = isRTL ? ChevronLeftIcon : ChevronRightIcon;
+
+  // ═══════════════════════════════════════════════
+  // ─── PURCHASES QUERY ───
+  // ═══════════════════════════════════════════════
+  const { data: purchasesRaw, isLoading: purchasesLoading, refetch: refetchPurchases } = useQuery({
+    queryKey: ['reports-purchases', purchasesDateFrom, purchasesDateTo],
+    queryFn: async () => {
+      const params: Record<string, unknown> = { per_page: 10000 };
+      if (purchasesDateFrom) params.from_date = purchasesDateFrom;
+      if (purchasesDateTo) params.to_date = purchasesDateTo;
+      const res = await purchasesApi.getAll(params);
+      return res.data;
+    },
+    enabled: activeTab === 'purchases',
+  });
+  const purchases: Purchase[] = purchasesRaw?.data || [];
+
+  const filteredPurchases = useMemo(() => {
+    let list = purchases;
+    if (filterRef) list = list.filter(p => p.reference.toLowerCase().includes(filterRef.toLowerCase()));
+    if (filterSupplier) list = list.filter(p => (p.supplier?.name || '').toLowerCase().includes(filterSupplier.toLowerCase()));
+    if (filterStatus) list = list.filter(p => p.status === filterStatus);
+    if (filterPayment) list = list.filter(p => p.payment_status === filterPayment);
+    return list;
+  }, [purchases, filterRef, filterSupplier, filterStatus, filterPayment]);
+
+  const purchasesKpis = useMemo(() => {
+    const totalAmount = filteredPurchases.reduce((s, p) => s + (parseFloat(String(p.grand_total)) || 0), 0);
+    const paidAmount = filteredPurchases.reduce((s, p) => s + (parseFloat(String(p.paid_amount)) || 0), 0);
+    const dueAmount = filteredPurchases.reduce((s, p) => s + (parseFloat(String(p.due_amount)) || 0), 0);
+    return { count: filteredPurchases.length, totalAmount, paidAmount, dueAmount };
+  }, [filteredPurchases]);
+
+  const purchasesSupplierData = useMemo(() => {
+    const map = new Map<string, number>();
+    filteredPurchases.forEach(p => {
+      const name = p.supplier?.name || `#${p.supplier_id}`;
+      map.set(name, (map.get(name) || 0) + (parseFloat(String(p.grand_total)) || 0));
+    });
+    return Array.from(map.entries())
+      .map(([name, amount]) => ({ name: name.length > 14 ? name.slice(0, 14) + '…' : name, amount }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 10);
+  }, [filteredPurchases]);
+
+  const purchasesDailyData = useMemo(() => {
+    const map = new Map<string, number>();
+    filteredPurchases.forEach(p => { map.set(p.date, (map.get(p.date) || 0) + (parseFloat(String(p.grand_total)) || 0)); });
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([date, amount]) => ({ date: formatShortDate(date), amount }));
+  }, [filteredPurchases, formatShortDate]);
+
+  const paginatedPurchases = useMemo(() => filteredPurchases.slice((purchasesPage - 1) * PER_PAGE, purchasesPage * PER_PAGE), [filteredPurchases, purchasesPage]);
+  const purchasesTotalPages = Math.ceil(filteredPurchases.length / PER_PAGE) || 1;
+
+  // ═══════════════════════════════════════════════
+  // ─── SALES QUERY ───
+  // ═══════════════════════════════════════════════
+  const { data: salesRaw, isLoading: salesLoading, refetch: refetchSales } = useQuery({
+    queryKey: ['reports-sales', salesDateFrom, salesDateTo],
+    queryFn: async () => {
+      const params: Record<string, unknown> = { per_page: 10000 };
+      if (salesDateFrom) params.from_date = salesDateFrom;
+      if (salesDateTo) params.to_date = salesDateTo;
+      const res = await salesApi.getAll(params);
+      return res.data;
+    },
+    enabled: activeTab === 'sales',
+  });
+  const sales: Sale[] = salesRaw?.data || [];
+
+  const salesKpis = useMemo(() => {
+    const totalAmount = sales.reduce((s, p) => s + (parseFloat(String(p.grand_total)) || 0), 0);
+    const paidAmount = sales.reduce((s, p) => s + (parseFloat(String(p.paid_amount)) || 0), 0);
+    const dueAmount = sales.reduce((s, p) => s + (parseFloat(String(p.due_amount)) || 0), 0);
+    return { count: sales.length, totalAmount, paidAmount, dueAmount };
+  }, [sales]);
+
+  const salesClientData = useMemo(() => {
+    const map = new Map<string, number>();
+    sales.forEach(s => {
+      const name = s.client?.name || `#${s.client_id}`;
+      map.set(name, (map.get(name) || 0) + (parseFloat(String(s.grand_total)) || 0));
+    });
+    return Array.from(map.entries())
+      .map(([name, amount]) => ({ name: name.length > 14 ? name.slice(0, 14) + '…' : name, amount }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 10);
+  }, [sales]);
+
+  const salesDailyData = useMemo(() => {
+    const map = new Map<string, number>();
+    sales.forEach(s => { map.set(s.date, (map.get(s.date) || 0) + (parseFloat(String(s.grand_total)) || 0)); });
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([date, amount]) => ({ date: formatShortDate(date), amount }));
+  }, [sales, formatShortDate]);
+
+  const paginatedSales = useMemo(() => sales.slice((salesPage - 1) * PER_PAGE, salesPage * PER_PAGE), [sales, salesPage]);
+  const salesTotalPages = Math.ceil(sales.length / PER_PAGE) || 1;
+
+  // ═══════════════════════════════════════════════
+  // ─── SALE RETURNS QUERY ───
+  // ═══════════════════════════════════════════════
+  const { data: saleReturnsRaw, isLoading: saleReturnsLoading, refetch: refetchSaleReturns } = useQuery({
+    queryKey: ['reports-sale-returns', saleReturnsDateFrom, saleReturnsDateTo],
+    queryFn: async () => {
+      const params: Record<string, unknown> = { per_page: 10000 };
+      if (saleReturnsDateFrom) params.from_date = saleReturnsDateFrom;
+      if (saleReturnsDateTo) params.to_date = saleReturnsDateTo;
+      const res = await saleReturnsApi.getAll(params);
+      return res.data;
+    },
+    enabled: activeTab === 'saleReturns',
+  });
+  const saleReturns: SaleReturn[] = saleReturnsRaw?.data || [];
+
+  const saleReturnsKpis = useMemo(() => {
+    const totalAmount = saleReturns.reduce((s, r) => s + (parseFloat(String(r.total_amount)) || 0), 0);
+    return { count: saleReturns.length, totalAmount };
+  }, [saleReturns]);
+
+  const saleReturnsClientData = useMemo(() => {
+    const map = new Map<string, number>();
+    saleReturns.forEach(r => {
+      const name = r.client?.name || `#${r.client_id || '?'}`;
+      map.set(name, (map.get(name) || 0) + (parseFloat(String(r.total_amount)) || 0));
+    });
+    return Array.from(map.entries())
+      .map(([name, amount]) => ({ name: name.length > 14 ? name.slice(0, 14) + '…' : name, amount }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 10);
+  }, [saleReturns]);
+
+  const saleReturnsDailyData = useMemo(() => {
+    const map = new Map<string, number>();
+    saleReturns.forEach(r => { map.set(r.date, (map.get(r.date) || 0) + (parseFloat(String(r.total_amount)) || 0)); });
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([date, amount]) => ({ date: formatShortDate(date), amount }));
+  }, [saleReturns, formatShortDate]);
+
+  const paginatedSaleReturns = useMemo(() => saleReturns.slice((saleReturnsPage - 1) * PER_PAGE, saleReturnsPage * PER_PAGE), [saleReturns, saleReturnsPage]);
+  const saleReturnsTotalPages = Math.ceil(saleReturns.length / PER_PAGE) || 1;
+
+  // ═══════════════════════════════════════════════
+  // ─── PURCHASE RETURNS QUERY ───
+  // ═══════════════════════════════════════════════
+  const { data: purchaseReturnsRaw, isLoading: purchaseReturnsLoading, refetch: refetchPurchaseReturns } = useQuery({
+    queryKey: ['reports-purchase-returns', purchaseReturnsDateFrom, purchaseReturnsDateTo],
+    queryFn: async () => {
+      const params: Record<string, unknown> = { per_page: 10000 };
+      if (purchaseReturnsDateFrom) params.from_date = purchaseReturnsDateFrom;
+      if (purchaseReturnsDateTo) params.to_date = purchaseReturnsDateTo;
+      const res = await purchaseReturnsApi.getAll(params);
+      return res.data;
+    },
+    enabled: activeTab === 'purchaseReturns',
+  });
+  const purchaseReturnsList: PurchaseReturn[] = purchaseReturnsRaw?.data || [];
+
+  const purchaseReturnsKpis = useMemo(() => {
+    const totalAmount = purchaseReturnsList.reduce((s, r) => s + (parseFloat(String(r.total_amount)) || 0), 0);
+    return { count: purchaseReturnsList.length, totalAmount };
+  }, [purchaseReturnsList]);
+
+  const purchaseReturnsSupplierData = useMemo(() => {
+    const map = new Map<string, number>();
+    purchaseReturnsList.forEach(r => {
+      const name = r.supplier?.name || `#${r.supplier_id || '?'}`;
+      map.set(name, (map.get(name) || 0) + (parseFloat(String(r.total_amount)) || 0));
+    });
+    return Array.from(map.entries())
+      .map(([name, amount]) => ({ name: name.length > 14 ? name.slice(0, 14) + '…' : name, amount }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 10);
+  }, [purchaseReturnsList]);
+
+  const purchaseReturnsDailyData = useMemo(() => {
+    const map = new Map<string, number>();
+    purchaseReturnsList.forEach(r => { map.set(r.date, (map.get(r.date) || 0) + (parseFloat(String(r.total_amount)) || 0)); });
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([date, amount]) => ({ date: formatShortDate(date), amount }));
+  }, [purchaseReturnsList, formatShortDate]);
+
+  const paginatedPurchaseReturns = useMemo(() => purchaseReturnsList.slice((purchaseReturnsPage - 1) * PER_PAGE, purchaseReturnsPage * PER_PAGE), [purchaseReturnsList, purchaseReturnsPage]);
+  const purchaseReturnsTotalPages = Math.ceil(purchaseReturnsList.length / PER_PAGE) || 1;
+
+  // ═══════════════════════════════════════════════
+  // ─── EXPORT HELPERS ───
+  // ═══════════════════════════════════════════════
+  const exportExcel = async (
+    sheetName: string,
+    columns: { header: string; key: string; width: number }[],
+    rows: Record<string, unknown>[],
+    fileName: string,
+  ) => {
+    if (!rows.length) { toast.error(t('reports.noExportData')); return; }
+    try {
+      const ExcelJS = (await import('exceljs')).default;
+      const { saveAs } = await import('file-saver');
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet(sheetName);
+      ws.columns = columns;
+      ws.getRow(1).eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF6366F1' } };
+        cell.alignment = { horizontal: 'center' };
+      });
+      rows.forEach(r => ws.addRow(r));
+      const buf = await wb.xlsx.writeBuffer();
+      saveAs(new Blob([buf]), fileName);
+      toast.success(t('reports.exportSuccess'));
+    } catch { toast.error(t('reports.exportError')); }
   };
 
-  return labels;
-}
-
-function getSummaryLabel(key: string): string {
-  const labels: Record<string, string> = {
-    total_orders: 'إجمالي الطلبات',
-    delivered_orders: 'الطلبات المسلمة',
-    cancelled_orders: 'الطلبات الملغاة',
-    pending_orders: 'الطلبات المعلقة',
-    total_revenue: 'إجمالي الإيرادات',
-    total_value: 'القيمة الإجمالية',
-    total_quantity: 'إجمالي الكمية',
-    total_cost: 'إجمالي التكلفة',
-    total_profit: 'إجمالي الربح',
-    total_clients: 'عدد العملاء',
-    total_products: 'عدد المنتجات',
-    total_deliveries: 'إجمالي الرحلات',
-    completed_deliveries: 'الرحلات المكتملة',
-    success_rate: 'نسبة النجاح',
-    sales_revenue: 'إيرادات المبيعات',
-    purchase_costs: 'تكلفة المشتريات',
-    gross_profit: 'إجمالي الربح',
-    total_expenses: 'إجمالي المصروفات',
-    net_profit: 'صافي الربح',
-    collections: 'التحصيلات',
-    net_cash_flow: 'صافي التدفق النقدي',
-    low_stock_count: 'عدد المنتجات بنقص',
-    total_balance: 'إجمالي الأرصدة',
-    over_limit_count: 'تجاوز الحد',
+  const exportPDF = async (
+    title: string,
+    dateRange: string,
+    headers: string[],
+    rows: (string | number)[][],
+    fileName: string,
+  ) => {
+    if (!rows.length) { toast.error(t('reports.noExportData')); return; }
+    try {
+      const { default: jsPDF } = await import('jspdf');
+      const autoTable = (await import('jspdf-autotable')).default;
+      const doc = new jsPDF({ orientation: 'landscape' });
+      doc.setFontSize(16);
+      doc.text(title, 14, 20);
+      doc.setFontSize(10);
+      doc.text(dateRange, 14, 28);
+      autoTable(doc, {
+        startY: 35,
+        head: [headers],
+        body: rows,
+        styles: { fontSize: 8, cellPadding: 3 },
+        headStyles: { fillColor: [99, 102, 241] },
+      });
+      doc.save(fileName);
+      toast.success(t('reports.exportSuccess'));
+    } catch { toast.error(t('reports.exportError')); }
   };
 
-  return labels[key] || key;
+  // ─── Tab-specific export functions ───
+  const exportPurchasesExcel = () => exportExcel(
+    t('reports.tabPurchases'),
+    [
+      { header: t('reports.colReference'), key: 'reference', width: 18 },
+      { header: t('reports.colSupplier'), key: 'supplier', width: 24 },
+      { header: t('reports.colUser'), key: 'user', width: 18 },
+      { header: t('reports.colWarehouse'), key: 'warehouse', width: 18 },
+      { header: t('reports.colDate'), key: 'date', width: 14 },
+      { header: t('reports.colTotal'), key: 'total', width: 16 },
+      { header: t('reports.colPaid'), key: 'paid', width: 16 },
+      { header: t('reports.colDue'), key: 'due', width: 16 },
+      { header: t('reports.colStatus'), key: 'status', width: 12 },
+      { header: t('reports.colPaymentStatus'), key: 'paymentStatus', width: 14 },
+    ],
+    filteredPurchases.map(p => ({ reference: p.reference, supplier: p.supplier?.name || '-', user: p.user?.name || '-', warehouse: p.warehouse?.name || '-', date: p.date, total: parseFloat(String(p.grand_total)) || 0, paid: parseFloat(String(p.paid_amount)) || 0, due: parseFloat(String(p.due_amount)) || 0, status: p.status, paymentStatus: p.payment_status })),
+    `purchases_${purchasesDateFrom}_${purchasesDateTo}.xlsx`,
+  );
+
+  const exportPurchasesPDF = () => exportPDF(
+    t('reports.tabPurchases'), `${purchasesDateFrom} → ${purchasesDateTo}`,
+    [t('reports.colReference'), t('reports.colSupplier'), t('reports.colUser'), t('reports.colWarehouse'), t('reports.colDate'), t('reports.colTotal'), t('reports.colPaid'), t('reports.colDue'), t('reports.colStatus'), t('reports.colPaymentStatus')],
+    filteredPurchases.map(p => [p.reference, p.supplier?.name || '-', p.user?.name || '-', p.warehouse?.name || '-', p.date, (parseFloat(String(p.grand_total)) || 0).toLocaleString(), (parseFloat(String(p.paid_amount)) || 0).toLocaleString(), (parseFloat(String(p.due_amount)) || 0).toLocaleString(), p.status, p.payment_status]),
+    `purchases_${purchasesDateFrom}_${purchasesDateTo}.pdf`,
+  );
+
+  const exportSalesExcel = () => exportExcel(
+    t('reports.tabSales'),
+    [
+      { header: t('reports.colReference'), key: 'reference', width: 18 },
+      { header: t('reports.colClient'), key: 'client', width: 24 },
+      { header: t('reports.colDate'), key: 'date', width: 14 },
+      { header: t('reports.colTotal'), key: 'total', width: 16 },
+      { header: t('reports.colPaid'), key: 'paid', width: 16 },
+      { header: t('reports.colDue'), key: 'due', width: 16 },
+      { header: t('reports.colStatus'), key: 'status', width: 12 },
+      { header: t('reports.colPaymentStatus'), key: 'paymentStatus', width: 14 },
+    ],
+    sales.map(s => ({ reference: s.reference, client: s.client?.name || '-', date: s.date, total: parseFloat(String(s.grand_total)) || 0, paid: parseFloat(String(s.paid_amount)) || 0, due: parseFloat(String(s.due_amount)) || 0, status: s.status, paymentStatus: s.payment_status })),
+    `sales_${salesDateFrom}_${salesDateTo}.xlsx`,
+  );
+
+  const exportSalesPDF = () => exportPDF(
+    t('reports.tabSales'), `${salesDateFrom} → ${salesDateTo}`,
+    [t('reports.colReference'), t('reports.colClient'), t('reports.colDate'), t('reports.colTotal'), t('reports.colPaid'), t('reports.colDue'), t('reports.colStatus'), t('reports.colPaymentStatus')],
+    sales.map(s => [s.reference, s.client?.name || '-', s.date, (parseFloat(String(s.grand_total)) || 0).toLocaleString(), (parseFloat(String(s.paid_amount)) || 0).toLocaleString(), (parseFloat(String(s.due_amount)) || 0).toLocaleString(), s.status, s.payment_status]),
+    `sales_${salesDateFrom}_${salesDateTo}.pdf`,
+  );
+
+  const exportSaleReturnsExcel = () => exportExcel(
+    t('reports.tabSaleReturns'),
+    [
+      { header: t('reports.colReference'), key: 'reference', width: 18 },
+      { header: t('reports.colSaleRef'), key: 'saleRef', width: 18 },
+      { header: t('reports.colClient'), key: 'client', width: 24 },
+      { header: t('reports.colDate'), key: 'date', width: 14 },
+      { header: t('reports.colAmount'), key: 'amount', width: 16 },
+      { header: t('reports.colStatus'), key: 'status', width: 12 },
+    ],
+    saleReturns.map(r => ({ reference: r.reference, saleRef: r.sale?.reference || '-', client: r.client?.name || '-', date: r.date, amount: parseFloat(String(r.total_amount)) || 0, status: r.status })),
+    `sale-returns_${saleReturnsDateFrom}_${saleReturnsDateTo}.xlsx`,
+  );
+
+  const exportSaleReturnsPDF = () => exportPDF(
+    t('reports.tabSaleReturns'), `${saleReturnsDateFrom} → ${saleReturnsDateTo}`,
+    [t('reports.colReference'), t('reports.colSaleRef'), t('reports.colClient'), t('reports.colDate'), t('reports.colAmount'), t('reports.colStatus')],
+    saleReturns.map(r => [r.reference, r.sale?.reference || '-', r.client?.name || '-', r.date, (parseFloat(String(r.total_amount)) || 0).toLocaleString(), r.status]),
+    `sale-returns_${saleReturnsDateFrom}_${saleReturnsDateTo}.pdf`,
+  );
+
+  const exportPurchaseReturnsExcel = () => exportExcel(
+    t('reports.tabPurchaseReturns'),
+    [
+      { header: t('reports.colReference'), key: 'reference', width: 18 },
+      { header: t('reports.colPurchaseRef'), key: 'purchaseRef', width: 18 },
+      { header: t('reports.colSupplier'), key: 'supplier', width: 24 },
+      { header: t('reports.colDate'), key: 'date', width: 14 },
+      { header: t('reports.colAmount'), key: 'amount', width: 16 },
+      { header: t('reports.colStatus'), key: 'status', width: 12 },
+    ],
+    purchaseReturnsList.map(r => ({ reference: r.reference, purchaseRef: r.purchase?.reference || '-', supplier: r.supplier?.name || '-', date: r.date, amount: parseFloat(String(r.total_amount)) || 0, status: r.status })),
+    `purchase-returns_${purchaseReturnsDateFrom}_${purchaseReturnsDateTo}.xlsx`,
+  );
+
+  const exportPurchaseReturnsPDF = () => exportPDF(
+    t('reports.tabPurchaseReturns'), `${purchaseReturnsDateFrom} → ${purchaseReturnsDateTo}`,
+    [t('reports.colReference'), t('reports.colPurchaseRef'), t('reports.colSupplier'), t('reports.colDate'), t('reports.colAmount'), t('reports.colStatus')],
+    purchaseReturnsList.map(r => [r.reference, r.purchase?.reference || '-', r.supplier?.name || '-', r.date, (parseFloat(String(r.total_amount)) || 0).toLocaleString(), r.status]),
+    `purchase-returns_${purchaseReturnsDateFrom}_${purchaseReturnsDateTo}.pdf`,
+  );
+
+  // ═══════════════════════════════════════════════
+  // ─── SHARED RENDER HELPERS ───
+  // ═══════════════════════════════════════════════
+  const renderFilterBar = (
+    dateFrom: string, setDateFrom: (v: string) => void,
+    dateTo: string, setDateTo: (v: string) => void,
+    onRefetch: () => void,
+    onExportExcel: () => void,
+    onExportPDF: () => void,
+    filterToggle?: { active: boolean; onToggle: () => void; count: number },
+  ) => (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 px-5 py-3.5">
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('reports.from')}</span>
+          <DateInput value={dateFrom} onChange={setDateFrom} className="w-36" />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('reports.to')}</span>
+          <DateInput value={dateTo} onChange={setDateTo} className="w-36" />
+        </div>
+        <button onClick={onRefetch} className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+          <ArrowPathIcon className="w-4 h-4" />
+        </button>
+        {filterToggle && (
+          <button onClick={filterToggle.onToggle} className={`relative inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium rounded-xl transition-colors ${filterToggle.active ? 'bg-violet-600 text-white' : 'border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+            <FunnelIcon className="w-4 h-4" />
+            {t('reports.filters')}
+            {filterToggle.count > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{filterToggle.count}</span>
+            )}
+          </button>
+        )}
+        <div className={`flex items-center gap-2 ${isRTL ? 'mr-auto' : 'ml-auto'}`}>
+          <button onClick={onExportExcel} className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 transition-colors">
+            <ArrowDownTrayIcon className="w-4 h-4" /> Excel
+          </button>
+          <button onClick={onExportPDF} className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium rounded-xl text-white bg-red-600 hover:bg-red-700 transition-colors">
+            <ArrowDownTrayIcon className="w-4 h-4" /> PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderKpiStrip = (items: { label: string; value: string; color: string; icon: React.ReactNode }[], loading: boolean) => (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
+      <div className={`grid grid-cols-2 md:grid-cols-${items.length} md:divide-x ${isRTL ? 'md:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
+        {items.map((kpi, i) => {
+          const c = colorMap[kpi.color];
+          return (
+            <div key={i} className={`group relative p-5 ${c.hover} ${c.hoverDark} transition-colors duration-200`}>
+              <div className={`absolute top-0 inset-x-0 h-[3px] ${c.bar} scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b`} />
+              <div className="text-center">
+                <div className={`inline-flex items-center justify-center w-9 h-9 rounded-xl ${c.iconBg} ${c.iconText} mb-2.5`}>{kpi.icon}</div>
+                <div className={`text-xl font-black ${c.valueText} tabular-nums leading-none`}>
+                  {loading ? <div className="w-16 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mx-auto" /> : kpi.value}
+                </div>
+                <div className="text-[11px] font-semibold text-gray-400 mt-2">{kpi.label}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  const renderCharts = (
+    barData: { name: string; amount: number }[],
+    areaData: { date: string; amount: number }[],
+    barTitle: string,
+    areaTitle: string,
+    gradientId: string,
+    accentColor: string,
+    loading: boolean,
+  ) => {
+    if (loading || (barData.length === 0 && areaData.length === 0)) return null;
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5">
+          <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-4">{barTitle}</h3>
+          {barData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={barData} layout="vertical" margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11, fill: '#9ca3af' }} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#6b7280' }} width={100} />
+                <Tooltip content={<ChartTooltip formatter={formatCurrency} />} />
+                <Bar dataKey="amount" radius={[0, 6, 6, 0]} barSize={22}>
+                  {barData.map((_, i) => (<Cell key={i} fill={BAR_COLORS[i % BAR_COLORS.length]} />))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[300px] text-gray-400 text-sm">{t('reports.noData')}</div>
+          )}
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5">
+          <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-4">{areaTitle}</h3>
+          {areaData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={areaData} margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
+                <defs>
+                  <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={accentColor} stopOpacity={0.2} />
+                    <stop offset="100%" stopColor={accentColor} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9ca3af' }} />
+                <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
+                <Tooltip content={<ChartTooltip formatter={formatCurrency} />} />
+                <Area type="monotone" dataKey="amount" stroke={accentColor} strokeWidth={2.5} fill={`url(#${gradientId})`}
+                  dot={areaData.length <= 31 ? { r: 3, fill: accentColor, strokeWidth: 0 } : false}
+                  activeDot={{ r: 5, fill: accentColor, stroke: '#fff', strokeWidth: 2 }} />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[300px] text-gray-400 text-sm">{t('reports.noData')}</div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderPagination = (page: number, totalPages: number, totalCount: number, setPage: (fn: (p: number) => number) => void) => {
+    if (totalPages <= 1) return null;
+    return (
+      <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100 dark:border-gray-700">
+        <span className="text-xs text-gray-400 tabular-nums">
+          {t('reports.pageInfo', { current: String(page), total: String(totalPages), count: String(totalCount) })}
+        </span>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40">
+            <PrevChevron className="w-3.5 h-3.5" /> {t('reports.prev')}
+          </button>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40">
+            {t('reports.next')} <NextChevron className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderLoading = () => (
+    <div className="flex items-center justify-center py-20">
+      <div className="w-8 h-8 border-[3px] border-violet-200 dark:border-violet-800 border-t-violet-600 rounded-full animate-spin" />
+    </div>
+  );
+
+  const renderEmpty = () => (
+    <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+      <ClipboardDocumentListIcon className="w-12 h-12 mb-3" />
+      <p className="text-sm font-medium">{t('reports.noData')}</p>
+    </div>
+  );
+
+  const thClass = "text-start text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-5 py-3";
+  const thEndClass = "text-end text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-5 py-3";
+  const thCenterClass = "text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-5 py-3";
+  const tdClass = "px-5 py-3";
+
+  // ═══════════════════════════════════════════════
+  // ─── RENDER ───
+  // ═══════════════════════════════════════════════
+  return (
+    <div className="space-y-5">
+      {/* ─── Header ─── */}
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 rounded-2xl bg-violet-600 flex items-center justify-center">
+          <ChartBarSquareIcon className="w-6 h-6 text-white" />
+        </div>
+        <div>
+          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('reports.title')}</h1>
+          <p className="text-sm text-gray-400 mt-1">{t('reports.subtitle')}</p>
+        </div>
+      </div>
+
+      {/* ─── Tab Navigation ─── */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-1.5">
+        <div className="flex gap-1">
+          {TABS.map((tab) => (
+            <button key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 ${
+                activeTab === tab.key
+                  ? 'bg-violet-600 text-white'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}>
+              {tab.icon}
+              <span className="hidden sm:inline">{t(tab.labelKey)}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════ */}
+      {/* ─── PURCHASES TAB ─── */}
+      {/* ═══════════════════════════════════════════ */}
+      {activeTab === 'purchases' && (() => {
+        const activeFilterCount = [filterRef, filterSupplier, filterStatus, filterPayment].filter(Boolean).length;
+        const clearFilters = () => { setFilterRef(''); setFilterSupplier(''); setFilterStatus(''); setFilterPayment(''); setPurchasesPage(1); };
+        return (
+        <div className="flex gap-5">
+          {/* Main content */}
+          <div className={`flex-1 min-w-0 space-y-5 transition-all duration-300 ${showFilters ? '' : ''}`}>
+          {renderFilterBar(purchasesDateFrom, setPurchasesDateFrom, purchasesDateTo, setPurchasesDateTo, () => refetchPurchases(), exportPurchasesExcel, exportPurchasesPDF, { active: showFilters, onToggle: () => setShowFilters(!showFilters), count: activeFilterCount })}
+
+          {renderKpiStrip([
+            { label: t('reports.kpiTotalPurchases'), value: purchasesKpis.count.toString(), color: 'indigo', icon: <ClipboardDocumentListIcon className="w-5 h-5" /> },
+            { label: t('reports.kpiTotalAmount'), value: formatCurrency(purchasesKpis.totalAmount), color: 'emerald', icon: <CurrencyDollarIcon className="w-5 h-5" /> },
+            { label: t('reports.kpiPaidAmount'), value: formatCurrency(purchasesKpis.paidAmount), color: 'blue', icon: <CheckCircleIcon className="w-5 h-5" /> },
+            { label: t('reports.kpiDueAmount'), value: formatCurrency(purchasesKpis.dueAmount), color: 'red', icon: <ExclamationCircleIcon className="w-5 h-5" /> },
+          ], purchasesLoading)}
+
+          {renderCharts(purchasesSupplierData, purchasesDailyData, t('reports.chartTopSuppliers'), t('reports.chartDailyTrend'), 'purchaseGrad', '#6366f1', purchasesLoading)}
+
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('reports.tableTitle')}</h3>
+              <span className="text-xs text-gray-400 tabular-nums">{filteredPurchases.length} {t('reports.entries')}</span>
+            </div>
+            {purchasesLoading ? renderLoading() : filteredPurchases.length === 0 ? renderEmpty() : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20">
+                        <th className={thClass}>{t('reports.colReference')}</th>
+                        <th className={thClass}>{t('reports.colSupplier')}</th>
+                        <th className={thClass}>{t('reports.colUser')}</th>
+                        <th className={thClass}>{t('reports.colWarehouse')}</th>
+                        <th className={thClass}>{t('reports.colDate')}</th>
+                        <th className={thEndClass}>{t('reports.colTotal')}</th>
+                        <th className={thEndClass}>{t('reports.colPaid')}</th>
+                        <th className={thEndClass}>{t('reports.colDue')}</th>
+                        <th className={thCenterClass}>{t('reports.colStatus')}</th>
+                        <th className={thCenterClass}>{t('reports.colPaymentStatus')}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
+                      {paginatedPurchases.map((p) => (
+                        <tr key={p.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
+                          <td className={tdClass}><Link href={`/dashboard/purchases/${p.id}`} className="text-sm font-mono font-bold text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 hover:underline">{p.reference}</Link></td>
+                          <td className={tdClass}><span className="text-sm text-gray-700 dark:text-gray-300">{p.supplier?.name || '-'}</span></td>
+                          <td className={tdClass}><span className="text-sm text-gray-600 dark:text-gray-400">{p.user?.name || '-'}</span></td>
+                          <td className={tdClass}><span className="text-sm text-gray-600 dark:text-gray-400">{p.warehouse?.name || '-'}</span></td>
+                          <td className={tdClass}><span className="text-sm text-gray-500 dark:text-gray-400">{formatDate(p.date)}</span></td>
+                          <td className={`${tdClass} text-end`}><span className="text-sm font-bold text-gray-800 dark:text-gray-100 tabular-nums">{formatCurrency(parseFloat(String(p.grand_total)) || 0)}</span></td>
+                          <td className={`${tdClass} text-end`}><span className="text-sm font-medium text-emerald-600 dark:text-emerald-400 tabular-nums">{formatCurrency(parseFloat(String(p.paid_amount)) || 0)}</span></td>
+                          <td className={`${tdClass} text-end`}><span className={`text-sm font-medium tabular-nums ${(parseFloat(String(p.due_amount)) || 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400'}`}>{formatCurrency(parseFloat(String(p.due_amount)) || 0)}</span></td>
+                          <td className={`${tdClass} text-center`}><StatusBadge status={p.status} type="status" t={t} /></td>
+                          <td className={`${tdClass} text-center`}><StatusBadge status={p.payment_status} type="payment" t={t} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {renderPagination(purchasesPage, purchasesTotalPages, filteredPurchases.length, setPurchasesPage)}
+              </>
+            )}
+          </div>
+          </div>
+
+          {/* ─── Filter Panel ─── */}
+          {showFilters && (
+            <div className="w-72 shrink-0">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5 sticky top-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                    <FunnelIcon className="w-4 h-4" />
+                    {t('reports.filters')}
+                  </h3>
+                  <button onClick={() => setShowFilters(false)} className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <XMarkIcon className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{t('reports.colReference')}</label>
+                  <input type="text" value={filterRef} onChange={(e) => { setFilterRef(e.target.value); setPurchasesPage(1); }} placeholder={t('reports.filterSearchRef')} className="input w-full text-sm" />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{t('reports.colSupplier')}</label>
+                  <input type="text" value={filterSupplier} onChange={(e) => { setFilterSupplier(e.target.value); setPurchasesPage(1); }} placeholder={t('reports.filterSearchSupplier')} className="input w-full text-sm" />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{t('reports.colStatus')}</label>
+                  <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPurchasesPage(1); }} className="input w-full text-sm">
+                    <option value="">{t('reports.filterAll')}</option>
+                    <option value="pending">{t('reports.statusPending')}</option>
+                    <option value="received">{t('reports.statusReceived')}</option>
+                    <option value="partial">{t('reports.statusPartial')}</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{t('reports.colPaymentStatus')}</label>
+                  <select value={filterPayment} onChange={(e) => { setFilterPayment(e.target.value); setPurchasesPage(1); }} className="input w-full text-sm">
+                    <option value="">{t('reports.filterAll')}</option>
+                    <option value="unpaid">{t('reports.payUnpaid')}</option>
+                    <option value="partial">{t('reports.payPartial')}</option>
+                    <option value="paid">{t('reports.payPaid')}</option>
+                  </select>
+                </div>
+
+                {activeFilterCount > 0 && (
+                  <button onClick={clearFilters} className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <XMarkIcon className="w-3.5 h-3.5" />
+                    {t('reports.clearFilters')}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        );
+      })()}
+
+      {/* ═══════════════════════════════════════════ */}
+      {/* ─── SALES TAB ─── */}
+      {/* ═══════════════════════════════════════════ */}
+      {activeTab === 'sales' && (
+        <>
+          {renderFilterBar(salesDateFrom, setSalesDateFrom, salesDateTo, setSalesDateTo, () => refetchSales(), exportSalesExcel, exportSalesPDF)}
+
+          {renderKpiStrip([
+            { label: t('reports.kpiTotalSales'), value: salesKpis.count.toString(), color: 'indigo', icon: <ClipboardDocumentListIcon className="w-5 h-5" /> },
+            { label: t('reports.kpiTotalAmount'), value: formatCurrency(salesKpis.totalAmount), color: 'emerald', icon: <CurrencyDollarIcon className="w-5 h-5" /> },
+            { label: t('reports.kpiPaidAmount'), value: formatCurrency(salesKpis.paidAmount), color: 'blue', icon: <CheckCircleIcon className="w-5 h-5" /> },
+            { label: t('reports.kpiDueAmount'), value: formatCurrency(salesKpis.dueAmount), color: 'red', icon: <ExclamationCircleIcon className="w-5 h-5" /> },
+          ], salesLoading)}
+
+          {renderCharts(salesClientData, salesDailyData, t('reports.chartTopClients'), t('reports.chartDailySalesTrend'), 'salesGrad', '#10b981', salesLoading)}
+
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('reports.tableTitleSales')}</h3>
+              <span className="text-xs text-gray-400 tabular-nums">{sales.length} {t('reports.entries')}</span>
+            </div>
+            {salesLoading ? renderLoading() : sales.length === 0 ? renderEmpty() : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20">
+                        <th className={thClass}>{t('reports.colReference')}</th>
+                        <th className={thClass}>{t('reports.colClient')}</th>
+                        <th className={thClass}>{t('reports.colDate')}</th>
+                        <th className={thEndClass}>{t('reports.colTotal')}</th>
+                        <th className={thEndClass}>{t('reports.colPaid')}</th>
+                        <th className={thEndClass}>{t('reports.colDue')}</th>
+                        <th className={thCenterClass}>{t('reports.colStatus')}</th>
+                        <th className={thCenterClass}>{t('reports.colPaymentStatus')}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
+                      {paginatedSales.map((s) => (
+                        <tr key={s.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
+                          <td className={tdClass}><Link href={`/dashboard/sales/${s.id}`} className="text-sm font-mono font-bold text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 hover:underline">{s.reference}</Link></td>
+                          <td className={tdClass}><span className="text-sm text-gray-700 dark:text-gray-300">{s.client?.name || '-'}</span></td>
+                          <td className={tdClass}><span className="text-sm text-gray-500 dark:text-gray-400">{formatDate(s.date)}</span></td>
+                          <td className={`${tdClass} text-end`}><span className="text-sm font-bold text-gray-800 dark:text-gray-100 tabular-nums">{formatCurrency(parseFloat(String(s.grand_total)) || 0)}</span></td>
+                          <td className={`${tdClass} text-end`}><span className="text-sm font-medium text-emerald-600 dark:text-emerald-400 tabular-nums">{formatCurrency(parseFloat(String(s.paid_amount)) || 0)}</span></td>
+                          <td className={`${tdClass} text-end`}><span className={`text-sm font-medium tabular-nums ${(parseFloat(String(s.due_amount)) || 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400'}`}>{formatCurrency(parseFloat(String(s.due_amount)) || 0)}</span></td>
+                          <td className={`${tdClass} text-center`}><StatusBadge status={s.status} type="status" t={t} /></td>
+                          <td className={`${tdClass} text-center`}><StatusBadge status={s.payment_status} type="payment" t={t} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {renderPagination(salesPage, salesTotalPages, sales.length, setSalesPage)}
+              </>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ═══════════════════════════════════════════ */}
+      {/* ─── SALE RETURNS TAB ─── */}
+      {/* ═══════════════════════════════════════════ */}
+      {activeTab === 'saleReturns' && (
+        <>
+          {renderFilterBar(saleReturnsDateFrom, setSaleReturnsDateFrom, saleReturnsDateTo, setSaleReturnsDateTo, () => refetchSaleReturns(), exportSaleReturnsExcel, exportSaleReturnsPDF)}
+
+          {renderKpiStrip([
+            { label: t('reports.kpiTotalSaleReturns'), value: saleReturnsKpis.count.toString(), color: 'violet', icon: <ReceiptRefundIcon className="w-5 h-5" /> },
+            { label: t('reports.kpiTotalReturnAmount'), value: formatCurrency(saleReturnsKpis.totalAmount), color: 'amber', icon: <CurrencyDollarIcon className="w-5 h-5" /> },
+          ], saleReturnsLoading)}
+
+          {renderCharts(saleReturnsClientData, saleReturnsDailyData, t('reports.chartTopReturnClients'), t('reports.chartDailyReturnTrend'), 'saleReturnGrad', '#f59e0b', saleReturnsLoading)}
+
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('reports.tableTitleSaleReturns')}</h3>
+              <span className="text-xs text-gray-400 tabular-nums">{saleReturns.length} {t('reports.entries')}</span>
+            </div>
+            {saleReturnsLoading ? renderLoading() : saleReturns.length === 0 ? renderEmpty() : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20">
+                        <th className={thClass}>{t('reports.colReference')}</th>
+                        <th className={thClass}>{t('reports.colSaleRef')}</th>
+                        <th className={thClass}>{t('reports.colClient')}</th>
+                        <th className={thClass}>{t('reports.colDate')}</th>
+                        <th className={thEndClass}>{t('reports.colAmount')}</th>
+                        <th className={thCenterClass}>{t('reports.colStatus')}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
+                      {paginatedSaleReturns.map((r) => (
+                        <tr key={r.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
+                          <td className={tdClass}><span className="text-sm font-mono font-bold text-gray-800 dark:text-gray-100">{r.reference}</span></td>
+                          <td className={tdClass}>{r.sale ? <Link href={`/dashboard/sales/${r.sale_id}`} className="text-sm font-mono text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 hover:underline">{r.sale.reference}</Link> : <span className="text-sm text-gray-400">-</span>}</td>
+                          <td className={tdClass}><span className="text-sm text-gray-700 dark:text-gray-300">{r.client?.name || '-'}</span></td>
+                          <td className={tdClass}><span className="text-sm text-gray-500 dark:text-gray-400">{formatDate(r.date)}</span></td>
+                          <td className={`${tdClass} text-end`}><span className="text-sm font-bold text-gray-800 dark:text-gray-100 tabular-nums">{formatCurrency(parseFloat(String(r.total_amount)) || 0)}</span></td>
+                          <td className={`${tdClass} text-center`}><StatusBadge status={r.status} type="returnStatus" t={t} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {renderPagination(saleReturnsPage, saleReturnsTotalPages, saleReturns.length, setSaleReturnsPage)}
+              </>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ═══════════════════════════════════════════ */}
+      {/* ─── PURCHASE RETURNS TAB ─── */}
+      {/* ═══════════════════════════════════════════ */}
+      {activeTab === 'purchaseReturns' && (
+        <>
+          {renderFilterBar(purchaseReturnsDateFrom, setPurchaseReturnsDateFrom, purchaseReturnsDateTo, setPurchaseReturnsDateTo, () => refetchPurchaseReturns(), exportPurchaseReturnsExcel, exportPurchaseReturnsPDF)}
+
+          {renderKpiStrip([
+            { label: t('reports.kpiTotalPurchaseReturns'), value: purchaseReturnsKpis.count.toString(), color: 'violet', icon: <ReceiptRefundIcon className="w-5 h-5" /> },
+            { label: t('reports.kpiTotalReturnAmount'), value: formatCurrency(purchaseReturnsKpis.totalAmount), color: 'amber', icon: <CurrencyDollarIcon className="w-5 h-5" /> },
+          ], purchaseReturnsLoading)}
+
+          {renderCharts(purchaseReturnsSupplierData, purchaseReturnsDailyData, t('reports.chartTopReturnSuppliers'), t('reports.chartDailyPurchaseReturnTrend'), 'purchaseReturnGrad', '#ef4444', purchaseReturnsLoading)}
+
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('reports.tableTitlePurchaseReturns')}</h3>
+              <span className="text-xs text-gray-400 tabular-nums">{purchaseReturnsList.length} {t('reports.entries')}</span>
+            </div>
+            {purchaseReturnsLoading ? renderLoading() : purchaseReturnsList.length === 0 ? renderEmpty() : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20">
+                        <th className={thClass}>{t('reports.colReference')}</th>
+                        <th className={thClass}>{t('reports.colPurchaseRef')}</th>
+                        <th className={thClass}>{t('reports.colSupplier')}</th>
+                        <th className={thClass}>{t('reports.colDate')}</th>
+                        <th className={thEndClass}>{t('reports.colAmount')}</th>
+                        <th className={thCenterClass}>{t('reports.colStatus')}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
+                      {paginatedPurchaseReturns.map((r) => (
+                        <tr key={r.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
+                          <td className={tdClass}><span className="text-sm font-mono font-bold text-gray-800 dark:text-gray-100">{r.reference}</span></td>
+                          <td className={tdClass}>{r.purchase ? <Link href={`/dashboard/purchases/${r.purchase_id}`} className="text-sm font-mono text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 hover:underline">{r.purchase.reference}</Link> : <span className="text-sm text-gray-400">-</span>}</td>
+                          <td className={tdClass}><span className="text-sm text-gray-700 dark:text-gray-300">{r.supplier?.name || '-'}</span></td>
+                          <td className={tdClass}><span className="text-sm text-gray-500 dark:text-gray-400">{formatDate(r.date)}</span></td>
+                          <td className={`${tdClass} text-end`}><span className="text-sm font-bold text-gray-800 dark:text-gray-100 tabular-nums">{formatCurrency(parseFloat(String(r.total_amount)) || 0)}</span></td>
+                          <td className={`${tdClass} text-center`}><StatusBadge status={r.status} type="returnStatus" t={t} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {renderPagination(purchaseReturnsPage, purchaseReturnsTotalPages, purchaseReturnsList.length, setPurchaseReturnsPage)}
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { warehousesApi, usersApi } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { useLocale } from '@/lib/i18n/context';
 
 interface AssignedUser {
   id: number;
@@ -48,6 +49,7 @@ export default function WarehousesPage() {
   const [selectedUserId, setSelectedUserId] = useState<number | ''>('');
   const [users, setUsers] = useState<UserOption[]>([]);
   const [isAssigning, setIsAssigning] = useState(false);
+  const { t } = useLocale();
 
   useEffect(() => {
     fetchWarehouses();
@@ -79,7 +81,7 @@ export default function WarehousesPage() {
       const response = await warehousesApi.getAll();
       setWarehouses(response.data.data || response.data);
     } catch (error) {
-      toast.error('خطأ في تحميل المستودعات');
+      toast.error(t('common.loadError', { item: t('stock.warehousesTitle') }));
     } finally {
       setIsLoading(false);
     }
@@ -110,13 +112,13 @@ export default function WarehousesPage() {
         assigningWarehouse.id,
         selectedUserId === '' ? null : Number(selectedUserId)
       );
-      toast.success('تم تحديث المسؤول عن المستودع');
+      toast.success(t('stock.managerUpdated'));
       setShowAssignModal(false);
       setAssigningWarehouse(null);
       fetchWarehouses();
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'خطأ في تعيين المسؤول');
+      toast.error(err.response?.data?.message || t('stock.managerError'));
     } finally {
       setIsAssigning(false);
     }
@@ -129,17 +131,17 @@ export default function WarehousesPage() {
     try {
       if (editingWarehouse) {
         await warehousesApi.update(editingWarehouse.id, formData);
-        toast.success('تم تحديث المستودع بنجاح');
+        toast.success(t('common.updatedSuccess', { item: t('stock.warehousesTitle') }));
       } else {
         await warehousesApi.create(formData);
-        toast.success('تم إضافة المستودع بنجاح');
+        toast.success(t('common.addedSuccess', { item: t('stock.warehousesTitle') }));
       }
       setShowModal(false);
       setEditingWarehouse(null);
       resetForm();
       fetchWarehouses();
     } catch (error) {
-      toast.error('خطأ في حفظ المستودع');
+      toast.error(t('common.saveError', { item: t('stock.warehousesTitle') }));
     } finally {
       setIsSubmitting(false);
     }
@@ -168,14 +170,14 @@ export default function WarehousesPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('هل أنت متأكد من حذف هذا المستودع؟')) return;
+    if (!confirm(t('stock.confirmDeleteWarehouse'))) return;
 
     try {
       await warehousesApi.delete(id);
-      toast.success('تم حذف المستودع بنجاح');
+      toast.success(t('common.deletedSuccess', { item: t('stock.warehousesTitle') }));
       fetchWarehouses();
     } catch (error) {
-      toast.error('خطأ في حذف المستودع');
+      toast.error(t('common.deleteError', { item: t('stock.warehousesTitle') }));
     }
   };
 
@@ -196,12 +198,12 @@ export default function WarehousesPage() {
     <div>
       {/* Shortcuts hint */}
       <div className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg mb-4 flex items-center gap-6 text-sm">
-        <span className="font-medium">اختصارات:</span>
-        <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Insert</kbd> إضافة جديد</span>
+        <span className="font-medium">{t('common.shortcuts') + ':'}</span>
+        <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Insert</kbd> {t('common.addNew')}</span>
       </div>
 
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">المستودعات</h1>
+        <h1 className="text-2xl font-bold">{t('stock.warehousesTitle')}</h1>
         <button
           onClick={() => {
             setEditingWarehouse(null);
@@ -213,8 +215,8 @@ export default function WarehousesPage() {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          إضافة مستودع
-          <kbd className="bg-blue-700 px-1.5 py-0.5 rounded text-xs mr-2">Insert</kbd>
+          {t('stock.addWarehouse')}
+          <kbd className="bg-blue-700 px-1.5 py-0.5 rounded text-xs me-2">Insert</kbd>
         </button>
       </div>
 
@@ -222,7 +224,7 @@ export default function WarehousesPage() {
         <div className="mb-4">
           <input
             type="text"
-            placeholder="بحث..."
+            placeholder={t('common.search')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="input max-w-xs"
@@ -233,20 +235,20 @@ export default function WarehousesPage() {
           <thead>
             <tr>
               <th>#</th>
-              <th>الاسم</th>
-              <th>العنوان</th>
-              <th>الهاتف</th>
-              <th>المسؤول</th>
-              <th>رئيسي</th>
-              <th>الحالة</th>
-              <th>الإجراءات</th>
+              <th>{t('common.name')}</th>
+              <th>{t('stock.address')}</th>
+              <th>{t('stock.phone')}</th>
+              <th>{t('stock.manager')}</th>
+              <th>{t('stock.mainWarehouse')}</th>
+              <th>{t('common.status')}</th>
+              <th>{t('common.actions')}</th>
             </tr>
           </thead>
           <tbody>
             {filteredWarehouses.length === 0 ? (
               <tr>
                 <td colSpan={8} className="text-center py-8 text-gray-500">
-                  لا توجد مستودعات
+                  {t('stock.noWarehouses')}
                 </td>
               </tr>
             ) : (
@@ -269,20 +271,20 @@ export default function WarehousesPage() {
                         onClick={() => handleOpenAssign(warehouse)}
                         className="text-xs text-gray-400 hover:text-blue-600 cursor-pointer"
                       >
-                        + تعيين
+                        {t('stock.assign')}
                       </button>
                     )}
                   </td>
                   <td>
                     {warehouse.is_main ? (
-                      <span className="badge badge-info">رئيسي</span>
+                      <span className="badge badge-info">{t('stock.mainWarehouse')}</span>
                     ) : (
                       <span className="text-gray-400">-</span>
                     )}
                   </td>
                   <td>
                     <span className={`badge ${warehouse.is_active ? 'badge-success' : 'badge-danger'}`}>
-                      {warehouse.is_active ? 'نشط' : 'غير نشط'}
+                      {warehouse.is_active ? t('common.active') : t('common.inactive')}
                     </span>
                   </td>
                   <td>
@@ -318,46 +320,46 @@ export default function WarehousesPage() {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <h2 className="text-xl font-bold mb-4">
-                {editingWarehouse ? 'تعديل المستودع' : 'إضافة مستودع'}
+                {editingWarehouse ? t('stock.editWarehouse') : t('stock.addWarehouse')}
               </h2>
               <form onSubmit={handleSubmit}>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    الاسم <span className="text-red-500">*</span>
+                    {t('common.name')} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className="input"
-                    placeholder="مثال: المستودع الرئيسي"
+                    placeholder={t('stock.warehouseNameExample')}
                     required
                   />
                 </div>
 
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    العنوان
+                    {t('stock.address')}
                   </label>
                   <input
                     type="text"
                     value={formData.address}
                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                     className="input"
-                    placeholder="مثال: شارع الجمهورية، بسكرة"
+                    placeholder={t('stock.addressExample')}
                   />
                 </div>
 
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    الهاتف
+                    {t('stock.phone')}
                   </label>
                   <input
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     className="input"
-                    placeholder="مثال: 0555123456"
+                    placeholder={t('stock.phoneExample')}
                     dir="ltr"
                   />
                 </div>
@@ -370,7 +372,7 @@ export default function WarehousesPage() {
                       onChange={(e) => setFormData({ ...formData, is_main: e.target.checked })}
                       className="w-4 h-4 text-blue-600 rounded"
                     />
-                    <span className="text-sm font-medium text-gray-700">مستودع رئيسي</span>
+                    <span className="text-sm font-medium text-gray-700">{t('stock.isMain')}</span>
                   </label>
                 </div>
 
@@ -382,20 +384,20 @@ export default function WarehousesPage() {
                       onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
                       className="w-4 h-4 text-blue-600 rounded"
                     />
-                    <span className="text-sm font-medium text-gray-700">نشط</span>
+                    <span className="text-sm font-medium text-gray-700">{t('common.active')}</span>
                   </label>
                 </div>
 
                 <div className="flex gap-3">
                   <button type="submit" disabled={isSubmitting} className="btn btn-primary flex-1">
-                    {isSubmitting ? 'جاري الحفظ...' : 'حفظ'}
+                    {isSubmitting ? t('common.saving') : t('common.save')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
                     className="btn btn-secondary flex-1"
                   >
-                    إلغاء
+                    {t('common.cancel')}
                   </button>
                 </div>
               </form>
@@ -410,23 +412,23 @@ export default function WarehousesPage() {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <h2 className="text-xl font-bold mb-4">
-                تعيين مسؤول - {assigningWarehouse.name}
+                {t('stock.assignManager', { name: assigningWarehouse.name })}
               </h2>
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  المستخدم
+                  {t('stock.user')}
                 </label>
                 <select
                   value={selectedUserId}
                   onChange={(e) => setSelectedUserId(e.target.value === '' ? '' : Number(e.target.value))}
                   className="select w-full"
                 >
-                  <option value="">-- بدون مسؤول --</option>
+                  <option value="">{t('stock.noManager')}</option>
                   {users
                     .filter(u => !u.warehouse_id || u.warehouse_id === assigningWarehouse.id)
                     .map(u => (
                       <option key={u.id} value={u.id}>
-                        {u.name} ({u.role === 'admin' ? 'مدير' : u.role === 'manager' ? 'مسؤول' : u.role === 'seller' ? 'بائع' : u.role === 'livreur' ? 'سائق توصيل' : 'بائع متنقل'})
+                        {u.name} ({u.role === 'admin' ? t('stock.roleAdmin') : u.role === 'manager' ? t('stock.roleManager') : u.role === 'seller' ? t('stock.roleSeller') : u.role === 'livreur' ? t('stock.roleDriver') : t('stock.roleCashvan')})
                       </option>
                     ))}
                 </select>
@@ -437,13 +439,13 @@ export default function WarehousesPage() {
                   disabled={isAssigning}
                   className="btn btn-primary flex-1"
                 >
-                  {isAssigning ? 'جاري الحفظ...' : 'حفظ'}
+                  {isAssigning ? t('common.saving') : t('common.save')}
                 </button>
                 <button
                   onClick={() => setShowAssignModal(false)}
                   className="btn btn-secondary flex-1"
                 >
-                  إلغاء
+                  {t('common.cancel')}
                 </button>
               </div>
             </div>

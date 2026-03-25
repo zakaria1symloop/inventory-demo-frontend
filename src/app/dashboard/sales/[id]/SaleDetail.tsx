@@ -4,11 +4,13 @@ import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { salesApi } from '@/lib/api';
 import DateInput from '@/components/ui/DateInput';
+import { useLocale } from '@/lib/i18n/context';
 
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import {
   ArrowRightIcon,
+  ArrowLeftIcon,
   PrinterIcon,
   TrashIcon,
   CheckCircleIcon,
@@ -70,7 +72,7 @@ interface Sale {
   status: 'pending' | 'completed' | 'cancelled' | 'draft';
   payment_status: 'unpaid' | 'partial' | 'paid';
   note?: string;
-  client?: { id: number; name: string; phone?: string; address?: string };
+  client?: { id: number; name: string; code?: string; phone?: string; address?: string };
   warehouse?: { id: number; name: string };
   user?: { id: number; name: string };
   items?: SaleItem[];
@@ -82,6 +84,7 @@ interface Sale {
 export default function SaleDetail() {
   const params = useParams();
   const router = useRouter();
+  const { t, locale, dir } = useLocale();
   const [id, setId] = useState<string | null>(null);
   const [sale, setSale] = useState<Sale | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -98,6 +101,8 @@ export default function SaleDetail() {
     notes: '',
     date: new Date().toISOString().split('T')[0],
   });
+
+  const BackArrowIcon = dir === 'rtl' ? ArrowRightIcon : ArrowLeftIcon;
 
   // Extract ID from URL for static export compatibility
   useEffect(() => {
@@ -123,7 +128,7 @@ export default function SaleDetail() {
       const response = await salesApi.getOne(parseInt(id));
       setSale(response.data.data || response.data);
     } catch (error) {
-      toast.error('خطأ في تحميل البيانات');
+      toast.error(t('saleDetail.loadError'));
     } finally {
       setIsLoading(false);
     }
@@ -131,11 +136,13 @@ export default function SaleDetail() {
 
   const formatCurrency = (value: number) => {
     const safeValue = isNaN(value) ? 0 : value;
-    return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(safeValue);
+    const loc = locale === 'ar' ? 'ar-DZ' : 'fr-DZ';
+    return new Intl.NumberFormat(loc, { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(safeValue);
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('ar-DZ', {
+    const loc = locale === 'ar' ? 'ar-DZ' : 'fr-DZ';
+    return new Date(dateString).toLocaleDateString(loc, {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -147,26 +154,26 @@ export default function SaleDetail() {
     setIsConfirming(true);
     try {
       await salesApi.confirm(sale.id);
-      toast.success('تم تأكيد الفاتورة بنجاح');
+      toast.success(t('saleDetail.confirmSuccess'));
       fetchSale();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'خطأ في تأكيد الفاتورة');
+      toast.error(error.response?.data?.message || t('saleDetail.confirmError'));
     } finally {
       setIsConfirming(false);
     }
   };
 
   const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { bg: string; text: string; icon: any; label: string }> = {
-      draft: { bg: 'bg-blue-100', text: 'text-blue-800', icon: ClockIcon, label: 'مسودة' },
-      pending: { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: ClockIcon, label: 'قيد الانتظار' },
-      completed: { bg: 'bg-green-100', text: 'text-green-800', icon: CheckCircleIcon, label: 'مكتمل' },
-      cancelled: { bg: 'bg-red-100', text: 'text-red-800', icon: XCircleIcon, label: 'ملغي' },
+    const statusConfig: Record<string, { bg: string; darkBg: string; text: string; darkText: string; icon: any; label: string }> = {
+      draft: { bg: 'bg-blue-100', darkBg: 'dark:bg-blue-900/30', text: 'text-blue-800', darkText: 'dark:text-blue-300', icon: ClockIcon, label: t('saleDetail.draft') },
+      pending: { bg: 'bg-yellow-100', darkBg: 'dark:bg-yellow-900/30', text: 'text-yellow-800', darkText: 'dark:text-yellow-300', icon: ClockIcon, label: t('saleDetail.pending') },
+      completed: { bg: 'bg-green-100', darkBg: 'dark:bg-green-900/30', text: 'text-green-800', darkText: 'dark:text-green-300', icon: CheckCircleIcon, label: t('saleDetail.completed') },
+      cancelled: { bg: 'bg-red-100', darkBg: 'dark:bg-red-900/30', text: 'text-red-800', darkText: 'dark:text-red-300', icon: XCircleIcon, label: t('saleDetail.cancelled') },
     };
     const config = statusConfig[status] || statusConfig.pending;
     const Icon = config.icon;
     return (
-      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${config.bg} ${config.text}`}>
+      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${config.bg} ${config.darkBg} ${config.text} ${config.darkText}`}>
         <Icon className="w-4 h-4" />
         {config.label}
       </span>
@@ -174,15 +181,15 @@ export default function SaleDetail() {
   };
 
   const getPaymentStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { bg: string; text: string; icon: any; label: string }> = {
-      unpaid: { bg: 'bg-red-100', text: 'text-red-800', icon: XCircleIcon, label: 'غير مدفوع' },
-      partial: { bg: 'bg-orange-100', text: 'text-orange-800', icon: BanknotesIcon, label: 'مدفوع جزئياً' },
-      paid: { bg: 'bg-green-100', text: 'text-green-800', icon: CheckCircleIcon, label: 'مدفوع' },
+    const statusConfig: Record<string, { bg: string; darkBg: string; text: string; darkText: string; icon: any; label: string }> = {
+      unpaid: { bg: 'bg-red-100', darkBg: 'dark:bg-red-900/30', text: 'text-red-800', darkText: 'dark:text-red-300', icon: XCircleIcon, label: t('saleDetail.unpaid') },
+      partial: { bg: 'bg-orange-100', darkBg: 'dark:bg-orange-900/30', text: 'text-orange-800', darkText: 'dark:text-orange-300', icon: BanknotesIcon, label: t('saleDetail.partial') },
+      paid: { bg: 'bg-green-100', darkBg: 'dark:bg-green-900/30', text: 'text-green-800', darkText: 'dark:text-green-300', icon: CheckCircleIcon, label: t('saleDetail.paid') },
     };
     const config = statusConfig[status] || statusConfig.unpaid;
     const Icon = config.icon;
     return (
-      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${config.bg} ${config.text}`}>
+      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${config.bg} ${config.darkBg} ${config.text} ${config.darkText}`}>
         <Icon className="w-4 h-4" />
         {config.label}
       </span>
@@ -191,21 +198,24 @@ export default function SaleDetail() {
 
   const getPaymentMethodLabel = (method: string) => {
     const methods: Record<string, string> = {
-      cash: 'نقدي',
-      bank: 'تحويل بنكي',
-      check: 'شيك',
-      other: 'أخرى',
+      cash: t('saleDetail.cash'),
+      bank: t('saleDetail.bankTransfer'),
+      check: t('saleDetail.check'),
+      other: t('saleDetail.other'),
     };
     return methods[method] || method;
   };
 
   const handlePrint = () => {
+    const printDir = locale === 'ar' ? 'rtl' : 'ltr';
+    const printLang = locale;
+    const textAlign = locale === 'ar' ? 'right' : 'left';
     const printContent = `
       <!DOCTYPE html>
-      <html dir="rtl" lang="ar">
+      <html dir="${printDir}" lang="${printLang}">
       <head>
         <meta charset="UTF-8">
-        <title>فاتورة بيع - ${sale?.reference}</title>
+        <title>${t('saleDetail.saleInvoice')} - ${sale?.reference}</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 20px; font-size: 14px; }
@@ -217,7 +227,7 @@ export default function SaleDetail() {
           .info-box h3 { font-size: 14px; color: #666; margin-bottom: 8px; }
           .info-box p { font-size: 16px; font-weight: bold; }
           table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-          th, td { padding: 12px; text-align: right; border-bottom: 1px solid #ddd; }
+          th, td { padding: 12px; text-align: ${textAlign}; border-bottom: 1px solid #ddd; }
           th { background: #f5f5f5; font-weight: bold; }
           .totals { margin-top: 20px; }
           .totals .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
@@ -228,26 +238,27 @@ export default function SaleDetail() {
       </head>
       <body>
         <div class="header">
-          <h1>فاتورة بيع</h1>
+          <h1>${t('saleDetail.saleInvoice')}</h1>
           <div class="ref">${sale?.reference}</div>
         </div>
 
         <div class="info-grid">
           <div class="info-box">
-            <h3>العميل</h3>
-            <p>${sale?.client?.name || 'عميل نقدي'}</p>
+            <h3>${t('saleDetail.client')}</h3>
+            <p>${sale?.client?.name || t('saleDetail.cashClient')}</p>
+            ${sale?.client?.code ? `<p style="font-size:11px;color:#4338ca;font-family:monospace;margin-top:2px">${sale.client.code}</p>` : ''}
             ${sale?.client?.phone ? `<p style="font-size:12px;color:#666">${sale.client.phone}</p>` : ''}
           </div>
           <div class="info-box">
-            <h3>التاريخ</h3>
+            <h3>${t('saleDetail.date')}</h3>
             <p>${sale?.date ? formatDate(sale.date) : '-'}</p>
           </div>
           <div class="info-box">
-            <h3>المستودع</h3>
+            <h3>${t('saleDetail.warehouse')}</h3>
             <p>${sale?.warehouse?.name || '-'}</p>
           </div>
           <div class="info-box">
-            <h3>البائع</h3>
+            <h3>${t('saleDetail.seller')}</h3>
             <p>${sale?.user?.name || '-'}</p>
           </div>
         </div>
@@ -255,13 +266,13 @@ export default function SaleDetail() {
         <table>
           <thead>
             <tr>
-              <th>المنتج</th>
-              <th style="text-align:center">ق/ك</th>
-              <th style="text-align:center">كراتين</th>
-              <th style="text-align:center">قطع</th>
-              <th style="text-align:center">إجمالي</th>
-              <th style="text-align:center">السعر</th>
-              <th style="text-align:center">المجموع</th>
+              <th>${t('saleDetail.product')}</th>
+              <th style="text-align:center">${t('saleDetail.piecesPerUnit')}</th>
+              <th style="text-align:center">${t('saleDetail.cartons')}</th>
+              <th style="text-align:center">${t('saleDetail.pieces')}</th>
+              <th style="text-align:center">${t('saleDetail.total')}</th>
+              <th style="text-align:center">${t('saleDetail.price')}</th>
+              <th style="text-align:center">${t('saleDetail.subtotalCol')}</th>
             </tr>
           </thead>
           <tbody>
@@ -284,19 +295,19 @@ export default function SaleDetail() {
         </table>
 
         <div class="totals">
-          <div class="row"><span>المجموع الفرعي:</span><span>${formatCurrency(sale?.total_amount || 0)}</span></div>
-          <div class="row"><span>الخصم:</span><span>${formatCurrency(sale?.discount || 0)}</span></div>
-          <div class="row"><span>الضريبة:</span><span>${formatCurrency(sale?.tax || 0)}</span></div>
-          <div class="row"><span>الشحن:</span><span>${formatCurrency(sale?.shipping || 0)}</span></div>
-          <div class="row grand"><span>المجموع النهائي:</span><span>${formatCurrency(sale?.grand_total || 0)}</span></div>
-          <div class="row"><span>المدفوع:</span><span>${formatCurrency(sale?.paid_amount || 0)}</span></div>
-          <div class="row" style="color: ${(sale?.due_amount || 0) > 0 ? 'red' : 'green'}"><span>المتبقي:</span><span>${formatCurrency(sale?.due_amount || 0)}</span></div>
+          <div class="row"><span>${t('saleDetail.subtotal')}:</span><span>${formatCurrency(sale?.total_amount || 0)}</span></div>
+          <div class="row"><span>${t('saleDetail.discount')}:</span><span>${formatCurrency(sale?.discount || 0)}</span></div>
+          <div class="row"><span>${t('saleDetail.tax')}:</span><span>${formatCurrency(sale?.tax || 0)}</span></div>
+          <div class="row"><span>${t('saleDetail.shipping')}:</span><span>${formatCurrency(sale?.shipping || 0)}</span></div>
+          <div class="row grand"><span>${t('saleDetail.grandTotal')}:</span><span>${formatCurrency(sale?.grand_total || 0)}</span></div>
+          <div class="row"><span>${t('saleDetail.paidAmount')}:</span><span>${formatCurrency(sale?.paid_amount || 0)}</span></div>
+          <div class="row" style="color: ${(sale?.due_amount || 0) > 0 ? 'red' : 'green'}"><span>${t('saleDetail.remaining')}:</span><span>${formatCurrency(sale?.due_amount || 0)}</span></div>
         </div>
 
-        ${sale?.note ? `<div style="margin-top:30px;padding:15px;background:#f9f9f9;border-radius:8px"><strong>ملاحظات:</strong><p>${sale.note}</p></div>` : ''}
+        ${sale?.note ? `<div style="margin-top:30px;padding:15px;background:#f9f9f9;border-radius:8px"><strong>${t('saleDetail.notes')}:</strong><p>${sale.note}</p></div>` : ''}
 
         <div class="footer">
-          <p>تم الطباعة بتاريخ ${new Date().toLocaleDateString('ar-DZ')}</p>
+          <p>${t('saleDetail.printedAt', { date: new Date().toLocaleDateString(locale === 'ar' ? 'ar-DZ' : 'fr-DZ') })}</p>
         </div>
       </body>
       </html>
@@ -332,10 +343,10 @@ export default function SaleDetail() {
     setIsDeleting(true);
     try {
       await salesApi.delete(sale.id);
-      toast.success('تم حذف الفاتورة بنجاح');
+      toast.success(t('saleDetail.deleteSuccess'));
       router.push('/dashboard/sales');
     } catch (error: any) {
-      const message = error.response?.data?.message || 'خطأ في حذف الفاتورة';
+      const message = error.response?.data?.message || t('saleDetail.deleteError');
       toast.error(message);
     } finally {
       setIsDeleting(false);
@@ -360,12 +371,12 @@ export default function SaleDetail() {
 
     const amount = parseFloat(paymentData.amount);
     if (isNaN(amount) || amount <= 0) {
-      toast.error('الرجاء إدخال مبلغ صحيح');
+      toast.error(t('saleDetail.validAmountError'));
       return;
     }
 
     if (amount > sale.due_amount) {
-      toast.error('المبلغ أكبر من المتبقي');
+      toast.error(t('saleDetail.amountExceedsError'));
       return;
     }
 
@@ -377,11 +388,11 @@ export default function SaleDetail() {
         notes: paymentData.notes,
         date: paymentData.date,
       });
-      toast.success('تم تسجيل الدفعة بنجاح');
+      toast.success(t('saleDetail.paymentSuccess'));
       setIsPaymentOpen(false);
       fetchSale();
     } catch (error: any) {
-      const message = error.response?.data?.message || 'خطأ في تسجيل الدفعة';
+      const message = error.response?.data?.message || t('saleDetail.paymentError');
       toast.error(message);
     } finally {
       setIsProcessingPayment(false);
@@ -396,13 +407,13 @@ export default function SaleDetail() {
       await salesApi.addPayment(sale.id, {
         amount: parseFloat(String(sale.due_amount)),
         payment_method: 'cash',
-        notes: 'دفع كامل',
+        notes: t('saleDetail.fullPaymentNote'),
         date: new Date().toISOString().split('T')[0],
       });
-      toast.success('تم دفع المبلغ بالكامل');
+      toast.success(t('saleDetail.fullPaymentDone'));
       fetchSale();
     } catch (error: any) {
-      const message = error.response?.data?.message || 'خطأ في الدفع';
+      const message = error.response?.data?.message || t('saleDetail.fullPaymentError');
       toast.error(message);
     } finally {
       setIsProcessingPayment(false);
@@ -420,14 +431,14 @@ export default function SaleDetail() {
   if (!sale) {
     return (
       <div className="text-center py-16">
-        <div className="text-gray-400 mb-4">
+        <div className="text-gray-400 dark:text-gray-500 mb-4">
           <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">لم يتم العثور على الفاتورة</h3>
-        <Link href="/dashboard/sales" className="text-blue-600 hover:text-blue-800">
-          العودة إلى قائمة المبيعات
+        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">{t('saleDetail.notFound')}</h3>
+        <Link href="/dashboard/sales" className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+          {t('saleDetail.backToSales')}
         </Link>
       </div>
     );
@@ -440,14 +451,14 @@ export default function SaleDetail() {
         <div className="flex items-center gap-4">
           <Link
             href="/dashboard/sales"
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
-            <ArrowRightIcon className="w-5 h-5 text-gray-600" />
+            <BackArrowIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{sale.reference}</h1>
-            <p className="text-sm text-gray-500">
-              تم الإنشاء في {formatDate(sale.created_at)}
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{sale.reference}</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {t('saleDetail.createdAt', { date: formatDate(sale.created_at) })}
             </p>
           </div>
         </div>
@@ -461,7 +472,7 @@ export default function SaleDetail() {
                 disabled={isProcessingPayment}
               >
                 <CreditCardIcon className="w-5 h-5" />
-                إضافة دفعة
+                {t('saleDetail.addPayment')}
               </button>
               <button
                 onClick={handlePayFull}
@@ -469,7 +480,7 @@ export default function SaleDetail() {
                 disabled={isProcessingPayment}
               >
                 <CheckCircleIcon className="w-5 h-5" />
-                دفع الكل
+                {t('saleDetail.payAll')}
               </button>
             </>
           )}
@@ -480,7 +491,7 @@ export default function SaleDetail() {
               className="btn bg-green-600 text-white hover:bg-green-700"
             >
               <CheckCircleIcon className="w-5 h-5" />
-              {isConfirming ? 'جاري التأكيد...' : 'تأكيد الفاتورة'}
+              {isConfirming ? t('saleDetail.confirming') : t('saleDetail.confirmInvoice')}
             </button>
           )}
           <button
@@ -488,14 +499,14 @@ export default function SaleDetail() {
             className="btn btn-secondary"
           >
             <PrinterIcon className="w-5 h-5" />
-            طباعة
+            {t('saleDetail.print')}
           </button>
           <button
             onClick={() => setIsDeleteOpen(true)}
-            className="btn bg-red-50 text-red-600 hover:bg-red-100"
+            className="btn bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"
           >
             <TrashIcon className="w-5 h-5" />
-            حذف
+            {t('saleDetail.delete')}
           </button>
         </div>
       </div>
@@ -504,35 +515,38 @@ export default function SaleDetail() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="card">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <UserIcon className="w-5 h-5 text-blue-600" />
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+              <UserIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">العميل</p>
-              <p className="font-semibold">{sale.client?.name || 'عميل نقدي'}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('saleDetail.client')}</p>
+              <p className="font-semibold dark:text-gray-100">{sale.client?.name || t('saleDetail.cashClient')}</p>
+              {sale.client?.code && (
+                <p className="text-[11px] text-indigo-600 dark:text-indigo-400 font-mono">{sale.client.code}</p>
+              )}
             </div>
           </div>
         </div>
 
         <div className="card">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <CalendarIcon className="w-5 h-5 text-purple-600" />
+            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+              <CalendarIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">التاريخ</p>
-              <p className="font-semibold">{formatDate(sale.date)}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('saleDetail.date')}</p>
+              <p className="font-semibold dark:text-gray-100">{formatDate(sale.date)}</p>
             </div>
           </div>
         </div>
 
         <div className="card">
-          <p className="text-sm text-gray-500 mb-2">حالة البيع</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{t('saleDetail.saleStatus')}</p>
           {getStatusBadge(sale.status)}
         </div>
 
         <div className="card">
-          <p className="text-sm text-gray-500 mb-2">حالة الدفع</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{t('saleDetail.paymentStatus')}</p>
           {getPaymentStatusBadge(sale.payment_status)}
         </div>
       </div>
@@ -554,34 +568,34 @@ export default function SaleDetail() {
               const profit = totalSell - totalCost;
               return (
                 <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-center">
-                    <p className="text-xs text-orange-600">إجمالي سعر الشراء</p>
-                    <p className="text-lg font-bold text-orange-700">{formatCurrency(totalCost)}</p>
+                  <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-3 text-center">
+                    <p className="text-xs text-orange-600 dark:text-orange-400">{t('saleDetail.totalPurchasePrice')}</p>
+                    <p className="text-lg font-bold text-orange-700 dark:text-orange-300">{formatCurrency(totalCost)}</p>
                   </div>
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-                    <p className="text-xs text-green-600">إجمالي سعر البيع</p>
-                    <p className="text-lg font-bold text-green-700">{formatCurrency(totalSell)}</p>
+                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 text-center">
+                    <p className="text-xs text-green-600 dark:text-green-400">{t('saleDetail.totalSalePrice')}</p>
+                    <p className="text-lg font-bold text-green-700 dark:text-green-300">{formatCurrency(totalSell)}</p>
                   </div>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-                    <p className="text-xs text-blue-600">هامش الربح</p>
-                    <p className={`text-lg font-bold ${profit >= 0 ? 'text-blue-700' : 'text-red-700'}`}>{formatCurrency(profit)}</p>
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-center">
+                    <p className="text-xs text-blue-600 dark:text-blue-400">{t('saleDetail.profitMargin')}</p>
+                    <p className={`text-lg font-bold ${profit >= 0 ? 'text-blue-700 dark:text-blue-300' : 'text-red-700 dark:text-red-300'}`}>{formatCurrency(profit)}</p>
                   </div>
                 </div>
               );
             })()}
 
-            <h3 className="text-lg font-semibold mb-4">المنتجات ({sale.items?.length || 0})</h3>
+            <h3 className="text-lg font-semibold mb-4 dark:text-gray-100">{t('saleDetail.products', { count: String(sale.items?.length || 0) })}</h3>
             <div className="overflow-x-auto">
               <table>
                 <thead>
                   <tr>
-                    <th>المنتج</th>
-                    <th className="text-center">ق/ك</th>
-                    <th className="text-center">كراتين</th>
-                    <th className="text-center">قطع</th>
-                    <th className="text-center">إجمالي</th>
-                    <th className="text-center">السعر</th>
-                    <th className="text-center">المجموع</th>
+                    <th>{t('saleDetail.product')}</th>
+                    <th className="text-center">{t('saleDetail.piecesPerUnit')}</th>
+                    <th className="text-center">{t('saleDetail.cartons')}</th>
+                    <th className="text-center">{t('saleDetail.pieces')}</th>
+                    <th className="text-center">{t('saleDetail.total')}</th>
+                    <th className="text-center">{t('saleDetail.price')}</th>
+                    <th className="text-center">{t('saleDetail.subtotalCol')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -593,25 +607,25 @@ export default function SaleDetail() {
                     return (
                       <tr key={item.id}>
                         <td>
-                          <div className="font-medium">{item.product?.name || '-'}</div>
+                          <div className="font-medium dark:text-gray-100">{item.product?.name || '-'}</div>
                           {item.product?.barcode && (
-                            <div className="text-xs text-gray-400">{item.product.barcode}</div>
+                            <div className="text-xs text-gray-400 dark:text-gray-500">{item.product.barcode}</div>
                           )}
                         </td>
                         <td className="text-center">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
                             {piecesPerPkg > 1 ? piecesPerPkg : '-'}
                           </span>
                         </td>
-                        <td className="text-center font-bold">{piecesPerPkg > 1 ? cartons : '-'}</td>
-                        <td className="text-center text-gray-600">{piecesPerPkg > 1 ? remainPcs : '-'}</td>
+                        <td className="text-center font-bold dark:text-gray-100">{piecesPerPkg > 1 ? cartons : '-'}</td>
+                        <td className="text-center text-gray-600 dark:text-gray-400">{piecesPerPkg > 1 ? remainPcs : '-'}</td>
                         <td className="text-center">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-sm font-bold bg-blue-50 text-blue-700">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-sm font-bold bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300">
                             {totalPieces}
                           </span>
                         </td>
-                        <td className="text-center">{formatCurrency(item.unit_price)}</td>
-                        <td className="text-center font-semibold">{formatCurrency(item.subtotal)}</td>
+                        <td className="text-center dark:text-gray-300">{formatCurrency(item.unit_price)}</td>
+                        <td className="text-center font-semibold dark:text-gray-100">{formatCurrency(item.subtotal)}</td>
                       </tr>
                     );
                   })}
@@ -624,9 +638,9 @@ export default function SaleDetail() {
           {sale.payments && sale.payments.length > 0 && (
             <div className="card mt-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">سجل الدفعات ({sale.payments.length})</h3>
-                <span className="text-sm text-gray-500">
-                  إجمالي المدفوع: <span className="font-semibold text-green-600">{formatCurrency(sale.paid_amount)}</span>
+                <h3 className="text-lg font-semibold dark:text-gray-100">{t('saleDetail.paymentHistory', { count: String(sale.payments.length) })}</h3>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {t('saleDetail.totalPaid')}: <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(sale.paid_amount)}</span>
                 </span>
               </div>
               <div className="overflow-x-auto">
@@ -634,33 +648,33 @@ export default function SaleDetail() {
                   <thead>
                     <tr>
                       <th className="text-center w-12">#</th>
-                      <th className="text-center">المرجع</th>
-                      <th className="text-center">التاريخ</th>
-                      <th className="text-center">طريقة الدفع</th>
-                      <th className="text-center">المبلغ</th>
-                      <th className="text-center">بواسطة</th>
-                      <th>ملاحظات</th>
+                      <th className="text-center">{t('saleDetail.reference')}</th>
+                      <th className="text-center">{t('saleDetail.paymentDate')}</th>
+                      <th className="text-center">{t('saleDetail.paymentMethod')}</th>
+                      <th className="text-center">{t('saleDetail.amount')}</th>
+                      <th className="text-center">{t('saleDetail.by')}</th>
+                      <th>{t('saleDetail.notes')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {sale.payments.map((payment, index) => (
                       <tr key={payment.id}>
-                        <td className="text-center text-gray-500">{index + 1}</td>
-                        <td className="text-center font-mono text-sm">{payment.reference}</td>
-                        <td className="text-center">{formatDate(payment.date)}</td>
+                        <td className="text-center text-gray-500 dark:text-gray-400">{index + 1}</td>
+                        <td className="text-center font-mono text-sm dark:text-gray-300">{payment.reference}</td>
+                        <td className="text-center dark:text-gray-300">{formatDate(payment.date)}</td>
                         <td className="text-center">
                           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            payment.payment_method === 'cash' ? 'bg-green-100 text-green-800' :
-                            payment.payment_method === 'bank' ? 'bg-blue-100 text-blue-800' :
-                            payment.payment_method === 'check' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-gray-100 text-gray-800'
+                            payment.payment_method === 'cash' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
+                            payment.payment_method === 'bank' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
+                            payment.payment_method === 'check' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
+                            'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                           }`}>
                             {getPaymentMethodLabel(payment.payment_method)}
                           </span>
                         </td>
-                        <td className="text-center font-semibold text-green-600">{formatCurrency(payment.amount)}</td>
-                        <td className="text-center text-gray-600">{payment.user?.name || '-'}</td>
-                        <td className="text-gray-500 text-sm">{payment.notes || '-'}</td>
+                        <td className="text-center font-semibold text-green-600 dark:text-green-400">{formatCurrency(payment.amount)}</td>
+                        <td className="text-center text-gray-600 dark:text-gray-400">{payment.user?.name || '-'}</td>
+                        <td className="text-gray-500 dark:text-gray-400 text-sm">{payment.notes || '-'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -674,43 +688,43 @@ export default function SaleDetail() {
         <div className="space-y-6">
           {/* Totals */}
           <div className="card">
-            <h3 className="text-lg font-semibold mb-4">ملخص الفاتورة</h3>
+            <h3 className="text-lg font-semibold mb-4 dark:text-gray-100">{t('saleDetail.invoiceSummary')}</h3>
             <div className="space-y-3">
-              <div className="flex justify-between text-gray-600">
-                <span>المجموع الفرعي</span>
+              <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                <span>{t('saleDetail.subtotal')}</span>
                 <span>{formatCurrency(sale.total_amount)}</span>
               </div>
               {sale.discount > 0 && (
-                <div className="flex justify-between text-red-600">
-                  <span>الخصم</span>
+                <div className="flex justify-between text-red-600 dark:text-red-400">
+                  <span>{t('saleDetail.discount')}</span>
                   <span>-{formatCurrency(sale.discount)}</span>
                 </div>
               )}
               {sale.tax > 0 && (
-                <div className="flex justify-between text-blue-600">
-                  <span>الضريبة</span>
+                <div className="flex justify-between text-blue-600 dark:text-blue-400">
+                  <span>{t('saleDetail.tax')}</span>
                   <span>+{formatCurrency(sale.tax)}</span>
                 </div>
               )}
               {sale.shipping > 0 && (
-                <div className="flex justify-between text-gray-600">
-                  <span>الشحن</span>
+                <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                  <span>{t('saleDetail.shipping')}</span>
                   <span>+{formatCurrency(sale.shipping)}</span>
                 </div>
               )}
-              <hr />
-              <div className="flex justify-between text-lg font-bold">
-                <span>المجموع النهائي</span>
-                <span className="text-green-600">{formatCurrency(sale.grand_total)}</span>
+              <hr className="dark:border-gray-700" />
+              <div className="flex justify-between text-lg font-bold dark:text-gray-100">
+                <span>{t('saleDetail.grandTotal')}</span>
+                <span className="text-green-600 dark:text-green-400">{formatCurrency(sale.grand_total)}</span>
               </div>
-              <hr />
-              <div className="flex justify-between text-gray-600">
-                <span>المدفوع</span>
-                <span className="text-green-600">{formatCurrency(sale.paid_amount)}</span>
+              <hr className="dark:border-gray-700" />
+              <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                <span>{t('saleDetail.paidAmount')}</span>
+                <span className="text-green-600 dark:text-green-400">{formatCurrency(sale.paid_amount)}</span>
               </div>
-              <div className="flex justify-between font-semibold">
-                <span>المتبقي</span>
-                <span className={sale.due_amount > 0 ? 'text-red-600' : 'text-green-600'}>
+              <div className="flex justify-between font-semibold dark:text-gray-100">
+                <span>{t('saleDetail.remaining')}</span>
+                <span className={sale.due_amount > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}>
                   {formatCurrency(sale.due_amount)}
                 </span>
               </div>
@@ -719,36 +733,36 @@ export default function SaleDetail() {
 
           {/* Additional Info */}
           <div className="card">
-            <h3 className="text-lg font-semibold mb-4">معلومات إضافية</h3>
+            <h3 className="text-lg font-semibold mb-4 dark:text-gray-100">{t('saleDetail.additionalInfo')}</h3>
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-gray-100 rounded-lg">
-                  <BuildingStorefrontIcon className="w-4 h-4 text-gray-600" />
+                <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                  <BuildingStorefrontIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">المستودع</p>
-                  <p className="font-medium">{sale.warehouse?.name || '-'}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('saleDetail.warehouse')}</p>
+                  <p className="font-medium dark:text-gray-100">{sale.warehouse?.name || '-'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-gray-100 rounded-lg">
-                  <UserIcon className="w-4 h-4 text-gray-600" />
+                <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                  <UserIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">البائع</p>
-                  <p className="font-medium">{sale.user?.name || '-'}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('saleDetail.seller')}</p>
+                  <p className="font-medium dark:text-gray-100">{sale.user?.name || '-'}</p>
                 </div>
               </div>
               {sale.client?.phone && (
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gray-100 rounded-lg">
-                    <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                    <svg className="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                     </svg>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">هاتف العميل</p>
-                    <p className="font-medium">{sale.client.phone}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('saleDetail.clientPhone')}</p>
+                    <p className="font-medium dark:text-gray-100">{sale.client.phone}</p>
                   </div>
                 </div>
               )}
@@ -758,8 +772,8 @@ export default function SaleDetail() {
           {/* Notes */}
           {sale.note && (
             <div className="card">
-              <h3 className="text-lg font-semibold mb-3">ملاحظات</h3>
-              <p className="text-gray-600 whitespace-pre-wrap">{sale.note}</p>
+              <h3 className="text-lg font-semibold mb-3 dark:text-gray-100">{t('saleDetail.notes')}</h3>
+              <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{sale.note}</p>
             </div>
           )}
         </div>
@@ -770,8 +784,8 @@ export default function SaleDetail() {
         isOpen={isDeleteOpen}
         onClose={() => setIsDeleteOpen(false)}
         onConfirm={handleDelete}
-        title="حذف الفاتورة"
-        message={`هل أنت متأكد من حذف الفاتورة "${sale.reference}"؟ سيتم إلغاء جميع حركات المخزون المرتبطة.`}
+        title={t('saleDetail.deleteInvoice')}
+        message={t('saleDetail.deleteConfirmMsg', { ref: sale.reference })}
         isLoading={isDeleting}
       />
 
@@ -779,26 +793,26 @@ export default function SaleDetail() {
       <Modal
         isOpen={isPaymentOpen}
         onClose={() => setIsPaymentOpen(false)}
-        title="إضافة دفعة"
+        title={t('saleDetail.addPaymentTitle')}
       >
         <form onSubmit={handlePayment} className="space-y-4">
-          <div className="bg-gray-50 p-4 rounded-lg mb-4">
+          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-4">
             <div className="flex justify-between mb-2">
-              <span className="text-gray-600">المبلغ الإجمالي:</span>
-              <span className="font-semibold">{formatCurrency(sale.grand_total)}</span>
+              <span className="text-gray-600 dark:text-gray-400">{t('saleDetail.totalAmountLabel')}</span>
+              <span className="font-semibold dark:text-gray-100">{formatCurrency(sale.grand_total)}</span>
             </div>
             <div className="flex justify-between mb-2">
-              <span className="text-gray-600">المدفوع:</span>
-              <span className="font-semibold text-green-600">{formatCurrency(sale.paid_amount)}</span>
+              <span className="text-gray-600 dark:text-gray-400">{t('saleDetail.paidLabel')}</span>
+              <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(sale.paid_amount)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">المتبقي:</span>
-              <span className="font-bold text-red-600">{formatCurrency(sale.due_amount)}</span>
+              <span className="text-gray-600 dark:text-gray-400">{t('saleDetail.remainingLabel')}</span>
+              <span className="font-bold text-red-600 dark:text-red-400">{formatCurrency(sale.due_amount)}</span>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">المبلغ</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('saleDetail.amountField')}</label>
             <input
               type="number"
               value={paymentData.amount}
@@ -814,37 +828,37 @@ export default function SaleDetail() {
               <button
                 type="button"
                 onClick={() => setPaymentData(prev => ({ ...prev, amount: sale.due_amount.toString() }))}
-                className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200"
+                className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-1 rounded hover:bg-blue-200 dark:hover:bg-blue-900/50"
               >
-                المبلغ الكامل
+                {t('saleDetail.fullAmount')}
               </button>
               <button
                 type="button"
                 onClick={() => setPaymentData(prev => ({ ...prev, amount: (sale.due_amount / 2).toFixed(2) }))}
-                className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded hover:bg-gray-200"
+                className="text-xs bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
               >
-                النصف
+                {t('saleDetail.halfAmount')}
               </button>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">طريقة الدفع</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('saleDetail.paymentMethodField')}</label>
             <select
               value={paymentData.payment_method}
               onChange={(e) => setPaymentData(prev => ({ ...prev, payment_method: e.target.value as any }))}
               className="select w-full"
               required
             >
-              <option value="cash">نقدي</option>
-              <option value="bank">تحويل بنكي</option>
-              <option value="check">شيك</option>
-              <option value="other">أخرى</option>
+              <option value="cash">{t('saleDetail.cash')}</option>
+              <option value="bank">{t('saleDetail.bankTransfer')}</option>
+              <option value="check">{t('saleDetail.check')}</option>
+              <option value="other">{t('saleDetail.other')}</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">التاريخ</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('saleDetail.dateField')}</label>
             <DateInput
               value={paymentData.date}
               onChange={(v) => setPaymentData(prev => ({ ...prev, date: v }))}
@@ -854,23 +868,23 @@ export default function SaleDetail() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">ملاحظات</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('saleDetail.notesField')}</label>
             <textarea
               value={paymentData.notes}
               onChange={(e) => setPaymentData(prev => ({ ...prev, notes: e.target.value }))}
               className="input w-full"
               rows={2}
-              placeholder="ملاحظات اختيارية..."
+              placeholder={t('saleDetail.optionalNotes')}
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t">
+          <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
             <button
               type="button"
               onClick={() => setIsPaymentOpen(false)}
               className="btn btn-secondary"
             >
-              إلغاء
+              {t('saleDetail.cancel')}
             </button>
             <button
               type="submit"
@@ -882,7 +896,7 @@ export default function SaleDetail() {
               ) : (
                 <>
                   <CheckCircleIcon className="w-5 h-5" />
-                  تأكيد الدفع
+                  {t('saleDetail.confirmPayment')}
                 </>
               )}
             </button>

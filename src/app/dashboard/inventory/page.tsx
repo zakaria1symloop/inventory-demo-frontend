@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { inventoryApi, warehousesApi, categoriesApi } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { useLocale } from '@/lib/i18n/context';
 import DateInput from '@/components/ui/DateInput';
 import {
   MagnifyingGlassIcon,
@@ -146,6 +147,8 @@ export default function InventoryPage() {
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  const { t, locale } = useLocale();
+
   useEffect(() => {
     fetchInitialData();
   }, []);
@@ -222,7 +225,7 @@ export default function InventoryPage() {
 
       setStats({ totalProducts: data.total || allProducts.length, inStock, lowStock, outOfStock, totalValue: totalCostValue, totalRetailValue });
     } catch {
-      toast.error('خطأ في تحميل البيانات');
+      toast.error(t('stock.loadDataError'));
     } finally {
       setIsLoading(false);
     }
@@ -230,7 +233,7 @@ export default function InventoryPage() {
 
   const fetchReport = async () => {
     if (!reportWarehouse) {
-      toast.error('اختر المستودع أولاً');
+      toast.error(t('stock.selectWarehouseFirst'));
       return;
     }
     setIsLoadingReport(true);
@@ -244,7 +247,7 @@ export default function InventoryPage() {
       const response = await inventoryApi.getReport(params);
       setReportData(response.data);
     } catch {
-      toast.error('خطأ في تحميل التقرير');
+      toast.error(t('stock.loadReportError'));
     } finally {
       setIsLoadingReport(false);
     }
@@ -252,32 +255,32 @@ export default function InventoryPage() {
 
   // ---- Column definitions for export ----
   const allExportColumns = [
-    { key: 'product_name', label: 'المنتج', group: 'basic' },
-    { key: 'barcode', label: 'الباركود', group: 'basic' },
-    { key: 'category', label: 'الفئة', group: 'basic' },
-    { key: 'unit', label: 'الوحدة', group: 'basic' },
-    { key: 'ppp', label: 'قطعة/كرتون', group: 'basic' },
-    { key: 'opening_stock', label: 'الافتتاحي (قطع)', group: 'stock' },
-    { key: 'opening_cartons', label: 'الافتتاحي (كراتين)', group: 'stock' },
-    { key: 'total_in', label: 'الوارد (قطع)', group: 'stock' },
-    { key: 'total_in_cartons', label: 'الوارد (كراتين)', group: 'stock' },
-    { key: 'total_out', label: 'الصادر (قطع)', group: 'stock' },
-    { key: 'total_out_cartons', label: 'الصادر (كراتين)', group: 'stock' },
-    { key: 'closing_stock', label: 'النظامي (قطع)', group: 'stock' },
-    { key: 'closing_cartons', label: 'النظامي (كراتين)', group: 'stock' },
-    { key: 'physical', label: 'الجرد الفعلي', group: 'count' },
-    { key: 'diff', label: 'الفرق', group: 'count' },
-    { key: 'cost_price', label: 'ثمن الشراء (للوحدة)', group: 'value' },
-    { key: 'cost_value', label: 'إجمالي الشراء', group: 'value' },
-    { key: 'retail_price', label: 'ثمن البيع (للوحدة)', group: 'value' },
-    { key: 'retail_value', label: 'إجمالي البيع', group: 'value' },
+    { key: 'product_name', label: t('stock.colProductName'), group: 'basic' },
+    { key: 'barcode', label: t('stock.colBarcode'), group: 'basic' },
+    { key: 'category', label: t('stock.colCategory'), group: 'basic' },
+    { key: 'unit', label: t('stock.colUnit'), group: 'basic' },
+    { key: 'ppp', label: t('stock.colPPP'), group: 'basic' },
+    { key: 'opening_stock', label: t('stock.colOpeningPieces'), group: 'stock' },
+    { key: 'opening_cartons', label: t('stock.colOpeningCartons'), group: 'stock' },
+    { key: 'total_in', label: t('stock.colInPieces'), group: 'stock' },
+    { key: 'total_in_cartons', label: t('stock.colInCartons'), group: 'stock' },
+    { key: 'total_out', label: t('stock.colOutPieces'), group: 'stock' },
+    { key: 'total_out_cartons', label: t('stock.colOutCartons'), group: 'stock' },
+    { key: 'closing_stock', label: t('stock.colClosingPieces'), group: 'stock' },
+    { key: 'closing_cartons', label: t('stock.colClosingCartons'), group: 'stock' },
+    { key: 'physical', label: t('stock.colPhysical'), group: 'count' },
+    { key: 'diff', label: t('stock.colDiff'), group: 'count' },
+    { key: 'cost_price', label: t('stock.colCostPerUnit'), group: 'value' },
+    { key: 'cost_value', label: t('stock.colTotalCost'), group: 'value' },
+    { key: 'retail_price', label: t('stock.colRetailPerUnit'), group: 'value' },
+    { key: 'retail_value', label: t('stock.colTotalRetail'), group: 'value' },
   ];
 
   const columnGroups = [
-    { key: 'basic', label: 'معلومات المنتج' },
-    { key: 'stock', label: 'حركة المخزون' },
-    { key: 'count', label: 'الجرد الفعلي' },
-    { key: 'value', label: 'القيمة المالية' },
+    { key: 'basic', label: t('stock.grpProductInfo') },
+    { key: 'stock', label: t('stock.grpStockMovement') },
+    { key: 'count', label: t('stock.grpPhysicalCount') },
+    { key: 'value', label: t('stock.grpFinancialValue') },
   ];
 
   const toggleExportColumn = (key: string) => {
@@ -302,13 +305,13 @@ export default function InventoryPage() {
     if (!reportData) return;
 
     const cols = selectedExportColumns;
-    if (cols.length === 0) { toast.error('اختر عمود واحد على الأقل'); return; }
+    if (cols.length === 0) { toast.error(t('stock.selectOneColumn')); return; }
 
     const productsToExport = filteredReportProducts;
     const wb = new ExcelJS.Workbook();
     wb.creator = 'TrackSera';
     wb.created = new Date();
-    const ws = wb.addWorksheet('تقرير الجرد', { views: [{ rightToLeft: true }] });
+    const ws = wb.addWorksheet(t('stock.exportSheetName'), { views: [{ rightToLeft: locale !== 'fr' }] });
 
     // --- Colors ---
     const brandColor = '1B4F72';
@@ -337,7 +340,7 @@ export default function InventoryPage() {
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
     // Row 2: Period + Date
-    const period = `الفترة: ${reportData.from_date || 'البداية'} — ${reportData.to_date || 'اليوم'}  |  تاريخ التصدير: ${new Date().toLocaleDateString('ar-DZ')}`;
+    const period = t('stock.exportPeriod') + ': ' + (reportData.from_date || t('stock.exportStart')) + ' — ' + (reportData.to_date || t('stock.exportToday')) + '  |  ' + t('stock.exportDate') + ': ' + new Date().toLocaleDateString(locale === 'fr' ? 'fr-DZ' : 'ar-DZ');
     const periodRow = ws.addRow([period]);
     ws.mergeCells(2, 1, 2, colCount);
     periodRow.height = 24;
@@ -443,7 +446,7 @@ export default function InventoryPage() {
 
     // Summary row
     const sumMap: Record<string, string | number> = {
-      product_name: `الإجمالي (${productsToExport.length} منتج)`,
+      product_name: t('stock.totalProducts', { count: productsToExport.length }),
       barcode: '', category: '', unit: '', ppp: '',
       opening_stock: productsToExport.reduce((s, p) => s + p.opening_stock, 0),
       opening_cartons: '-',
@@ -503,7 +506,7 @@ export default function InventoryPage() {
     const dateStr = new Date().toISOString().split('T')[0];
     saveAs(blob, `inventory_${wName}_${dateStr}.xlsx`);
     setShowExportModal(false);
-    toast.success('تم تصدير الملف بنجاح');
+    toast.success(t('stock.exportFileSuccess'));
   };
 
   // ---- Physical count functions ----
@@ -548,7 +551,7 @@ export default function InventoryPage() {
   const saveAllCounts = async () => {
     const toSave = getCountedProducts();
     if (toSave.length === 0) {
-      toast.error('لا توجد فروقات للحفظ');
+      toast.error(t('stock.noDiffsToSave'));
       return;
     }
     setIsSavingCount(true);
@@ -591,7 +594,7 @@ export default function InventoryPage() {
   const saveAdjustment = async () => {
     if (!editingProduct) return;
     const newQty = parseInt(editingProduct.newQty);
-    if (isNaN(newQty) || newQty < 0) { toast.error('الكمية غير صالحة'); return; }
+    if (isNaN(newQty) || newQty < 0) { toast.error(t('stock.invalidQuantity')); return; }
     if (newQty === editingProduct.currentQty) { cancelEditing(); return; }
 
     setIsProcessing(true);
@@ -601,24 +604,24 @@ export default function InventoryPage() {
         warehouse_id: editingProduct.warehouseId,
         quantity: newQty,
         type: 'set',
-        reason: editingProduct.reason || (editingProduct.isLoss ? 'خسارة مخزون' : 'تعديل مباشر'),
+        reason: editingProduct.reason || (editingProduct.isLoss ? t('stock.stockLossReason') : t('stock.directAdjustReason')),
         is_loss: newQty < editingProduct.currentQty && editingProduct.isLoss,
       });
-      toast.success(editingProduct.isLoss ? 'تم تسجيل الخسارة' : 'تم تعديل المخزون');
+      toast.success(editingProduct.isLoss ? t('stock.lossRecorded') : t('stock.stockAdjusted'));
       cancelEditing();
       fetchProducts();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'خطأ في التعديل');
+      toast.error(error.response?.data?.message || t('stock.adjustError'));
     } finally {
       setIsProcessing(false);
     }
   };
 
   const saveTransfer = async () => {
-    if (!editingProduct || !editingProduct.toWarehouseId) { toast.error('اختر المستودع الهدف'); return; }
+    if (!editingProduct || !editingProduct.toWarehouseId) { toast.error(t('stock.selectTargetWarehouse')); return; }
     const qty = parseInt(editingProduct.newQty);
-    if (isNaN(qty) || qty <= 0) { toast.error('الكمية غير صالحة'); return; }
-    if (qty > editingProduct.currentQty) { toast.error('الكمية أكبر من المتوفر'); return; }
+    if (isNaN(qty) || qty <= 0) { toast.error(t('stock.invalidQuantity')); return; }
+    if (qty > editingProduct.currentQty) { toast.error(t('stock.qtyExceedsAvailable')); return; }
 
     setIsProcessing(true);
     try {
@@ -629,11 +632,11 @@ export default function InventoryPage() {
         quantity: qty,
         notes: editingProduct.reason,
       });
-      toast.success('تم التحويل بنجاح');
+      toast.success(t('stock.transferSuccess'));
       cancelEditing();
       fetchProducts();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'خطأ في التحويل');
+      toast.error(error.response?.data?.message || t('stock.transferError'));
     } finally {
       setIsProcessing(false);
     }
@@ -641,7 +644,7 @@ export default function InventoryPage() {
 
   // ---- Helpers ----
   const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
+    new Intl.NumberFormat(locale === 'fr' ? 'fr-DZ' : 'ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
 
   const fmtCartonPieces = (totalPieces: number, ppp: number): string => {
     if (!ppp || ppp <= 1) return totalPieces.toString();
@@ -655,10 +658,10 @@ export default function InventoryPage() {
 
   const getStockStatusBadge = (product: Product) => {
     if (product.total_stock <= 0)
-      return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">نفذ</span>;
+      return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">{t('stock.outOfStock')}</span>;
     if (product.total_stock <= product.stock_alert * (product.pieces_per_package || 1))
-      return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">منخفض</span>;
-    return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">متوفر</span>;
+      return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">{t('stock.lowStock')}</span>;
+    return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">{t('stock.inStock')}</span>;
   };
 
   const getProductStockForWarehouse = (product: Product, warehouseId: number) => {
@@ -686,8 +689,8 @@ export default function InventoryPage() {
               : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
           }`}
         >
-          <CubeIcon className="w-4 h-4 inline-block ml-1" />
-          المخزون
+          <CubeIcon className="w-4 h-4 inline-block me-1" />
+          {t('stock.inventoryTab')}
         </button>
         <button
           onClick={() => setActiveTab('report')}
@@ -697,8 +700,8 @@ export default function InventoryPage() {
               : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
           }`}
         >
-          <DocumentChartBarIcon className="w-4 h-4 inline-block ml-1" />
-          تقرير الجرد
+          <DocumentChartBarIcon className="w-4 h-4 inline-block me-1" />
+          {t('stock.reportTab')}
         </button>
       </div>
 
@@ -708,12 +711,12 @@ export default function InventoryPage() {
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold dark:text-white">إدارة المخزون</h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">تتبع ومراقبة مخزون المنتجات</p>
+              <h1 className="text-2xl font-bold dark:text-white">{t('stock.inventoryTitle')}</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('stock.inventorySubtitle')}</p>
             </div>
             <button onClick={() => fetchProducts()} className="btn btn-secondary">
               <ArrowPathIcon className="w-5 h-5" />
-              تحديث
+              {t('common.refresh')}
             </button>
           </div>
 
@@ -723,7 +726,7 @@ export default function InventoryPage() {
               <div className="flex items-center gap-2">
                 <CubeIcon className="w-5 h-5 text-blue-600" />
                 <div>
-                  <p className="text-xs text-gray-500">المنتجات</p>
+                  <p className="text-xs text-gray-500">{t('stock.invProducts')}</p>
                   <p className="text-lg font-bold">{stats.totalProducts}</p>
                 </div>
               </div>
@@ -732,7 +735,7 @@ export default function InventoryPage() {
               <div className="flex items-center gap-2">
                 <CheckCircleIcon className="w-5 h-5 text-green-600" />
                 <div>
-                  <p className="text-xs text-gray-500">متوفر</p>
+                  <p className="text-xs text-gray-500">{t('stock.inStock')}</p>
                   <p className="text-lg font-bold text-green-600">{stats.inStock}</p>
                 </div>
               </div>
@@ -741,7 +744,7 @@ export default function InventoryPage() {
               <div className="flex items-center gap-2">
                 <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600" />
                 <div>
-                  <p className="text-xs text-gray-500">منخفض</p>
+                  <p className="text-xs text-gray-500">{t('stock.lowStock')}</p>
                   <p className="text-lg font-bold text-yellow-600">{stats.lowStock}</p>
                 </div>
               </div>
@@ -750,7 +753,7 @@ export default function InventoryPage() {
               <div className="flex items-center gap-2">
                 <XMarkIcon className="w-5 h-5 text-red-600" />
                 <div>
-                  <p className="text-xs text-gray-500">نفذ</p>
+                  <p className="text-xs text-gray-500">{t('stock.outOfStock')}</p>
                   <p className="text-lg font-bold text-red-600">{stats.outOfStock}</p>
                 </div>
               </div>
@@ -759,7 +762,7 @@ export default function InventoryPage() {
               <div className="flex items-center gap-2">
                 <ChartBarIcon className="w-5 h-5 text-purple-600" />
                 <div>
-                  <p className="text-xs text-gray-500">إجمالي الشراء</p>
+                  <p className="text-xs text-gray-500">{t('stock.totalCost')}</p>
                   <p className="text-sm font-bold text-purple-600">{formatCurrency(stats.totalValue)}</p>
                 </div>
               </div>
@@ -768,7 +771,7 @@ export default function InventoryPage() {
               <div className="flex items-center gap-2">
                 <ChartBarIcon className="w-5 h-5 text-indigo-600" />
                 <div>
-                  <p className="text-xs text-gray-500">إجمالي البيع</p>
+                  <p className="text-xs text-gray-500">{t('stock.totalRetail')}</p>
                   <p className="text-sm font-bold text-indigo-600">{formatCurrency(stats.totalRetailValue)}</p>
                 </div>
               </div>
@@ -790,18 +793,18 @@ export default function InventoryPage() {
                 />
               </div>
               <select value={selectedWarehouse} onChange={(e) => { setSelectedWarehouse(e.target.value); setCurrentPage(1); }} className="select text-sm">
-                <option value="">كل المستودعات</option>
+                <option value="">{t('stock.invAllWarehouses')}</option>
                 {warehouses.map((wh) => <option key={wh.id} value={wh.id}>{wh.name}</option>)}
               </select>
               <select value={selectedCategory} onChange={(e) => { setSelectedCategory(e.target.value); setCurrentPage(1); }} className="select text-sm">
-                <option value="">كل الفئات</option>
+                <option value="">{t('stock.invAllCategories')}</option>
                 {categories.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
               </select>
               <select value={stockFilter} onChange={(e) => { setStockFilter(e.target.value); setCurrentPage(1); }} className="select text-sm">
-                <option value="">كل الحالات</option>
-                <option value="in_stock">متوفر</option>
-                <option value="low_stock">منخفض</option>
-                <option value="out_of_stock">نفذ</option>
+                <option value="">{t('stock.invAllStatuses')}</option>
+                <option value="in_stock">{t('stock.inStock')}</option>
+                <option value="low_stock">{t('stock.lowStock')}</option>
+                <option value="out_of_stock">{t('stock.outOfStock')}</option>
               </select>
             </div>
           </div>
@@ -817,28 +820,28 @@ export default function InventoryPage() {
                 <table className="w-full">
                   <thead className="bg-gray-50 dark:bg-gray-800">
                     <tr>
-                      <th className="text-right px-4 py-3 text-sm">المنتج</th>
-                      <th className="text-right px-4 py-3 text-sm">الفئة</th>
-                      <th className="text-center px-4 py-3 text-sm">الوحدة</th>
+                      <th className="text-start px-4 py-3 text-sm">{t('stock.product')}</th>
+                      <th className="text-start px-4 py-3 text-sm">{t('stock.category')}</th>
+                      <th className="text-center px-4 py-3 text-sm">{t('stock.unitCol')}</th>
                       {selectedWarehouse ? (
-                        <th className="text-center px-4 py-3 text-sm">مخزون المستودع</th>
+                        <th className="text-center px-4 py-3 text-sm">{t('stock.warehouseStock')}</th>
                       ) : (
                         warehouses.slice(0, 3).map(wh => (
                           <th key={wh.id} className="text-center px-4 py-3 text-sm">{wh.name}</th>
                         ))
                       )}
-                      <th className="text-center px-4 py-3 text-sm">الكمية</th>
-                      <th className="text-center px-4 py-3 text-sm">ش/قطعة</th>
-                      <th className="text-center px-4 py-3 text-sm">إجمالي ش</th>
-                      <th className="text-center px-4 py-3 text-sm">ب/قطعة</th>
-                      <th className="text-center px-4 py-3 text-sm">إجمالي ب</th>
-                      <th className="text-center px-4 py-3 text-sm">الحالة</th>
+                      <th className="text-center px-4 py-3 text-sm">{t('stock.qty')}</th>
+                      <th className="text-center px-4 py-3 text-sm">{t('stock.costPerUnit')}</th>
+                      <th className="text-center px-4 py-3 text-sm">{t('stock.totalCostCol')}</th>
+                      <th className="text-center px-4 py-3 text-sm">{t('stock.retailPerUnit')}</th>
+                      <th className="text-center px-4 py-3 text-sm">{t('stock.totalRetailCol')}</th>
+                      <th className="text-center px-4 py-3 text-sm">{t('stock.statusCol')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                     {products.length === 0 ? (
                       <tr>
-                        <td colSpan={20} className="text-center py-8 text-gray-500">لا توجد منتجات</td>
+                        <td colSpan={20} className="text-center py-8 text-gray-500">{t('stock.invNoProducts')}</td>
                       </tr>
                     ) : (
                       products.map((product) => {
@@ -874,7 +877,7 @@ export default function InventoryPage() {
                                           <button onClick={() => handleQuickAdjust('add')} className="p-1 bg-green-100 hover:bg-green-200 rounded" disabled={isProcessing}>
                                             <PlusIcon className="w-4 h-4 text-green-600" />
                                           </button>
-                                          <button onClick={saveAdjustment} className="p-1 bg-blue-500 hover:bg-blue-600 rounded ml-1" disabled={isProcessing}>
+                                          <button onClick={saveAdjustment} className="p-1 bg-blue-500 hover:bg-blue-600 rounded me-1" disabled={isProcessing}>
                                             <CheckIcon className="w-4 h-4 text-white" />
                                           </button>
                                           <button onClick={cancelEditing} className="p-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 rounded" disabled={isProcessing}>
@@ -892,7 +895,7 @@ export default function InventoryPage() {
                                       <>
                                         <input type="number" value={editingProduct.newQty} onChange={(e) => setEditingProduct({ ...editingProduct, newQty: e.target.value })} className="w-16 text-center border rounded px-1 py-0.5 text-sm dark:bg-gray-700 dark:border-gray-600" placeholder="الكمية" />
                                         <select value={editingProduct.toWarehouseId} onChange={(e) => setEditingProduct({ ...editingProduct, toWarehouseId: e.target.value })} className="text-xs border rounded px-1 py-0.5 dark:bg-gray-700 dark:border-gray-600">
-                                          <option value="">إلى...</option>
+                                          <option value="">{t('stock.toWarehouse')}</option>
                                           {warehouses.filter(w => w.id !== parseInt(selectedWarehouse)).map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                                         </select>
                                         <button onClick={saveTransfer} className="p-1 bg-purple-500 hover:bg-purple-600 rounded" disabled={isProcessing}>
@@ -948,7 +951,7 @@ export default function InventoryPage() {
                             )}
 
                             <td className="px-4 py-2 text-center">
-                              <div className="font-bold">{totalPieces} <span className="text-xs font-normal text-gray-500">قطعة</span></div>
+                              <div className="font-bold">{totalPieces} <span className="text-xs font-normal text-gray-500">{t('stock.pieceSuffix')}</span></div>
                               {ppp > 1 && <div className="text-xs text-blue-600 dark:text-blue-400">{fmtCartonPieces(totalPieces, ppp)}</div>}
                             </td>
                             <td className="px-4 py-2 text-center text-sm">{formatCurrency(costPerPiece)}</td>
@@ -964,8 +967,8 @@ export default function InventoryPage() {
                   {products.length > 0 && (
                     <tfoot className="bg-gray-100 dark:bg-gray-800 font-bold">
                       <tr>
-                        <td className="px-4 py-3 text-sm" colSpan={selectedWarehouse ? 4 : 3 + Math.min(3, warehouses.length)}>الإجمالي</td>
-                        <td className="px-4 py-3 text-center text-sm">{products.reduce((s, p) => s + (Number(p.total_stock) || 0), 0)} قطعة</td>
+                        <td className="px-4 py-3 text-sm" colSpan={selectedWarehouse ? 4 : 3 + Math.min(3, warehouses.length)}>{t('stock.totalLabel')}</td>
+                        <td className="px-4 py-3 text-center text-sm">{products.reduce((s, p) => s + (Number(p.total_stock) || 0), 0)} {t('stock.pieceSuffix')}</td>
                         <td className="px-4 py-3 text-center text-sm">-</td>
                         <td className="px-4 py-3 text-center text-sm text-purple-700 dark:text-purple-400">
                           {formatCurrency(products.reduce((s, p) => s + (Number(p.total_stock) || 0) * (Number(p.cost_price) || 0), 0))}
@@ -985,9 +988,9 @@ export default function InventoryPage() {
             {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-2 p-3 border-t dark:border-gray-700">
-                <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="btn btn-secondary text-sm py-1 px-3">السابق</button>
+                <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="btn btn-secondary text-sm py-1 px-3">{t('stock.prevPage')}</button>
                 <span className="text-sm text-gray-600 dark:text-gray-400">{currentPage} / {totalPages}</span>
-                <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="btn btn-secondary text-sm py-1 px-3">التالي</button>
+                <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="btn btn-secondary text-sm py-1 px-3">{t('stock.nextPage')}</button>
               </div>
             )}
           </div>
@@ -999,8 +1002,8 @@ export default function InventoryPage() {
         <>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold dark:text-white">تقرير الجرد</h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">مقارنة المخزون النظامي بالفعلي مع تصدير Excel</p>
+              <h1 className="text-2xl font-bold dark:text-white">{t('stock.reportTitle')}</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('stock.reportSubtitle')}</p>
             </div>
             {reportData && (
               <button onClick={() => setShowExportModal(true)} className="btn btn-primary gap-2">
@@ -1014,26 +1017,26 @@ export default function InventoryPage() {
           <div className="card p-4">
             <div className="flex items-center gap-2 mb-3">
               <FunnelIcon className="w-5 h-5 text-gray-500" />
-              <span className="font-medium text-sm dark:text-gray-300">فلاتر التقرير</span>
+              <span className="font-medium text-sm dark:text-gray-300">{t('stock.reportFilters')}</span>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               <div>
-                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">المستودع *</label>
+                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">{t('stock.warehouseRequired')}</label>
                 <select value={reportWarehouse} onChange={(e) => setReportWarehouse(e.target.value)} className="select text-sm">
-                  <option value="">اختر المستودع</option>
+                  <option value="">{t('stock.invSelectWarehouse')}</option>
                   {warehouses.map((wh) => <option key={wh.id} value={wh.id}>{wh.name}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">من تاريخ</label>
-                <DateInput value={reportFromDate} onChange={(v) => setReportFromDate(v)} placeholder="من تاريخ" className="text-sm" />
+                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">{t('stock.invFromDate')}</label>
+                <DateInput value={reportFromDate} onChange={(v) => setReportFromDate(v)} placeholder={t('stock.invFromDate')} className="text-sm" />
               </div>
               <div>
-                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">إلى تاريخ</label>
-                <DateInput value={reportToDate} onChange={(v) => setReportToDate(v)} placeholder="إلى تاريخ" className="text-sm" />
+                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">{t('stock.invToDate')}</label>
+                <DateInput value={reportToDate} onChange={(v) => setReportToDate(v)} placeholder={t('stock.invToDate')} className="text-sm" />
               </div>
               <div className="relative">
-                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">بحث منتج</label>
+                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">{t('stock.invSearchProduct')}</label>
                 <MagnifyingGlassIcon className="absolute right-3 bottom-2.5 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
@@ -1045,7 +1048,7 @@ export default function InventoryPage() {
               </div>
               <div className="flex items-end">
                 <button onClick={fetchReport} disabled={isLoadingReport || !reportWarehouse} className="btn btn-primary w-full">
-                  {isLoadingReport ? <div className="spinner w-4 h-4"></div> : 'عرض التقرير'}
+                  {isLoadingReport ? <div className="spinner w-4 h-4"></div> : t('stock.showReport')}
                 </button>
               </div>
             </div>
@@ -1060,32 +1063,32 @@ export default function InventoryPage() {
                   <div>
                     <h2 className="text-lg font-bold dark:text-white">{reportData.warehouse.name}</h2>
                     {reportData.warehouse.user && (
-                      <p className="text-sm text-gray-500">المسؤول: {reportData.warehouse.user}</p>
+                      <p className="text-sm text-gray-500">{t('stock.managerLabel', { name: reportData.warehouse.user })}</p>
                     )}
                   </div>
                   <div className="flex gap-6 text-sm">
                     <div className="text-center">
-                      <p className="text-xs text-gray-500">المنتجات</p>
+                      <p className="text-xs text-gray-500">{t('stock.invProducts')}</p>
                       <p className="text-lg font-bold text-blue-600">{reportData.summary.total_products}</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-xs text-gray-500">الافتتاحي</p>
+                      <p className="text-xs text-gray-500">{t('stock.invOpening')}</p>
                       <p className="text-lg font-bold text-gray-700 dark:text-gray-300">{reportData.summary.total_opening}</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-xs text-gray-500">الوارد</p>
+                      <p className="text-xs text-gray-500">{t('stock.invIncoming')}</p>
                       <p className="text-lg font-bold text-green-600">+{reportData.summary.total_in}</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-xs text-gray-500">الصادر</p>
+                      <p className="text-xs text-gray-500">{t('stock.invOutgoing')}</p>
                       <p className="text-lg font-bold text-red-600">-{reportData.summary.total_out}</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-xs text-gray-500">الإغلاق</p>
+                      <p className="text-xs text-gray-500">{t('stock.invClosing')}</p>
                       <p className="text-lg font-bold text-indigo-600">{reportData.summary.total_closing}</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-xs text-gray-500">القيمة</p>
+                      <p className="text-xs text-gray-500">{t('stock.valueLabel')}</p>
                       <p className="text-lg font-bold text-purple-600">{formatCurrency(reportData.summary.total_cost_value)}</p>
                     </div>
                   </div>
@@ -1108,7 +1111,7 @@ export default function InventoryPage() {
                       className="btn btn-primary gap-2 text-sm"
                     >
                       {isSavingCount ? <div className="spinner w-4 h-4"></div> : <CheckIcon className="w-4 h-4" />}
-                      تطبيق الجرد الفعلي
+                      {t('stock.applyPhysicalCount')}
                     </button>
                   </div>
                 </div>
@@ -1120,18 +1123,18 @@ export default function InventoryPage() {
                   <table className="w-full">
                     <thead className="bg-gray-50 dark:bg-gray-800">
                       <tr>
-                        <th className="text-right px-3 py-2.5 text-xs">#</th>
-                        <th className="text-right px-3 py-2.5 text-xs">المنتج</th>
-                        <th className="text-right px-3 py-2.5 text-xs">الفئة</th>
-                        <th className="text-center px-3 py-2.5 text-xs">ق/ك</th>
-                        <th className="text-center px-3 py-2.5 text-xs bg-gray-100 dark:bg-gray-750">افتتاحي</th>
-                        <th className="text-center px-3 py-2.5 text-xs bg-green-50 dark:bg-green-900/20">وارد</th>
-                        <th className="text-center px-3 py-2.5 text-xs bg-red-50 dark:bg-red-900/20">صادر</th>
-                        <th className="text-center px-3 py-2.5 text-xs bg-blue-50 dark:bg-blue-900/20 font-bold">نظامي</th>
-                        <th className="text-center px-3 py-2.5 text-xs bg-yellow-50 dark:bg-yellow-900/20 font-bold min-w-[120px]">فعلي</th>
-                        <th className="text-center px-3 py-2.5 text-xs bg-orange-50 dark:bg-orange-900/20 font-bold">الفرق</th>
-                        <th className="text-center px-3 py-2.5 text-xs">إجمالي الشراء</th>
-                        <th className="text-center px-3 py-2.5 text-xs">إجمالي البيع</th>
+                        <th className="text-start px-3 py-2.5 text-xs">#</th>
+                        <th className="text-start px-3 py-2.5 text-xs">{t('stock.product')}</th>
+                        <th className="text-start px-3 py-2.5 text-xs">{t('stock.category')}</th>
+                        <th className="text-center px-3 py-2.5 text-xs">{t('stock.piecesPerCarton')}</th>
+                        <th className="text-center px-3 py-2.5 text-xs bg-gray-100 dark:bg-gray-750">{t('stock.openingCol')}</th>
+                        <th className="text-center px-3 py-2.5 text-xs bg-green-50 dark:bg-green-900/20">{t('stock.incomingCol')}</th>
+                        <th className="text-center px-3 py-2.5 text-xs bg-red-50 dark:bg-red-900/20">{t('stock.outgoingCol')}</th>
+                        <th className="text-center px-3 py-2.5 text-xs bg-blue-50 dark:bg-blue-900/20 font-bold">{t('stock.systemCol')}</th>
+                        <th className="text-center px-3 py-2.5 text-xs bg-yellow-50 dark:bg-yellow-900/20 font-bold min-w-[120px]">{t('stock.physicalCol')}</th>
+                        <th className="text-center px-3 py-2.5 text-xs bg-orange-50 dark:bg-orange-900/20 font-bold">{t('stock.diffCol')}</th>
+                        <th className="text-center px-3 py-2.5 text-xs">{t('stock.totalCost')}</th>
+                        <th className="text-center px-3 py-2.5 text-xs">{t('stock.totalRetail')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -1175,7 +1178,7 @@ export default function InventoryPage() {
                                       placeholder={String(Math.floor(p.closing_stock / p.ppp))}
                                       className="w-12 text-center border border-yellow-300 dark:border-yellow-700 rounded px-1 py-0.5 text-xs bg-white dark:bg-gray-800 focus:ring-2 focus:ring-yellow-400 outline-none"
                                     />
-                                    <span className="text-[9px] text-gray-500">ك</span>
+                                    <span className="text-[9px] text-gray-500">{t('stock.cartonAbbr')}</span>
                                     <input
                                       type="number"
                                       min="0"
@@ -1185,10 +1188,10 @@ export default function InventoryPage() {
                                       placeholder={String(p.closing_stock % p.ppp)}
                                       className="w-10 text-center border border-yellow-300 dark:border-yellow-700 rounded px-1 py-0.5 text-xs bg-white dark:bg-gray-800 focus:ring-2 focus:ring-yellow-400 outline-none"
                                     />
-                                    <span className="text-[9px] text-gray-500">ق</span>
+                                    <span className="text-[9px] text-gray-500">{t('stock.pieceAbbr')}</span>
                                   </div>
                                   {physicalCounts[p.product_id] !== undefined && physicalCounts[p.product_id] !== '' && (
-                                    <div className="text-[10px] text-yellow-700 dark:text-yellow-400 font-medium">= {physicalCounts[p.product_id]} قطعة</div>
+                                    <div className="text-[10px] text-yellow-700 dark:text-yellow-400 font-medium">= {physicalCounts[p.product_id]} {t('stock.pieceSuffix')}</div>
                                   )}
                                 </div>
                               ) : (
@@ -1234,7 +1237,7 @@ export default function InventoryPage() {
                         const totalDiff = totalCounted - tClosing;
                         return (
                           <tr>
-                            <td colSpan={4} className="px-3 py-3 text-sm">الإجمالي ({fp.length} منتج)</td>
+                            <td colSpan={4} className="px-3 py-3 text-sm">{t('stock.totalProducts', { count: fp.length })}</td>
                             <td className="px-3 py-3 text-center text-sm">{tOpening}</td>
                             <td className="px-3 py-3 text-center text-sm text-green-700 dark:text-green-400">+{tIn}</td>
                             <td className="px-3 py-3 text-center text-sm text-red-700 dark:text-red-400">-{tOut}</td>
@@ -1255,8 +1258,8 @@ export default function InventoryPage() {
 
               {/* Hints */}
               <div className="text-center text-sm text-gray-500 dark:text-gray-400 space-y-1">
-                <p>أدخل الكمية الفعلية في عمود &quot;فعلي&quot; - الفرق يحسب تلقائياً</p>
-                <p>اضغط &quot;تطبيق الجرد الفعلي&quot; لتعديل المخزون حسب الجرد الفعلي</p>
+                <p>{t('stock.physicalCountHint1')}</p>
+                <p>{t('stock.physicalCountHint2')}</p>
               </div>
             </>
           )}
@@ -1264,8 +1267,8 @@ export default function InventoryPage() {
           {!reportData && !isLoadingReport && (
             <div className="card p-12 text-center">
               <DocumentChartBarIcon className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-500 dark:text-gray-400">اختر المستودع وحدد الفترة</h3>
-              <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">سيتم عرض تقرير شامل بحركة كل منتج مع إمكانية التصدير للمقارنة مع الجرد الفعلي</p>
+              <h3 className="text-lg font-medium text-gray-500 dark:text-gray-400">{t('stock.selectWarehousePrompt')}</h3>
+              <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">{t('stock.selectWarehouseDesc')}</p>
             </div>
           )}
         </>
@@ -1278,7 +1281,7 @@ export default function InventoryPage() {
             <div className="bg-gradient-to-l from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <ArrowDownTrayIcon className="w-6 h-6 text-white" />
-                <h3 className="text-lg font-bold text-white">تصدير إلى Excel</h3>
+                <h3 className="text-lg font-bold text-white">{t('stock.exportToExcel')}</h3>
               </div>
               <button onClick={() => setShowExportModal(false)} className="text-white/80 hover:text-white transition-colors">
                 <XMarkIcon className="w-6 h-6" />
@@ -1287,7 +1290,7 @@ export default function InventoryPage() {
 
             {/* Modal Body */}
             <div className="p-6 overflow-y-auto max-h-[60vh]">
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">اختر الأعمدة التي تريد تصديرها:</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t('stock.selectColumnsToExport')}</p>
 
               <div className="space-y-4">
                 {columnGroups.map(group => {
@@ -1309,7 +1312,7 @@ export default function InventoryPage() {
                           {(allOn || someOn) && <CheckIcon className="w-3.5 h-3.5 text-white" />}
                         </div>
                         {group.label}
-                        <span className="text-xs text-gray-400 mr-auto">
+                        <span className="text-xs text-gray-400 me-auto">
                           ({groupCols.filter(c => exportColumns[c.key]).length}/{groupCols.length})
                         </span>
                       </button>
@@ -1343,11 +1346,11 @@ export default function InventoryPage() {
             {/* Modal Footer */}
             <div className="px-6 py-4 bg-gray-50 dark:bg-gray-750 border-t dark:border-gray-700 flex items-center justify-between">
               <span className="text-sm text-gray-500 dark:text-gray-400">
-                {selectedExportColumns.length} عمود محدد
+                {t('stock.columnsSelected', { count: selectedExportColumns.length })}
               </span>
               <div className="flex gap-2">
                 <button onClick={() => setShowExportModal(false)} className="btn btn-secondary text-sm">
-                  إلغاء
+                  {t('common.cancel')}
                 </button>
                 <button
                   onClick={exportToExcel}
@@ -1355,7 +1358,7 @@ export default function InventoryPage() {
                   className="btn btn-primary text-sm gap-2"
                 >
                   <ArrowDownTrayIcon className="w-4 h-4" />
-                  تصدير ({filteredReportProducts.length} منتج)
+                  {t('stock.exportBtn', { count: filteredReportProducts.length })}
                 </button>
               </div>
             </div>

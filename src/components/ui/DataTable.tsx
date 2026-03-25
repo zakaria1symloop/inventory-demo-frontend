@@ -70,7 +70,7 @@ export default function DataTable<T extends { id: number | string }>({
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
         <table className="min-w-full">
           <thead>
             <tr>
@@ -84,7 +84,7 @@ export default function DataTable<T extends { id: number | string }>({
           <tbody>
             {data.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="text-center py-8 text-gray-500">
+                <td colSpan={columns.length} className="text-center py-8 text-gray-500 dark:text-gray-400">
                   {emptyMessage}
                 </td>
               </tr>
@@ -107,7 +107,7 @@ export default function DataTable<T extends { id: number | string }>({
 
       {pagination && pagination.lastPage > 1 && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-gray-500 dark:text-gray-400">
             عرض {(pagination.currentPage - 1) * pagination.perPage + 1} إلى{' '}
             {Math.min(pagination.currentPage * pagination.perPage, pagination.total)} من{' '}
             {pagination.total} نتيجة
@@ -116,7 +116,7 @@ export default function DataTable<T extends { id: number | string }>({
             <button
               onClick={() => pagination.onPageChange(pagination.currentPage - 1)}
               disabled={pagination.currentPage === 1}
-              className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ChevronRightIcon className="w-5 h-5" />
             </button>
@@ -126,7 +126,7 @@ export default function DataTable<T extends { id: number | string }>({
             <button
               onClick={() => pagination.onPageChange(pagination.currentPage + 1)}
               disabled={pagination.currentPage === pagination.lastPage}
-              className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ChevronLeftIcon className="w-5 h-5" />
             </button>

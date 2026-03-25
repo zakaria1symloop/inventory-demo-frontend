@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useLocale } from '@/lib/i18n/context';
 
 interface Driver {
   id: number;
@@ -53,6 +54,7 @@ const offlineIcon = createIcon('#9ca3af'); // gray-400
 const activeDeliveryIcon = createIcon('#3b82f6'); // blue-500
 
 export default function DriverMap({ drivers }: DriverMapProps) {
+  const { t, dir } = useLocale();
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<L.Marker[]>([]);
@@ -103,9 +105,12 @@ export default function DriverMap({ drivers }: DriverMapProps) {
       const marker = L.marker([driver.latitude!, driver.longitude!], { icon })
         .addTo(mapRef.current!);
 
+      const isRTL = dir === 'rtl';
+      const statusText = driver.is_online ? t('driversMap.popupOnline') : t('driversMap.popupOffline');
+
       // Create popup content
       const popupContent = `
-        <div style="direction: rtl; text-align: right; min-width: 150px;">
+        <div style="direction: ${isRTL ? 'rtl' : 'ltr'}; text-align: ${isRTL ? 'right' : 'left'}; min-width: 150px;">
           <div style="font-weight: bold; margin-bottom: 5px;">${driver.name}</div>
           ${driver.phone ? `<div style="font-size: 12px; color: #666;">${driver.phone}</div>` : ''}
           ${driver.has_active_delivery ? `
@@ -115,7 +120,7 @@ export default function DriverMap({ drivers }: DriverMapProps) {
           ` : ''}
           ${driver.vehicle_name ? `<div style="font-size: 11px; color: #888; margin-top: 3px;">${driver.vehicle_name}</div>` : ''}
           <div style="font-size: 10px; color: ${driver.is_online ? '#16a34a' : '#9ca3af'}; margin-top: 5px;">
-            ${driver.is_online ? 'متصل' : 'غير متصل'}
+            ${statusText}
           </div>
         </div>
       `;
@@ -131,27 +136,27 @@ export default function DriverMap({ drivers }: DriverMapProps) {
       );
       mapRef.current.fitBounds(bounds, { padding: [50, 50] });
     }
-  }, [drivers]);
+  }, [drivers, t, dir]);
 
   return (
     <div className="relative">
       <div ref={mapContainerRef} className="h-[600px] rounded-lg z-0" />
 
       {/* Legend */}
-      <div className="absolute bottom-4 right-4 bg-white rounded-lg shadow-lg p-3 z-[1000]">
-        <div className="text-sm font-semibold mb-2">الدليل</div>
+      <div className="absolute bottom-4 end-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3 z-[1000] border border-gray-200 dark:border-gray-700">
+        <div className="text-sm font-semibold mb-2 text-gray-900 dark:text-gray-100">{t('driversMap.legend')}</div>
         <div className="space-y-2 text-xs">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-green-500 border-2 border-white shadow"></div>
-            <span>متصل</span>
+            <div className="w-4 h-4 rounded-full bg-green-500 border-2 border-white dark:border-gray-800 shadow"></div>
+            <span className="text-gray-700 dark:text-gray-300">{t('driversMap.legendOnline')}</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow"></div>
-            <span>في توصيل</span>
+            <div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-white dark:border-gray-800 shadow"></div>
+            <span className="text-gray-700 dark:text-gray-300">{t('driversMap.legendDelivery')}</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-gray-400 border-2 border-white shadow"></div>
-            <span>غير متصل</span>
+            <div className="w-4 h-4 rounded-full bg-gray-400 border-2 border-white dark:border-gray-800 shadow"></div>
+            <span className="text-gray-700 dark:text-gray-300">{t('driversMap.legendOffline')}</span>
           </div>
         </div>
       </div>

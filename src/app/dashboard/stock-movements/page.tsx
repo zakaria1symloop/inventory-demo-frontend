@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { stockMovementsApi, productsApi, warehousesApi } from '@/lib/api';
 import DateInput from '@/components/ui/DateInput';
 import toast from 'react-hot-toast';
+import { useLocale } from '@/lib/i18n/context';
 import {
   ArrowPathIcon,
   FunnelIcon,
@@ -37,7 +38,6 @@ interface StockMovement {
   product?: { id: number; name: string; sku: string; barcode: string; pieces_per_package: number };
   warehouse?: { id: number; name: string };
   user?: { id: number; name: string };
-  movable?: { client?: { id: number; name: string }; supplier?: { id: number; name: string } };
 }
 
 interface Product {
@@ -58,8 +58,6 @@ const MOVEMENT_TYPES = {
   sale_return: { label: 'مرتجع بيع', color: 'bg-purple-100 text-purple-800 border-purple-200', icon: ArrowDownIcon, direction: 'in' },
   adjustment: { label: 'تسوية', color: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: ArrowsRightLeftIcon, direction: 'both' },
   transfer: { label: 'نقل', color: 'bg-gray-100 text-gray-800 border-gray-200', icon: ArrowsRightLeftIcon, direction: 'both' },
-  transfer_in: { label: 'نقل وارد', color: 'bg-cyan-100 text-cyan-800 border-cyan-200', icon: ArrowDownIcon, direction: 'in' },
-  transfer_out: { label: 'نقل صادر', color: 'bg-slate-100 text-slate-800 border-slate-200', icon: ArrowUpIcon, direction: 'out' },
   delivery: { label: 'توصيل', color: 'bg-orange-100 text-orange-800 border-orange-200', icon: TruckIcon, direction: 'out' },
   delivery_out: { label: 'خروج للتوصيل', color: 'bg-orange-100 text-orange-800 border-orange-200', icon: TruckIcon, direction: 'out' },
   delivery_return: { label: 'مرتجع توصيل', color: 'bg-pink-100 text-pink-800 border-pink-200', icon: ArrowDownIcon, direction: 'in' },
@@ -86,6 +84,8 @@ export default function StockMovementsPage() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+
+  const { t, locale } = useLocale();
 
   useEffect(() => {
     fetchProducts();
@@ -137,7 +137,7 @@ export default function StockMovementsPage() {
         total: data.total || 0,
       });
     } catch (error) {
-      toast.error('خطأ في تحميل حركات المخزون');
+      toast.error(t('common.loadError', { item: t('stock.movementsTitle') }));
     } finally {
       setIsLoading(false);
     }
@@ -176,7 +176,7 @@ export default function StockMovementsPage() {
   }, [filteredMovements]);
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('ar-DZ', {
+    return new Date(date).toLocaleDateString(locale === 'fr' ? 'fr-DZ' : 'ar-DZ', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -188,34 +188,51 @@ export default function StockMovementsPage() {
   const formatNumber = (value: number | string | null | undefined) => {
     const num = typeof value === 'string' ? parseFloat(value) : (value ?? 0);
     if (isNaN(num)) return '0';
-    return new Intl.NumberFormat('ar-DZ').format(num);
+    return new Intl.NumberFormat(locale === 'fr' ? 'fr-DZ' : 'ar-DZ').format(num);
   };
 
   const formatCurrency = (value: number | string | null | undefined) => {
     const num = typeof value === 'string' ? parseFloat(value) : (value ?? 0);
     if (isNaN(num)) return '0 د.ج.';
-    return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(num);
+    return new Intl.NumberFormat(locale === 'fr' ? 'fr-DZ' : 'ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(num);
   };
 
   const formatQty = (qty: number, ppp: number) => {
     const absQty = Math.abs(qty);
-    if (!ppp || ppp <= 1) return `${formatNumber(qty)} قطعة`;
+    if (!ppp || ppp <= 1) return `${formatNumber(qty)} ${t('stock.piece')}`;
     const cartons = Math.floor(absQty / ppp);
     const pieces = absQty % ppp;
     const sign = qty < 0 ? '-' : '';
     if (absQty === 0) return '0';
-    if (pieces === 0) return `${sign}${cartons} كرتون (${formatNumber(qty)} ق)`;
-    if (cartons === 0) return `${formatNumber(qty)} قطعة`;
+    if (pieces === 0) return `${sign}${cartons} ${t('stock.carton')} (${formatNumber(qty)} ق)`;
+    if (cartons === 0) return `${formatNumber(qty)} ${t('stock.piece')}`;
     return `${sign}${cartons} ك + ${pieces} ق (${formatNumber(qty)})`;
   };
 
   const getTypeInfo = (type: string) => {
-    return MOVEMENT_TYPES[type as keyof typeof MOVEMENT_TYPES] || {
+    const typeLabels: Record<string, string> = {
+      purchase: t('stock.typePurchase'),
+      purchase_return: t('stock.typePurchaseReturn'),
+      sale: t('stock.typeSale'),
+      sale_return: t('stock.typeSaleReturn'),
+      adjustment: t('stock.typeAdjustment'),
+      transfer: t('stock.typeTransfer'),
+      delivery: t('stock.typeDelivery'),
+      delivery_out: t('stock.typeDeliveryOut'),
+      delivery_return: t('stock.typeDeliveryReturn'),
+      opening: t('stock.typeOpening'),
+      order: t('stock.typeOrder'),
+      van_out: t('stock.typeVanOut'),
+      van_sale: t('stock.typeVanSale'),
+      van_return: t('stock.typeVanReturn'),
+    };
+    const base = MOVEMENT_TYPES[type as keyof typeof MOVEMENT_TYPES] || {
       label: type,
       color: 'bg-gray-100 text-gray-800 border-gray-200',
       icon: CubeIcon,
       direction: 'both'
     };
+    return { ...base, label: typeLabels[type] || base.label };
   };
 
   return (
@@ -223,8 +240,8 @@ export default function StockMovementsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">حركات المخزون</h1>
-          <p className="text-gray-500 mt-1">سجل جميع حركات الدخول والخروج للمخزون</p>
+          <h1 className="text-2xl font-bold">{t('stock.movementsTitle')}</h1>
+          <p className="text-gray-500 mt-1">{t('stock.movementsSubtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -232,12 +249,12 @@ export default function StockMovementsPage() {
             className={`btn btn-outline inline-flex items-center gap-2 ${hasActiveFilters ? 'border-blue-500 text-blue-600' : ''}`}
           >
             <FunnelIcon className="w-5 h-5" />
-            الفلاتر
+            {t('common.filters')}
             {hasActiveFilters && <span className="w-2 h-2 bg-blue-500 rounded-full"></span>}
           </button>
           <button onClick={fetchMovements} className="btn btn-outline inline-flex items-center gap-2">
             <ArrowPathIcon className="w-5 h-5" />
-            تحديث
+            {t('common.refresh')}
           </button>
         </div>
       </div>
@@ -250,7 +267,7 @@ export default function StockMovementsPage() {
               <ArrowDownIcon className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <div className="text-sm text-green-600">وارد (الصفحة الحالية)</div>
+              <div className="text-sm text-green-600">{t('stock.incoming')}</div>
               <div className="text-xl font-bold text-green-700">+{formatNumber(summary.incoming)}</div>
             </div>
           </div>
@@ -261,7 +278,7 @@ export default function StockMovementsPage() {
               <ArrowUpIcon className="w-5 h-5 text-red-600" />
             </div>
             <div>
-              <div className="text-sm text-red-600">صادر (الصفحة الحالية)</div>
+              <div className="text-sm text-red-600">{t('stock.outgoing')}</div>
               <div className="text-xl font-bold text-red-700">-{formatNumber(summary.outgoing)}</div>
             </div>
           </div>
@@ -272,7 +289,7 @@ export default function StockMovementsPage() {
               <ArrowsRightLeftIcon className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <div className="text-sm text-blue-600">صافي (الصفحة الحالية)</div>
+              <div className="text-sm text-blue-600">{t('stock.net')}</div>
               <div className={`text-xl font-bold ${summary.net >= 0 ? 'text-green-700' : 'text-red-700'}`}>
                 {summary.net >= 0 ? '+' : ''}{formatNumber(summary.net)}
               </div>
@@ -285,11 +302,11 @@ export default function StockMovementsPage() {
       {showFilters && (
         <div className="card p-4">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-medium">تصفية النتائج</h3>
+            <h3 className="font-medium">{t('common.filterResults')}</h3>
             {hasActiveFilters && (
               <button onClick={resetFilters} className="text-sm text-red-600 hover:text-red-800 flex items-center gap-1">
                 <XMarkIcon className="w-4 h-4" />
-                مسح الفلاتر
+                {t('common.clearFilters')}
               </button>
             )}
           </div>
@@ -297,10 +314,10 @@ export default function StockMovementsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Search */}
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">بحث</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">{t('common.search')}</label>
               <input
                 type="text"
-                placeholder="بحث بالمنتج أو المرجع..."
+                placeholder={t('stock.searchProductOrRef')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="input input-bordered w-full"
@@ -309,13 +326,13 @@ export default function StockMovementsPage() {
 
             {/* Product Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">المنتج</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">{t('stock.product')}</label>
               <select
                 value={productFilter}
                 onChange={(e) => { setProductFilter(e.target.value); setPagination(p => ({ ...p, currentPage: 1 })); }}
                 className="select select-bordered w-full"
               >
-                <option value="">جميع المنتجات</option>
+                <option value="">{t('common.all')}</option>
                 {products.map((product) => (
                   <option key={product.id} value={product.id}>{product.name}</option>
                 ))}
@@ -324,13 +341,13 @@ export default function StockMovementsPage() {
 
             {/* Warehouse Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">المستودع</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">{t('stock.warehouse')}</label>
               <select
                 value={warehouseFilter}
                 onChange={(e) => { setWarehouseFilter(e.target.value); setPagination(p => ({ ...p, currentPage: 1 })); }}
                 className="select select-bordered w-full"
               >
-                <option value="">جميع المستودعات</option>
+                <option value="">{t('common.all')}</option>
                 {warehouses.map((warehouse) => (
                   <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
                 ))}
@@ -339,50 +356,51 @@ export default function StockMovementsPage() {
 
             {/* Type Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">نوع الحركة</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">{t('stock.movementType')}</label>
               <select
                 value={typeFilter}
                 onChange={(e) => { setTypeFilter(e.target.value); setPagination(p => ({ ...p, currentPage: 1 })); }}
                 className="select select-bordered w-full"
               >
-                <option value="">جميع الأنواع</option>
-                {Object.entries(MOVEMENT_TYPES).map(([key, value]) => (
-                  <option key={key} value={key}>{value.label}</option>
-                ))}
+                <option value="">{t('stock.allTypes')}</option>
+                {Object.keys(MOVEMENT_TYPES).map((key) => {
+                  const info = getTypeInfo(key);
+                  return <option key={key} value={key}>{info.label}</option>;
+                })}
               </select>
             </div>
 
             {/* Direction Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">الاتجاه</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">{t('stock.direction')}</label>
               <select
                 value={directionFilter}
                 onChange={(e) => { setDirectionFilter(e.target.value); setPagination(p => ({ ...p, currentPage: 1 })); }}
                 className="select select-bordered w-full"
               >
-                <option value="">الكل</option>
-                <option value="incoming">وارد (دخول)</option>
-                <option value="outgoing">صادر (خروج)</option>
+                <option value="">{t('common.all')}</option>
+                <option value="incoming">{t('stock.dirIncoming')}</option>
+                <option value="outgoing">{t('stock.dirOutgoing')}</option>
               </select>
             </div>
 
             {/* Date From */}
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">من تاريخ</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">{t('common.fromDate')}</label>
               <DateInput
                 value={fromDate}
                 onChange={(v) => { setFromDate(v); setPagination(p => ({ ...p, currentPage: 1 })); }}
-                placeholder="من تاريخ"
+                placeholder={t('common.fromDate')}
               />
             </div>
 
             {/* Date To */}
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">إلى تاريخ</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">{t('common.toDate')}</label>
               <DateInput
                 value={toDate}
                 onChange={(v) => { setToDate(v); setPagination(p => ({ ...p, currentPage: 1 })); }}
-                placeholder="إلى تاريخ"
+                placeholder={t('common.toDate')}
               />
             </div>
           </div>
@@ -400,25 +418,24 @@ export default function StockMovementsPage() {
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50">
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">التاريخ</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">المنتج</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">المستودع</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">نوع الحركة</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">العميل/المورد</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">المرجع</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">قبل</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">التغيير</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">بعد</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">المستخدم</th>
+                  <th className="px-4 py-3 text-start text-sm font-medium text-gray-600">{t('common.date')}</th>
+                  <th className="px-4 py-3 text-start text-sm font-medium text-gray-600">{t('stock.product')}</th>
+                  <th className="px-4 py-3 text-start text-sm font-medium text-gray-600">{t('stock.warehouse')}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{t('stock.movementType')}</th>
+                  <th className="px-4 py-3 text-start text-sm font-medium text-gray-600">{t('stock.reference')}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{t('stock.before')}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{t('stock.change')}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{t('stock.after')}</th>
+                  <th className="px-4 py-3 text-start text-sm font-medium text-gray-600">{t('stock.userCol')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredMovements.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="px-4 py-12 text-center text-gray-500">
+                    <td colSpan={9} className="px-4 py-12 text-center text-gray-500">
                       <CubeIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                      <p className="text-lg font-medium">لا توجد حركات مخزون</p>
-                      <p className="text-sm">جرب تغيير الفلاتر أو إضافة حركات جديدة</p>
+                      <p className="text-lg font-medium">{t('stock.noMovements')}</p>
+                      <p className="text-sm">{t('stock.tryChangeFilters')}</p>
                     </td>
                   </tr>
                 ) : (
@@ -444,9 +461,6 @@ export default function StockMovementsPage() {
                             <IconComponent className="w-3.5 h-3.5" />
                             {typeInfo.label}
                           </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {movement.movable?.client?.name || movement.movable?.supplier?.name || '-'}
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-sm font-mono text-gray-600">
@@ -496,7 +510,7 @@ export default function StockMovementsPage() {
         {pagination.lastPage > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
             <div className="text-sm text-gray-600">
-              عرض {filteredMovements.length} من إجمالي {formatNumber(pagination.total)} حركة
+              {t('common.showing', { count: filteredMovements.length, total: pagination.total, item: t('stock.movement') })}
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -523,14 +537,15 @@ export default function StockMovementsPage() {
 
       {/* Movement Types Legend */}
       <div className="card p-4">
-        <h3 className="font-medium mb-3">دليل أنواع الحركات</h3>
+        <h3 className="font-medium mb-3">{t('stock.movementTypesGuide')}</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-          {Object.entries(MOVEMENT_TYPES).map(([key, value]) => {
-            const IconComponent = value.icon;
+          {Object.keys(MOVEMENT_TYPES).map((key) => {
+            const info = getTypeInfo(key);
+            const IconComponent = info.icon;
             return (
-              <div key={key} className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${value.color}`}>
+              <div key={key} className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${info.color}`}>
                 <IconComponent className="w-4 h-4" />
-                <span className="text-sm font-medium">{value.label}</span>
+                <span className="text-sm font-medium">{info.label}</span>
               </div>
             );
           })}

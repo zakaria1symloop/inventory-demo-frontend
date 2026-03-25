@@ -47,15 +47,15 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
               leaveTo="opacity-0 scale-95"
             >
               <Dialog.Panel
-                className={`w-full ${sizeClasses[size]} transform overflow-hidden rounded-xl bg-white shadow-xl transition-all`}
+                className={`w-full ${sizeClasses[size]} transform overflow-hidden rounded-xl bg-white dark:bg-gray-800 dark:border dark:border-gray-700 shadow-xl transition-all`}
               >
-                <div className="flex items-center justify-between px-6 py-4 border-b">
-                  <Dialog.Title className="text-lg font-semibold">{title}</Dialog.Title>
+                <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
+                  <Dialog.Title className="text-lg font-semibold dark:text-white">{title}</Dialog.Title>
                   <button
                     onClick={onClose}
-                    className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                    className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                   >
-                    <XMarkIcon className="w-5 h-5 text-gray-500" />
+                    <XMarkIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                   </button>
                 </div>
                 <div className="p-6">{children}</div>

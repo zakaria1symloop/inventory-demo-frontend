@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { stockTransfersApi } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { useLocale } from '@/lib/i18n/context';
 
 interface Warehouse {
   id: number;
@@ -53,31 +54,48 @@ interface StockTransfer {
   items?: StockTransferItem[];
 }
 
-function formatQty(totalPiecesQty: number, piecesPerPackage: number): string {
-  const ppp = piecesPerPackage || 1;
-  const totalPieces = Math.round(totalPiecesQty);
-  if (ppp <= 1) {
-    return `${totalPieces} قطعة`;
-  }
-  const cartons = Math.floor(totalPieces / ppp);
-  const pieces = totalPieces % ppp;
-  if (pieces === 0) return `${cartons} كرتون (${totalPieces} ق)`;
-  if (cartons === 0) return `${totalPieces} قطعة`;
-  return `${cartons} كرتون + ${pieces} قطعة (${totalPieces} ق)`;
-}
-
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
-}
-
 export default function StockTransferDetail() {
   const router = useRouter();
   const params = useParams();
   const id = Number(params.id);
+  const { t, locale, dir } = useLocale();
+  const isRTL = dir === 'rtl';
 
   const [transfer, setTransfer] = useState<StockTransfer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isActioning, setIsActioning] = useState(false);
+
+  const intlLocale = locale === 'fr' ? 'fr-DZ' : 'ar-DZ';
+
+  function formatQty(totalPiecesQty: number, piecesPerPackage: number): string {
+    const ppp = piecesPerPackage || 1;
+    const totalPieces = Math.round(totalPiecesQty);
+    const pieceLabel = t('stockTransfersDetail.piece');
+    const cartonLabel = t('stockTransfersDetail.carton');
+    const pieceShort = t('stockTransfersDetail.pieceShort');
+    if (ppp <= 1) {
+      return `${totalPieces} ${pieceLabel}`;
+    }
+    const cartons = Math.floor(totalPieces / ppp);
+    const pieces = totalPieces % ppp;
+    if (pieces === 0) return `${cartons} ${cartonLabel} (${totalPieces} ${pieceShort})`;
+    if (cartons === 0) return `${totalPieces} ${pieceLabel}`;
+    return `${cartons} ${cartonLabel} + ${pieces} ${pieceLabel} (${totalPieces} ${pieceShort})`;
+  }
+
+  function formatCurrency(value: number): string {
+    return new Intl.NumberFormat(intlLocale, { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
+  }
+
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString(intlLocale, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
 
   useEffect(() => {
     fetchTransfer();
@@ -89,7 +107,7 @@ export default function StockTransferDetail() {
       const response = await stockTransfersApi.getOne(id);
       setTransfer(response.data);
     } catch {
-      toast.error('خطأ في تحميل التحويل');
+      toast.error(t('stockTransfersDetail.errorLoading'));
       router.push('/dashboard/stock-transfers');
     } finally {
       setIsLoading(false);
@@ -97,15 +115,15 @@ export default function StockTransferDetail() {
   };
 
   const handleApprove = async () => {
-    if (!confirm('هل أنت متأكد من الموافقة على هذا الطلب؟ سيتم التحقق من توفر المخزون.')) return;
+    if (!confirm(t('stockTransfersDetail.confirmApprove'))) return;
     setIsActioning(true);
     try {
       await stockTransfersApi.approve(id);
-      toast.success('تمت الموافقة - جاري التحميل');
+      toast.success(t('stockTransfersDetail.approvedSuccess'));
       fetchTransfer();
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string; errors?: string[] } } };
-      const msg = err.response?.data?.errors?.join('\n') || err.response?.data?.message || 'خطأ في الموافقة';
+      const msg = err.response?.data?.errors?.join('\n') || err.response?.data?.message || t('stockTransfersDetail.errorApproving');
       toast.error(msg);
     } finally {
       setIsActioning(false);
@@ -113,15 +131,15 @@ export default function StockTransferDetail() {
   };
 
   const handleCollect = async () => {
-    if (!confirm('هل أنت متأكد من تسليم البضاعة؟ سيتم نقل المخزون فوراً والسائق يمكنه الانطلاق.')) return;
+    if (!confirm(t('stockTransfersDetail.confirmCollect'))) return;
     setIsActioning(true);
     try {
       await stockTransfersApi.collect(id);
-      toast.success('تم التسليم بنجاح - يمكن للسائق الانطلاق');
+      toast.success(t('stockTransfersDetail.collectedSuccess'));
       fetchTransfer();
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string; errors?: string[] } } };
-      const msg = err.response?.data?.errors?.join('\n') || err.response?.data?.message || 'خطأ في التسليم';
+      const msg = err.response?.data?.errors?.join('\n') || err.response?.data?.message || t('stockTransfersDetail.errorCollecting');
       toast.error(msg);
     } finally {
       setIsActioning(false);
@@ -129,27 +147,18 @@ export default function StockTransferDetail() {
   };
 
   const handleDelete = async () => {
-    if (!confirm('هل أنت متأكد من حذف هذا التحويل؟')) return;
+    if (!confirm(t('stockTransfersDetail.confirmDelete'))) return;
     try {
       await stockTransfersApi.delete(id);
-      toast.success('تم حذف التحويل');
+      toast.success(t('stockTransfersDetail.deletedSuccess'));
       router.push('/dashboard/stock-transfers');
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'خطأ في الحذف');
+      toast.error(err.response?.data?.message || t('stockTransfersDetail.errorDeleting'));
     }
   };
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('ar-DZ', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
+  // NOTE: Print template is Arabic-only by design — not translated
   const handlePrint = () => {
     if (!transfer) return;
     const items = transfer.items || [];
@@ -316,11 +325,11 @@ export default function StockTransferDetail() {
 
   const getStatusInfo = (status: string) => {
     const statuses: Record<string, { class: string; text: string; icon: string }> = {
-      pending: { class: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400', text: 'طلب جديد', icon: '⏳' },
-      loading: { class: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400', text: 'جاري التحميل', icon: '📦' },
-      collected: { class: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400', text: 'تم التسليم - انطلاق', icon: '✅' },
+      pending: { class: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400', text: t('stockTransfersDetail.statusPending'), icon: '⏳' },
+      loading: { class: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400', text: t('stockTransfersDetail.statusLoading'), icon: '📦' },
+      collected: { class: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400', text: t('stockTransfersDetail.statusCollected'), icon: '✅' },
     };
-    return statuses[status] || { class: 'bg-gray-100 text-gray-800', text: status, icon: '❓' };
+    return statuses[status] || { class: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300', text: status, icon: '❓' };
   };
 
   const getItemDetails = (item: StockTransferItem) => {
@@ -359,7 +368,7 @@ export default function StockTransferDetail() {
   }
 
   if (!transfer) {
-    return <div className="text-center py-8 text-gray-500">التحويل غير موجود</div>;
+    return <div className="text-center py-8 text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.notFound')}</div>;
   }
 
   const statusInfo = getStatusInfo(transfer.status);
@@ -373,23 +382,25 @@ export default function StockTransferDetail() {
             onClick={() => router.push('/dashboard/stock-transfers')}
             className="btn btn-secondary btn-sm"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`w-4 h-4 ${isRTL ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            رجوع
+            {t('stockTransfersDetail.back')}
           </button>
-          <h1 className="text-2xl font-bold">تحويل {transfer.reference}</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            {t('stockTransfersDetail.transferTitle')} {transfer.reference}
+          </h1>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={handlePrint}
             className="btn btn-secondary btn-sm"
-            title="طباعة"
+            title={t('stockTransfersDetail.print')}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
             </svg>
-            طباعة
+            {t('stockTransfersDetail.print')}
           </button>
           <div className={`px-4 py-2 rounded-lg font-medium text-sm ${statusInfo.class}`}>
             {statusInfo.icon} {statusInfo.text}
@@ -407,8 +418,8 @@ export default function StockTransferDetail() {
               1
             </div>
             <div>
-              <p className="font-medium text-sm">طلب</p>
-              <p className="text-xs text-gray-500">{formatDate(transfer.created_at)}</p>
+              <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{t('stockTransfersDetail.stepRequest')}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(transfer.created_at)}</p>
             </div>
           </div>
           <div className={`flex-1 h-1 mx-4 rounded ${
@@ -418,13 +429,13 @@ export default function StockTransferDetail() {
             <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
               transfer.status === 'loading' ? 'bg-blue-500 text-white' :
               transfer.status === 'collected' ? 'bg-green-500 text-white' :
-              'bg-gray-200 dark:bg-gray-700 text-gray-400'
+              'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
             }`}>
               2
             </div>
             <div>
-              <p className="font-medium text-sm">تحميل</p>
-              <p className="text-xs text-gray-500">
+              <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{t('stockTransfersDetail.stepLoading')}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 {transfer.approved_at ? formatDate(transfer.approved_at) : '-'}
               </p>
             </div>
@@ -434,13 +445,13 @@ export default function StockTransferDetail() {
           }`} />
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
-              transfer.status === 'collected' ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-400'
+              transfer.status === 'collected' ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
             }`}>
               3
             </div>
             <div>
-              <p className="font-medium text-sm">انطلاق</p>
-              <p className="text-xs text-gray-500">
+              <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{t('stockTransfersDetail.stepDepart')}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 {transfer.collected_at ? formatDate(transfer.collected_at) : '-'}
               </p>
             </div>
@@ -452,56 +463,56 @@ export default function StockTransferDetail() {
         {/* Transfer Info */}
         <div className="lg:col-span-2 space-y-6">
           <div className="card">
-            <h2 className="text-lg font-semibold mb-4">معلومات التحويل</h2>
+            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">{t('stockTransfersDetail.transferInfo')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-sm text-gray-500 dark:text-gray-400">المرجع</label>
-                <p className="font-mono font-medium">{transfer.reference}</p>
+                <label className="text-sm text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.reference')}</label>
+                <p className="font-mono font-medium text-gray-900 dark:text-gray-100">{transfer.reference}</p>
               </div>
               <div>
-                <label className="text-sm text-gray-500 dark:text-gray-400">تاريخ الإنشاء</label>
-                <p className="font-medium">{formatDate(transfer.created_at)}</p>
+                <label className="text-sm text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.createdAt')}</label>
+                <p className="font-medium text-gray-900 dark:text-gray-100">{formatDate(transfer.created_at)}</p>
               </div>
               <div>
-                <label className="text-sm text-gray-500 dark:text-gray-400">المستودع المصدر</label>
-                <p className="font-medium">{transfer.from_warehouse?.name || '-'}</p>
+                <label className="text-sm text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.sourceWarehouse')}</label>
+                <p className="font-medium text-gray-900 dark:text-gray-100">{transfer.from_warehouse?.name || '-'}</p>
                 {transfer.from_warehouse?.assigned_user && (
-                  <p className="text-xs text-gray-500">المسؤول: {transfer.from_warehouse.assigned_user.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.manager')}: {transfer.from_warehouse.assigned_user.name}</p>
                 )}
               </div>
               <div>
-                <label className="text-sm text-gray-500 dark:text-gray-400">المستودع الوجهة</label>
-                <p className="font-medium">{transfer.to_warehouse?.name || '-'}</p>
+                <label className="text-sm text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.destinationWarehouse')}</label>
+                <p className="font-medium text-gray-900 dark:text-gray-100">{transfer.to_warehouse?.name || '-'}</p>
                 {transfer.to_warehouse?.assigned_user && (
-                  <p className="text-xs text-blue-600 font-medium">السائق: {transfer.to_warehouse.assigned_user.name}</p>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">{t('stockTransfersDetail.driver')}: {transfer.to_warehouse.assigned_user.name}</p>
                 )}
               </div>
               <div>
-                <label className="text-sm text-gray-500 dark:text-gray-400">أنشأ بواسطة</label>
-                <p className="font-medium">{transfer.creator?.name || '-'}</p>
+                <label className="text-sm text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.createdBy')}</label>
+                <p className="font-medium text-gray-900 dark:text-gray-100">{transfer.creator?.name || '-'}</p>
               </div>
               {transfer.approver && (
                 <div>
-                  <label className="text-sm text-gray-500 dark:text-gray-400">وافق عليه</label>
-                  <p className="font-medium">{transfer.approver.name}</p>
+                  <label className="text-sm text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.approvedBy')}</label>
+                  <p className="font-medium text-gray-900 dark:text-gray-100">{transfer.approver.name}</p>
                   {transfer.approved_at && (
-                    <p className="text-xs text-gray-500">{formatDate(transfer.approved_at)}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(transfer.approved_at)}</p>
                   )}
                 </div>
               )}
               {transfer.collector && (
                 <div>
-                  <label className="text-sm text-gray-500 dark:text-gray-400">تم التسليم بواسطة</label>
-                  <p className="font-medium">{transfer.collector.name}</p>
+                  <label className="text-sm text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.collectedBy')}</label>
+                  <p className="font-medium text-gray-900 dark:text-gray-100">{transfer.collector.name}</p>
                   {transfer.collected_at && (
-                    <p className="text-xs text-gray-500">{formatDate(transfer.collected_at)}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(transfer.collected_at)}</p>
                   )}
                 </div>
               )}
               {transfer.notes && (
                 <div className="md:col-span-2">
-                  <label className="text-sm text-gray-500 dark:text-gray-400">ملاحظات</label>
-                  <p className="font-medium">{transfer.notes}</p>
+                  <label className="text-sm text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.notes')}</label>
+                  <p className="font-medium text-gray-900 dark:text-gray-100">{transfer.notes}</p>
                 </div>
               )}
             </div>
@@ -509,69 +520,69 @@ export default function StockTransferDetail() {
 
           {/* Items Card */}
           <div className="card">
-            <h2 className="text-lg font-semibold mb-4">
-              المنتجات ({transfer.items?.length || 0})
+            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
+              {t('stockTransfersDetail.products')} ({transfer.items?.length || 0})
             </h2>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-gray-100 dark:bg-gray-800">
-                    <th className="px-3 py-2 text-center w-12">#</th>
-                    <th className="px-3 py-2 text-right">المنتج</th>
-                    <th className="px-3 py-2 text-center w-16">الوحدة</th>
-                    <th className="px-3 py-2 text-center w-24">كرتون</th>
-                    <th className="px-3 py-2 text-center w-20">قطع إضافية</th>
-                    <th className="px-3 py-2 text-center w-20">إجمالي القطع</th>
-                    <th className="px-3 py-2 text-center w-24">س. الوحدة</th>
-                    <th className="px-3 py-2 text-center w-24">المبلغ</th>
+                  <tr className="bg-gray-100 dark:bg-gray-700/50">
+                    <th className="px-3 py-2 text-center w-12 text-gray-700 dark:text-gray-300">#</th>
+                    <th className="px-3 py-2 text-start text-gray-700 dark:text-gray-300">{t('stockTransfersDetail.product')}</th>
+                    <th className="px-3 py-2 text-center w-16 text-gray-700 dark:text-gray-300">{t('stockTransfersDetail.unit')}</th>
+                    <th className="px-3 py-2 text-center w-24 text-gray-700 dark:text-gray-300">{t('stockTransfersDetail.cartons')}</th>
+                    <th className="px-3 py-2 text-center w-20 text-gray-700 dark:text-gray-300">{t('stockTransfersDetail.extraPieces')}</th>
+                    <th className="px-3 py-2 text-center w-20 text-gray-700 dark:text-gray-300">{t('stockTransfersDetail.totalPieces')}</th>
+                    <th className="px-3 py-2 text-center w-24 text-gray-700 dark:text-gray-300">{t('stockTransfersDetail.unitPrice')}</th>
+                    <th className="px-3 py-2 text-center w-24 text-gray-700 dark:text-gray-300">{t('stockTransfersDetail.amount')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {transfer.items?.map((item, index) => {
                     const d = getItemDetails(item);
                     return (
-                      <tr key={item.id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                        <td className="px-3 py-3 text-center text-gray-500">{index + 1}</td>
+                      <tr key={item.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                        <td className="px-3 py-3 text-center text-gray-500 dark:text-gray-400">{index + 1}</td>
                         <td className="px-3 py-3">
-                          <div className="font-medium">{item.product?.name || '-'}</div>
+                          <div className="font-medium text-gray-900 dark:text-gray-100">{item.product?.name || '-'}</div>
                           {(item.product?.barcode || item.product?.sku) && (
-                            <div className="text-xs text-gray-500 font-mono">{item.product.barcode || item.product.sku}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">{item.product.barcode || item.product.sku}</div>
                           )}
                           {d.ppp > 1 && (
-                            <div className="text-xs text-blue-600">{d.ppp} قطعة/كرتون</div>
+                            <div className="text-xs text-blue-600 dark:text-blue-400">{d.ppp} {t('stockTransfersDetail.piecesPerCarton')}</div>
                           )}
                         </td>
-                        <td className="px-3 py-3 text-center text-sm">{item.product?.unit?.name || item.product?.unit_sale?.name || '-'}</td>
+                        <td className="px-3 py-3 text-center text-sm text-gray-700 dark:text-gray-300">{item.product?.unit?.name || item.product?.unit_sale?.name || '-'}</td>
                         <td className="px-3 py-3 text-center">
-                          <span className="font-bold text-blue-700">{d.cartons}</span>
+                          <span className="font-bold text-blue-700 dark:text-blue-400">{d.cartons}</span>
                         </td>
                         <td className="px-3 py-3 text-center">
                           {d.extraPieces > 0 ? (
-                            <span className="font-bold text-orange-600">{d.extraPieces}</span>
+                            <span className="font-bold text-orange-600 dark:text-orange-400">{d.extraPieces}</span>
                           ) : (
-                            <span className="text-gray-400">0</span>
+                            <span className="text-gray-400 dark:text-gray-500">0</span>
                           )}
                         </td>
-                        <td className="px-3 py-3 text-center font-bold">{d.totalPieces}</td>
-                        <td className="px-3 py-3 text-center text-sm">{d.unitCost.toFixed(2)}</td>
-                        <td className="px-3 py-3 text-center font-bold text-green-700">{d.subtotal.toFixed(2)}</td>
+                        <td className="px-3 py-3 text-center font-bold text-gray-900 dark:text-gray-100">{d.totalPieces}</td>
+                        <td className="px-3 py-3 text-center text-sm text-gray-700 dark:text-gray-300">{d.unitCost.toFixed(2)}</td>
+                        <td className="px-3 py-3 text-center font-bold text-green-700 dark:text-green-400">{d.subtotal.toFixed(2)}</td>
                       </tr>
                     );
                   })}
                   {(!transfer.items || transfer.items.length === 0) && (
                     <tr>
-                      <td colSpan={8} className="text-center py-8 text-gray-500">لا توجد منتجات</td>
+                      <td colSpan={8} className="text-center py-8 text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.noProducts')}</td>
                     </tr>
                   )}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-gray-50 dark:bg-gray-800 font-bold">
-                    <td colSpan={3} className="px-3 py-3 text-right">الإجمالي</td>
-                    <td className="px-3 py-3 text-center text-blue-700">{summary.totalCartons}</td>
-                    <td className="px-3 py-3 text-center text-orange-600">{summary.totalExtraPieces}</td>
-                    <td className="px-3 py-3 text-center">{summary.totalPieces}</td>
-                    <td className="px-3 py-3 text-center">-</td>
-                    <td className="px-3 py-3 text-center text-green-700">{formatCurrency(summary.totalCostValue)}</td>
+                  <tr className="bg-gray-50 dark:bg-gray-700/50 font-bold">
+                    <td colSpan={3} className="px-3 py-3 text-start text-gray-900 dark:text-gray-100">{t('stockTransfersDetail.total')}</td>
+                    <td className="px-3 py-3 text-center text-blue-700 dark:text-blue-400">{summary.totalCartons}</td>
+                    <td className="px-3 py-3 text-center text-orange-600 dark:text-orange-400">{summary.totalExtraPieces}</td>
+                    <td className="px-3 py-3 text-center text-gray-900 dark:text-gray-100">{summary.totalPieces}</td>
+                    <td className="px-3 py-3 text-center text-gray-700 dark:text-gray-300">-</td>
+                    <td className="px-3 py-3 text-center text-green-700 dark:text-green-400">{formatCurrency(summary.totalCostValue)}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -582,7 +593,7 @@ export default function StockTransferDetail() {
         {/* Actions Sidebar */}
         <div className="lg:col-span-1 space-y-6">
           <div className="card sticky top-4">
-            <h2 className="text-lg font-semibold mb-4">الإجراءات</h2>
+            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">{t('stockTransfersDetail.actions')}</h2>
 
             <div className="space-y-3">
               {transfer.status === 'pending' && (
@@ -599,10 +610,10 @@ export default function StockTransferDetail() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
                     )}
-                    موافقة - بدء التحميل
+                    {t('stockTransfersDetail.approveStartLoading')}
                   </button>
-                  <p className="text-xs text-gray-500 text-center">
-                    سيتم التحقق من توفر المخزون في المستودع المصدر
+                  <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                    {t('stockTransfersDetail.approveHint')}
                   </p>
                   <hr className="border-gray-200 dark:border-gray-700" />
                   <button
@@ -612,7 +623,7 @@ export default function StockTransferDetail() {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
-                    حذف الطلب
+                    {t('stockTransfersDetail.deleteRequest')}
                   </button>
                 </>
               )}
@@ -620,8 +631,8 @@ export default function StockTransferDetail() {
               {transfer.status === 'loading' && (
                 <>
                   <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm text-blue-700 dark:text-blue-400">
-                    <p className="font-medium mb-1">جاري التحميل</p>
-                    <p>البضاعة يتم تحضيرها. اضغط &quot;تسليم&quot; عند الانتهاء.</p>
+                    <p className="font-medium mb-1">{t('stockTransfersDetail.statusLoading')}</p>
+                    <p>{t('stockTransfersDetail.loadingHint')}</p>
                   </div>
 
                   <button
@@ -636,17 +647,17 @@ export default function StockTransferDetail() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                       </svg>
                     )}
-                    تسليم - انطلاق السائق
+                    {t('stockTransfersDetail.collectDepart')}
                   </button>
-                  <p className="text-xs text-gray-500 text-center">
-                    سيتم نقل المخزون من المستودع المصدر إلى مستودع السائق
+                  <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                    {t('stockTransfersDetail.collectHint')}
                   </p>
                   <hr className="border-gray-200 dark:border-gray-700" />
                   <button
                     onClick={handleDelete}
                     className="btn btn-danger w-full btn-outline"
                   >
-                    إلغاء التحويل
+                    {t('stockTransfersDetail.cancelTransfer')}
                   </button>
                 </>
               )}
@@ -656,12 +667,12 @@ export default function StockTransferDetail() {
                   <svg className="w-12 h-12 mx-auto mb-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <p className="font-medium text-green-700 dark:text-green-400">تم التسليم بنجاح</p>
+                  <p className="font-medium text-green-700 dark:text-green-400">{t('stockTransfersDetail.collectedSuccessTitle')}</p>
                   <p className="text-sm text-green-600 dark:text-green-500 mt-1">
-                    البضاعة في مستودع السائق والسائق يمكنه البدء بالبيع
+                    {t('stockTransfersDetail.collectedSuccessDesc')}
                   </p>
                   {transfer.collected_at && (
-                    <p className="text-xs text-gray-500 mt-2">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                       {formatDate(transfer.collected_at)}
                     </p>
                   )}
@@ -670,40 +681,40 @@ export default function StockTransferDetail() {
             </div>
 
             {/* Summary */}
-            <div className="mt-6 pt-4 border-t dark:border-gray-700">
-              <h3 className="font-semibold mb-3 text-sm">ملخص التحويل</h3>
+            <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <h3 className="font-semibold mb-3 text-sm text-gray-900 dark:text-gray-100">{t('stockTransfersDetail.transferSummary')}</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">عدد المنتجات:</span>
-                  <span className="font-medium">{summary.productCount}</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.productCount')}:</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">{summary.productCount}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">إجمالي الكراتين:</span>
-                  <span className="font-bold text-blue-600">{summary.totalCartons}</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.totalCartonsLabel')}:</span>
+                  <span className="font-bold text-blue-600 dark:text-blue-400">{summary.totalCartons}</span>
                 </div>
                 {summary.totalExtraPieces > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-gray-500">قطع إضافية:</span>
-                    <span className="font-bold text-orange-600">{summary.totalExtraPieces}</span>
+                    <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.extraPieces')}:</span>
+                    <span className="font-bold text-orange-600 dark:text-orange-400">{summary.totalExtraPieces}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span className="text-gray-500">إجمالي القطع:</span>
-                  <span className="font-bold">{summary.totalPieces}</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.totalPiecesLabel')}:</span>
+                  <span className="font-bold text-gray-900 dark:text-gray-100">{summary.totalPieces}</span>
                 </div>
                 <hr className="border-gray-200 dark:border-gray-700" />
                 <div className="flex justify-between">
-                  <span className="text-gray-500">قيمة التكلفة:</span>
-                  <span className="font-bold text-green-700">{formatCurrency(summary.totalCostValue)}</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.costValue')}:</span>
+                  <span className="font-bold text-green-700 dark:text-green-400">{formatCurrency(summary.totalCostValue)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">قيمة البيع (تجزئة):</span>
-                  <span className="font-bold text-blue-700">{formatCurrency(summary.totalRetailValue)}</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.retailValue')}:</span>
+                  <span className="font-bold text-blue-700 dark:text-blue-400">{formatCurrency(summary.totalRetailValue)}</span>
                 </div>
                 {summary.totalRetailValue > summary.totalCostValue && (
                   <div className="flex justify-between text-xs">
-                    <span className="text-gray-500">هامش الربح:</span>
-                    <span className="font-medium text-purple-600">
+                    <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.profitMargin')}:</span>
+                    <span className="font-medium text-purple-600 dark:text-purple-400">
                       {formatCurrency(summary.totalRetailValue - summary.totalCostValue)}
                       {' '}({((summary.totalRetailValue - summary.totalCostValue) / summary.totalCostValue * 100).toFixed(1)}%)
                     </span>

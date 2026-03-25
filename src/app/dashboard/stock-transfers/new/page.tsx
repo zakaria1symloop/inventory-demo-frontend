@@ -1,9 +1,29 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { stockTransfersApi, productsApi, warehousesApi } from '@/lib/api';
+import { useLocale } from '@/lib/i18n/context';
+import GuidedTour from '@/components/GuidedTour';
+import type { TourStep } from '@/components/GuidedTour';
 import toast from 'react-hot-toast';
+import {
+  ArrowsRightLeftIcon,
+  ArrowLeftIcon,
+  MagnifyingGlassIcon,
+  PlusIcon,
+  MinusIcon,
+  XMarkIcon,
+  CheckCircleIcon,
+  BuildingStorefrontIcon,
+  TruckIcon,
+  CubeIcon,
+  ExclamationTriangleIcon,
+  QrCodeIcon,
+  DocumentTextIcon,
+  ArrowPathIcon,
+  ChevronLeftIcon,
+} from '@heroicons/react/24/outline';
 
 interface AssignedUser {
   id: number;
@@ -40,17 +60,19 @@ interface StockEntry {
 interface TransferItem {
   product_id: number;
   product: Product;
-  quantity: number;       // cartons
-  extra_pieces: number;   // extra pieces (0 to ppp-1)
+  quantity: number;
+  extra_pieces: number;
   pieces_per_package: number;
-  total_pieces: number;   // total pieces = quantity * ppp + extra_pieces
-  decimal_qty: number;    // quantity to send to API = cartons + extra_pieces/ppp
-  unit_cost: number;      // cost per piece
-  subtotal: number;       // unit_cost × total_pieces
+  total_pieces: number;
+  decimal_qty: number;
+  unit_cost: number;
+  subtotal: number;
 }
 
 export default function NewStockTransferPage() {
   const router = useRouter();
+  const { t, locale, dir } = useLocale();
+  const isRTL = dir === 'rtl';
 
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -58,6 +80,7 @@ export default function NewStockTransferPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [warehouseStock, setWarehouseStock] = useState<StockEntry[]>([]);
   const [loadingStock, setLoadingStock] = useState(false);
+  const [showTour, setShowTour] = useState(false);
 
   // Search
   const [searchTerm, setSearchTerm] = useState('');
@@ -78,13 +101,45 @@ export default function NewStockTransferPage() {
   // Refs for keyboard navigation
   const inputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
+  const tourSteps: TourStep[] = useMemo(() => [
+    {
+      target: '[data-tour="nst-title"]',
+      title: t('stockTransfersNew.tourTitle1'),
+      desc: t('stockTransfersNew.tourDesc1'),
+      position: 'bottom' as const,
+    },
+    {
+      target: '[data-tour="nst-warehouses"]',
+      title: t('stockTransfersNew.tourTitle2'),
+      desc: t('stockTransfersNew.tourDesc2'),
+      position: 'bottom' as const,
+    },
+    {
+      target: '[data-tour="nst-search"]',
+      title: t('stockTransfersNew.tourTitle3'),
+      desc: t('stockTransfersNew.tourDesc3'),
+      position: 'bottom' as const,
+    },
+    {
+      target: '[data-tour="nst-items"]',
+      title: t('stockTransfersNew.tourTitle4'),
+      desc: t('stockTransfersNew.tourDesc4'),
+      position: 'top' as const,
+    },
+    {
+      target: '[data-tour="nst-summary"]',
+      title: t('stockTransfersNew.tourTitle5'),
+      desc: t('stockTransfersNew.tourDesc5'),
+      position: 'right' as const,
+    },
+  ], [t]);
+
   useEffect(() => {
     fetchInitialData();
     const saved = localStorage.getItem('transferSearchMode');
     if (saved === 'barcode' || saved === 'name') setSearchMode(saved);
   }, []);
 
-  // Fetch warehouse stock when source warehouse changes
   const fetchWarehouseStock = useCallback(async (whId: number) => {
     setLoadingStock(true);
     try {
@@ -112,7 +167,6 @@ export default function NewStockTransferPage() {
     }
   }, [fromWarehouseId, fetchWarehouseStock]);
 
-  // Global keyboard shortcuts
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'F2') {
@@ -135,7 +189,7 @@ export default function NewStockTransferPage() {
       setWarehouses(warehousesRes.data.data || warehousesRes.data);
       setProducts(productsRes.data.data || productsRes.data);
     } catch {
-      toast.error('خطأ في تحميل البيانات');
+      toast.error(t('stockTransfersNew.errorLoadingData'));
     } finally {
       setIsLoadingData(false);
     }
@@ -162,7 +216,7 @@ export default function NewStockTransferPage() {
   const addProduct = (product: Product, qty: number = 1) => {
     const stock = getStock(product.id);
     if (fromWarehouseId && stock <= 0) {
-      toast.error(`${product.name}: غير متوفر في المخزن المصدر`);
+      toast.error(`${product.name}: ${t('stockTransfersNew.notAvailableInSource')}`);
       return;
     }
     const ppp = product.pieces_per_package || 1;
@@ -175,7 +229,6 @@ export default function NewStockTransferPage() {
       item.total_pieces = item.quantity * item.pieces_per_package + item.extra_pieces;
       item.decimal_qty = item.quantity + item.extra_pieces / item.pieces_per_package;
       item.subtotal = item.unit_cost * item.total_pieces;
-      // Move to top
       newItems.splice(existingIndex, 1);
       setItems([item, ...newItems]);
     } else {
@@ -210,7 +263,7 @@ export default function NewStockTransferPage() {
     if (product) {
       addProduct(product);
     } else {
-      toast.error('منتج غير موجود بهذا الباركود');
+      toast.error(t('stockTransfersNew.productNotFoundByBarcode'));
     }
     setBarcodeInput('');
   };
@@ -224,9 +277,8 @@ export default function NewStockTransferPage() {
   const updateCartons = (index: number, cartons: number) => {
     if (cartons < 0) return;
     const newItems = [...items];
-    const item = newItems[index];
-    item.quantity = cartons;
-    recalcItem(item);
+    newItems[index].quantity = cartons;
+    recalcItem(newItems[index]);
     setItems(newItems);
   };
 
@@ -259,7 +311,7 @@ export default function NewStockTransferPage() {
 
     const stock = getStock(item.product_id);
     if (fromWarehouseId && item.total_pieces > stock) {
-      toast.error(`${item.product.name}: المتوفر ${fmtStock(stock, ppp)} فقط`);
+      toast.error(`${item.product.name}: ${t('stockTransfersNew.availableOnly')} ${fmtStock(stock, ppp)}`);
     }
     setItems(newItems);
   };
@@ -268,7 +320,6 @@ export default function NewStockTransferPage() {
     setItems(items.filter((_, i) => i !== index));
   };
 
-  // Keyboard navigation in table
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>, rowIndex: number, field: string) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -295,33 +346,21 @@ export default function NewStockTransferPage() {
     }
   }, [items, searchMode]);
 
-  const getTotalPieces = () => {
-    return items.reduce((sum, item) => sum + item.total_pieces, 0);
-  };
+  const getTotalPieces = () => items.reduce((sum, item) => sum + item.total_pieces, 0);
+  const getTotalCartons = () => items.reduce((sum, item) => sum + item.quantity, 0);
+  const getTotalExtraPieces = () => items.reduce((sum, item) => sum + item.extra_pieces, 0);
+  const getTotalValue = () => items.reduce((sum, item) => sum + item.subtotal, 0);
 
-  const getTotalCartons = () => {
-    return items.reduce((sum, item) => sum + item.quantity, 0);
-  };
-
-  const getTotalExtraPieces = () => {
-    return items.reduce((sum, item) => sum + item.extra_pieces, 0);
-  };
-
-  const getTotalValue = () => {
-    return items.reduce((sum, item) => sum + item.subtotal, 0);
-  };
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
-  };
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat(locale === 'fr' ? 'fr-DZ' : 'ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
 
   const fmtStock = (totalPieces: number, ppp: number): string => {
     if (!ppp || ppp <= 1) return Math.round(totalPieces).toString();
     const cartons = Math.floor(totalPieces / ppp);
     const pieces = totalPieces % ppp;
-    if (cartons > 0 && pieces > 0) return `${cartons} كرتون ${pieces} قطعة`;
-    if (cartons > 0) return `${cartons} كرتون`;
-    if (pieces > 0) return `${pieces} قطعة`;
+    if (cartons > 0 && pieces > 0) return `${cartons} ${t('stockTransfersNew.carton')} ${pieces} ${t('stockTransfersNew.piece')}`;
+    if (cartons > 0) return `${cartons} ${t('stockTransfersNew.carton')}`;
+    if (pieces > 0) return `${pieces} ${t('stockTransfersNew.piece')}`;
     return '0';
   };
 
@@ -331,39 +370,23 @@ export default function NewStockTransferPage() {
   };
 
   const handleSubmit = async () => {
-    if (!fromWarehouseId) {
-      toast.error('يرجى اختيار المستودع المصدر');
-      return;
-    }
-    if (!toWarehouseId) {
-      toast.error('يرجى اختيار المستودع الوجهة');
-      return;
-    }
-    if (fromWarehouseId === toWarehouseId) {
-      toast.error('المستودع المصدر والوجهة يجب أن يكونا مختلفين');
-      return;
-    }
-    // Only allow transfers to cashvan warehouses
+    if (!fromWarehouseId) { toast.error(t('stockTransfersNew.selectSourceWarehouse')); return; }
+    if (!toWarehouseId) { toast.error(t('stockTransfersNew.selectDestWarehouse')); return; }
+    if (fromWarehouseId === toWarehouseId) { toast.error(t('stockTransfersNew.warehousesMustDiffer')); return; }
     const destWh = warehouses.find(w => w.id === toWarehouseId);
     if (destWh?.assigned_user && destWh.assigned_user.role !== 'cashvan') {
-      toast.error('التحويل متاح فقط لمستودعات البائعين المتنقلين (Cashvan). للسائقين العاديين استخدم نظام الطلبات.');
+      toast.error(t('stockTransfersNew.transferOnlyCashvan'));
       return;
     }
-    if (items.length === 0) {
-      toast.error('يرجى إضافة منتج واحد على الأقل');
-      return;
-    }
+    if (items.length === 0) { toast.error(t('stockTransfersNew.addAtLeastOneProduct')); return; }
     const errors: string[] = [];
     for (const item of items) {
       const available = getStock(item.product_id);
       if (item.total_pieces > available) {
-        errors.push(`${item.product.name}: المطلوب ${fmtStock(item.total_pieces, item.pieces_per_package)}، المتوفر ${fmtStock(available, item.pieces_per_package)}`);
+        errors.push(`${item.product.name}: ${t('stockTransfersNew.requested')} ${fmtStock(item.total_pieces, item.pieces_per_package)}, ${t('stockTransfersNew.available')} ${fmtStock(available, item.pieces_per_package)}`);
       }
     }
-    if (errors.length > 0) {
-      toast.error(errors.join('\n'));
-      return;
-    }
+    if (errors.length > 0) { toast.error(errors.join('\n')); return; }
 
     setIsSaving(true);
     try {
@@ -376,11 +399,11 @@ export default function NewStockTransferPage() {
           quantity: item.total_pieces,
         }))
       });
-      toast.success('تم إنشاء طلب التحويل بنجاح');
+      toast.success(t('stockTransfersNew.transferCreatedSuccess'));
       router.push('/dashboard/stock-transfers');
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string; errors?: string[] } } };
-      const msg = err.response?.data?.errors?.join('\n') || err.response?.data?.message || 'خطأ في إنشاء التحويل';
+      const msg = err.response?.data?.errors?.join('\n') || err.response?.data?.message || t('stockTransfersNew.errorCreatingTransfer');
       toast.error(msg);
     } finally {
       setIsSaving(false);
@@ -393,14 +416,12 @@ export default function NewStockTransferPage() {
     (p.barcode && p.barcode.includes(searchTerm))
   );
 
-  // Get driver name for selected destination warehouse
   const getDriverName = (whId: number | ''): string => {
     if (!whId) return '';
     const wh = warehouses.find(w => w.id === whId);
     return wh?.assigned_user?.name || '';
   };
 
-  // Check if destination warehouse belongs to a cashvan user
   const getDestWarehouseUser = (whId: number | '') => {
     if (!whId) return null;
     const wh = warehouses.find(w => w.id === whId);
@@ -410,306 +431,354 @@ export default function NewStockTransferPage() {
   const destUser = getDestWarehouseUser(toWarehouseId);
   const isDestCashvan = !toWarehouseId || !destUser || destUser.role === 'cashvan';
 
+  const storageKey = 'new_stock_transfer_tour_step';
+
   if (isLoadingData) {
-    return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
+    return <div className="flex items-center justify-center h-64"><div className="spinner w-8 h-8"></div></div>;
   }
 
   return (
-    <div>
-      {/* Shortcuts hint */}
-      <div className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg mb-4 flex items-center gap-6 text-sm">
-        <span className="font-medium">اختصارات:</span>
-        <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">F2</kbd> بحث منتج</span>
-        <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Enter</kbd> تنقل بين الحقول</span>
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" data-tour="nst-title">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-teal-500/20">
+            <ArrowsRightLeftIcon className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('stockTransfersNew.pageTitle')}</h1>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('stockTransfersNew.pageSubtitle')}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { localStorage.removeItem(storageKey); setShowTour(true); }}
+            className="text-sm font-medium text-gray-400 hover:text-teal-500 dark:hover:text-teal-400 transition-colors"
+            title={t('stockTransfersNew.tourBtn')}
+          >
+            {t('stockTransfersNew.tourBtn')}
+          </button>
+          <button
+            onClick={() => router.push('/dashboard/stock-transfers')}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+          >
+            <ArrowLeftIcon className={`w-4 h-4 ${isRTL ? 'rotate-180' : ''}`} />
+            {t('stockTransfersNew.back')}
+          </button>
+        </div>
       </div>
 
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">تحويل مخزون جديد</h1>
-        <button onClick={() => router.push('/dashboard/stock-transfers')} className="btn btn-secondary">
-          رجوع
-        </button>
+      {/* Keyboard shortcuts hint */}
+      <div className="flex items-center gap-4 text-xs text-gray-400 dark:text-gray-500">
+        <span className="flex items-center gap-1.5"><kbd className="bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded font-mono text-[10px]">F2</kbd> {t('stockTransfersNew.searchProduct')}</span>
+        <span className="flex items-center gap-1.5"><kbd className="bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded font-mono text-[10px]">Enter</kbd> {t('stockTransfersNew.navigateFields')}</span>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Form Section */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Basic Info Card */}
-          <div className="card">
-            <h2 className="text-lg font-semibold mb-4">معلومات التحويل</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Main Form */}
+        <div className="lg:col-span-2 space-y-5">
+          {/* Warehouse Selection */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm p-5" data-tour="nst-warehouses">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-900/30 flex items-center justify-center">
+                <BuildingStorefrontIcon className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              </div>
+              <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">{t('stockTransfersNew.transferInfo')}</h2>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">المستودع المصدر *</label>
+                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">{t('stockTransfersNew.sourceWarehouse')} *</label>
                 <select
                   value={fromWarehouseId}
                   onChange={(e) => {
                     setFromWarehouseId(Number(e.target.value) || '');
                     setItems([]);
                   }}
-                  className="select"
+                  className="select w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
                 >
-                  <option value="">اختر المستودع المصدر</option>
+                  <option value="">{t('stockTransfersNew.selectSource')}</option>
                   {warehouses.map(w => (
                     <option key={w.id} value={w.id}>
-                      {w.name}{w.assigned_user ? ` (${w.assigned_user.name})` : ''}{w.is_main ? ' - رئيسي' : ''}
+                      {w.name}{w.assigned_user ? ` (${w.assigned_user.name})` : ''}{w.is_main ? ` - ${t('stockTransfersNew.main')}` : ''}
                     </option>
                   ))}
                 </select>
                 {loadingStock && (
-                  <p className="text-xs text-blue-500 mt-1">جاري تحميل المخزون...</p>
+                  <p className="text-[10px] text-teal-600 dark:text-teal-400 mt-1 flex items-center gap-1">
+                    <ArrowPathIcon className="w-3 h-3 animate-spin" />
+                    {t('stockTransfersNew.loadingStock')}
+                  </p>
                 )}
               </div>
+
               <div>
-                <label className="block text-sm font-medium mb-1">المستودع الوجهة (مستودع السائق) *</label>
+                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">{t('stockTransfersNew.destWarehouse')} *</label>
                 <select
                   value={toWarehouseId}
                   onChange={(e) => setToWarehouseId(Number(e.target.value) || '')}
-                  className={`select ${toWarehouseId && !isDestCashvan ? 'border-red-500' : ''}`}
+                  className={`select w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 ${toWarehouseId && !isDestCashvan ? 'border-red-400 ring-1 ring-red-200 dark:border-red-500 dark:ring-red-500/30' : ''}`}
                 >
-                  <option value="">اختر مستودع السائق</option>
+                  <option value="">{t('stockTransfersNew.selectDest')}</option>
                   {warehouses.map(w => {
-                    const roleLabel = w.assigned_user?.role === 'cashvan' ? 'بائع متنقل' : w.assigned_user?.role === 'livreur' ? 'سائق توصيل' : '';
+                    const roleLabel = w.assigned_user?.role === 'cashvan' ? t('stockTransfersNew.mobileSeller') : w.assigned_user?.role === 'livreur' ? t('stockTransfersNew.deliveryDriver') : '';
                     return (
                       <option key={w.id} value={w.id}>
-                        {w.name}{w.assigned_user ? ` (${w.assigned_user.name}${roleLabel ? ' - ' + roleLabel : ''})` : ''}{w.is_main ? ' - رئيسي' : ''}
+                        {w.name}{w.assigned_user ? ` (${w.assigned_user.name}${roleLabel ? ' - ' + roleLabel : ''})` : ''}{w.is_main ? ` - ${t('stockTransfersNew.main')}` : ''}
                       </option>
                     );
                   })}
                 </select>
                 {toWarehouseId && !isDestCashvan && (
-                  <div className="mt-2 p-2.5 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-sm font-medium text-red-800">
-                      هذا المستودع تابع لـ {destUser?.role === 'livreur' ? 'سائق توصيل' : 'مستخدم'} وليس بائع متنقل (Cashvan)
-                    </p>
-                    <p className="text-xs text-red-600 mt-1">
-                      التحويل المباشر للمخزون متاح فقط لمستودعات البائعين المتنقلين. للسائقين العاديين استخدم نظام الطلبات.
+                  <div className="mt-2 p-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+                    <div className="flex items-center gap-1.5 text-sm font-bold text-red-700 dark:text-red-400">
+                      <ExclamationTriangleIcon className="w-4 h-4" />
+                      {t('stockTransfersNew.notCashvanWarning', { role: destUser?.role === 'livreur' ? t('stockTransfersNew.deliveryDriver') : t('stockTransfersNew.user') })}
+                    </div>
+                    <p className="text-[10px] text-red-600 dark:text-red-400 mt-1 ms-5.5">
+                      {t('stockTransfersNew.transferOnlyCashvanHint')}
                     </p>
                   </div>
                 )}
                 {isDestCashvan && getDriverName(toWarehouseId) && (
-                  <p className="text-xs text-blue-600 mt-1 font-medium">
-                    السائق: {getDriverName(toWarehouseId)}
+                  <p className="text-[10px] text-teal-600 dark:text-teal-400 font-bold mt-1 flex items-center gap-1">
+                    <TruckIcon className="w-3 h-3" />
+                    {t('stockTransfersNew.driver')}: {getDriverName(toWarehouseId)}
                   </p>
                 )}
               </div>
+
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">ملاحظات</label>
+                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">{t('stockTransfersNew.notes')}</label>
                 <input
                   type="text"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="ملاحظات إضافية..."
-                  className="input"
+                  placeholder={t('stockTransfersNew.notesPlaceholder')}
+                  className="input w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500"
                 />
               </div>
             </div>
           </div>
 
-          {/* Products Card */}
-          <div className="card">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">المنتجات ({items.length})</h2>
-              <button onClick={toggleSearchMode} className="btn btn-sm btn-outline">
-                {searchMode === 'barcode' ? 'البحث بالاسم' : 'البحث بالباركود'}
+          {/* Products Section */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700" data-tour="nst-search">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-cyan-50 dark:bg-cyan-900/30 flex items-center justify-center">
+                  <CubeIcon className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                </div>
+                <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">{t('stockTransfersNew.products')} <span className="text-sm font-normal text-gray-400 dark:text-gray-500">({items.length})</span></h2>
+              </div>
+              <button
+                onClick={toggleSearchMode}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+              >
+                {searchMode === 'barcode' ? (
+                  <><MagnifyingGlassIcon className="w-3.5 h-3.5" /> {t('stockTransfersNew.searchByName')}</>
+                ) : (
+                  <><QrCodeIcon className="w-3.5 h-3.5" /> {t('stockTransfersNew.searchByBarcode')}</>
+                )}
               </button>
             </div>
 
             {!fromWarehouseId && (
-              <div className="p-3 mb-4 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-lg text-sm">
-                اختر المستودع المصدر أولاً لعرض المخزون المتوفر
+              <div className="mx-5 mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl text-sm text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                <ExclamationTriangleIcon className="w-4 h-4 shrink-0" />
+                {t('stockTransfersNew.selectSourceFirst')}
               </div>
             )}
 
-            {/* Search Input - Barcode Mode */}
-            {searchMode === 'barcode' ? (
-              <div className="mb-4">
+            {/* Search Input */}
+            <div className="px-5 py-3">
+              {searchMode === 'barcode' ? (
                 <div className="relative">
+                  <QrCodeIcon className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500`} />
                   <input
                     ref={barcodeInputRef}
                     type="text"
                     value={barcodeInput}
                     onChange={(e) => setBarcodeInput(e.target.value)}
                     onKeyDown={handleBarcodeSubmit}
-                    placeholder="امسح الباركود أو اكتب الرمز ثم Enter..."
-                    className="input w-full pr-10"
+                    placeholder={t('stockTransfersNew.barcodePlaceholder')}
+                    className={`input w-full ${isRTL ? 'pr-9' : 'pl-9'} text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500`}
                     autoComplete="off"
                     autoFocus
                   />
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                    </svg>
-                  </div>
                 </div>
-              </div>
-            ) : (
-              /* Search Input - Name Mode */
-              <div className="relative mb-4">
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => {
-                    setSearchTerm(e.target.value);
-                    setShowDropdown(true);
-                    setHighlightIndex(-1);
-                  }}
-                  onFocus={() => {
-                    if (searchTerm) setShowDropdown(true);
-                    setHighlightIndex(-1);
-                  }}
-                  onKeyDown={(e) => {
-                    const visible = filteredProducts.slice(0, 10);
-                    const availableVisible = fromWarehouseId
-                      ? visible.filter(p => getStock(p.id) > 0)
-                      : visible;
-                    const maxIndex = availableVisible.length - 1;
-
-                    if (e.key === 'Escape') {
-                      setShowDropdown(false);
-                      setHighlightIndex(-1);
-                    } else if (e.key === 'ArrowDown') {
-                      e.preventDefault();
+              ) : (
+                <div className="relative">
+                  <MagnifyingGlassIcon className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500`} />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
                       setShowDropdown(true);
-                      const newIndex = Math.min(highlightIndex + 1, maxIndex);
-                      setHighlightIndex(newIndex);
-                      setTimeout(() => {
-                        productListRef.current?.querySelector(`[data-index="${newIndex}"]`)?.scrollIntoView({ block: 'nearest' });
-                      }, 0);
-                    } else if (e.key === 'ArrowUp') {
-                      e.preventDefault();
-                      const newIndex = Math.max(highlightIndex - 1, 0);
-                      setHighlightIndex(newIndex);
-                      setTimeout(() => {
-                        productListRef.current?.querySelector(`[data-index="${newIndex}"]`)?.scrollIntoView({ block: 'nearest' });
-                      }, 0);
-                    } else if (e.key === 'Enter') {
-                      e.preventDefault();
-                      if (highlightIndex >= 0 && availableVisible[highlightIndex]) {
-                        addProduct(availableVisible[highlightIndex]);
-                      } else if (availableVisible.length === 1) {
-                        addProduct(availableVisible[0]);
-                      }
-                    }
-                  }}
-                  placeholder="ابحث عن منتج بالاسم أو الباركود..."
-                  className="input w-full"
-                  autoComplete="off"
-                  autoFocus
-                />
-                {showDropdown && searchTerm && (
-                  <div
-                    ref={productListRef}
-                    className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto"
-                  >
-                    {filteredProducts.length === 0 ? (
-                      <div className="p-3 text-gray-500 text-center">لا توجد نتائج</div>
-                    ) : (
-                      (() => {
-                        let availableIndex = -1;
-                        return filteredProducts.slice(0, 10).map((product) => {
-                          const stock = getStock(product.id);
-                          const isOutOfStock = fromWarehouseId ? stock <= 0 : false;
-                          if (!isOutOfStock) availableIndex++;
-                          const currentAvailableIndex = availableIndex;
-                          const isHighlighted = !isOutOfStock && highlightIndex === currentAvailableIndex;
-                          const alreadyAdded = items.some(item => item.product_id === product.id);
-                          const ppp = product.pieces_per_package || 1;
-                          return (
-                            <button
-                              key={product.id}
-                              type="button"
-                              data-index={isOutOfStock ? undefined : currentAvailableIndex}
-                              onClick={() => !isOutOfStock && addProduct(product)}
-                              disabled={isOutOfStock}
-                              className={`w-full p-3 text-right border-b last:border-b-0 dark:border-gray-700 ${
-                                isOutOfStock
-                                  ? 'bg-red-50 dark:bg-red-900/10 opacity-50 cursor-not-allowed'
-                                  : isHighlighted
-                                  ? 'bg-blue-100 dark:bg-blue-900/40'
-                                  : 'hover:bg-gray-50 dark:hover:bg-gray-700'
-                              }`}
-                            >
-                              <div className="flex justify-between items-center">
-                                <div>
-                                  <span className="font-medium">{product.name}</span>
-                                  {ppp > 1 && (
-                                    <span className="text-xs text-gray-500 mr-2">({ppp} قطعة/كرتون)</span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  {alreadyAdded && (
-                                    <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded">مضاف</span>
-                                  )}
-                                  {fromWarehouseId ? (
-                                    <span className={`text-sm font-bold ${isOutOfStock ? 'text-red-600' : 'text-green-600'}`}>
-                                      {stock > 0 ? `متوفر: ${fmtStock(stock, product.pieces_per_package || 1)}` : 'غير متوفر'}
-                                    </span>
-                                  ) : (
-                                    <span className="text-sm text-gray-500">{product.unit?.name || ''}</span>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                {product.barcode || product.sku || ''}
-                              </div>
-                            </button>
-                          );
-                        });
-                      })()
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+                      setHighlightIndex(-1);
+                    }}
+                    onFocus={() => {
+                      if (searchTerm) setShowDropdown(true);
+                      setHighlightIndex(-1);
+                    }}
+                    onKeyDown={(e) => {
+                      const visible = filteredProducts.slice(0, 10);
+                      const availableVisible = fromWarehouseId
+                        ? visible.filter(p => getStock(p.id) > 0)
+                        : visible;
+                      const maxIndex = availableVisible.length - 1;
 
-            {/* Items Table - Same layout as Sales */}
-            <div className="overflow-x-auto">
+                      if (e.key === 'Escape') {
+                        setShowDropdown(false);
+                        setHighlightIndex(-1);
+                      } else if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        setShowDropdown(true);
+                        const newIndex = Math.min(highlightIndex + 1, maxIndex);
+                        setHighlightIndex(newIndex);
+                        setTimeout(() => {
+                          productListRef.current?.querySelector(`[data-index="${newIndex}"]`)?.scrollIntoView({ block: 'nearest' });
+                        }, 0);
+                      } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        const newIndex = Math.max(highlightIndex - 1, 0);
+                        setHighlightIndex(newIndex);
+                        setTimeout(() => {
+                          productListRef.current?.querySelector(`[data-index="${newIndex}"]`)?.scrollIntoView({ block: 'nearest' });
+                        }, 0);
+                      } else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (highlightIndex >= 0 && availableVisible[highlightIndex]) {
+                          addProduct(availableVisible[highlightIndex]);
+                        } else if (availableVisible.length === 1) {
+                          addProduct(availableVisible[0]);
+                        }
+                      }
+                    }}
+                    placeholder={t('stockTransfersNew.searchPlaceholder')}
+                    className={`input w-full ${isRTL ? 'pr-9' : 'pl-9'} text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500`}
+                    autoComplete="off"
+                    autoFocus
+                  />
+                  {showDropdown && searchTerm && (
+                    <div
+                      ref={productListRef}
+                      className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg max-h-60 overflow-y-auto"
+                    >
+                      {filteredProducts.length === 0 ? (
+                        <div className="p-3 text-gray-500 dark:text-gray-400 text-center text-sm">{t('stockTransfersNew.noResults')}</div>
+                      ) : (
+                        (() => {
+                          let availableIndex = -1;
+                          return filteredProducts.slice(0, 10).map((product) => {
+                            const stock = getStock(product.id);
+                            const isOutOfStock = fromWarehouseId ? stock <= 0 : false;
+                            if (!isOutOfStock) availableIndex++;
+                            const currentAvailableIndex = availableIndex;
+                            const isHighlighted = !isOutOfStock && highlightIndex === currentAvailableIndex;
+                            const alreadyAdded = items.some(item => item.product_id === product.id);
+                            const ppp = product.pieces_per_package || 1;
+                            return (
+                              <button
+                                key={product.id}
+                                type="button"
+                                data-index={isOutOfStock ? undefined : currentAvailableIndex}
+                                onClick={() => !isOutOfStock && addProduct(product)}
+                                disabled={isOutOfStock}
+                                className={`w-full p-3 text-start border-b last:border-b-0 border-gray-100 dark:border-gray-700 ${
+                                  isOutOfStock
+                                    ? 'bg-red-50/50 dark:bg-red-900/10 opacity-50 cursor-not-allowed'
+                                    : isHighlighted
+                                    ? 'bg-teal-50 dark:bg-teal-900/20'
+                                    : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                                }`}
+                              >
+                                <div className="flex justify-between items-center">
+                                  <div>
+                                    <span className="font-medium text-sm text-gray-800 dark:text-gray-100">{product.name}</span>
+                                    {ppp > 1 && (
+                                      <span className="text-[10px] text-gray-400 dark:text-gray-500 ms-2">({ppp} {t('stockTransfersNew.piecesPerCarton')})</span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {alreadyAdded && (
+                                      <span className="text-[10px] px-1.5 py-0.5 bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 rounded font-bold">{t('stockTransfersNew.added')}</span>
+                                    )}
+                                    {fromWarehouseId ? (
+                                      <span className={`text-xs font-bold ${isOutOfStock ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                        {stock > 0 ? `${t('stockTransfersNew.inStock')}: ${fmtStock(stock, ppp)}` : t('stockTransfersNew.outOfStock')}
+                                      </span>
+                                    ) : (
+                                      <span className="text-xs text-gray-400 dark:text-gray-500">{product.unit?.name || ''}</span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
+                                  {product.barcode || product.sku || ''}
+                                </div>
+                              </button>
+                            );
+                          });
+                        })()
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Items Table */}
+            <div className="overflow-x-auto" data-tour="nst-items">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-gray-100">
-                    <th className="px-2 py-2 text-center w-12">الرقم</th>
-                    <th className="px-2 py-2 text-right">التعيين</th>
-                    <th className="px-2 py-2 text-center w-28">كرتون/قطعة</th>
-                    <th className="px-2 py-2 text-center w-16">الوحدة</th>
-                    <th className="px-2 py-2 text-center w-20">العدد</th>
-                    <th className="px-2 py-2 text-center w-20">المتوفر</th>
-                    <th className="px-2 py-2 text-center w-24">س. الوحدة</th>
-                    <th className="px-2 py-2 text-center w-24">المبلغ</th>
-                    <th className="px-2 py-2 w-10"></th>
+                  <tr className="bg-gray-50/80 dark:bg-gray-700/50 border-y border-gray-100 dark:border-gray-700">
+                    <th className="px-3 py-2.5 text-center w-10 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">#</th>
+                    <th className="px-3 py-2.5 text-start text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('stockTransfersNew.product')}</th>
+                    <th className="px-3 py-2.5 text-center w-28 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('stockTransfersNew.cartonPiece')}</th>
+                    <th className="px-3 py-2.5 text-center w-14 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('stockTransfersNew.unit')}</th>
+                    <th className="px-3 py-2.5 text-center w-20 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('stockTransfersNew.count')}</th>
+                    <th className="px-3 py-2.5 text-center w-20 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('stockTransfersNew.availableCol')}</th>
+                    <th className="px-3 py-2.5 text-center w-20 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('stockTransfersNew.unitPrice')}</th>
+                    <th className="px-3 py-2.5 text-center w-24 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('stockTransfersNew.amount')}</th>
+                    <th className="px-3 py-2.5 w-8"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="text-center py-8 text-gray-500">
-                        لم تتم إضافة أي منتجات بعد
-                        <p className="text-sm mt-1">
-                          {searchMode === 'barcode' ? 'امسح الباركود أو اكتب الرمز' : 'ابحث عن منتج بالاسم'}
+                      <td colSpan={9} className="text-center py-12 text-gray-400 dark:text-gray-500">
+                        <CubeIcon className="w-10 h-10 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
+                        <p className="text-sm font-medium">{t('stockTransfersNew.noProductsYet')}</p>
+                        <p className="text-xs mt-1">
+                          {searchMode === 'barcode' ? t('stockTransfersNew.scanOrTypeBarcode') : t('stockTransfersNew.searchByNameHint')}
                         </p>
                       </td>
                     </tr>
                   ) : (
                     items.map((item, index) => {
                       const stock = getStock(item.product_id);
-                      const overStock = fromWarehouseId && item.total_pieces > stock;
+                      const overStock = !!fromWarehouseId && item.total_pieces > stock;
                       const ppp = item.pieces_per_package;
                       const hasPieces = ppp > 1;
                       return (
-                        <tr key={item.product_id} className={`border-b hover:bg-gray-50 ${overStock ? 'bg-red-50 dark:bg-red-900/10' : ''}`}>
-                          <td className="px-2 py-2 text-center font-medium text-gray-500">{index + 1}</td>
-                          <td className="px-2 py-2">
-                            <div className="font-medium">{item.product.name}</div>
-                            <div className="text-xs text-gray-500">{item.product.barcode || item.product.sku || ''}</div>
+                        <tr key={item.product_id} className={`border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50/50 dark:hover:bg-gray-700/30 ${overStock ? 'bg-red-50/50 dark:bg-red-900/10' : ''}`}>
+                          <td className="px-3 py-2.5 text-center text-xs font-medium text-gray-400 dark:text-gray-500">{index + 1}</td>
+                          <td className="px-3 py-2.5">
+                            <div className="font-medium text-sm text-gray-800 dark:text-gray-100">{item.product.name}</div>
+                            <div className="text-[10px] text-gray-400 dark:text-gray-500">{item.product.barcode || item.product.sku || ''}</div>
                           </td>
-                          <td className="px-2 py-2">
+                          <td className="px-3 py-2.5">
                             <div className="space-y-1">
                               {/* Cartons row - blue */}
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1 justify-center">
                                 <button
                                   type="button"
                                   onClick={() => updateCartons(index, Math.max(0, item.quantity - 1))}
-                                  className="w-6 h-6 flex items-center justify-center rounded border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold"
-                                >-</button>
+                                  className="w-6 h-6 flex items-center justify-center rounded-lg border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                                >
+                                  <MinusIcon className="w-3 h-3" />
+                                </button>
                                 <input
                                   ref={(el) => { inputRefs.current[`${index}-quantity`] = el; }}
                                   type="number"
@@ -717,23 +786,27 @@ export default function NewStockTransferPage() {
                                   onChange={(e) => updateCartons(index, Math.max(0, parseInt(e.target.value) || 0))}
                                   onKeyDown={(e) => handleKeyDown(e, index, 'quantity')}
                                   onFocus={(e) => e.target.select()}
-                                  className="input w-12 text-center text-sm py-0.5 border-blue-300"
+                                  className="input w-12 text-center text-sm py-0.5 border-blue-300 dark:border-blue-600 font-bold text-blue-700 dark:text-blue-400 dark:bg-gray-700"
                                   min="0"
                                 />
                                 <button
                                   type="button"
                                   onClick={() => updateCartons(index, item.quantity + 1)}
-                                  className="w-6 h-6 flex items-center justify-center rounded border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold"
-                                >+</button>
+                                  className="w-6 h-6 flex items-center justify-center rounded-lg border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                                >
+                                  <PlusIcon className="w-3 h-3" />
+                                </button>
                               </div>
-                              {/* Pieces row - orange (only if ppp > 1) */}
+                              {/* Pieces row - orange */}
                               {hasPieces && (
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1 justify-center">
                                   <button
                                     type="button"
                                     onClick={() => updateExtraPieces(index, Math.max(0, item.extra_pieces - 1))}
-                                    className="w-6 h-6 flex items-center justify-center rounded border border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 text-xs font-bold"
-                                  >-</button>
+                                    className="w-6 h-6 flex items-center justify-center rounded-lg border border-orange-200 dark:border-orange-700 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors"
+                                  >
+                                    <MinusIcon className="w-3 h-3" />
+                                  </button>
                                   <input
                                     ref={(el) => { inputRefs.current[`${index}-extra_pieces`] = el; }}
                                     type="number"
@@ -741,24 +814,26 @@ export default function NewStockTransferPage() {
                                     onChange={(e) => updateExtraPieces(index, parseInt(e.target.value) || 0)}
                                     onKeyDown={(e) => handleKeyDown(e, index, 'extra_pieces')}
                                     onFocus={(e) => e.target.select()}
-                                    className="input w-12 text-center text-sm py-0.5 border-orange-300"
+                                    className="input w-12 text-center text-sm py-0.5 border-orange-300 dark:border-orange-600 font-bold text-orange-700 dark:text-orange-400 dark:bg-gray-700"
                                     min="0"
                                     max={ppp - 1}
                                   />
                                   <button
                                     type="button"
                                     onClick={() => updateExtraPieces(index, item.extra_pieces + 1)}
-                                    className="w-6 h-6 flex items-center justify-center rounded border border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 text-xs font-bold"
-                                  >+</button>
+                                    className="w-6 h-6 flex items-center justify-center rounded-lg border border-orange-200 dark:border-orange-700 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors"
+                                  >
+                                    <PlusIcon className="w-3 h-3" />
+                                  </button>
                                 </div>
                               )}
                             </div>
                           </td>
-                          <td className="px-2 py-2 text-center text-sm">
-                            <div className="text-blue-600 font-medium">{ppp}</div>
-                            <div className="text-xs text-gray-500">{item.product.unit?.name || 'وحدة'}</div>
+                          <td className="px-3 py-2.5 text-center">
+                            <div className="text-sm font-bold text-blue-600 dark:text-blue-400">{ppp}</div>
+                            <div className="text-[10px] text-gray-400 dark:text-gray-500">{item.product.unit?.name || t('stockTransfersNew.unitDefault')}</div>
                           </td>
-                          <td className="px-2 py-2 text-center">
+                          <td className="px-3 py-2.5 text-center">
                             <input
                               ref={(el) => { inputRefs.current[`${index}-total_pieces`] = el; }}
                               type="number"
@@ -766,35 +841,33 @@ export default function NewStockTransferPage() {
                               onChange={(e) => updateTotalPieces(index, Math.max(0, parseInt(e.target.value) || 0))}
                               onKeyDown={(e) => handleKeyDown(e, index, 'total_pieces')}
                               onFocus={(e) => e.target.select()}
-                              className="input w-16 text-center text-sm py-0.5 font-medium"
+                              className="input w-16 text-center text-sm py-0.5 font-bold dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
                               min="0"
                             />
                           </td>
-                          <td className="px-2 py-2 text-center">
+                          <td className="px-3 py-2.5 text-center">
                             {fromWarehouseId ? (
-                              <span className={`font-bold text-sm ${overStock ? 'text-red-600' : 'text-green-600'}`}>
-                                {fmtStock(stock, item.pieces_per_package)}
+                              <span className={`text-xs font-bold ${overStock ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                {fmtStock(stock, ppp)}
                               </span>
-                            ) : '-'}
+                            ) : <span className="text-gray-300 dark:text-gray-600">-</span>}
                             {overStock && (
-                              <div className="text-[10px] text-red-600">تجاوز!</div>
+                              <div className="text-[10px] text-red-600 dark:text-red-400 font-bold">{t('stockTransfersNew.exceeded')}</div>
                             )}
                           </td>
-                          <td className="px-2 py-2 text-center text-sm font-medium">
+                          <td className="px-3 py-2.5 text-center text-sm font-medium text-gray-600 dark:text-gray-400">
                             {item.unit_cost.toFixed(2)}
                           </td>
-                          <td className="px-2 py-2 text-center text-sm font-bold text-green-700">
+                          <td className="px-3 py-2.5 text-center text-sm font-bold text-emerald-700 dark:text-emerald-400">
                             {item.subtotal.toFixed(2)}
                           </td>
-                          <td className="px-2 py-2">
+                          <td className="px-3 py-2.5">
                             <button
                               type="button"
                               onClick={() => removeItem(index)}
-                              className="text-red-600 hover:text-red-800 p-1"
+                              className="p-1.5 rounded-lg text-gray-300 dark:text-gray-600 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
+                              <XMarkIcon className="w-4 h-4" />
                             </button>
                           </td>
                         </tr>
@@ -805,121 +878,131 @@ export default function NewStockTransferPage() {
               </table>
             </div>
 
-            <div className="mt-2 text-xs text-gray-500">
-              نصيحة: اضغط Enter للانتقال للحقل التالي
-            </div>
+            {items.length > 0 && (
+              <div className="px-5 py-2 border-t border-gray-100 dark:border-gray-700 text-[10px] text-gray-400 dark:text-gray-500">
+                {t('stockTransfersNew.tipEnterNextField')}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Summary Section */}
-        <div className="lg:col-span-1">
-          <div className="card sticky top-4">
-            <h2 className="text-lg font-semibold mb-4">ملخص التحويل</h2>
+        {/* Summary Sidebar */}
+        <div className="lg:col-span-1" data-tour="nst-summary">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm p-5 sticky top-4">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-900/30 flex items-center justify-center">
+                <DocumentTextIcon className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              </div>
+              <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">{t('stockTransfersNew.transferSummary')}</h2>
+            </div>
 
-            <div className="space-y-3 mb-6">
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">المصدر:</span>
-                <span className="font-medium">
-                  {fromWarehouseId ? warehouses.find(w => w.id === fromWarehouseId)?.name : '-'}
+            <div className="space-y-3 mb-5">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-400 dark:text-gray-500">{t('stockTransfersNew.source')}:</span>
+                <span className="text-sm font-bold text-gray-700 dark:text-gray-300">
+                  {fromWarehouseId ? warehouses.find(w => w.id === fromWarehouseId)?.name : <span className="text-gray-300 dark:text-gray-600">-</span>}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">الوجهة:</span>
-                <span className="font-medium">
-                  {toWarehouseId ? warehouses.find(w => w.id === toWarehouseId)?.name : '-'}
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-400 dark:text-gray-500">{t('stockTransfersNew.destination')}:</span>
+                <span className="text-sm font-bold text-gray-700 dark:text-gray-300">
+                  {toWarehouseId ? warehouses.find(w => w.id === toWarehouseId)?.name : <span className="text-gray-300 dark:text-gray-600">-</span>}
                 </span>
               </div>
               {getDriverName(toWarehouseId) && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">السائق:</span>
-                  <span className={`font-medium ${isDestCashvan ? 'text-blue-600' : 'text-red-600'}`}>{getDriverName(toWarehouseId)}</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-400 dark:text-gray-500">{t('stockTransfersNew.driver')}:</span>
+                  <span className={`text-sm font-bold ${isDestCashvan ? 'text-teal-600 dark:text-teal-400' : 'text-red-600 dark:text-red-400'}`}>{getDriverName(toWarehouseId)}</span>
                 </div>
               )}
               {toWarehouseId && !isDestCashvan && (
-                <div className="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
-                  هذا المستخدم ليس بائع متنقل
+                <div className="p-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-[10px] text-red-700 dark:text-red-400 font-medium">
+                  {t('stockTransfersNew.notMobileSeller')}
                 </div>
               )}
-              <hr className="border-gray-200 dark:border-gray-700" />
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">عدد المنتجات:</span>
-                <span className="font-medium">{items.length}</span>
+
+              <div className="border-t border-gray-100 dark:border-gray-700 pt-3 space-y-2.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-400 dark:text-gray-500">{t('stockTransfersNew.productCount')}:</span>
+                  <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{items.length}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-400 dark:text-gray-500">{t('stockTransfersNew.totalCartons')}:</span>
+                  <span className="text-sm font-black text-blue-600 dark:text-blue-400 tabular-nums">{getTotalCartons()}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-400 dark:text-gray-500">{t('stockTransfersNew.extraPieces')}:</span>
+                  <span className="text-sm font-black text-orange-600 dark:text-orange-400 tabular-nums">{getTotalExtraPieces()}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-400 dark:text-gray-500">{t('stockTransfersNew.totalPieces')}:</span>
+                  <span className="text-sm font-black text-gray-800 dark:text-gray-100 tabular-nums">{getTotalPieces()}</span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">إجمالي الكراتين:</span>
-                <span className="font-bold text-blue-600">{getTotalCartons()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">قطع إضافية:</span>
-                <span className="font-bold text-orange-600">{getTotalExtraPieces()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">إجمالي القطع:</span>
-                <span className="font-bold">{getTotalPieces()}</span>
-              </div>
-              <hr className="border-gray-200 dark:border-gray-700" />
-              <div className="flex justify-between text-lg">
-                <span className="font-semibold">القيمة الإجمالية:</span>
-                <span className="font-bold text-green-700">{formatCurrency(getTotalValue())}</span>
+
+              <div className="border-t border-gray-100 dark:border-gray-700 pt-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-bold text-gray-600 dark:text-gray-400">{t('stockTransfersNew.totalValue')}:</span>
+                  <span className="text-lg font-black text-emerald-700 dark:text-emerald-400">{formatCurrency(getTotalValue())}</span>
+                </div>
               </div>
             </div>
 
             {hasStockErrors() && (
-              <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg text-sm">
-                بعض المنتجات تتجاوز الكمية المتوفرة في المخزن المصدر
+              <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-sm text-red-700 dark:text-red-400 flex items-center gap-2">
+                <ExclamationTriangleIcon className="w-4 h-4 shrink-0" />
+                {t('stockTransfersNew.someProductsExceedStock')}
               </div>
             )}
 
             {/* Status Flow */}
-            <div className="mb-6 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <p className="text-xs font-medium text-gray-500 mb-2">مسار التحويل:</p>
-              <div className="flex items-center gap-2 text-xs">
-                <span className="px-2 py-1 bg-amber-100 text-amber-800 rounded font-medium">طلب</span>
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-                <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded font-medium">تحميل</span>
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-                <span className="px-2 py-1 bg-green-100 text-green-800 rounded font-medium">انطلاق</span>
+            <div className="mb-5 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+              <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{t('stockTransfersNew.transferFlow')}:</p>
+              <div className="flex items-center gap-2 text-[10px]">
+                <span className="px-2.5 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-400 rounded-lg font-bold">1. {t('stockTransfersNew.flowRequest')}</span>
+                <ChevronLeftIcon className={`w-3 h-3 text-gray-300 dark:text-gray-600 ${isRTL ? '' : 'rotate-180'}`} />
+                <span className="px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 rounded-lg font-bold">2. {t('stockTransfersNew.flowLoading')}</span>
+                <ChevronLeftIcon className={`w-3 h-3 text-gray-300 dark:text-gray-600 ${isRTL ? '' : 'rotate-180'}`} />
+                <span className="px-2.5 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400 rounded-lg font-bold">3. {t('stockTransfersNew.flowDeparture')}</span>
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               <button
                 onClick={handleSubmit}
                 disabled={isSaving || items.length === 0 || hasStockErrors() || (!!toWarehouseId && !isDestCashvan)}
-                className="btn btn-primary w-full"
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold text-white bg-gradient-to-l from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 rounded-xl shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSaving ? (
-                  <>
-                    <div className="spinner w-4 h-4 border-2"></div>
-                    جاري الحفظ...
-                  </>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                  <>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    إنشاء التحويل
-                  </>
+                  <CheckCircleIcon className="w-5 h-5" />
                 )}
+                {isSaving ? t('stockTransfersNew.saving') : t('stockTransfersNew.createTransfer')}
               </button>
               <button
                 onClick={() => router.push('/dashboard/stock-transfers')}
-                className="btn btn-secondary w-full"
+                className="w-full px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
               >
-                إلغاء
+                {t('stockTransfersNew.cancel')}
               </button>
             </div>
 
-            <p className="text-sm text-gray-500 mt-4 text-center">
-              سيتم إنشاء الطلب بحالة &quot;طلب جديد&quot; ويحتاج للموافقة
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-3 text-center">
+              {t('stockTransfersNew.willBeCreatedAsPending')}
             </p>
           </div>
         </div>
       </div>
+
+      {/* Guided Tour */}
+      {showTour && (
+        <GuidedTour
+          steps={tourSteps}
+          storageKey={storageKey}
+          onComplete={() => setShowTour(false)}
+        />
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useLocale } from '@/lib/i18n/context';
 
 interface DateInputProps {
   value: string;
@@ -14,12 +15,10 @@ interface DateInputProps {
   disabled?: boolean;
 }
 
-const MONTH_NAMES = [
-  'جانفي', 'فيفري', 'مارس', 'أفريل', 'ماي', 'جوان',
-  'جويلية', 'أوت', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
-];
-
-const DAY_NAMES = ['سب', 'أح', 'إث', 'ثل', 'أر', 'خم', 'جم'];
+const MONTH_NAMES_AR = ['جانفي', 'فيفري', 'مارس', 'أفريل', 'ماي', 'جوان', 'جويلية', 'أوت', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+const MONTH_NAMES_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+const DAY_NAMES_AR = ['سب', 'أح', 'إث', 'ثل', 'أر', 'خم', 'جم'];
+const DAY_NAMES_FR = ['Sam', 'Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven'];
 
 function toDisplay(iso: string): string {
   if (!iso) return '';
@@ -54,6 +53,10 @@ export default function DateInput({
   required,
   disabled,
 }: DateInputProps) {
+  const { locale, dir } = useLocale();
+  const monthNames = locale === 'fr' ? MONTH_NAMES_FR : MONTH_NAMES_AR;
+  const dayNames = locale === 'fr' ? DAY_NAMES_FR : DAY_NAMES_AR;
+
   const [isOpen, setIsOpen] = useState(false);
   const [displayValue, setDisplayValue] = useState(toDisplay(value));
   const [viewYear, setViewYear] = useState(() => {
@@ -87,11 +90,11 @@ export default function DateInput({
     const spaceBelow = window.innerHeight - rect.bottom;
     const dropdownHeight = 340;
     const top = spaceBelow < dropdownHeight
-      ? rect.top + window.scrollY - dropdownHeight - 4
-      : rect.bottom + window.scrollY + 4;
+      ? rect.top - dropdownHeight - 4
+      : rect.bottom + 4;
     setDropdownPos({
       top,
-      left: rect.left + window.scrollX,
+      left: rect.left,
       width: Math.max(rect.width, 280),
     });
   }, []);
@@ -241,14 +244,14 @@ export default function DateInput({
         top: dropdownPos.top,
         left: dropdownPos.left,
         width: dropdownPos.width,
-        direction: 'rtl',
+        direction: dir,
       }}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-100 dark:border-gray-700">
         <button
           type="button"
-          onClick={nextMonth}
+          onClick={dir === 'rtl' ? nextMonth : prevMonth}
           className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
         >
           <svg className="w-4 h-4 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -257,7 +260,7 @@ export default function DateInput({
         </button>
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-            {MONTH_NAMES[viewMonth]}
+            {monthNames[viewMonth]}
           </span>
           <input
             type="number"
@@ -272,7 +275,7 @@ export default function DateInput({
         </div>
         <button
           type="button"
-          onClick={prevMonth}
+          onClick={dir === 'rtl' ? prevMonth : nextMonth}
           className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
         >
           <svg className="w-4 h-4 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -283,7 +286,7 @@ export default function DateInput({
 
       {/* Day names */}
       <div className="grid grid-cols-7 px-2 pt-2">
-        {DAY_NAMES.map((name) => (
+        {dayNames.map((name) => (
           <div key={name} className="text-center text-xs font-medium text-gray-400 dark:text-gray-500 py-1">
             {name}
           </div>
@@ -325,7 +328,7 @@ export default function DateInput({
           onClick={handleToday}
           className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium transition-colors"
         >
-          اليوم
+          {locale === 'fr' ? 'Aujourd\'hui' : 'اليوم'}
         </button>
         {value && (
           <button
@@ -333,7 +336,7 @@ export default function DateInput({
             onClick={handleClear}
             className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium transition-colors"
           >
-            مسح
+            {locale === 'fr' ? 'Effacer' : 'مسح'}
           </button>
         )}
       </div>

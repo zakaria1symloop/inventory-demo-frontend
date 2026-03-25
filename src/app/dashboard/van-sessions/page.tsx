@@ -1,27 +1,67 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { vanSessionsApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import type { VanSession } from '@/lib/types';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
-
-const statusLabels: Record<string, { class: string; text: string }> = {
-  preparing: { class: 'badge-warning', text: 'في الانتظار' },
-  active: { class: 'badge-success', text: 'نشطة' },
-  completed: { class: 'badge-info', text: 'مكتملة' },
-  cancelled: { class: 'badge-danger', text: 'ملغية' },
-};
+import { useLocale } from '@/lib/i18n/context';
+import GuidedTour, { TourStep } from '@/components/GuidedTour';
+import {
+  PlusIcon,
+  TruckIcon,
+  PlayIcon,
+  ClockIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  EyeIcon,
+  XMarkIcon,
+  BanknotesIcon,
+} from '@heroicons/react/24/outline';
 
 export default function VanSessionsPage() {
   const router = useRouter();
+  const { t, locale, dir } = useLocale();
+  const isRTL = dir === 'rtl';
   const [sessions, setSessions] = useState<VanSession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
   const [cancelId, setCancelId] = useState<number | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [showTour, setShowTour] = useState(false);
+
+  const getStatusConfig = (status: string) => {
+    const configs: Record<string, { bg: string; darkBg: string; text: string; darkText: string; icon: typeof ClockIcon; label: string }> = {
+      preparing: { bg: 'bg-amber-100', darkBg: 'dark:bg-amber-900/30', text: 'text-amber-800', darkText: 'dark:text-amber-300', icon: ClockIcon, label: t('vanSessions.statusPreparing') },
+      active: { bg: 'bg-green-100', darkBg: 'dark:bg-green-900/30', text: 'text-green-800', darkText: 'dark:text-green-300', icon: PlayIcon, label: t('vanSessions.statusActive') },
+      completed: { bg: 'bg-blue-100', darkBg: 'dark:bg-blue-900/30', text: 'text-blue-800', darkText: 'dark:text-blue-300', icon: CheckCircleIcon, label: t('vanSessions.statusCompleted') },
+      cancelled: { bg: 'bg-red-100', darkBg: 'dark:bg-red-900/30', text: 'text-red-800', darkText: 'dark:text-red-300', icon: XCircleIcon, label: t('vanSessions.statusCancelled') },
+    };
+    return configs[status] || configs.preparing;
+  };
+
+  const tourSteps: TourStep[] = useMemo(() => [
+    {
+      target: '[data-tour="vss-header"]',
+      title: t('vanSessions.tourHeaderTitle'),
+      desc: t('vanSessions.tourHeaderDesc'),
+      position: 'bottom' as const,
+    },
+    {
+      target: '[data-tour="vss-kpis"]',
+      title: t('vanSessions.tourKpiTitle'),
+      desc: t('vanSessions.tourKpiDesc'),
+      position: 'bottom' as const,
+    },
+    {
+      target: '[data-tour="vss-table"]',
+      title: t('vanSessions.tourTableTitle'),
+      desc: t('vanSessions.tourTableDesc'),
+      position: 'top' as const,
+    },
+  ], [t]);
 
   useEffect(() => {
     fetchSessions();
@@ -44,7 +84,7 @@ export default function VanSessionsPage() {
       const response = await vanSessionsApi.getAll({ per_page: 50 });
       setSessions(response.data.data || response.data);
     } catch {
-      toast.error('خطأ في تحميل البيانات');
+      toast.error(t('vanSessions.errorLoadingData'));
     } finally {
       setIsLoading(false);
     }
@@ -55,141 +95,203 @@ export default function VanSessionsPage() {
     setIsCancelling(true);
     try {
       await vanSessionsApi.cancel(cancelId);
-      toast.success('تم إلغاء الجلسة');
+      toast.success(t('vanSessions.sessionCancelled'));
       setCancelId(null);
       fetchSessions();
     } catch {
-      toast.error('خطأ في إلغاء الجلسة');
+      toast.error(t('vanSessions.errorCancellingSession'));
     } finally {
       setIsCancelling(false);
     }
   };
 
-  const formatDate = (date: string) => new Date(date).toLocaleDateString('ar-DZ');
+  const formatDate = (date: string) => new Date(date).toLocaleDateString(locale === 'fr' ? 'fr-DZ' : 'ar-DZ');
   const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
+    new Intl.NumberFormat(locale === 'fr' ? 'fr-DZ' : 'ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
 
   const filteredSessions = sessions.filter(s => !statusFilter || s.status === statusFilter);
+
+  const kpis = useMemo(() => ({
+    preparing: sessions.filter(s => s.status === 'preparing').length,
+    active: sessions.filter(s => s.status === 'active').length,
+    completed: sessions.filter(s => s.status === 'completed').length,
+    totalSales: sessions.reduce((sum, s) => sum + (s.total_sales || 0), 0),
+  }), [sessions]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
   }
 
   return (
-    <div>
-      <div className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg mb-4 flex items-center gap-6 text-sm">
-        <span className="font-medium">اختصارات:</span>
-        <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Insert</kbd> إضافة جديد</span>
-      </div>
-
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">جلسات البيع المتنقل</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">إدارة جلسات البيع المتنقل</p>
-        </div>
-        <Link href="/dashboard/van-sessions/new" className="btn btn-primary flex items-center gap-2">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          جلسة جديدة
-          <kbd className="bg-blue-600 text-white px-1.5 py-0.5 rounded text-xs mr-1">Insert</kbd>
-        </Link>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="card bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
-          <div className="text-yellow-600 dark:text-yellow-400 text-sm">في الانتظار</div>
-          <div className="text-2xl font-bold text-yellow-700 dark:text-yellow-300">
-            {sessions.filter(s => s.status === 'preparing').length}
+    <div className="space-y-5">
+      {/* ─── Header ─── */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" data-tour="vss-header">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-teal-500/20">
+            <TruckIcon className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('vanSessions.title')}</h1>
+            <p className="text-sm text-gray-400 mt-1.5">{t('vanSessions.description')}</p>
           </div>
         </div>
-        <div className="card bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-          <div className="text-green-600 dark:text-green-400 text-sm">نشطة</div>
-          <div className="text-2xl font-bold text-green-700 dark:text-green-300">
-            {sessions.filter(s => s.status === 'active').length}
-          </div>
-        </div>
-        <div className="card bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-          <div className="text-blue-600 dark:text-blue-400 text-sm">مكتملة</div>
-          <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
-            {sessions.filter(s => s.status === 'completed').length}
-          </div>
-        </div>
-        <div className="card bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
-          <div className="text-purple-600 dark:text-purple-400 text-sm">إجمالي المبيعات</div>
-          <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
-            {formatCurrency(sessions.reduce((sum, s) => sum + (s.total_sales || 0), 0))}
-          </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowTour(true)}
+            className="text-sm font-medium text-gray-400 hover:text-teal-500 dark:hover:text-teal-400 transition-colors"
+          >
+            {t('vanSessions.tourBtn')}
+          </button>
+          <Link
+            href="/dashboard/van-sessions/new"
+            className="group inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-teal-600 hover:bg-teal-700 shadow-md shadow-teal-600/20 hover:shadow-lg hover:shadow-teal-600/30 active:scale-[0.98] transition-all duration-200"
+          >
+            <PlusIcon className="w-5 h-5 group-hover:rotate-90 transition-transform duration-200" />
+            {t('vanSessions.newSession')}
+            <kbd className="hidden sm:inline bg-white/20 px-1.5 py-0.5 rounded-md text-[10px] font-mono">Insert</kbd>
+          </Link>
         </div>
       </div>
 
-      {/* Sessions List */}
-      <div className="card">
-        <div className="flex gap-4 mb-4">
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select max-w-xs">
-            <option value="">كل الحالات</option>
-            <option value="preparing">في الانتظار</option>
-            <option value="active">نشطة</option>
-            <option value="completed">مكتملة</option>
-            <option value="cancelled">ملغية</option>
+      {/* ─── KPI Strip ─── */}
+      <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden" data-tour="vss-kpis">
+        <div className={`grid grid-cols-2 lg:grid-cols-4 sm:divide-x ${isRTL ? 'sm:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
+          <div className="group relative p-5 hover:bg-amber-50/40 dark:hover:bg-amber-900/20 transition-colors duration-200">
+            <div className={`absolute top-0 inset-x-0 h-[3px] bg-amber-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ${isRTL ? 'origin-right' : 'origin-left'} rounded-b`} />
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 mb-2.5">
+                <ClockIcon className="w-4 h-4" />
+              </div>
+              <div className="text-3xl font-black text-amber-600 dark:text-amber-400 tabular-nums leading-none">{kpis.preparing}</div>
+              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('vanSessions.statusPreparing')}</div>
+            </div>
+          </div>
+
+          <div className="group relative p-5 hover:bg-green-50/40 dark:hover:bg-green-900/20 transition-colors duration-200">
+            <div className="absolute top-0 inset-x-0 h-[3px] bg-green-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 mb-2.5">
+                <PlayIcon className="w-4 h-4" />
+              </div>
+              <div className="text-3xl font-black text-green-600 dark:text-green-400 tabular-nums leading-none">{kpis.active}</div>
+              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('vanSessions.statusActive')}</div>
+            </div>
+          </div>
+
+          <div className="group relative p-5 hover:bg-blue-50/40 dark:hover:bg-blue-900/20 transition-colors duration-200">
+            <div className="absolute top-0 inset-x-0 h-[3px] bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mb-2.5">
+                <CheckCircleIcon className="w-4 h-4" />
+              </div>
+              <div className="text-3xl font-black text-blue-600 dark:text-blue-400 tabular-nums leading-none">{kpis.completed}</div>
+              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('vanSessions.statusCompleted')}</div>
+            </div>
+          </div>
+
+          <div className="group relative p-5 hover:bg-purple-50/40 dark:hover:bg-purple-900/20 transition-colors duration-200">
+            <div className={`absolute top-0 inset-x-0 h-[3px] bg-purple-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ${isRTL ? 'origin-left' : 'origin-right'} rounded-b`} />
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 mb-2.5">
+                <BanknotesIcon className="w-4 h-4" />
+              </div>
+              <div className="text-lg font-black text-gray-900 dark:text-white tabular-nums leading-none">{formatCurrency(kpis.totalSales)}</div>
+              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('vanSessions.totalSales')}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── Sessions Table ─── */}
+      <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden" data-tour="vss-table">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('vanSessions.sessionsList')}</h3>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 tabular-nums">
+              {filteredSessions.length}
+            </span>
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="select max-w-[180px] text-sm"
+          >
+            <option value="">{t('vanSessions.allStatuses')}</option>
+            <option value="preparing">{t('vanSessions.statusPreparing')}</option>
+            <option value="active">{t('vanSessions.statusActive')}</option>
+            <option value="completed">{t('vanSessions.statusCompleted')}</option>
+            <option value="cancelled">{t('vanSessions.statusCancelled')}</option>
           </select>
         </div>
 
         <div className="overflow-x-auto">
-          <table>
+          <table className="w-full">
             <thead>
-              <tr>
-                <th>المرجع</th>
-                <th>السائق</th>
-                <th>المستودع</th>
-                <th>المركبة</th>
-                <th>التاريخ</th>
-                <th>قيمة التحميل</th>
-                <th>المبيعات</th>
-                <th>المحصل</th>
-                <th>الحالة</th>
-                <th>الإجراءات</th>
+              <tr className="bg-gray-50/80 dark:bg-gray-700/50">
+                <th className={`px-5 py-3 ${isRTL ? 'text-right' : 'text-left'} text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>{t('vanSessions.thReference')}</th>
+                <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'} text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>{t('vanSessions.thDriver')}</th>
+                <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'} text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>{t('vanSessions.thWarehouse')}</th>
+                <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'} text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>{t('vanSessions.thVehicle')}</th>
+                <th className="px-4 py-3 text-center text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('vanSessions.thDate')}</th>
+                <th className="px-4 py-3 text-center text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('vanSessions.thLoadedValue')}</th>
+                <th className="px-4 py-3 text-center text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('vanSessions.thSales')}</th>
+                <th className="px-4 py-3 text-center text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('vanSessions.thCollected')}</th>
+                <th className="px-4 py-3 text-center text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('vanSessions.thStatus')}</th>
+                <th className="px-4 py-3 text-center text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('vanSessions.thActions')}</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
               {filteredSessions.length === 0 ? (
-                <tr><td colSpan={10} className="text-center py-8 text-gray-500 dark:text-gray-400">لا توجد جلسات</td></tr>
+                <tr>
+                  <td colSpan={10} className="px-4 py-16 text-center">
+                    <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center mx-auto mb-3">
+                      <TruckIcon className="w-8 h-8 text-gray-300 dark:text-gray-500" />
+                    </div>
+                    <p className="text-gray-500 dark:text-gray-400 font-medium">{t('vanSessions.noSessions')}</p>
+                  </td>
+                </tr>
               ) : (
                 filteredSessions.map((session) => {
-                  const badge = statusLabels[session.status] || { class: 'badge-secondary', text: session.status };
+                  const statusConfig = getStatusConfig(session.status);
+                  const StatusIcon = statusConfig.icon;
                   return (
-                    <tr key={session.id}>
-                      <td className="font-medium">{session.reference || `#${session.id}`}</td>
-                      <td>{session.livreur?.name || '-'}</td>
-                      <td>{session.warehouse?.name || '-'}</td>
-                      <td>{session.vehicle?.name || '-'}</td>
-                      <td>{formatDate(session.date)}</td>
-                      <td>{formatCurrency(session.total_loaded_value || 0)}</td>
-                      <td className="font-medium">{session.sales_count || 0}</td>
-                      <td className="text-green-600 dark:text-green-400 font-medium">{formatCurrency(session.total_collected || 0)}</td>
-                      <td><span className={`badge ${badge.class}`}>{badge.text}</span></td>
-                      <td>
-                        <div className="flex items-center gap-2">
+                    <tr key={session.id} className="group hover:bg-blue-50/30 dark:hover:bg-blue-900/20 transition-colors">
+                      <td className="px-5 py-3.5">
+                        <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{session.reference || `#${session.id}`}</span>
+                      </td>
+                      <td className="px-4 py-3.5 text-sm text-gray-700 dark:text-gray-300">{session.livreur?.name || '-'}</td>
+                      <td className="px-4 py-3.5 text-sm text-gray-700 dark:text-gray-300">{session.warehouse?.name || '-'}</td>
+                      <td className="px-4 py-3.5 text-sm text-gray-700 dark:text-gray-300">{session.vehicle?.name || '-'}</td>
+                      <td className="px-4 py-3.5 text-center text-sm text-gray-700 dark:text-gray-300">{formatDate(session.date)}</td>
+                      <td className="px-4 py-3.5 text-center text-sm text-gray-700 dark:text-gray-300">{formatCurrency(session.total_loaded_value || 0)}</td>
+                      <td className="px-4 py-3.5 text-center">
+                        <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{session.sales_count || 0}</span>
+                      </td>
+                      <td className="px-4 py-3.5 text-center">
+                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-sm">{formatCurrency(session.total_collected || 0)}</span>
+                      </td>
+                      <td className="px-4 py-3.5 text-center">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium ${statusConfig.bg} ${statusConfig.darkBg} ${statusConfig.text} ${statusConfig.darkText}`}>
+                          <StatusIcon className="w-3.5 h-3.5" />
+                          {statusConfig.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center justify-center gap-1">
                           <Link
                             href={`/dashboard/van-sessions/${session.id}`}
-                            className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg"
-                            title="عرض التفاصيل"
+                            className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                            title={t('vanSessions.viewDetails')}
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
+                            <EyeIcon className="w-4 h-4" />
                           </Link>
                           {(session.status === 'preparing' || session.status === 'active') && (
                             <button
                               onClick={() => setCancelId(session.id)}
-                              className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg"
-                              title="إلغاء الجلسة"
+                              className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                              title={t('vanSessions.cancelSession')}
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
+                              <XMarkIcon className="w-4 h-4" />
                             </button>
                           )}
                         </div>
@@ -207,10 +309,19 @@ export default function VanSessionsPage() {
         isOpen={cancelId !== null}
         onClose={() => setCancelId(null)}
         onConfirm={handleCancel}
-        title="إلغاء الجلسة"
-        message="هل أنت متأكد من إلغاء هذه الجلسة؟ سيتم إرجاع المخزون للمستودع."
+        title={t('vanSessions.cancelSessionTitle')}
+        message={t('vanSessions.cancelSessionMessage')}
         isLoading={isCancelling}
       />
+
+      {/* Guided Tour */}
+      {showTour && (
+        <GuidedTour
+          steps={tourSteps}
+          onComplete={() => setShowTour(false)}
+          storageKey="van_sessions_list_tour_step"
+        />
+      )}
     </div>
   );
 }

@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { dashboardApi, locationApi } from '@/lib/api';
+import { dashboardApi, locationApi, tenantApi, saasPaymentApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/store/auth';
+import { useLocale } from '@/lib/i18n/context';
 import toast from 'react-hot-toast';
 import {
   CubeIcon,
@@ -38,7 +39,7 @@ const MiniDriverMap = dynamic(() => import('./MiniDriverMap'), {
   ssr: false,
   loading: () => (
     <div className="h-[300px] bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-      <div className="text-gray-400 text-sm">جاري تحميل الخريطة...</div>
+      <div className="text-gray-400 text-sm">...</div>
     </div>
   ),
 });
@@ -56,7 +57,7 @@ interface StatCardProps {
 
 function StatCard({ title, value, subValue, icon: Icon, borderColor, iconBg, iconColor }: StatCardProps) {
   return (
-    <div className={`card !p-4 border-r-4 ${borderColor}`}>
+    <div className={`card !p-4 ${borderColor}`} style={{ borderInlineStartWidth: '4px' }}>
       <div className="flex items-center justify-between">
         <div className="min-w-0 flex-1">
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{title}</p>
@@ -65,7 +66,7 @@ function StatCard({ title, value, subValue, icon: Icon, borderColor, iconBg, ico
             <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{subValue}</p>
           )}
         </div>
-        <div className={`w-10 h-10 ${iconBg} rounded-lg flex items-center justify-center flex-shrink-0 mr-3`}>
+        <div className={`w-10 h-10 ${iconBg} rounded-lg flex items-center justify-center flex-shrink-0 ms-3`}>
           <Icon className={`w-5 h-5 ${iconColor}`} />
         </div>
       </div>
@@ -110,33 +111,9 @@ function ListSkeleton() {
   );
 }
 
-// --- Custom Tooltip for Charts ---
-function SalesTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; dataKey: string }>; label?: string }) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 text-sm" style={{ direction: 'rtl' }}>
-      <p className="text-gray-500 dark:text-gray-400 mb-1 font-medium">{label}</p>
-      {payload.map((entry, i) => (
-        <p key={i} className="flex items-center gap-2">
-          <span
-            className="w-2.5 h-2.5 rounded-full inline-block"
-            style={{ backgroundColor: entry.dataKey === 'sales' ? '#10b981' : '#ef4444' }}
-          ></span>
-          <span className="text-gray-600 dark:text-gray-300">
-            {entry.dataKey === 'sales' ? 'المبيعات' : 'المشتريات'}:
-          </span>
-          <span className="font-semibold text-gray-800 dark:text-gray-100">
-            {formatDZD(entry.value)}
-          </span>
-        </p>
-      ))}
-    </div>
-  );
-}
-
 // --- Currency Formatter ---
-function formatDZD(value: number) {
-  return new Intl.NumberFormat('ar-DZ', {
+function formatDZD(value: number, locale: 'ar' | 'fr' = 'ar') {
+  return new Intl.NumberFormat(locale === 'fr' ? 'fr-DZ' : 'ar-DZ', {
     style: 'currency',
     currency: 'DZD',
     minimumFractionDigits: 0,
@@ -144,11 +121,7 @@ function formatDZD(value: number) {
 }
 
 // --- Period Tabs ---
-const PERIODS = [
-  { key: 'week', label: 'أسبوع' },
-  { key: 'month', label: 'شهر' },
-  { key: 'year', label: 'سنة' },
-] as const;
+const PERIOD_KEYS = ['week', 'month', 'year'] as const;
 
 // --- Plan Banner Component ---
 const PLAN_COLORS: Record<string, { bg: string; border: string; text: string; bar: string; badge: string; badgeText: string }> = {
@@ -169,6 +142,7 @@ interface PlanInfo {
 }
 
 function PlanBanner({ plan }: { plan: PlanInfo }) {
+  const { t, locale } = useLocale();
   const colors = PLAN_COLORS[plan.plan] || PLAN_COLORS.free;
   const isUnlimited = plan.product_limit <= 0 || plan.product_limit >= 999999;
   const usage = isUnlimited ? 0 : Math.min((plan.product_count / plan.product_limit) * 100, 100);
@@ -183,7 +157,7 @@ function PlanBanner({ plan }: { plan: PlanInfo }) {
   }
 
   // Next plan for upgrade CTA
-  const planOrder = ['free', 'starter', 'pro', 'business'];
+  const planOrder = ['free', 'starter', 'pro', 'pro_ai', 'business', 'enterprise'];
   const currentIdx = planOrder.indexOf(plan.plan);
   const nextPlan = currentIdx < planOrder.length - 1 ? plan.plans?.find(p => p.id === planOrder[currentIdx + 1]) : null;
 
@@ -198,17 +172,17 @@ function PlanBanner({ plan }: { plan: PlanInfo }) {
             </span>
             {trialDays !== null && trialDays > 0 && (
               <span className="text-xs text-orange-600 dark:text-orange-400 font-medium">
-                {trialDays} يوم متبقي للتجربة
+                {t('dashboard.trialDaysRemaining', { days: trialDays })}
               </span>
             )}
             {trialDays !== null && trialDays === 0 && (
               <span className="text-xs text-red-600 dark:text-red-400 font-medium">
-                انتهت فترة التجربة
+                {t('dashboard.trialExpired')}
               </span>
             )}
             {plan.price > 0 && (
               <span className="text-xs text-gray-500 dark:text-gray-400">
-                {plan.price.toLocaleString()} د.ج/شهرياً
+                {plan.price.toLocaleString()} {t('dashboard.priceMonthly')}
               </span>
             )}
           </div>
@@ -218,7 +192,7 @@ function PlanBanner({ plan }: { plan: PlanInfo }) {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-xs text-gray-600 dark:text-gray-400">
-                  المنتجات: <span className="font-semibold">{plan.product_count}</span> / {plan.product_limit}
+                  {t('dashboard.productsUsage')} <span className="font-semibold">{plan.product_count}</span> / {plan.product_limit}
                 </span>
                 <span className={`text-xs font-semibold ${isAtLimit ? 'text-red-600' : isNearLimit ? 'text-orange-600' : 'text-gray-500'}`}>
                   {Math.round(usage)}%
@@ -235,7 +209,7 @@ function PlanBanner({ plan }: { plan: PlanInfo }) {
             </div>
           ) : (
             <span className="text-xs text-gray-500 dark:text-gray-400">
-              منتجات غير محدودة
+              {t('dashboard.unlimitedProducts')}
             </span>
           )}
         </div>
@@ -254,7 +228,7 @@ function PlanBanner({ plan }: { plan: PlanInfo }) {
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
-              ترقية إلى {nextPlan.name}
+              {t('dashboard.upgradeTo', { plan: nextPlan.name })}
             </Link>
           </div>
         )}
@@ -267,8 +241,49 @@ function PlanBanner({ plan }: { plan: PlanInfo }) {
 // Main Dashboard Page
 // ======================
 export default function DashboardPage() {
+  const { t, locale } = useLocale();
   const [chartPeriod, setChartPeriod] = useState<string>('month');
+  const [paymentMsg, setPaymentMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const searchParams = useSearchParams();
   const router = useRouter();
+
+  // Handle payment redirect result
+  useEffect(() => {
+    const payment = searchParams.get('payment');
+    if (payment === 'success') {
+      const plan = searchParams.get('plan');
+      setPaymentMsg({ type: 'success', text: plan ? t('dashboard.paymentUpgraded', { plan }) : t('dashboard.paymentSuccess') });
+      router.replace('/dashboard');
+    } else if (payment === 'failed') {
+      setPaymentMsg({ type: 'error', text: t('dashboard.paymentFailed') });
+      router.replace('/dashboard');
+    } else if (payment === 'pending') {
+      const paymentId = searchParams.get('payment_id');
+      const plan = searchParams.get('plan');
+      setPaymentMsg({ type: 'success', text: t('dashboard.paymentPending') });
+      router.replace('/dashboard');
+      // Poll for payment status
+      if (paymentId) {
+        const pollStatus = async () => {
+          for (let i = 0; i < 10; i++) {
+            await new Promise(r => setTimeout(r, 3000));
+            try {
+              const res = await saasPaymentApi.getStatus(Number(paymentId));
+              if (res.data.status === 'paid') {
+                setPaymentMsg({ type: 'success', text: plan ? t('dashboard.paymentUpgraded', { plan }) : t('dashboard.paymentSuccess') });
+                return;
+              } else if (res.data.status === 'failed') {
+                setPaymentMsg({ type: 'error', text: t('dashboard.paymentFailed') });
+                return;
+              }
+            } catch { break; }
+          }
+          setPaymentMsg({ type: 'success', text: plan ? t('dashboard.paymentUpgradeSent', { plan }) : t('dashboard.paymentSent') });
+        };
+        pollStatus();
+      }
+    }
+  }, [searchParams, router]);
 
   // --- Data Queries ---
   const { data: dashboardData, isLoading } = useQuery({
@@ -311,7 +326,13 @@ export default function DashboardPage() {
     },
   });
 
-  const planData = null; // Plan feature removed for standalone version
+  const { data: planData } = useQuery({
+    queryKey: ['tenant-plan'],
+    queryFn: async () => {
+      const response = await tenantApi.getPlan();
+      return response.data;
+    },
+  });
 
   const { data: driversData } = useQuery({
     queryKey: ['drivers-location'],
@@ -385,10 +406,36 @@ export default function DashboardPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">لوحة التحكم</h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">نظرة عامة على النظام</p>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{t('dashboard.title')}</h1>
+        <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">{t('dashboard.subtitle')}</p>
       </div>
 
+      {/* Payment Result Message */}
+      {paymentMsg && (
+        <div className={`p-4 rounded-xl border text-sm font-medium flex items-center justify-between ${
+          paymentMsg.type === 'success'
+            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300'
+            : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
+        }`}>
+          <div className="flex items-center gap-2">
+            {paymentMsg.type === 'success' ? (
+              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
+            {paymentMsg.text}
+          </div>
+          <button onClick={() => setPaymentMsg(null)} className="shrink-0 hover:opacity-70">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Plan Banner */}
       {planData && <PlanBanner plan={planData} />}
@@ -398,9 +445,9 @@ export default function DashboardPage() {
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-orange-200 dark:border-orange-800 p-4">
           <div className="flex items-center gap-2 mb-3">
             <ShieldExclamationIcon className="w-5 h-5 text-orange-500" />
-            <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200">صحة النظام</h2>
+            <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200">{t('dashboard.systemHealth')}</h2>
             <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
-              {healthAlerts.length} تنبيه
+              {healthAlerts.length} {t('dashboard.alert')}
             </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -443,16 +490,16 @@ export default function DashboardPage() {
                     onClick={async () => {
                       try {
                         await dashboardApi.fixMissingCaisses();
-                        toast.success('تم إصلاح الصناديق المفقودة');
+                        toast.success(t('dashboard.fixedCaisses'));
                         refetchHealth();
                       } catch {
-                        toast.error('حدث خطأ');
+                        toast.error(t('dashboard.errorOccurred'));
                       }
                     }}
                     className="mt-2 flex items-center gap-1 text-xs text-orange-700 dark:text-orange-300 hover:underline"
                   >
                     <WrenchScrewdriverIcon className="w-3 h-3" />
-                    إصلاح تلقائي
+                    {t('dashboard.autoFix')}
                   </button>
                 )}
               </div>
@@ -465,7 +512,7 @@ export default function DashboardPage() {
       {isAdmin && healthAlerts && healthAlerts.length === 0 && (
         <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-3 flex items-center gap-2">
           <CheckCircleIcon className="w-5 h-5 text-green-500" />
-          <span className="text-green-800 dark:text-green-300 text-sm font-medium">النظام يعمل بشكل سليم</span>
+          <span className="text-green-800 dark:text-green-300 text-sm font-medium">{t('dashboard.systemHealthy')}</span>
         </div>
       )}
 
@@ -474,14 +521,14 @@ export default function DashboardPage() {
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-center gap-2 mb-3">
             <ArrowDownTrayIcon className="w-5 h-5 text-blue-500" />
-            <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200">تطبيقات الهاتف</h2>
+            <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200">{t('dashboard.mobileApps')}</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {appVersions.sales_apk_url && (
               <a href={appVersions.sales_apk_url} target="_blank" rel="noopener noreferrer"
                 className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-600 hover:shadow-md transition-shadow">
                 <div>
-                  <p className="font-medium text-gray-800 dark:text-gray-200 text-sm">تطبيق البائع</p>
+                  <p className="font-medium text-gray-800 dark:text-gray-200 text-sm">{t('dashboard.sellerApp')}</p>
                   <p className="text-xs text-gray-500">{appVersions.sales_apk_version || '-'}</p>
                 </div>
                 <ArrowDownTrayIcon className="w-5 h-5 text-blue-500" />
@@ -491,7 +538,7 @@ export default function DashboardPage() {
               <a href={appVersions.driver_apk_url} target="_blank" rel="noopener noreferrer"
                 className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-600 hover:shadow-md transition-shadow">
                 <div>
-                  <p className="font-medium text-gray-800 dark:text-gray-200 text-sm">تطبيق السائق</p>
+                  <p className="font-medium text-gray-800 dark:text-gray-200 text-sm">{t('dashboard.driverApp')}</p>
                   <p className="text-xs text-gray-500">{appVersions.driver_apk_version || '-'}</p>
                 </div>
                 <ArrowDownTrayIcon className="w-5 h-5 text-blue-500" />
@@ -501,7 +548,7 @@ export default function DashboardPage() {
               <a href={appVersions.cashvan_apk_url} target="_blank" rel="noopener noreferrer"
                 className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-600 hover:shadow-md transition-shadow">
                 <div>
-                  <p className="font-medium text-gray-800 dark:text-gray-200 text-sm">تطبيق البيع المتنقل</p>
+                  <p className="font-medium text-gray-800 dark:text-gray-200 text-sm">{t('dashboard.cashvanApp')}</p>
                   <p className="text-xs text-gray-500">{appVersions.cashvan_apk_version || '-'}</p>
                 </div>
                 <ArrowDownTrayIcon className="w-5 h-5 text-blue-500" />
@@ -514,7 +561,7 @@ export default function DashboardPage() {
       {/* Row 1: Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="المنتجات"
+          title={t('dashboard.products')}
           value={stats?.total_products || 0}
           icon={CubeIcon}
           borderColor="border-blue-500"
@@ -522,7 +569,7 @@ export default function DashboardPage() {
           iconColor="text-blue-600 dark:text-blue-400"
         />
         <StatCard
-          title="العملاء"
+          title={t('dashboard.clients')}
           value={stats?.total_clients || 0}
           icon={UserGroupIcon}
           borderColor="border-green-500"
@@ -530,7 +577,7 @@ export default function DashboardPage() {
           iconColor="text-green-600 dark:text-green-400"
         />
         <StatCard
-          title="الطلبات المعلقة"
+          title={t('dashboard.pendingOrders')}
           value={pending?.orders || 0}
           icon={ShoppingCartIcon}
           borderColor="border-orange-500"
@@ -538,7 +585,7 @@ export default function DashboardPage() {
           iconColor="text-orange-600 dark:text-orange-400"
         />
         <StatCard
-          title="التوصيلات النشطة"
+          title={t('dashboard.activeDeliveries')}
           value={pending?.deliveries || stats?.active_deliveries || 0}
           icon={TruckIcon}
           borderColor="border-purple-500"
@@ -550,32 +597,32 @@ export default function DashboardPage() {
       {/* Row 2: Financial Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="مبيعات اليوم"
-          value={formatDZD(today?.sales || 0)}
+          title={t('dashboard.todaySales')}
+          value={formatDZD(today?.sales || 0, locale)}
           icon={ArrowTrendingUpIcon}
           borderColor="border-emerald-500"
           iconBg="bg-emerald-50 dark:bg-emerald-900/30"
           iconColor="text-emerald-600 dark:text-emerald-400"
         />
         <StatCard
-          title="مبيعات الشهر"
-          value={formatDZD(parseFloat(monthly?.sales) || 0)}
+          title={t('dashboard.monthlySales')}
+          value={formatDZD(parseFloat(monthly?.sales) || 0, locale)}
           icon={ArrowTrendingUpIcon}
           borderColor="border-emerald-500"
           iconBg="bg-emerald-50 dark:bg-emerald-900/30"
           iconColor="text-emerald-600 dark:text-emerald-400"
         />
         <StatCard
-          title="مشتريات اليوم"
-          value={formatDZD(today?.purchases || 0)}
+          title={t('dashboard.todayPurchases')}
+          value={formatDZD(today?.purchases || 0, locale)}
           icon={ArrowTrendingDownIcon}
           borderColor="border-red-500"
           iconBg="bg-red-50 dark:bg-red-900/30"
           iconColor="text-red-600 dark:text-red-400"
         />
         <StatCard
-          title="مشتريات الشهر"
-          value={formatDZD(parseFloat(monthly?.purchases) || 0)}
+          title={t('dashboard.monthlyPurchases')}
+          value={formatDZD(parseFloat(monthly?.purchases) || 0, locale)}
           icon={ArrowTrendingDownIcon}
           borderColor="border-red-500"
           iconBg="bg-red-50 dark:bg-red-900/30"
@@ -589,20 +636,20 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">
-              المبيعات والمشتريات
+              {t('dashboard.salesAndPurchases')}
             </h2>
             <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
-              {PERIODS.map(p => (
+              {PERIOD_KEYS.map(key => (
                 <button
-                  key={p.key}
-                  onClick={() => setChartPeriod(p.key)}
+                  key={key}
+                  onClick={() => setChartPeriod(key)}
                   className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                    chartPeriod === p.key
+                    chartPeriod === key
                       ? 'bg-white dark:bg-gray-600 text-gray-800 dark:text-gray-100 shadow-sm font-medium'
                       : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
-                  {p.label}
+                  {t(`dashboard.${key}` as 'dashboard.week' | 'dashboard.month' | 'dashboard.year')}
                 </button>
               ))}
             </div>
@@ -633,7 +680,27 @@ export default function DashboardPage() {
                   tickLine={false}
                   tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
                 />
-                <Tooltip content={<SalesTooltip />} />
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload?.length) return null;
+                    return (
+                      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 text-sm" style={{ direction: locale === 'fr' ? 'ltr' : 'rtl' }}>
+                        <p className="text-gray-500 dark:text-gray-400 mb-1 font-medium">{label}</p>
+                        {payload.map((entry, i) => (
+                          <p key={i} className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: entry.dataKey === 'sales' ? '#10b981' : '#ef4444' }}></span>
+                            <span className="text-gray-600 dark:text-gray-300">
+                              {entry.dataKey === 'sales' ? t('dashboard.sales') : t('dashboard.purchases')}:
+                            </span>
+                            <span className="font-semibold text-gray-800 dark:text-gray-100">
+                              {formatDZD(Number(entry.value) || 0, locale)}
+                            </span>
+                          </p>
+                        ))}
+                      </div>
+                    );
+                  }}
+                />
                 <Area
                   type="monotone"
                   dataKey="sales"
@@ -655,11 +722,11 @@ export default function DashboardPage() {
           <div className="flex items-center justify-center gap-6 mt-3 text-xs text-gray-500 dark:text-gray-400">
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-1.5 bg-emerald-500 rounded-full inline-block"></span>
-              المبيعات
+              {t('dashboard.sales')}
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-1.5 bg-red-500 rounded-full inline-block"></span>
-              المشتريات
+              {t('dashboard.purchases')}
             </span>
           </div>
         </div>
@@ -669,28 +736,28 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between px-4 pt-4 pb-2">
             <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
               <MapPinIcon className="w-4 h-4 text-blue-500" />
-              مواقع السائقين
+              {t('dashboard.driverLocations')}
             </h2>
             <Link
               href="/dashboard/drivers-map"
               className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
             >
-              عرض الكل
+              {t('dashboard.viewAll')}
             </Link>
           </div>
           {/* Legend */}
           <div className="flex items-center gap-3 px-4 pb-2 text-[10px] text-gray-500 dark:text-gray-400">
             <span className="flex items-center gap-1">
               <span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span>
-              متصل
+              {t('dashboard.online')}
             </span>
             <span className="flex items-center gap-1">
               <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>
-              في توصيل
+              {t('dashboard.delivering')}
             </span>
             <span className="flex items-center gap-1">
               <span className="w-2.5 h-2.5 rounded-full bg-gray-400 inline-block"></span>
-              غير متصل
+              {t('dashboard.offline')}
             </span>
           </div>
           <div className="flex-1 min-h-[260px]">
@@ -704,7 +771,7 @@ export default function DashboardPage() {
         {/* Top Products Bar Chart */}
         <div className="card">
           <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-4">
-            أكثر المنتجات مبيعاً
+            {t('dashboard.topProducts')}
           </h2>
           {topProducts && topProducts.length > 0 ? (
             <div className="h-[260px]">
@@ -739,10 +806,10 @@ export default function DashboardPage() {
                     width={100}
                   />
                   <Tooltip
-                    formatter={(value) => [`${value ?? 0} قطعة`, 'الكمية المباعة']}
+                    formatter={(value) => [`${value ?? 0} ${t('dashboard.unit')}`, t('dashboard.soldQuantity')]}
                     contentStyle={{
-                      direction: 'rtl',
-                      textAlign: 'right',
+                      direction: locale === 'fr' ? 'ltr' : 'rtl',
+                      textAlign: locale === 'fr' ? 'left' : 'right',
                       borderRadius: '8px',
                       border: '1px solid #e5e7eb',
                       fontSize: '12px',
@@ -753,14 +820,14 @@ export default function DashboardPage() {
               </ResponsiveContainer>
             </div>
           ) : (
-            <p className="text-gray-400 dark:text-gray-500 text-center py-16 text-sm">لا توجد بيانات</p>
+            <p className="text-gray-400 dark:text-gray-500 text-center py-16 text-sm">{t('dashboard.noData')}</p>
           )}
         </div>
 
         {/* Top Clients */}
         <div className="card">
           <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-4">
-            أفضل العملاء
+            {t('dashboard.topClients')}
           </h2>
           {topClients && topClients.length > 0 ? (
             <div className="space-y-3">
@@ -782,8 +849,8 @@ export default function DashboardPage() {
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
                         {client.name}
                       </span>
-                      <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 flex-shrink-0 mr-2">
-                        {formatDZD(client.total_amount)}
+                      <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 flex-shrink-0 ms-2">
+                        {formatDZD(client.total_amount, locale)}
                       </span>
                     </div>
                     <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1.5">
@@ -797,7 +864,7 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
-            <p className="text-gray-400 dark:text-gray-500 text-center py-16 text-sm">لا توجد بيانات</p>
+            <p className="text-gray-400 dark:text-gray-500 text-center py-16 text-sm">{t('dashboard.noData')}</p>
           )}
         </div>
 
@@ -805,7 +872,7 @@ export default function DashboardPage() {
         <div className="card">
           <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
             <ExclamationTriangleIcon className="w-5 h-5 text-orange-500" />
-            تنبيه المخزون المنخفض
+            {t('dashboard.lowStockAlert')}
           </h2>
           {lowStock && lowStock.length > 0 ? (
             <div className="space-y-3">
@@ -826,7 +893,7 @@ export default function DashboardPage() {
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
                         {item.name}
                       </span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 mr-2">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 ms-2">
                         {item.total_stock} / {item.stock_alert}
                       </span>
                     </div>
@@ -842,7 +909,7 @@ export default function DashboardPage() {
             </div>
           ) : (
             <p className="text-gray-400 dark:text-gray-500 text-center py-16 text-sm">
-              لا توجد منتجات بمخزون منخفض
+              {t('dashboard.noLowStock')}
             </p>
           )}
         </div>

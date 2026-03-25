@@ -1,11 +1,15 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import DateInput from '@/components/ui/DateInput';
 import { salesApi, productsApi, clientsApi, warehousesApi, clientCategoriesApi } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
+import GuidedTour from '@/components/GuidedTour';
+import type { TourStep } from '@/components/GuidedTour';
+import { useLocale } from '@/lib/i18n/context';
 
 interface StockItem {
   quantity: number;
@@ -41,9 +45,11 @@ interface Product {
 interface Client {
   id: number;
   name: string;
+  code?: string;
   phone?: string;
   balance?: number;
   credit_limit?: number;
+  is_active?: boolean;
   client_category_id?: number;
   client_category?: { id: number; name: string };
 }
@@ -92,10 +98,51 @@ interface SaleFormProps {
 
 export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFormProps) {
   const router = useRouter();
+  const { t, locale, dir } = useLocale();
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const productSearchRef = useRef<HTMLInputElement>(null);
 
   const isEditMode = saleId !== null;
+  const [showTour, setShowTour] = useState(false);
+
+  const saleFormTourSteps: TourStep[] = useMemo(() => [
+    {
+      target: '[data-tour="sf-shortcuts"]',
+      title: t('saleForm.tourShortcutsTitle'),
+      desc: t('saleForm.tourShortcutsDesc'),
+      position: 'bottom' as const,
+    },
+    {
+      target: '[data-tour="sf-info"]',
+      title: t('saleForm.tourInfoTitle'),
+      desc: t('saleForm.tourInfoDesc'),
+      position: 'bottom' as const,
+    },
+    {
+      target: '[data-tour="sf-products"]',
+      title: t('saleForm.tourProductsTitle'),
+      desc: t('saleForm.tourProductsDesc'),
+      position: 'bottom' as const,
+    },
+    {
+      target: '[data-tour="sf-items"]',
+      title: t('saleForm.tourItemsTitle'),
+      desc: t('saleForm.tourItemsDesc'),
+      position: 'top' as const,
+    },
+    {
+      target: '[data-tour="sf-summary"]',
+      title: t('saleForm.tourSummaryTitle'),
+      desc: t('saleForm.tourSummaryDesc'),
+      position: 'left' as const,
+    },
+    {
+      target: '[data-tour="sf-save"]',
+      title: t('saleForm.tourSaveTitle'),
+      desc: t('saleForm.tourSaveDesc'),
+      position: 'left' as const,
+    },
+  ], [t]);
 
   const [clients, setClients] = useState<Client[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -112,12 +159,6 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
   const [discount, setDiscount] = useState<number>(0);
   const [tax, setTax] = useState<number>(0);
   const [shipping, setShipping] = useState<number>(0);
-  const [timbre, setTimbre] = useState<number>(() => {
-    if (typeof window !== 'undefined') {
-      return parseFloat(localStorage.getItem('defaultTimbre') || '1') || 1;
-    }
-    return 1;
-  });
   const [note, setNote] = useState('');
   const [items, setItems] = useState<SaleItem[]>([]);
   const [paidAmount, setPaidAmount] = useState<number>(0);
@@ -130,6 +171,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
   const [clientSearch, setClientSearch] = useState('');
   const [showClientDropdown, setShowClientDropdown] = useState(false);
   const [clientHighlightIndex, setClientHighlightIndex] = useState(-1);
+  const [clientStatusFilter, setClientStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const clientSearchRef = useRef<HTMLInputElement>(null);
   const clientListRef = useRef<HTMLDivElement>(null);
 
@@ -233,7 +275,6 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
     }
   }, [isEditMode, saleId, clients.length, products.length, saleDataLoaded]);
 
-
   const fetchData = async () => {
     try {
       const [clientsRes, warehousesRes, productsRes, catRes] = await Promise.all([
@@ -253,7 +294,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
         setWarehouseId(whs[0].id.toString());
       }
     } catch (error) {
-      toast.error('خطأ في تحميل البيانات');
+      toast.error(t('saleForm.dataLoadError'));
     } finally {
       setIsLoading(false);
     }
@@ -268,17 +309,12 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       ]);
       // Use the actual sum of unpaid sales, not the client balance
       // This is more accurate because client.balance might be out of sync
-      // In edit mode, exclude the current sale from debt calculations
-      const allUnpaid = debtRes.data.sales || [];
-      const filteredUnpaid = isEditMode && saleId
-        ? allUnpaid.filter((s: { id: number }) => s.id !== saleId)
-        : allUnpaid;
-      const actualDebt = filteredUnpaid.reduce((sum: number, s: { due_amount: number }) => sum + (s.due_amount || 0), 0);
+      const actualDebt = debtRes.data.totals?.total_remaining || 0;
       setClientDebt({
         balance: actualDebt,
         credit_limit: balanceRes.data.credit_limit || 0,
         available_credit: balanceRes.data.available_credit || 0,
-        unpaid_orders: filteredUnpaid
+        unpaid_orders: debtRes.data.sales || []
       });
     } catch (error) {
       console.error('Error fetching client debt:', error);
@@ -340,7 +376,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
             total_pieces: totalPieces,
             unit_price: item.unit_price,
             original_price: item.unit_price,
-            unit_name: item.product?.unit_sale?.short_name || 'وحدة',
+            unit_name: item.product?.unit_sale?.short_name || t('saleForm.unit'),
             discount: item.discount || 0,
             tax: item.tax || 0,
             subtotal: item.subtotal || 0,
@@ -352,10 +388,10 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
         setItems(loadedItems);
       }
 
-      toast.success('تم تحميل بيانات الفاتورة');
+      toast.success(t('saleForm.invoiceLoaded'));
       setSaleDataLoaded(true);
     } catch (error) {
-      toast.error('خطأ في تحميل بيانات الفاتورة');
+      toast.error(t('saleForm.invoiceLoadError'));
       console.error('Error loading sale data:', error);
     } finally {
       setIsLoading(false);
@@ -401,7 +437,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
 
   const addProduct = (product: Product, quantity: number = 1) => {
     if (!warehouseId) {
-      toast.error('الرجاء اختيار المستودع أولاً');
+      toast.error(t('saleForm.selectWarehouseFirst'));
       return;
     }
 
@@ -414,7 +450,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       const newQty = existingItem.quantity + quantity;
       const newTotalPieces = (newQty * ppp) + (existingItem.extra_pieces || 0);
       if (newTotalPieces > availableStock) {
-        toast.error(`الكمية المتوفرة: ${formatStockQty(availableStock, ppp)} فقط`);
+        toast.error(t('saleForm.availableQtyOnly', { qty: formatStockQty(availableStock, ppp) }));
         return;
       }
       const updatedItem = {
@@ -429,12 +465,12 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       const piecesPerPkg = product.pieces_per_package || 1;
       const totalPieces = quantity * piecesPerPkg;
       if (availableStock < totalPieces) {
-        toast.error(`المنتج "${product.name}" غير متوفر في المخزون`);
+        toast.error(t('saleForm.productNotInStock', { name: product.name }));
         return;
       }
       const unitPrice = getDefaultPrice(product);
       const minUnitPrice = Number(product.min_selling_price) || 0;
-      const unitName = product.unit_sale?.name || 'وحدة';
+      const unitName = product.unit_sale?.name || t('saleForm.unit');
 
       const newItem: SaleItem = {
         product_id: product.id,
@@ -479,7 +515,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
         if (categoryPrice && categoryPrice.price > 0) {
           const catName = selectedClient.client_category?.name ||
             clientCategories.find(c => c.id === selectedClient.client_category_id)?.name ||
-            'فئة العميل';
+            t('saleForm.clientCategory');
           prices.push({ label: catName, price: categoryPrice.price, color: 'amber' });
           return prices;
         }
@@ -491,18 +527,18 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
     const wholesalePrice = Number(product.wholesale_price) || 0;
 
     if (wholesalePrice > 0 && !seen.has(wholesalePrice)) {
-      prices.push({ label: 'جملة', price: wholesalePrice, color: 'green' });
+      prices.push({ label: t('saleForm.wholesale'), price: wholesalePrice, color: 'green' });
       seen.add(wholesalePrice);
     }
     if (retailPrice > 0 && !seen.has(retailPrice)) {
-      prices.push({ label: 'تجزئة', price: retailPrice, color: 'blue' });
+      prices.push({ label: t('saleForm.retail'), price: retailPrice, color: 'blue' });
       seen.add(retailPrice);
     }
 
     if (product.category_prices && product.category_prices.length > 0) {
       for (const cp of product.category_prices) {
         if (cp.price > 0 && !seen.has(cp.price)) {
-          const catName = clientCategories.find(c => c.id === cp.client_category_id)?.name || `فئة ${cp.client_category_id}`;
+          const catName = clientCategories.find(c => c.id === cp.client_category_id)?.name || t('saleForm.categoryLabel', { id: String(cp.client_category_id) });
           prices.push({ label: catName, price: cp.price, color: 'amber' });
           seen.add(cp.price);
         }
@@ -532,7 +568,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
   // Open quick entry modal for product
   const openQuickEntryModal = (product: Product) => {
     if (!warehouseId) {
-      toast.error('الرجاء اختيار المستودع أولاً');
+      toast.error(t('saleForm.selectWarehouseFirst'));
       return;
     }
     setQuickEntryModal({
@@ -553,14 +589,14 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
     const { product, quantity, unitPrice } = quickEntryModal;
 
     if (quantity <= 0) {
-      toast.error('الكمية يجب أن تكون أكبر من صفر');
+      toast.error(t('saleForm.qtyMustBePositive'));
       return;
     }
 
     // Block if price is below cost price
     const costPrice = Number(product.cost_price) || 0;
     if (unitPrice > 0 && unitPrice < costPrice) {
-      toast.error(`لا يمكن البيع بأقل من سعر الشراء (${costPrice} د.ج)`);
+      toast.error(t('saleForm.belowCostPrice', { price: String(costPrice) }));
       return;
     }
 
@@ -573,7 +609,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       const newQty = existingItem.quantity + quantity;
       const newTotalPieces = (newQty * ppp) + (existingItem.extra_pieces || 0);
       if (newTotalPieces > availableStock) {
-        toast.error(`الكمية المتوفرة: ${formatStockQty(availableStock, ppp)} فقط`);
+        toast.error(t('saleForm.availableQtyOnly', { qty: formatStockQty(availableStock, ppp) }));
         return;
       }
       const updatedItem = {
@@ -589,11 +625,11 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       const piecesPerPkg = product.pieces_per_package || 1;
       const totalPieces = quantity * piecesPerPkg;
       if (availableStock < totalPieces) {
-        toast.error(`الكمية المتوفرة: ${formatStockQty(availableStock, piecesPerPkg)} فقط`);
+        toast.error(t('saleForm.availableQtyOnly', { qty: formatStockQty(availableStock, piecesPerPkg) }));
         return;
       }
       const minUnitPrice = Number(product.min_selling_price) || 0;
-      const unitName = product.unit_sale?.name || 'وحدة';
+      const unitName = product.unit_sale?.name || t('saleForm.unit');
 
       const newItem: SaleItem = {
         product_id: product.id,
@@ -626,7 +662,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       if (product) {
         openQuickEntryModal(product);
       } else {
-        toast.error('المنتج غير موجود');
+        toast.error(t('saleForm.productNotFound'));
       }
     }
   };
@@ -639,7 +675,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
 
     // Check stock (both in pieces)
     if (newTotalPieces > updated[index].available_stock) {
-      toast.error(`الكمية المتوفرة: ${formatStockQty(updated[index].available_stock, ppp)} فقط`);
+      toast.error(t('saleForm.availableQtyOnly', { qty: formatStockQty(updated[index].available_stock, ppp) }));
       return;
     }
 
@@ -665,7 +701,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       const newExtra = field === 'extra_pieces' ? numValue : updated[index].extra_pieces;
       const totalPieces = (newQty * ppp) + newExtra;
       if (totalPieces > updated[index].available_stock) {
-        toast.error(`الكمية المتوفرة: ${formatStockQty(updated[index].available_stock, ppp)} فقط`);
+        toast.error(t('saleForm.availableQtyOnly', { qty: formatStockQty(updated[index].available_stock, ppp) }));
         return;
       }
       if (field === 'quantity') {
@@ -676,7 +712,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       updated[index].total_pieces = (updated[index].quantity * ppp) + updated[index].extra_pieces;
     } else if (field === 'unit_price') {
       if (updated[index].cost_price > 0 && numValue > 0 && numValue < updated[index].cost_price) {
-        toast.error(`لا يمكن البيع بأقل من سعر الشراء (${updated[index].cost_price} د.ج)`);
+        toast.error(t('saleForm.belowCostPrice', { price: String(updated[index].cost_price) }));
         return;
       }
       updated[index].unit_price = numValue;
@@ -710,9 +746,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
   const totalAmount = items.reduce((sum, item) => sum + (Number(item.subtotal) || 0), 0);
   const afterDiscount = totalAmount - (Number(discount) || 0);
   const taxAmount = afterDiscount * ((Number(tax) || 0) / 100);
-  const subtotalBeforeTimbre = afterDiscount + taxAmount + (Number(shipping) || 0);
-  const timbreAmount = subtotalBeforeTimbre * ((Number(timbre) || 0) / 100);
-  const grandTotal = Math.max(0, subtotalBeforeTimbre + timbreAmount);
+  const grandTotal = Math.max(0, afterDiscount + taxAmount + (Number(shipping) || 0));
 
   // Calculate how payment is applied
   // previousDebt = what the client already owes us BEFORE this sale
@@ -735,7 +769,6 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       tax: taxAmount,
       tax_percentage: tax,
       shipping,
-      timbre: timbreAmount,
       note,
       paid_amount: paidAmount,
       status,
@@ -767,9 +800,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
           date,
           discount,
           tax: taxAmount,
-          tax_percentage: tax,
           shipping,
-          timbre: timbreAmount,
           note,
           paid_amount: paidAmount,
           items: items.map((item) => ({
@@ -781,14 +812,14 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
           })),
         });
 
-        toast.success('تم تحديث الفاتورة بنجاح');
+        toast.success(t('saleForm.invoiceUpdated'));
         if (onSuccess) {
           onSuccess();
         } else {
           router.push('/dashboard/sales');
         }
       } catch (error: any) {
-        toast.error(error.response?.data?.message || 'خطأ في تحديث الفاتورة');
+        toast.error(error.response?.data?.message || t('saleForm.invoiceUpdateError'));
       } finally {
         setIsSaving(false);
       }
@@ -797,12 +828,12 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
 
     // Create mode validation
     if (!warehouseId) {
-      toast.error('الرجاء اختيار المستودع');
+      toast.error(t('saleForm.selectWarehouse'));
       return;
     }
 
     if (items.length === 0) {
-      toast.error('الرجاء إضافة منتج واحد على الأقل');
+      toast.error(t('saleForm.addAtLeastOneProduct'));
       return;
     }
 
@@ -810,11 +841,11 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       const ppp = Number(item.pieces_per_package) || 1;
       const totalPieces = (item.quantity * ppp) + (item.extra_pieces || 0);
       if (totalPieces > item.available_stock) {
-        toast.error(`الكمية المطلوبة لـ "${item.product_name}" أكبر من المتوفر (${formatStockQty(item.available_stock, ppp)})`);
+        toast.error(t('saleForm.qtyExceedsStock', { name: item.product_name, qty: formatStockQty(item.available_stock, ppp) }));
         return;
       }
       if (item.cost_price > 0 && item.unit_price > 0 && item.unit_price < item.cost_price) {
-        toast.error(`لا يمكن البيع بأقل من سعر الشراء للمنتج "${item.product_name}" (${item.cost_price} د.ج)`);
+        toast.error(t('saleForm.belowCostForProduct', { name: item.product_name, price: String(item.cost_price) }));
         return;
       }
     }
@@ -835,14 +866,14 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
 
       await salesApi.create(buildSalePayload('completed'));
 
-      toast.success('تم إنشاء فاتورة البيع بنجاح');
+      toast.success(t('saleForm.invoiceCreated'));
       if (onSuccess) {
         onSuccess();
       } else {
         router.push('/dashboard/sales');
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'خطأ في إنشاء فاتورة البيع');
+      toast.error(error.response?.data?.message || t('saleForm.invoiceCreateError'));
     } finally {
       setIsSaving(false);
     }
@@ -850,45 +881,45 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
 
   const handleSaveDraft = async () => {
     if (!warehouseId) {
-      toast.error('الرجاء اختيار المستودع');
+      toast.error(t('saleForm.selectWarehouse'));
       return;
     }
 
     if (items.length === 0) {
-      toast.error('الرجاء إضافة منتج واحد على الأقل');
+      toast.error(t('saleForm.addAtLeastOneProduct'));
       return;
     }
 
     setIsSaving(true);
     try {
       await salesApi.create(buildSalePayload('draft'));
-      toast.success('تم حفظ المسودة بنجاح');
+      toast.success(t('saleForm.draftSaved'));
       if (onSuccess) {
         onSuccess();
       } else {
         router.push('/dashboard/sales');
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'خطأ في حفظ المسودة');
+      toast.error(error.response?.data?.message || t('saleForm.draftSaveError'));
     } finally {
       setIsSaving(false);
     }
   };
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
+    return new Intl.NumberFormat(locale === 'ar' ? 'ar-DZ' : 'fr-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
   };
 
   // Format stock quantity (already in pieces) as cartons + pieces
   const formatStockQty = (stockPieces: number, piecesPerPackage: number): string => {
     const ppp = piecesPerPackage || 1;
     const total = Math.floor(stockPieces);
-    if (ppp <= 1) return `${total} قطعة`;
+    if (ppp <= 1) return `${total} ${t('saleForm.piece')}`;
     const cartons = Math.floor(total / ppp);
     const pieces = total % ppp;
-    if (pieces === 0) return `${cartons} كرتون`;
-    if (cartons === 0) return `${total} قطعة`;
-    return `${cartons} كرتون + ${pieces} ق`;
+    if (pieces === 0) return `${cartons} ${t('saleForm.carton')}`;
+    if (cartons === 0) return `${total} ${t('saleForm.piece')}`;
+    return `${cartons} ${t('saleForm.carton')} + ${pieces} ${t('saleForm.pieceSuffix')}`;
   };
 
   // Only show products with available stock > 0
@@ -907,15 +938,25 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
   return (
     <div>
       {/* Keyboard Shortcuts Bar */}
-      <div className="bg-gray-800 text-white px-4 py-2 rounded-lg mb-4 flex items-center gap-6 text-sm">
-        <span className="font-bold">اختصارات:</span>
-        <span><kbd className="bg-gray-600 px-2 py-0.5 rounded">F1</kbd> العميل</span>
-        <span><kbd className="bg-gray-600 px-2 py-0.5 rounded">F2</kbd> المنتج</span>
-        <span><kbd className="bg-gray-600 px-2 py-0.5 rounded">F3</kbd> المبلغ المدفوع</span>
-        <span><kbd className="bg-gray-600 px-2 py-0.5 rounded">F4</kbd> حفظ</span>
-        <span><kbd className="bg-gray-600 px-2 py-0.5 rounded">↑↓</kbd> تنقل</span>
-        <span><kbd className="bg-gray-600 px-2 py-0.5 rounded">Enter</kbd> تأكيد</span>
-        <span><kbd className="bg-gray-600 px-2 py-0.5 rounded">Esc</kbd> إغلاق</span>
+      <div className="bg-gradient-to-l from-slate-800 to-slate-900 dark:from-slate-900 dark:to-black text-white px-5 py-2.5 rounded-xl mb-5 hidden sm:flex items-center gap-5 text-sm shadow-sm" data-tour="sf-shortcuts">
+        <span className="font-bold text-slate-300 text-xs tracking-wide">{t('saleForm.shortcuts')}</span>
+        <div className="w-px h-4 bg-slate-700" />
+        <span><kbd className="bg-slate-700/80 px-2 py-0.5 rounded-md text-[11px] font-mono text-blue-300">F1</kbd> <span className="text-slate-400">{t('saleForm.shortcutClient')}</span></span>
+        <span><kbd className="bg-slate-700/80 px-2 py-0.5 rounded-md text-[11px] font-mono text-blue-300">F2</kbd> <span className="text-slate-400">{t('saleForm.shortcutProduct')}</span></span>
+        <span><kbd className="bg-slate-700/80 px-2 py-0.5 rounded-md text-[11px] font-mono text-emerald-300">F3</kbd> <span className="text-slate-400">{t('saleForm.shortcutAmount')}</span></span>
+        <span><kbd className="bg-slate-700/80 px-2 py-0.5 rounded-md text-[11px] font-mono text-amber-300">F4</kbd> <span className="text-slate-400">{t('saleForm.shortcutSave')}</span></span>
+        <div className="w-px h-4 bg-slate-700" />
+        <span><kbd className="bg-slate-700/80 px-2 py-0.5 rounded-md text-[11px] font-mono">↑↓</kbd> <span className="text-slate-400">{t('saleForm.shortcutNavigate')}</span></span>
+        <span><kbd className="bg-slate-700/80 px-2 py-0.5 rounded-md text-[11px] font-mono">Enter</kbd> <span className="text-slate-400">{t('saleForm.shortcutConfirm')}</span></span>
+        <span><kbd className="bg-slate-700/80 px-2 py-0.5 rounded-md text-[11px] font-mono">Esc</kbd> <span className="text-slate-400">{t('saleForm.shortcutClose')}</span></span>
+        <button
+          onClick={() => setShowTour(true)}
+          className="ms-auto flex items-center gap-1.5 text-sm text-emerald-400 hover:text-emerald-300 transition-colors"
+          title={t('saleForm.tourTooltip')}
+        >
+          <QuestionMarkCircleIcon className="w-5 h-5" />
+          <span className="text-slate-400">{t('saleForm.tourBtn')}</span>
+        </button>
       </div>
 
       {/* Quick Entry Modal */}
@@ -924,88 +965,93 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
         const costPrice = Number(quickEntryModal.product?.cost_price) || 0;
         const isBelowCost = quickEntryModal.unitPrice > 0 && quickEntryModal.unitPrice < costPrice;
         return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-[480px] max-w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold mb-4 text-center dark:text-white">{quickEntryModal.product.name}</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-gray-300">الكمية</label>
-                <input
-                  ref={quickQtyRef}
-                  type="number"
-                  value={quickEntryModal.quantity}
-                  onChange={(e) => setQuickEntryModal(prev => ({ ...prev, quantity: Number(e.target.value) || 0 }))}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      quickPriceRef.current?.focus();
-                      quickPriceRef.current?.select();
-                    } else if (e.key === 'Escape') {
-                      setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, categoryPrices: {} });
-                      barcodeInputRef.current?.focus();
-                    }
-                  }}
-                  className="input w-full text-center text-xl"
-                  min="1"
-                  autoFocus
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-gray-300">سعر البيع (للقطعة)</label>
-                <input
-                  ref={quickPriceRef}
-                  type="number"
-                  value={quickEntryModal.unitPrice}
-                  onChange={(e) => setQuickEntryModal(prev => ({ ...prev, unitPrice: Number(e.target.value) || 0 }))}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      if (!isBelowCost) {
-                        confirmQuickEntry();
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full sm:w-[480px] max-w-full mx-4 max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700">
+            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-l from-emerald-400 to-teal-500 rounded-t-2xl" />
+            <div className="p-6">
+              <h3 className="text-lg font-extrabold mb-5 text-center text-gray-900 dark:text-gray-100">{quickEntryModal.product.name}</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-600 dark:text-gray-300 mb-1.5">{t('saleForm.quantity')}</label>
+                  <input
+                    ref={quickQtyRef}
+                    type="number"
+                    value={quickEntryModal.quantity}
+                    onChange={(e) => setQuickEntryModal(prev => ({ ...prev, quantity: Number(e.target.value) || 0 }))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        quickPriceRef.current?.focus();
+                        quickPriceRef.current?.select();
+                      } else if (e.key === 'Escape') {
+                        setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, categoryPrices: {} });
+                        barcodeInputRef.current?.focus();
                       }
-                    } else if (e.key === 'Escape') {
+                    }}
+                    className="input w-full text-center text-xl font-bold"
+                    min="1"
+                    autoFocus
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-600 dark:text-gray-300 mb-1.5">{t('saleForm.sellingPricePerPiece')}</label>
+                  <input
+                    ref={quickPriceRef}
+                    type="number"
+                    value={quickEntryModal.unitPrice}
+                    onChange={(e) => setQuickEntryModal(prev => ({ ...prev, unitPrice: Number(e.target.value) || 0 }))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (!isBelowCost) {
+                          confirmQuickEntry();
+                        }
+                      } else if (e.key === 'Escape') {
+                        setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, categoryPrices: {} });
+                        barcodeInputRef.current?.focus();
+                      }
+                    }}
+                    className={`input w-full text-center text-xl font-bold ${isBelowCost ? 'border-red-500 bg-red-50 dark:bg-red-900/30' : ''}`}
+                    min="0"
+                    step="0.01"
+                  />
+                  {isBelowCost && (
+                    <p className="text-red-500 text-xs mt-1.5 text-center font-medium">
+                      {t('saleForm.belowCostPrice', { price: String(costPrice) })}
+                    </p>
+                  )}
+                </div>
+
+                <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 text-center">
+                  <div className="text-lg font-black text-blue-700 dark:text-blue-300">
+                    {t('saleForm.totalLabel')} {formatCurrency(quickEntryModal.unitPrice * ppp * quickEntryModal.quantity)}
+                  </div>
+                  <div className="text-xs text-blue-500 dark:text-blue-400 font-medium mt-0.5">
+                    ({quickEntryModal.unitPrice} × {ppp} {t('saleForm.perPiece')} × {quickEntryModal.quantity})
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={confirmQuickEntry}
+                    disabled={isBelowCost}
+                    className={`flex-1 px-4 py-2.5 text-sm font-bold rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20 active:scale-[0.98] transition-all ${isBelowCost ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {t('saleForm.addEnter')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
                       setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, categoryPrices: {} });
                       barcodeInputRef.current?.focus();
-                    }
-                  }}
-                  className={`input w-full text-center text-xl ${isBelowCost ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : ''}`}
-                  min="0"
-                  step="0.01"
-                />
-                {isBelowCost && (
-                  <p className="text-red-500 text-xs mt-1 text-center">
-                    لا يمكن البيع بأقل من سعر الشراء ({costPrice} د.ج)
-                  </p>
-                )}
-              </div>
-
-
-              <div className="text-center text-lg font-bold text-blue-600 dark:text-blue-400">
-                المجموع: {formatCurrency(quickEntryModal.unitPrice * ppp * quickEntryModal.quantity)}
-                <div className="text-xs text-gray-500 font-normal">
-                  ({quickEntryModal.unitPrice} × {ppp} قطعة × {quickEntryModal.quantity})
+                    }}
+                    className="flex-1 px-4 py-2.5 text-sm font-bold rounded-xl border-2 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 active:scale-[0.98] transition-all"
+                  >
+                    {t('saleForm.cancelEsc')}
+                  </button>
                 </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={confirmQuickEntry}
-                  disabled={isBelowCost}
-                  className={`btn btn-primary flex-1 ${isBelowCost ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  إضافة (Enter)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, categoryPrices: {} });
-                    barcodeInputRef.current?.focus();
-                  }}
-                  className="btn btn-secondary flex-1"
-                >
-                  إلغاء (Esc)
-                </button>
               </div>
             </div>
           </div>
@@ -1017,19 +1063,22 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           {onCancel ? (
-            <button onClick={onCancel} className="text-gray-500 hover:text-gray-700">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button onClick={onCancel} className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center transition-colors">
+              <svg className={`w-5 h-5 text-gray-500 dark:text-gray-400 ${dir === 'ltr' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>
           ) : (
-            <Link href="/dashboard/sales" className="text-gray-500 hover:text-gray-700">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <Link href="/dashboard/sales" className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center transition-colors">
+              <svg className={`w-5 h-5 text-gray-500 dark:text-gray-400 ${dir === 'ltr' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </Link>
           )}
-          <h1 className="text-2xl font-bold">{isEditMode ? 'تعديل فاتورة البيع' : 'فاتورة بيع جديدة'}</h1>
+          <div>
+            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-gray-100 tracking-tight leading-none">{isEditMode ? t('saleForm.editSaleInvoice') : t('saleForm.newSaleInvoice')}</h1>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{isEditMode ? t('saleForm.editSubtitle') : t('saleForm.newSubtitle')}</p>
+          </div>
         </div>
       </div>
 
@@ -1038,11 +1087,19 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Basic Info */}
-            <div className="card">
-              <h2 className="text-lg font-semibold mb-4">معلومات الفاتورة</h2>
+            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm" data-tour="sf-info">
+              <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 rounded-t-2xl">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  </div>
+                  <span className="text-sm font-bold text-gray-700 dark:text-gray-200">{t('saleForm.invoiceInfo')}</span>
+                </div>
+              </div>
+              <div className="p-5">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="relative">
-                  <label className="block text-sm font-medium mb-1">العميل</label>
+                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('saleForm.client')}</label>
                   <input
                     ref={clientSearchRef}
                     type="text"
@@ -1057,10 +1114,15 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                     }}
                     onFocus={() => setShowClientDropdown(true)}
                     onKeyDown={(e) => {
-                      const filtered = clients.filter(c =>
-                        c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
-                        (c.phone && c.phone.includes(clientSearch))
-                      ).slice(0, 10);
+                      const filtered = clients.filter(c => {
+                        const matchesSearch = c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
+                          (c.code && c.code.toLowerCase().includes(clientSearch.toLowerCase())) ||
+                          (c.phone && c.phone.includes(clientSearch));
+                        const matchesStatus = clientStatusFilter === 'all' ||
+                          (clientStatusFilter === 'active' && c.is_active !== false) ||
+                          (clientStatusFilter === 'inactive' && c.is_active === false);
+                        return matchesSearch && matchesStatus;
+                      }).slice(0, 10);
                       const maxIndex = filtered.length; // 0 = cash client, 1+ = filtered clients
 
                       if (e.key === 'Escape') {
@@ -1107,15 +1169,54 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                         }
                       }
                     }}
-                    placeholder="ابحث عن عميل أو اتركه فارغاً للنقدي"
+                    placeholder={t('saleForm.searchClientPlaceholder')}
                     className="input w-full"
                     autoComplete="off"
                   />
+                  {/* Selected client code chip */}
+                  {clientId && (() => {
+                    const sel = clients.find(c => c.id.toString() === clientId);
+                    return sel?.code ? (
+                      <div className="mt-1.5 flex items-center gap-1.5">
+                        <span className="text-[10px] font-mono text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">{sel.code}</span>
+                        {sel.is_active === false && (
+                          <span className="text-[10px] font-medium text-red-600 bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 px-2 py-0.5 rounded-md">{t('saleForm.disabled')}</span>
+                        )}
+                      </div>
+                    ) : null;
+                  })()}
                   {showClientDropdown && (
-                    <div ref={clientListRef} className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    <div ref={clientListRef} className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-72 overflow-hidden flex flex-col">
+                      {/* Status filter tabs */}
+                      <div className="flex items-center border-b border-gray-100 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/80 px-1 py-1 gap-1 flex-shrink-0">
+                        {([
+                          { key: 'all' as const, label: t('saleForm.allFilter') },
+                          { key: 'active' as const, label: t('saleForm.activeFilter') },
+                          { key: 'inactive' as const, label: t('saleForm.inactiveFilter') },
+                        ]).map(tab => (
+                          <button
+                            key={tab.key}
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setClientStatusFilter(tab.key); setClientHighlightIndex(-1); }}
+                            className={`flex-1 text-[11px] font-semibold py-1 rounded-lg transition-all ${
+                              clientStatusFilter === tab.key
+                                ? tab.key === 'inactive'
+                                  ? 'bg-red-500 text-white shadow-sm'
+                                  : tab.key === 'active'
+                                    ? 'bg-emerald-500 text-white shadow-sm'
+                                    : 'bg-white text-gray-700 shadow-sm'
+                                : 'text-gray-400 hover:text-gray-600 hover:bg-white/60'
+                            }`}
+                          >
+                            {tab.label}
+                          </button>
+                        ))}
+                      </div>
+                      {/* Scrollable list */}
+                      <div className="overflow-y-auto flex-1">
                       <div
                         data-client-index="0"
-                        className={`px-3 py-2 cursor-pointer border-b ${clientHighlightIndex === 0 ? 'bg-blue-100' : 'hover:bg-gray-100'}`}
+                        className={`px-3 py-2.5 cursor-pointer border-b border-gray-100 flex items-center gap-2 ${clientHighlightIndex === 0 ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
                         onClick={() => {
                           setClientId('');
                           setClientSearch('');
@@ -1124,19 +1225,37 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                           setClientHighlightIndex(-1);
                         }}
                       >
-                        <span className="text-gray-500">عميل نقدي (بدون عميل)</span>
+                        <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                          <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                        </div>
+                        <span className="text-gray-500 dark:text-gray-400 text-sm">{t('saleForm.cashClient')}</span>
                       </div>
-                      {clients
-                        .filter(c =>
-                          c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
-                          (c.phone && c.phone.includes(clientSearch))
-                        )
-                        .slice(0, 10)
-                        .map((client, index) => (
+                      {(() => {
+                        const filtered = clients.filter(c => {
+                          const matchesSearch = c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
+                            (c.code && c.code.toLowerCase().includes(clientSearch.toLowerCase())) ||
+                            (c.phone && c.phone.includes(clientSearch));
+                          const matchesStatus = clientStatusFilter === 'all' ||
+                            (clientStatusFilter === 'active' && c.is_active !== false) ||
+                            (clientStatusFilter === 'inactive' && c.is_active === false);
+                          return matchesSearch && matchesStatus;
+                        }).slice(0, 10);
+
+                        if (filtered.length === 0) {
+                          return <div className="px-4 py-6 text-center text-gray-400 text-sm">{t('saleForm.noResults')}</div>;
+                        }
+
+                        return filtered.map((client, index) => (
                           <div
                             key={client.id}
                             data-client-index={index + 1}
-                            className={`px-3 py-2 cursor-pointer ${clientHighlightIndex === index + 1 ? 'bg-blue-100' : 'hover:bg-blue-50'}`}
+                            className={`px-3 py-2.5 cursor-pointer transition-all border-b border-gray-50 last:border-0 ${
+                              clientHighlightIndex === index + 1
+                                ? 'bg-blue-50'
+                                : client.is_active === false
+                                  ? 'bg-red-50/40 hover:bg-red-50/70'
+                                  : 'hover:bg-gray-50'
+                            }`}
                             onClick={() => {
                               setClientId(client.id.toString());
                               setClientSearch(client.name);
@@ -1144,21 +1263,41 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                               setClientHighlightIndex(-1);
                             }}
                           >
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium">{client.name}</span>
+                            <div className="flex items-center gap-2.5">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${
+                                client.is_active === false
+                                  ? 'bg-red-100 text-red-500'
+                                  : 'bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-600'
+                              }`}>
+                                {client.name.charAt(0)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`font-semibold text-sm truncate ${client.is_active === false ? 'text-gray-400' : 'text-gray-800'}`}>{client.name}</span>
+                                  {client.is_active !== false && (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
+                                  )}
+                                  {client.is_active === false && (
+                                    <span className="text-[9px] font-bold text-red-500 bg-red-100 dark:bg-red-900/40 px-1.5 py-0.5 rounded flex-shrink-0">{t('saleForm.disabled')}</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  {client.code && (
+                                    <span className="text-[10px] font-mono text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">{client.code}</span>
+                                  )}
+                                  {client.phone && (
+                                    <span className="text-[11px] text-gray-400" dir="ltr">{client.phone}</span>
+                                  )}
+                                </div>
+                              </div>
                               {client.client_category?.name && (
-                                <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[10px] font-medium">{client.client_category.name}</span>
+                                <span className="text-[10px] font-medium text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded flex-shrink-0">{client.client_category.name}</span>
                               )}
                             </div>
-                            {client.phone && <div className="text-sm text-gray-500">{client.phone}</div>}
                           </div>
-                        ))}
-                      {clients.filter(c =>
-                        c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
-                        (c.phone && c.phone.includes(clientSearch))
-                      ).length === 0 && (
-                        <div className="px-3 py-2 text-gray-500">لا يوجد نتائج</div>
-                      )}
+                        ));
+                      })()}
+                      </div>
                     </div>
                   )}
                   {/* Click outside to close */}
@@ -1170,21 +1309,21 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">المستودع *</label>
+                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('saleForm.warehouse')}</label>
                   <select
                     value={warehouseId}
                     onChange={(e) => setWarehouseId(e.target.value)}
                     className="select w-full"
                     required
                   >
-                    <option value="">اختر المستودع</option>
+                    <option value="">{t('saleForm.chooseWarehouse')}</option>
                     {warehouses.map((warehouse) => (
                       <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">التاريخ *</label>
+                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('saleForm.dateLabel')}</label>
                   <DateInput
                     value={date}
                     onChange={(v) => setDate(v)}
@@ -1196,13 +1335,13 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
 
               {/* Client Debt Info */}
               {clientId && (
-                <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <div className="mt-4 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl">
                   {loadingDebt ? (
-                    <div className="text-center text-gray-500">جاري تحميل بيانات الدين...</div>
+                    <div className="text-center text-gray-500 dark:text-gray-400">{t('saleForm.loadingDebt')}</div>
                   ) : clientDebt ? (
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="font-semibold text-orange-800">الدين السابق:</span>
+                        <span className="font-semibold text-orange-800 dark:text-orange-300">{t('saleForm.previousDebt')}</span>
                         <span className={`font-bold text-lg ${clientDebt.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
                           {formatCurrency(clientDebt.balance)}
                         </span>
@@ -1212,14 +1351,14 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                         const categoryName = selectedClient?.client_category?.name;
                         return categoryName ? (
                           <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-600">فئة السعر:</span>
+                            <span className="text-gray-600 dark:text-gray-400">{t('saleForm.priceCategory')}</span>
                             <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">{categoryName}</span>
                           </div>
                         ) : null;
                       })()}
                       {clientDebt.unpaid_orders && clientDebt.unpaid_orders.length > 0 && (
-                        <div className="mt-3 pt-3 border-t border-orange-200">
-                          <div className="text-sm font-medium text-orange-800 mb-2">الفواتير غير المسددة:</div>
+                        <div className="mt-3 pt-3 border-t border-orange-200 dark:border-orange-800">
+                          <div className="text-sm font-medium text-orange-800 dark:text-orange-300 mb-2">{t('saleForm.unpaidInvoices')}</div>
                           <div className="max-h-24 overflow-y-auto space-y-1">
                             {clientDebt.unpaid_orders.slice(0, 5).map((order) => (
                               <div key={order.id} className="flex justify-between text-sm">
@@ -1232,41 +1371,53 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                       )}
                     </div>
                   ) : (
-                    <div className="text-center text-green-600">لا يوجد دين سابق</div>
+                    <div className="text-center text-green-600 dark:text-green-400">{t('saleForm.noPreviousDebt')}</div>
                   )}
                 </div>
               )}
+              </div>
             </div>
 
             {/* Product Search */}
-            <div className="card">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">إضافة المنتجات</h2>
+            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm" data-tour="sf-products">
+              <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 rounded-t-2xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+                      <svg className="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                    </div>
+                    <span className="text-sm font-bold text-gray-700 dark:text-gray-200">{t('saleForm.addProducts')}</span>
+                    {items.length > 0 && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">{t('saleForm.productCount', { count: items.length })}</span>
+                    )}
+                  </div>
                 {/* Search Mode Toggle */}
-                <div className="flex items-center gap-3">
-                  <span className={`text-sm ${searchMode === 'barcode' ? 'text-blue-600 font-medium' : 'text-gray-400'}`}>باركود</span>
-                  <button
-                    type="button"
-                    onClick={toggleSearchMode}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                      searchMode === 'name' ? 'bg-blue-600' : 'bg-gray-300'
-                    }`}
-                    style={{ direction: 'ltr' }}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 rounded-full bg-white transition-all duration-200 ${
-                        searchMode === 'name' ? 'mr-1 ml-auto' : 'ml-1 mr-auto'
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs font-medium ${searchMode === 'barcode' ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400'}`}>{t('saleForm.barcodeMode')}</span>
+                    <button
+                      type="button"
+                      onClick={toggleSearchMode}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
+                        searchMode === 'name' ? 'bg-emerald-500' : 'bg-gray-300'
                       }`}
-                    />
-                  </button>
-                  <span className={`text-sm ${searchMode === 'name' ? 'text-blue-600 font-medium' : 'text-gray-400'}`}>اسم</span>
+                      style={{ direction: 'ltr' }}
+                    >
+                      <span
+                        className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-all duration-200 ${
+                          searchMode === 'name' ? 'mr-0.5 ml-auto' : 'ml-0.5 mr-auto'
+                        }`}
+                      />
+                    </button>
+                    <span className={`text-xs font-medium ${searchMode === 'name' ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400'}`}>{t('saleForm.nameMode')}</span>
+                  </div>
                 </div>
               </div>
 
+              <div className="p-5">
               <div className="mb-4">
                 {searchMode === 'barcode' ? (
                   <div>
-                    <label className="block text-sm font-medium mb-1">البحث بالباركود</label>
+                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('saleForm.barcodeSearch')}</label>
                     <input
                       ref={barcodeInputRef}
                       type="text"
@@ -1274,13 +1425,13 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                       onChange={(e) => setBarcodeInput(e.target.value)}
                       onKeyDown={handleBarcodeSearch}
                       className="input w-full"
-                      placeholder="امسح الباركود واضغط Enter..."
+                      placeholder={t('saleForm.scanBarcodePlaceholder')}
                       autoFocus
                     />
                   </div>
                 ) : (
                   <div className="relative">
-                    <label className="block text-sm font-medium mb-1">البحث بالاسم</label>
+                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('saleForm.nameSearch')}</label>
                     <input
                       ref={productSearchRef}
                       type="text"
@@ -1330,13 +1481,13 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                         }
                       }}
                       className="input w-full"
-                      placeholder="ابحث عن منتج..."
+                      placeholder={t('saleForm.searchProductPlaceholder')}
                       autoFocus
                     />
                     {showProductSearch && searchTerm && (
-                      <div ref={productListRef} className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      <div ref={productListRef} className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto">
                         {filteredProducts.length === 0 ? (
-                          <div className="p-3 text-gray-500 text-center">لا توجد نتائج</div>
+                          <div className="p-3 text-gray-500 dark:text-gray-400 text-center">{t('saleForm.noProductResults')}</div>
                         ) : (
                           filteredProducts.slice(0, 10).map((product, index) => {
                             const stock = getProductStock(product);
@@ -1349,7 +1500,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                                 type="button"
                                 data-index={index}
                                 onClick={() => openQuickEntryModal(product)}
-                                className={`w-full p-3 text-right border-b last:border-b-0 ${isHighlighted ? 'bg-blue-100' : 'hover:bg-gray-50'}`}
+                                className={`w-full p-3 text-start border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors ${isHighlighted ? 'bg-emerald-50 dark:bg-emerald-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                               >
                                 <div className="flex justify-between items-center">
                                   <span className="font-medium">{product.name}</span>
@@ -1357,12 +1508,12 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                                     {formatStockQty(stock, ppp)}
                                   </span>
                                 </div>
-                                <div className="text-sm text-gray-500 flex justify-between">
+                                <div className="text-sm text-gray-500 dark:text-gray-400 flex justify-between">
                                   <span>{product.barcode}</span>
                                   <span>
-                                    {formatCurrency(price)} / قطعة
+                                    {formatCurrency(price)} / {t('saleForm.perPiece')}
                                     {ppp > 1 && (
-                                      <span className="text-gray-400 mr-1">({formatCurrency(price * ppp)} / كرتون)</span>
+                                      <span className="text-gray-400 me-1">({formatCurrency(price * ppp)} / {t('saleForm.perCarton')})</span>
                                     )}
                                   </span>
                                 </div>
@@ -1377,40 +1528,46 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
               </div>
 
               {/* Items Table - New Format */}
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto" data-tour="sf-items">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-gray-100">
-                      <th className="px-2 py-2 text-center w-12">الرقم</th>
-                      <th className="px-2 py-2 text-right">التعيين</th>
-                      <th className="px-2 py-2 text-center w-28">كرتون/قطعة</th>
-                      <th className="px-2 py-2 text-center w-16">الوحدة</th>
-                      <th className="px-2 py-2 text-center w-20">العدد</th>
-                      <th className="px-2 py-2 text-center w-20">المتوفر</th>
-                      <th className="px-2 py-2 text-center w-24">س. الوحدة</th>
-                      <th className="px-2 py-2 text-center w-20">الخصم</th>
-                      <th className="px-2 py-2 text-center w-24">المبلغ</th>
-                      <th className="px-2 py-2 w-10"></th>
+                    <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                      <th className="px-2 py-2.5 text-center w-12 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">{t('saleForm.numberCol')}</th>
+                      <th className="px-2 py-2.5 text-start text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">{t('saleForm.designationCol')}</th>
+                      <th className="px-2 py-2.5 text-center w-28 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">{t('saleForm.cartonPieceCol')}</th>
+                      <th className="px-2 py-2.5 text-center w-16 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">{t('saleForm.unitCol')}</th>
+                      <th className="px-2 py-2.5 text-center w-20 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">{t('saleForm.countCol')}</th>
+                      <th className="px-2 py-2.5 text-center w-20 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">{t('saleForm.availableCol')}</th>
+                      <th className="px-2 py-2.5 text-center w-24 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">{t('saleForm.unitPriceCol')}</th>
+                      <th className="px-2 py-2.5 text-center w-20 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">{t('saleForm.discountCol')}</th>
+                      <th className="px-2 py-2.5 text-center w-24 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">{t('saleForm.amountCol')}</th>
+                      <th className="px-2 py-2.5 w-10"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {items.length === 0 ? (
                       <tr>
-                        <td colSpan={10} className="text-center py-8 text-gray-500">
-                          لم يتم إضافة منتجات بعد
+                        <td colSpan={10} className="text-center py-12">
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center">
+                              <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                            </div>
+                            <p className="text-sm font-semibold text-gray-400 dark:text-gray-500">{t('saleForm.noProductsYet')}</p>
+                            <p className="text-xs text-gray-300 dark:text-gray-600">{t('saleForm.useBarcodeOrName')}</p>
+                          </div>
                         </td>
                       </tr>
                     ) : (
                       items.map((item, index) => {
                         const isBelowCostPrice = item.cost_price > 0 && item.unit_price > 0 && item.unit_price < item.cost_price;
                         return (
-                          <tr key={index} className={`border-b hover:bg-gray-50 ${isBelowCostPrice ? 'bg-red-50' : ''}`}>
-                            <td className="px-2 py-2 text-center font-medium text-gray-500">{index + 1}</td>
+                          <tr key={index} className={`border-b border-gray-100 dark:border-gray-700 hover:bg-emerald-50/30 dark:hover:bg-emerald-900/10 transition-colors duration-150 ${isBelowCostPrice ? 'bg-red-50 dark:bg-red-900/20' : ''}`}>
+                            <td className="px-2 py-2 text-center font-medium text-gray-500 dark:text-gray-400">{index + 1}</td>
                             <td className="px-2 py-2">
-                              <div className="font-medium">{item.product_name}</div>
-                              <div className="text-xs text-gray-500">{item.barcode}</div>
+                              <div className="font-medium dark:text-gray-200">{item.product_name}</div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">{item.barcode}</div>
                               {isBelowCostPrice && (
-                                <div className="text-xs text-red-600 font-bold">أقل من سعر الشراء: {formatCurrency(item.cost_price)}</div>
+                                <div className="text-xs text-red-600 font-bold">{t('saleForm.belowCostLabel', { price: formatCurrency(item.cost_price) })}</div>
                               )}
                             </td>
                             <td className="px-2 py-2">
@@ -1510,8 +1667,8 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                                 step="0.01"
                               />
                               {item.pieces_per_package > 1 && (
-                                <div className="text-[10px] text-blue-500 text-center mt-0.5">
-                                  {formatCurrency(item.unit_price * item.pieces_per_package)}/كرتون
+                                <div className="text-[10px] text-blue-500 dark:text-blue-400 text-center mt-0.5">
+                                  {t('saleForm.perCartonPrice', { price: formatCurrency(item.unit_price * item.pieces_per_package) })}
                                 </div>
                               )}
                             </td>
@@ -1549,122 +1706,95 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                 </table>
               </div>
 
-              <div className="mt-2 text-xs text-gray-500">
-                نصيحة: اضغط Enter للانتقال للحقل التالي
+              <div className="mt-2 text-xs text-gray-400 dark:text-gray-500">
+                {t('saleForm.enterNextField')}
+              </div>
               </div>
             </div>
 
             {/* Notes */}
-            <div className="card">
-              <label className="block text-sm font-medium mb-1">ملاحظات</label>
+            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm p-5">
+              <label className="block text-sm font-semibold text-gray-600 dark:text-gray-300 mb-1.5">{t('saleForm.notes')}</label>
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 className="input w-full"
                 rows={2}
-                placeholder="أضف ملاحظات..."
+                placeholder={t('saleForm.addNotesPlaceholder')}
               />
             </div>
           </div>
 
           {/* Sidebar - Summary */}
           <div>
-            <div className="card sticky top-24">
-              <h2 className="text-lg font-semibold mb-4">ملخص الفاتورة</h2>
+            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm sticky top-24" data-tour="sf-summary">
+              <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 rounded-t-2xl">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                  </div>
+                  <span className="text-sm font-bold text-gray-700 dark:text-gray-200">{t('saleForm.invoiceSummary')}</span>
+                </div>
+              </div>
 
-              <div className="space-y-3">
+              <div className="p-5 space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-500">إجمالي المنتجات ({items.length})</span>
-                  <span className="font-medium">{formatCurrency(totalAmount)}</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{t('saleForm.productsTotal', { count: items.length })}</span>
+                  <span className="font-bold text-gray-900 dark:text-gray-100 tabular-nums">{formatCurrency(totalAmount)}</span>
                 </div>
 
-                <div>
-                  <label className="block text-sm text-gray-500 mb-1">الخصم</label>
-                  <input
-                    type="number"
-                    value={discount}
-                    onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
-                    className="input w-full"
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-500 mb-1">الضريبة (%)</label>
-                  <div className="flex items-center gap-2">
+                {/* Compact 3-column: Discount / Tax / Shipping */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 mb-1">{t('saleForm.discountLabel')}</label>
+                    <input
+                      type="number"
+                      value={discount}
+                      onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+                      className="input w-full text-center text-sm py-1.5"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 mb-1">{t('saleForm.taxLabel')}</label>
                     <input
                       type="number"
                       value={tax}
                       onChange={(e) => setTax(parseFloat(e.target.value) || 0)}
-                      className="input flex-1"
+                      className="input w-full text-center text-sm py-1.5"
                       min="0"
                       max="100"
                       step="0.01"
                     />
-                    <span className="text-gray-400">%</span>
+                    {tax > 0 && (
+                      <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 text-center">= {formatCurrency(taxAmount)}</div>
+                    )}
                   </div>
-                  {tax > 0 && (
-                    <div className="text-xs text-gray-500 mt-1">
-                      = {formatCurrency(taxAmount)}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-500 mb-1">الشحن</label>
-                  <input
-                    type="number"
-                    value={shipping}
-                    onChange={(e) => setShipping(parseFloat(e.target.value) || 0)}
-                    className="input w-full"
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-500 mb-1">الطابع الجبائي (%)</label>
-                  <div className="flex items-center gap-2">
+                  <div>
+                    <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 mb-1">{t('saleForm.shippingLabel')}</label>
                     <input
                       type="number"
-                      value={timbre}
-                      onChange={(e) => setTimbre(parseFloat(e.target.value) || 0)}
-                      className="input flex-1"
+                      value={shipping}
+                      onChange={(e) => setShipping(parseFloat(e.target.value) || 0)}
+                      className="input w-full text-center text-sm py-1.5"
                       min="0"
-                      max="100"
                       step="0.01"
                     />
-                    <span className="text-gray-400">%</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        localStorage.setItem('defaultTimbre', timbre.toString());
-                        toast.success(`تم حفظ ${timbre}% كقيمة افتراضية للطابع`);
-                      }}
-                      className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1 rounded"
-                      title="حفظ كقيمة افتراضية"
-                    >
-                      حفظ
-                    </button>
                   </div>
-                  {timbre > 0 && (
-                    <div className="text-xs text-gray-500 mt-1">
-                      = {formatCurrency(timbreAmount)}
-                    </div>
-                  )}
                 </div>
 
-                <hr />
-
-                <div className="flex justify-between items-center text-lg font-bold">
-                  <span>الإجمالي النهائي</span>
-                  <span className="text-blue-600">{formatCurrency(grandTotal)}</span>
+                {/* Grand Total */}
+                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-bold text-emerald-800 dark:text-emerald-300">{t('saleForm.finalTotal')}</span>
+                    <span className="text-xl font-black text-emerald-700 dark:text-emerald-300 tabular-nums">{formatCurrency(grandTotal)}</span>
+                  </div>
                 </div>
 
                 {/* Payment Section */}
-                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <label className="block text-sm font-medium text-green-800 mb-2">المبلغ المقبوض</label>
+                <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800">
+                  <label className="block text-sm font-bold text-blue-800 dark:text-blue-300 mb-2">{t('saleForm.paidAmount')}</label>
                   <input
                     ref={paidAmountRef}
                     type="number"
@@ -1682,84 +1812,84 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                     placeholder="0"
                   />
                   {clientId && previousDebt > 0 && (
-                    <div className="mt-2 text-xs text-gray-500 text-center">
-                      يمكن قبض أكثر من قيمة الفاتورة لتسديد الدين السابق
+                    <div className="mt-2 text-[11px] text-blue-500 dark:text-blue-400 text-center">
+                      {t('saleForm.payMoreHint')}
                     </div>
                   )}
                 </div>
 
                 {/* Payment Breakdown */}
                 {clientId && clientDebt ? (
-                  <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg space-y-2">
+                  <div className="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl space-y-2">
                     {/* Summary at top */}
-                    <div className="p-2 bg-white rounded border border-orange-100 mb-2">
+                    <div className="p-2 bg-white dark:bg-gray-800 rounded-lg border border-orange-100 dark:border-orange-800 mb-2">
                       <div className="flex justify-between items-center text-sm">
-                        <span>هذه الفاتورة:</span>
-                        <span className="font-bold">{formatCurrency(grandTotal)}</span>
+                        <span className="dark:text-gray-300">{t('saleForm.thisInvoice')}</span>
+                        <span className="font-bold dark:text-gray-200">{formatCurrency(grandTotal)}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
-                        <span>+ الدين السابق:</span>
-                        <span className="font-bold">{formatCurrency(previousDebt)}</span>
+                        <span className="dark:text-gray-300">{t('saleForm.plusPreviousDebt')}</span>
+                        <span className="font-bold dark:text-gray-200">{formatCurrency(previousDebt)}</span>
                       </div>
-                      <hr className="my-1" />
+                      <hr className="my-1 dark:border-gray-700" />
                       <div className="flex justify-between items-center text-sm font-bold">
-                        <span>= المجموع:</span>
-                        <span className="text-orange-600">{formatCurrency(grandTotal + previousDebt)}</span>
+                        <span className="dark:text-gray-300">{t('saleForm.equalsTotal')}</span>
+                        <span className="text-orange-600 dark:text-orange-400">{formatCurrency(grandTotal + previousDebt)}</span>
                       </div>
                     </div>
 
-                    <div className="text-sm font-semibold text-orange-800 mb-2">توزيع المبلغ المقبوض ({formatCurrency(currentPaidAmount)}):</div>
+                    <div className="text-sm font-semibold text-orange-800 dark:text-orange-300 mb-2">{t('saleForm.paymentDistribution', { amount: formatCurrency(currentPaidAmount) })}</div>
 
                     {currentPaidAmount > 0 ? (
                       <>
                         {/* Applied to current sale */}
                         <div className="flex justify-between items-center text-sm">
-                          <span className="text-gray-600">يُخصم من الفاتورة:</span>
-                          <span className="font-medium text-green-600">{formatCurrency(appliedToCurrentSale)}</span>
+                          <span className="text-gray-600 dark:text-gray-400">{t('saleForm.deductedFromInvoice')}</span>
+                          <span className="font-medium text-green-600 dark:text-green-400">{formatCurrency(appliedToCurrentSale)}</span>
                         </div>
 
                         {/* Applied to previous debt */}
                         {appliedToPreviousDebt > 0 && (
                           <div className="flex justify-between items-center text-sm">
-                            <span className="text-gray-600">يُخصم من الدين السابق:</span>
-                            <span className="font-medium text-green-600">{formatCurrency(appliedToPreviousDebt)}</span>
+                            <span className="text-gray-600 dark:text-gray-400">{t('saleForm.deductedFromPreviousDebt')}</span>
+                            <span className="font-medium text-green-600 dark:text-green-400">{formatCurrency(appliedToPreviousDebt)}</span>
                           </div>
                         )}
 
-                        <hr className="border-orange-200" />
+                        <hr className="border-orange-200 dark:border-orange-800" />
                       </>
                     ) : (
-                      <div className="text-sm text-gray-500 text-center py-1">لم يتم إدخال مبلغ مقبوض</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-1">{t('saleForm.noPaidAmountEntered')}</div>
                     )}
 
                     {/* Remaining */}
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">متبقي الفاتورة:</span>
+                      <span className="text-gray-600 dark:text-gray-400">{t('saleForm.invoiceRemaining')}</span>
                       <span className={`font-medium ${remainingFromSale > 0 ? 'text-red-600' : 'text-green-600'}`}>
                         {formatCurrency(remainingFromSale)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">متبقي الدين السابق:</span>
+                      <span className="text-gray-600 dark:text-gray-400">{t('saleForm.previousDebtRemaining')}</span>
                       <span className={`font-medium ${remainingPreviousDebt > 0 ? 'text-red-600' : 'text-green-600'}`}>
                         {formatCurrency(remainingPreviousDebt)}
                       </span>
                     </div>
 
-                    <hr className="border-orange-200" />
+                    <hr className="border-orange-200 dark:border-orange-800" />
 
                     {/* Total remaining */}
                     <div className="flex justify-between items-center font-bold">
-                      <span className="text-orange-800">إجمالي دين العميل بعد التحصيل:</span>
+                      <span className="text-orange-800 dark:text-orange-300">{t('saleForm.totalDebtAfterCollection')}</span>
                       <span className={`text-lg ${totalRemainingDebt > 0 ? 'text-red-600' : 'text-green-600'}`}>
                         {formatCurrency(totalRemainingDebt)}
                       </span>
                     </div>
                   </div>
                 ) : (
-                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                  <div className="p-3 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 rounded-xl">
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">المتبقي من الفاتورة:</span>
+                      <span className="text-gray-600 dark:text-gray-400">{t('saleForm.remainingFromInvoice')}</span>
                       <span className={`font-bold ${remainingFromSale > 0 ? 'text-red-600' : 'text-green-600'}`}>
                         {formatCurrency(remainingFromSale)}
                       </span>
@@ -1767,35 +1897,42 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                   </div>
                 )}
 
-                <button
-                  ref={submitBtnRef}
-                  type="submit"
-                  disabled={isSaving || items.length === 0}
-                  className="btn btn-primary w-full"
-                >
-                  {isSaving ? 'جاري الحفظ...' : 'حفظ الفاتورة (F4)'}
-                </button>
-
-                {!isEditMode && (
+                <div className="space-y-2 pt-1" data-tour="sf-save">
                   <button
-                    type="button"
-                    onClick={handleSaveDraft}
+                    ref={submitBtnRef}
+                    type="submit"
                     disabled={isSaving || items.length === 0}
-                    className="w-full px-4 py-2 text-sm font-medium rounded-lg border-2 border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-50"
+                    className="w-full px-4 py-2.5 text-sm font-bold rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isSaving ? 'جاري الحفظ...' : 'حفظ كمسودة (بدون خصم المخزون)'}
+                    {isSaving ? t('saleForm.saving') : (
+                      <span className="flex items-center justify-center gap-2">
+                        {t('saleForm.saveInvoice')}
+                        <kbd className="bg-white/20 px-1.5 py-0.5 rounded-md text-[10px] font-mono">F4</kbd>
+                      </span>
+                    )}
                   </button>
-                )}
 
-                {onCancel ? (
-                  <button type="button" onClick={onCancel} className="btn btn-secondary w-full text-center block">
-                    إلغاء
-                  </button>
-                ) : (
-                  <Link href="/dashboard/sales" className="btn btn-secondary w-full text-center block">
-                    إلغاء
-                  </Link>
-                )}
+                  {!isEditMode && (
+                    <button
+                      type="button"
+                      onClick={handleSaveDraft}
+                      disabled={isSaving || items.length === 0}
+                      className="w-full px-4 py-2.5 text-sm font-bold rounded-xl border-2 border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSaving ? t('saleForm.saving') : t('saleForm.saveDraft')}
+                    </button>
+                  )}
+
+                  {onCancel ? (
+                    <button type="button" onClick={onCancel} className="w-full px-4 py-2 text-sm font-bold rounded-xl border-2 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 active:scale-[0.98] transition-all text-center">
+                      {t('saleForm.cancel')}
+                    </button>
+                  ) : (
+                    <Link href="/dashboard/sales" className="w-full px-4 py-2 text-sm font-bold rounded-xl border-2 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 text-center block">
+                      {t('saleForm.cancel')}
+                    </Link>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1805,6 +1942,14 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       {/* Click outside to close product search */}
       {showProductSearch && (
         <div className="fixed inset-0 z-0" onClick={() => setShowProductSearch(false)} />
+      )}
+
+      {showTour && (
+        <GuidedTour
+          steps={saleFormTourSteps}
+          storageKey="sale_form_tour_step"
+          onComplete={() => setShowTour(false)}
+        />
       )}
     </div>
   );

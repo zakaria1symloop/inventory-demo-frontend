@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { ordersApi, deliveriesApi, usersApi, vehiclesApi, warehousesApi } from '@/lib/api';
 import DateInput from '@/components/ui/DateInput';
@@ -9,8 +9,12 @@ import toast from 'react-hot-toast';
 import Link from 'next/link';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { useLocale } from '@/lib/i18n/context';
+import GuidedTour, { TourStep } from '@/components/GuidedTour';
 import {
   ArrowsUpDownIcon,
+  ArrowRightIcon,
+  ArrowLeftIcon,
   MapPinIcon,
   TruckIcon,
   UserIcon,
@@ -24,6 +28,8 @@ import {
   PhoneIcon,
   DocumentArrowDownIcon,
   BuildingStorefrontIcon,
+  PlayIcon,
+  CubeIcon,
 } from '@heroicons/react/24/outline';
 
 interface Client {
@@ -73,6 +79,10 @@ interface Vehicle {
 }
 
 export default function NewDeliveryPage() {
+  const { t, locale, dir } = useLocale();
+  const isRTL = dir === 'rtl';
+  const BackArrowIcon = isRTL ? ArrowRightIcon : ArrowLeftIcon;
+
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedOrders, setSelectedOrders] = useState<Order[]>([]);
@@ -81,6 +91,7 @@ export default function NewDeliveryPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCreatingWarehouse, setIsCreatingWarehouse] = useState(false);
+  const [showTour, setShowTour] = useState(false);
 
   const [autoStart, setAutoStart] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -104,6 +115,12 @@ export default function NewDeliveryPage() {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [expandedOrders, setExpandedOrders] = useState<number[]>([]);
 
+  const tourSteps: TourStep[] = useMemo(() => [
+    { target: '[data-tour="dn-settings"]', title: t('deliveryNew.tourSettingsTitle'), desc: t('deliveryNew.tourSettingsDesc'), position: 'bottom' as const },
+    { target: '[data-tour="dn-orders"]', title: t('deliveryNew.tourOrdersTitle'), desc: t('deliveryNew.tourOrdersDesc'), position: 'bottom' as const },
+    { target: '[data-tour="dn-summary"]', title: t('deliveryNew.tourSummaryTitle'), desc: t('deliveryNew.tourSummaryDesc'), position: 'left' as const },
+  ], [t]);
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -115,10 +132,9 @@ export default function NewDeliveryPage() {
     );
   };
 
+  // ── Print single order (receipt-style, Arabic-only) ──
   const printOrder = (order: Order, e: React.MouseEvent) => {
     e.stopPropagation();
-
-    // Create hidden iframe for printing
     const iframe = document.createElement('iframe');
     iframe.style.position = 'fixed';
     iframe.style.right = '-9999px';
@@ -132,9 +148,7 @@ export default function NewDeliveryPage() {
         <meta charset="UTF-8">
         <title>Commande ${order.reference}</title>
         <style>
-          @media print {
-            @page { size: 80mm auto; margin: 5mm; }
-          }
+          @media print { @page { size: 80mm auto; margin: 5mm; } }
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { font-family: Arial, sans-serif; padding: 10px; max-width: 300px; margin: 0 auto; font-size: 12px; }
           h1 { text-align: center; font-size: 16px; margin-bottom: 8px; border-bottom: 2px dashed #000; padding-bottom: 8px; }
@@ -157,15 +171,7 @@ export default function NewDeliveryPage() {
           <div class="info-row"><span class="info-label">Date:</span> <span>${new Date(order.date).toLocaleDateString('fr-FR')}</span></div>
         </div>
         <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Produit</th>
-              <th>Qte</th>
-              <th>Prix</th>
-              <th>Total</th>
-            </tr>
-          </thead>
+          <thead><tr><th>#</th><th>Produit</th><th>Qte</th><th>Prix</th><th>Total</th></tr></thead>
           <tbody>
             ${order.items?.map((item, idx) => `
               <tr>
@@ -178,10 +184,7 @@ export default function NewDeliveryPage() {
             `).join('') || '<tr><td colspan="5">Aucun produit</td></tr>'}
           </tbody>
         </table>
-        <div class="total-row">
-          <span>Total:</span>
-          <span>${Number(order.grand_total).toLocaleString('fr-FR')} DA</span>
-        </div>
+        <div class="total-row"><span>Total:</span><span>${Number(order.grand_total).toLocaleString('fr-FR')} DA</span></div>
         <div class="footer">
           <p>Merci pour votre confiance</p>
           <p>${new Date().toLocaleDateString('fr-FR')} - ${new Date().toLocaleTimeString('fr-FR')}</p>
@@ -195,59 +198,35 @@ export default function NewDeliveryPage() {
       iframeDoc.open();
       iframeDoc.write(printContent);
       iframeDoc.close();
-
-      // Wait for content to load then print
       iframe.onload = () => {
         setTimeout(() => {
           iframe.contentWindow?.print();
-          // Remove iframe after printing
-          setTimeout(() => {
-            document.body.removeChild(iframe);
-          }, 1000);
+          setTimeout(() => { document.body.removeChild(iframe); }, 1000);
         }, 250);
       };
-
-      // Trigger load for browsers that don't fire onload
       setTimeout(() => {
         iframe.contentWindow?.print();
-        setTimeout(() => {
-          if (document.body.contains(iframe)) {
-            document.body.removeChild(iframe);
-          }
-        }, 1000);
+        setTimeout(() => { if (document.body.contains(iframe)) document.body.removeChild(iframe); }, 1000);
       }, 500);
     }
   };
 
+  // ── Download PDF (receipt-style, Arabic-only) ──
   const downloadOrderPDF = (order: Order, e: React.MouseEvent) => {
     e.stopPropagation();
-
-    // Create PDF using jsPDF
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: [80, 200], // Receipt size
-    });
-
-    // For Arabic support, we'll use a simple approach with reversed text
-    const reverseArabic = (text: string) => text;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [80, 200] });
 
     let yPos = 10;
     const pageWidth = 80;
     const margin = 5;
-    const contentWidth = pageWidth - (margin * 2);
 
-    // Title
     doc.setFontSize(14);
     doc.text(order.reference, pageWidth / 2, yPos, { align: 'center' });
     yPos += 8;
-
-    // Line
     doc.setLineWidth(0.5);
     doc.line(margin, yPos, pageWidth - margin, yPos);
     yPos += 5;
 
-    // Client Info
     doc.setFontSize(10);
     doc.text(`Client: ${order.client?.name || '-'}`, pageWidth - margin, yPos, { align: 'right' });
     yPos += 5;
@@ -256,7 +235,6 @@ export default function NewDeliveryPage() {
     doc.text(`Date: ${new Date(order.date).toLocaleDateString('fr-FR')}`, pageWidth - margin, yPos, { align: 'right' });
     yPos += 8;
 
-    // Products header
     doc.setFontSize(9);
     doc.text('Qte', margin + 5, yPos);
     doc.text('Produit', margin + 20, yPos);
@@ -265,20 +243,17 @@ export default function NewDeliveryPage() {
     doc.line(margin, yPos, pageWidth - margin, yPos);
     yPos += 4;
 
-    // Products
     doc.setFontSize(8);
     order.items?.forEach((item) => {
       const qty = formatQtyLong(item.quantity_confirmed, item.product?.pieces_per_package);
       const name = (item.product?.name || '-').substring(0, 15);
       const total = (Number(item.quantity_confirmed) * Number(item.unit_price)).toFixed(0);
-
       doc.text(qty, margin + 5, yPos);
       doc.text(name, margin + 15, yPos);
       doc.text(total, pageWidth - margin, yPos, { align: 'right' });
       yPos += 5;
     });
 
-    // Total
     yPos += 3;
     doc.setLineWidth(0.5);
     doc.line(margin, yPos, pageWidth - margin, yPos);
@@ -286,9 +261,8 @@ export default function NewDeliveryPage() {
     doc.setFontSize(12);
     doc.text(`Total: ${Number(order.grand_total).toFixed(0)} DA`, pageWidth - margin, yPos, { align: 'right' });
 
-    // Download
     doc.save(`commande-${order.reference}.pdf`);
-    toast.success('PDF telecharge avec succes');
+    toast.success(t('deliveryNew.pdfSuccess'));
   };
 
   const fetchData = async () => {
@@ -298,34 +272,22 @@ export default function NewDeliveryPage() {
         usersApi.getAll({ role: 'livreur', is_active: true }),
         vehiclesApi.getAll({ is_active: true }),
       ]);
-
       setOrders(ordersRes.data);
       const usersData = usersRes.data.data || usersRes.data;
       setLivreurs(usersData.filter((u: User) => u.role === 'livreur'));
       setVehicles(vehiclesRes.data.data || vehiclesRes.data);
-    } catch (error) {
-      toast.error('خطأ في تحميل البيانات');
+    } catch {
+      toast.error(t('deliveryNew.errorLoadingData'));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const formatCurrency = (value: number) => {
-    // Use fr-DZ for consistent comma thousands separator
-    return new Intl.NumberFormat('fr-DZ', {
-      style: 'currency',
-      currency: 'DZD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat(locale === 'fr' ? 'fr-DZ' : 'ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
 
-  const formatNumber = (value: number) => {
-    return new Intl.NumberFormat('fr-DZ', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    }).format(value);
-  };
+  const formatNumber = (value: number) =>
+    new Intl.NumberFormat(locale === 'fr' ? 'fr-DZ' : 'ar-DZ', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(value);
 
   const handleSelectOrder = (order: Order) => {
     if (selectedOrders.find((o) => o.id === order.id)) {
@@ -347,15 +309,11 @@ export default function NewDeliveryPage() {
     setSelectedOrders(selectedOrders.filter((o) => o.id !== orderId));
   };
 
-  // Drag and Drop handlers
-  const handleDragStart = (index: number) => {
-    setDraggedIndex(index);
-  };
+  const handleDragStart = (index: number) => { setDraggedIndex(index); };
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault();
     if (draggedIndex === null || draggedIndex === index) return;
-
     const newOrders = [...selectedOrders];
     const draggedItem = newOrders[draggedIndex];
     newOrders.splice(draggedIndex, 1);
@@ -364,17 +322,10 @@ export default function NewDeliveryPage() {
     setDraggedIndex(index);
   };
 
-  const handleDragEnd = () => {
-    setDraggedIndex(null);
-  };
+  const handleDragEnd = () => { setDraggedIndex(null); };
 
   const moveOrder = (index: number, direction: 'up' | 'down') => {
-    if (
-      (direction === 'up' && index === 0) ||
-      (direction === 'down' && index === selectedOrders.length - 1)
-    )
-      return;
-
+    if ((direction === 'up' && index === 0) || (direction === 'down' && index === selectedOrders.length - 1)) return;
     const newOrders = [...selectedOrders];
     const newIndex = direction === 'up' ? index - 1 : index + 1;
     [newOrders[index], newOrders[newIndex]] = [newOrders[newIndex], newOrders[index]];
@@ -384,22 +335,17 @@ export default function NewDeliveryPage() {
   const handleCreateWarehouse = async (driver: User) => {
     setIsCreatingWarehouse(true);
     try {
-      const warehouseRes = await warehousesApi.create({
-        name: 'مستودع ' + driver.name,
-        is_main: false,
-        is_active: true,
-      });
+      const warehouseRes = await warehousesApi.create({ name: 'مستودع ' + driver.name, is_main: false, is_active: true });
       const warehouse = warehouseRes.data;
       await warehousesApi.assignUser(warehouse.id, driver.id);
-      // Update the driver in local state
       setLivreurs(prev => prev.map(l =>
         l.id === driver.id
           ? { ...l, warehouse_id: warehouse.id, warehouse: { id: warehouse.id, name: warehouse.name, stock_count: 0 } }
           : l
       ));
-      toast.success('تم إنشاء المستودع بنجاح');
+      toast.success(t('deliveryNew.warehouseCreated'));
     } catch {
-      toast.error('فشل في إنشاء المستودع');
+      toast.error(t('deliveryNew.warehouseCreateFailed'));
     } finally {
       setIsCreatingWarehouse(false);
     }
@@ -407,16 +353,16 @@ export default function NewDeliveryPage() {
 
   const handleSubmit = async () => {
     if (!formData.livreur_id) {
-      toast.error('يرجى اختيار السائق');
+      toast.error(t('deliveryNew.selectDriverError'));
       return;
     }
     const selectedDriver = livreurs.find(l => l.id === Number(formData.livreur_id));
     if (selectedDriver && !selectedDriver.warehouse) {
-      toast.error('السائق المختار ليس لديه مستودع. يرجى إنشاء مستودع أولاً');
+      toast.error(t('deliveryNew.noWarehouseDriverError'));
       return;
     }
     if (selectedOrders.length === 0) {
-      toast.error('يرجى اختيار طلب واحد على الأقل');
+      toast.error(t('deliveryNew.selectOrderError'));
       return;
     }
 
@@ -429,24 +375,22 @@ export default function NewDeliveryPage() {
         notes: formData.notes || null,
         order_ids: selectedOrders.map((o) => o.id),
       });
-
       const deliveryId = response.data.id;
 
       if (autoStart) {
         try {
           await deliveriesApi.start(deliveryId);
-          toast.success('تم إنشاء وبدء رحلة التوصيل بنجاح');
+          toast.success(t('deliveryNew.createdAndStarted'));
         } catch {
-          toast.success('تم إنشاء الرحلة لكن فشل البدء التلقائي');
+          toast.success(t('deliveryNew.createdButStartFailed'));
         }
       } else {
-        toast.success('تم إنشاء رحلة التوصيل بنجاح');
+        toast.success(t('deliveryNew.createdSuccess'));
       }
-
       router.push(`/dashboard/deliveries/${deliveryId}`);
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'خطأ في إنشاء رحلة التوصيل');
+      toast.error(err.response?.data?.message || t('deliveryNew.createError'));
     } finally {
       setIsSubmitting(false);
     }
@@ -454,11 +398,10 @@ export default function NewDeliveryPage() {
 
   const totalAmount = selectedOrders.reduce((sum, o) => sum + (Number(o.grand_total) || 0), 0);
   const totalProducts = selectedOrders.reduce(
-    (sum, o) => sum + (o.items?.reduce((s, i) => s + (Number(i.quantity_confirmed) || 0), 0) || 0),
-    0
+    (sum, o) => sum + (o.items?.reduce((s, i) => s + (Number(i.quantity_confirmed) || 0), 0) || 0), 0
   );
 
-  // Build merged products list from selected orders
+  // ── Merged products for print ──
   const getMergedProducts = () => {
     const merged: Record<number, { name: string; totalQty: number; piecesPerUnit: number; totalPieces: number }> = {};
     selectedOrders.forEach((order) => {
@@ -475,6 +418,7 @@ export default function NewDeliveryPage() {
     return Object.values(merged).sort((a, b) => a.name.localeCompare(b.name));
   };
 
+  // ── Print merged loading list (Arabic-only) ──
   const printMergedProducts = () => {
     const products = getMergedProducts();
     const livreur = livreurs.find((l) => l.id === Number(formData.livreur_id));
@@ -519,25 +463,14 @@ export default function NewDeliveryPage() {
       <body>
         <h1>قائمة التحميل - Bon de Chargement</h1>
         <div class="subtitle">${formData.date ? new Date(formData.date).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR')}</div>
-
         <div class="info-bar">
           <div class="info-item"><span class="info-label">السائق:</span> <span class="info-value">${livreur?.name || '-'}</span></div>
           <div class="info-item"><span class="info-label">عدد الطلبات:</span> <span class="info-value">${selectedOrders.length}</span></div>
           <div class="info-item"><span class="info-label">عدد العملاء:</span> <span class="info-value">${new Set(selectedOrders.map(o => o.client_id)).size}</span></div>
           <div class="info-item"><span class="info-label">المبلغ:</span> <span class="info-value">${Number(totalAmount).toLocaleString('fr-FR')} DA</span></div>
         </div>
-
         <table>
-          <thead>
-            <tr>
-              <th style="width:40px">#</th>
-              <th>المنتج</th>
-              <th style="width:80px">الكمية</th>
-              <th style="width:60px">الوحدة</th>
-              <th style="width:80px">العدد</th>
-              <th class="check-col">&#x2713;</th>
-            </tr>
-          </thead>
+          <thead><tr><th style="width:40px">#</th><th>المنتج</th><th style="width:80px">الكمية</th><th style="width:60px">الوحدة</th><th style="width:80px">العدد</th><th class="check-col">&#x2713;</th></tr></thead>
           <tbody>
             ${products.map((p, i) => `
               <tr>
@@ -558,7 +491,6 @@ export default function NewDeliveryPage() {
             </tr>
           </tbody>
         </table>
-
         <div class="clients-list">
           <h3>تفصيل حسب العميل (${selectedOrders.length} طلب)</h3>
           ${selectedOrders.map((o, i) => `
@@ -568,10 +500,7 @@ export default function NewDeliveryPage() {
             </div>
           `).join('')}
         </div>
-
-        <div class="footer">
-          <p>تم الطباعة في ${new Date().toLocaleDateString('fr-FR')} - ${new Date().toLocaleTimeString('fr-FR')}</p>
-        </div>
+        <div class="footer"><p>تم الطباعة في ${new Date().toLocaleDateString('fr-FR')} - ${new Date().toLocaleTimeString('fr-FR')}</p></div>
       </body>
       </html>
     `;
@@ -581,230 +510,219 @@ export default function NewDeliveryPage() {
       iframeDoc.open();
       iframeDoc.write(printContent);
       iframeDoc.close();
-
       iframe.onload = () => {
         setTimeout(() => {
           iframe.contentWindow?.print();
           setTimeout(() => { document.body.removeChild(iframe); }, 1000);
         }, 250);
       };
-
       setTimeout(() => {
         iframe.contentWindow?.print();
-        setTimeout(() => {
-          if (document.body.contains(iframe)) document.body.removeChild(iframe);
-        }, 1000);
+        setTimeout(() => { if (document.body.contains(iframe)) document.body.removeChild(iframe); }, 1000);
       }, 500);
     }
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="spinner"></div>
-      </div>
-    );
+    return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
   }
 
   return (
-    <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-5">
+      {/* ───── Header ───── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Link href="/dashboard/deliveries" className="text-gray-500 hover:text-gray-700">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
+          <Link href="/dashboard/deliveries" className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+            <BackArrowIcon className="w-4 h-4" />
+            {t('deliveryNew.back')}
           </Link>
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+            <TruckIcon className="w-6 h-6 text-white" />
+          </div>
           <div>
-            <h1 className="text-2xl font-bold">إنشاء رحلة توصيل جديدة</h1>
-            <p className="text-gray-500">اختر الطلبات وحدد السائق والمركبة</p>
+            <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">{t('deliveryNew.title')}</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{t('deliveryNew.subtitle')}</p>
           </div>
         </div>
+        <button onClick={() => setShowTour(true)} className="text-sm font-medium text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors">
+          {t('deliveryNew.tourBtn')}
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Side - Available Orders */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Delivery Settings */}
-          <div className="card">
-            <h3 className="font-bold mb-4 flex items-center gap-2">
-              <TruckIcon className="w-5 h-5" />
-              إعدادات التوصيل
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  السائق <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.livreur_id}
-                  onChange={(e) => setFormData({ ...formData, livreur_id: e.target.value })}
-                  className="select w-full"
-                >
-                  <option value="">اختر السائق</option>
-                  {livreurs.map((livreur) => (
-                    <option key={livreur.id} value={livreur.id}>
-                      {livreur.name} {livreur.phone && `(${livreur.phone})`}
-                    </option>
-                  ))}
-                </select>
-                {formData.livreur_id && (() => {
-                  const driver = livreurs.find(l => l.id === Number(formData.livreur_id));
-                  if (!driver) return null;
-                  return (
-                    <div className={`mt-2 p-2.5 rounded-lg text-sm border ${driver.warehouse ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-200'}`}>
-                      <div className="flex items-center gap-2">
-                        <BuildingStorefrontIcon className={`w-4 h-4 ${driver.warehouse ? 'text-blue-600' : 'text-red-600'}`} />
-                        <span className={`font-medium ${driver.warehouse ? 'text-blue-800' : 'text-red-800'}`}>
-                          {driver.warehouse ? driver.warehouse.name : 'بدون مستودع'}
-                        </span>
-                      </div>
-                      {driver.warehouse && driver.warehouse.stock_count !== undefined && (
-                        <p className="text-blue-600 text-xs mt-1 mr-6">
-                          {driver.warehouse.stock_count > 0
-                            ? `${driver.warehouse.stock_count} منتج في المخزون`
-                            : 'المخزون فارغ'}
-                        </p>
-                      )}
-                      {!driver.warehouse && (
-                        <div className="mt-2">
-                          <p className="text-red-600 text-xs mb-2">لا يمكن إنشاء توصيل بدون مستودع للسائق</p>
-                          <button
-                            type="button"
-                            onClick={() => handleCreateWarehouse(driver)}
-                            disabled={isCreatingWarehouse}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
-                          >
-                            {isCreatingWarehouse ? (
-                              <span className="spinner w-3 h-3"></span>
-                            ) : (
-                              <BuildingStorefrontIcon className="w-3.5 h-3.5" />
-                            )}
-                            إنشاء مستودع للسائق
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* ═══════ Left Side ═══════ */}
+        <div className="lg:col-span-2 space-y-5">
+
+          {/* ───── Delivery Settings ───── */}
+          <div data-tour="dn-settings" className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
+                <TruckIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">المركبة</label>
-                <select
-                  value={formData.vehicle_id}
-                  onChange={(e) => setFormData({ ...formData, vehicle_id: e.target.value })}
-                  className="select w-full"
-                >
-                  <option value="">اختر المركبة (اختياري)</option>
-                  {vehicles.map((vehicle) => (
-                    <option key={vehicle.id} value={vehicle.id}>
-                      {vehicle.name} {vehicle.plate_number && `(${vehicle.plate_number})`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  تاريخ التوصيل <span className="text-red-500">*</span>
-                </label>
-                <DateInput
-                  value={formData.date}
-                  onChange={(v) => setFormData({ ...formData, date: v })}
-                  className="w-full"
-                />
-              </div>
-            </div>
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">ملاحظات</label>
-              <textarea
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                className="textarea w-full"
-                rows={2}
-                placeholder="ملاحظات إضافية..."
-              />
+              <h3 className="font-bold text-gray-800 dark:text-gray-100">{t('deliveryNew.settingsTitle')}</h3>
             </div>
 
-            {/* Auto-start toggle */}
-            <div className="mt-4 pt-4 border-t">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">بدء الرحلة تلقائياً</p>
-                    <p className="text-xs text-gray-500">سيتم بدء الرحلة وخصم المنتجات من المستودع مباشرة بعد الإنشاء</p>
-                  </div>
+            <div className="p-5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Driver */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {t('deliveryNew.driverLabel')} <span className="text-red-500">{t('deliveryNew.required')}</span>
+                  </label>
+                  <select
+                    value={formData.livreur_id}
+                    onChange={(e) => setFormData({ ...formData, livreur_id: e.target.value })}
+                    className="w-full px-3 py-2.5 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm"
+                  >
+                    <option value="">{t('deliveryNew.selectDriver')}</option>
+                    {livreurs.map((livreur) => (
+                      <option key={livreur.id} value={livreur.id}>
+                        {livreur.name} {livreur.phone && `(${livreur.phone})`}
+                      </option>
+                    ))}
+                  </select>
+
+                  {formData.livreur_id && (() => {
+                    const driver = livreurs.find(l => l.id === Number(formData.livreur_id));
+                    if (!driver) return null;
+                    return (
+                      <div className={`mt-2 p-2.5 rounded-xl text-sm border ${driver.warehouse ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'}`}>
+                        <div className="flex items-center gap-2">
+                          <BuildingStorefrontIcon className={`w-4 h-4 ${driver.warehouse ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`} />
+                          <span className={`font-medium ${driver.warehouse ? 'text-blue-800 dark:text-blue-300' : 'text-red-800 dark:text-red-300'}`}>
+                            {driver.warehouse ? driver.warehouse.name : t('deliveryNew.noWarehouse')}
+                          </span>
+                        </div>
+                        {driver.warehouse && driver.warehouse.stock_count !== undefined && (
+                          <p className="text-blue-600 dark:text-blue-400 text-xs mt-1 ms-6">
+                            {driver.warehouse.stock_count > 0
+                              ? t('deliveryNew.stockInWarehouse').replace('{count}', String(driver.warehouse.stock_count))
+                              : t('deliveryNew.emptyStock')}
+                          </p>
+                        )}
+                        {!driver.warehouse && (
+                          <div className="mt-2">
+                            <p className="text-red-600 dark:text-red-400 text-xs mb-2">{t('deliveryNew.noWarehouseError')}</p>
+                            <button
+                              type="button"
+                              onClick={() => handleCreateWarehouse(driver)}
+                              disabled={isCreatingWarehouse}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+                            >
+                              {isCreatingWarehouse ? <span className="spinner w-3 h-3"></span> : <BuildingStorefrontIcon className="w-3.5 h-3.5" />}
+                              {t('deliveryNew.createWarehouse')}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={autoStart}
-                  onClick={() => handleAutoStartToggle(!autoStart)}
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
-                    autoStart ? 'bg-green-600' : 'bg-gray-200'
-                  }`}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                      autoStart ? '-translate-x-5' : 'translate-x-0'
-                    }`}
+
+                {/* Vehicle */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('deliveryNew.vehicleLabel')}</label>
+                  <select
+                    value={formData.vehicle_id}
+                    onChange={(e) => setFormData({ ...formData, vehicle_id: e.target.value })}
+                    className="w-full px-3 py-2.5 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm"
+                  >
+                    <option value="">{t('deliveryNew.selectVehicle')}</option>
+                    {vehicles.map((vehicle) => (
+                      <option key={vehicle.id} value={vehicle.id}>
+                        {vehicle.name} {vehicle.plate_number && `(${vehicle.plate_number})`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Date */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {t('deliveryNew.dateLabel')} <span className="text-red-500">{t('deliveryNew.required')}</span>
+                  </label>
+                  <DateInput
+                    value={formData.date}
+                    onChange={(v) => setFormData({ ...formData, date: v })}
+                    className="w-full"
                   />
-                </button>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('deliveryNew.notesLabel')}</label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none transition-all text-sm"
+                  rows={2}
+                  placeholder={t('deliveryNew.notesPlaceholder')}
+                />
+              </div>
+
+              {/* Auto-start toggle */}
+              <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <PlayIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('deliveryNew.autoStartLabel')}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{t('deliveryNew.autoStartDesc')}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={autoStart}
+                    onClick={() => handleAutoStartToggle(!autoStart)}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${autoStart ? 'bg-green-600' : 'bg-gray-200 dark:bg-gray-600'}`}
+                  >
+                    <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${autoStart ? (isRTL ? 'translate-x-0' : '-translate-x-5') : (isRTL ? 'translate-x-5' : 'translate-x-0')}`} />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Available Orders */}
-          <div className="card">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold">الطلبات المؤكدة ({orders.length})</h3>
-              <button
-                onClick={handleSelectAll}
-                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-              >
-                {selectedOrders.length === orders.length ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
+          {/* ───── Available Orders ───── */}
+          <div data-tour="dn-orders" className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
+                  <CubeIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                </div>
+                <h3 className="font-bold text-gray-800 dark:text-gray-100">{t('deliveryNew.confirmedOrders')}</h3>
+                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
+                  {orders.length}
+                </span>
+              </div>
+              <button onClick={handleSelectAll} className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
+                {selectedOrders.length === orders.length ? t('deliveryNew.deselectAll') : t('deliveryNew.selectAll')}
               </button>
             </div>
 
             {orders.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">لا توجد طلبات مؤكدة للتوصيل</div>
+              <div className="text-center py-12 text-gray-500 dark:text-gray-400">{t('deliveryNew.noOrders')}</div>
             ) : (
-              <div className="space-y-2 max-h-[500px] overflow-y-auto">
+              <div className="divide-y divide-gray-100 dark:divide-gray-700 max-h-[500px] overflow-y-auto">
                 {orders.map((order) => {
                   const isSelected = selectedOrders.some((o) => o.id === order.id);
                   const isExpanded = expandedOrders.includes(order.id);
                   const hasGps = order.client?.gps_lat && order.client?.gps_lng;
 
                   return (
-                    <div
-                      key={order.id}
-                      className={`border rounded-lg transition-all ${
-                        isSelected
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      {/* Order Header */}
-                      <div
-                        onClick={() => handleSelectOrder(order)}
-                        className="p-3 cursor-pointer"
-                      >
+                    <div key={order.id} className={`transition-colors ${isSelected ? 'bg-blue-50/60 dark:bg-blue-900/15' : ''}`}>
+                      {/* Order row */}
+                      <div onClick={() => handleSelectOrder(order)} className="px-5 py-3.5 cursor-pointer hover:bg-gray-50/80 dark:hover:bg-gray-700/30 transition-colors">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div
-                              className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
-                                isSelected ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
-                              }`}
-                            >
+                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${isSelected ? 'border-blue-500 bg-blue-500' : 'border-gray-300 dark:border-gray-600'}`}>
                               {isSelected && <CheckCircleIcon className="w-4 h-4 text-white" />}
                             </div>
                             <div>
-                              <div className="font-medium">{order.reference}</div>
-                              <div className="text-sm text-gray-500 flex items-center gap-2">
+                              <div className="font-bold text-sm text-gray-800 dark:text-gray-100">{order.reference}</div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
                                 <span>{order.client?.name}</span>
                                 {order.client?.phone && (
                                   <span className="flex items-center gap-1 text-xs">
@@ -816,112 +734,85 @@ export default function NewDeliveryPage() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            {hasGps && (
-                              <MapPinIcon className="w-5 h-5 text-green-600" title="يوجد موقع GPS" />
-                            )}
-                            <div className="text-left">
-                              <div className="font-medium">{formatCurrency(order.grand_total)}</div>
-                              <div className="text-xs text-gray-500">
-                                {order.items?.length || 0} منتج
-                              </div>
+                            {hasGps && <MapPinIcon className="w-4 h-4 text-green-600 dark:text-green-400" title={t('deliveryNew.hasGPS')} />}
+                            <div className={`text-${isRTL ? 'start' : 'end'}`}>
+                              <div className="font-bold text-sm text-gray-800 dark:text-gray-100">{formatCurrency(order.grand_total)}</div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">{t('deliveryNew.productsCount').replace('{count}', String(order.items?.length || 0))}</div>
                             </div>
                           </div>
                         </div>
                         {order.client?.address && (
-                          <div className="mt-2 text-sm text-gray-500 pr-8">
-                            {order.client.address}
-                          </div>
+                          <div className="mt-1.5 text-sm text-gray-500 dark:text-gray-400 ps-8">{order.client.address}</div>
                         )}
                       </div>
 
-                      {/* Action Buttons */}
-                      <div className="flex items-center justify-between px-3 py-2 border-t bg-gray-50/50">
-                        <button
-                          onClick={(e) => toggleOrderExpand(order.id, e)}
-                          className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
-                        >
+                      {/* Action buttons */}
+                      <div className="flex items-center justify-between px-5 py-2 border-t border-gray-100/80 dark:border-gray-700/50 bg-gray-50/30 dark:bg-gray-800/30">
+                        <button onClick={(e) => toggleOrderExpand(order.id, e)} className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
                           {isExpanded ? (
-                            <>
-                              <ChevronUpIcon className="w-4 h-4" />
-                              إخفاء المنتجات
-                            </>
+                            <><ChevronUpIcon className="w-4 h-4" />{t('deliveryNew.hideProducts')}</>
                           ) : (
-                            <>
-                              <ChevronDownIcon className="w-4 h-4" />
-                              عرض المنتجات ({order.items?.length || 0})
-                            </>
+                            <><ChevronDownIcon className="w-4 h-4" />{t('deliveryNew.showProducts')} ({order.items?.length || 0})</>
                           )}
                         </button>
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={(e) => downloadOrderPDF(order, e)}
-                            className="flex items-center gap-1 text-sm text-green-600 hover:text-green-800"
-                            title="تحميل PDF"
-                          >
+                          <button onClick={(e) => downloadOrderPDF(order, e)} className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 transition-colors" title={t('deliveryNew.downloadPDF')}>
                             <DocumentArrowDownIcon className="w-4 h-4" />
-                            PDF
+                            {t('deliveryNew.downloadPDF')}
                           </button>
-                          <button
-                            onClick={(e) => printOrder(order, e)}
-                            className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-800"
-                            title="طباعة"
-                          >
+                          <button onClick={(e) => printOrder(order, e)} className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 transition-colors" title={t('deliveryNew.print')}>
                             <PrinterIcon className="w-4 h-4" />
-                            طباعة
+                            {t('deliveryNew.print')}
                           </button>
                         </div>
                       </div>
 
-                      {/* Expanded Product Details */}
+                      {/* Expanded products */}
                       {isExpanded && (
-                        <div className="border-t bg-white p-3">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="text-gray-500 border-b bg-gray-50">
-                                <th className="text-center py-2 font-medium w-10">الرقم</th>
-                                <th className="text-right py-2 font-medium">التعيين</th>
-                                <th className="text-center py-2 font-medium w-16">الكمية</th>
-                                <th className="text-center py-2 font-medium w-16">الوحدة</th>
-                                <th className="text-center py-2 font-medium w-16">العدد</th>
-                                <th className="text-center py-2 font-medium w-20">س. الوحدة</th>
-                                <th className="text-left py-2 font-medium w-24">المبلغ</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {order.items && order.items.length > 0 ? (
-                                order.items.map((item, idx) => {
-                                  const piecesPerUnit = item.product?.pieces_per_package || 1;
-                                  const totalPieces = item.quantity_confirmed * piecesPerUnit;
-                                  const lineTotal = item.quantity_confirmed * item.unit_price;
-                                  return (
-                                    <tr key={idx} className="border-b last:border-0 hover:bg-gray-50">
-                                      <td className="py-2 text-center text-gray-500">{idx + 1}</td>
-                                      <td className="py-2 font-medium">{item.product?.name || '-'}</td>
-                                      <td className="py-2 text-center font-bold text-blue-600">{formatQty(item.quantity_confirmed, piecesPerUnit)}</td>
-                                      <td className="py-2 text-center">{formatNumber(piecesPerUnit)}</td>
-                                      <td className="py-2 text-center">{formatNumber(totalPieces)}</td>
-                                      <td className="py-2 text-center">{formatNumber(item.unit_price)}</td>
-                                      <td className="py-2 text-left font-medium">{formatNumber(lineTotal)}</td>
-                                    </tr>
-                                  );
-                                })
-                              ) : (
-                                <tr>
-                                  <td colSpan={7} className="py-4 text-center text-gray-500">
-                                    لا توجد منتجات
-                                  </td>
+                        <div className="border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900/30 px-5 py-3">
+                          <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="bg-gray-100/80 dark:bg-gray-700/50">
+                                  <th className="text-center py-2.5 px-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-10">{t('deliveryNew.number')}</th>
+                                  <th className="text-start py-2.5 px-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryNew.designation')}</th>
+                                  <th className="text-center py-2.5 px-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-16">{t('deliveryNew.quantity')}</th>
+                                  <th className="text-center py-2.5 px-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-16">{t('deliveryNew.unit')}</th>
+                                  <th className="text-center py-2.5 px-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-16">{t('deliveryNew.count')}</th>
+                                  <th className="text-center py-2.5 px-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-20">{t('deliveryNew.unitPrice')}</th>
+                                  <th className="text-start py-2.5 px-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-24">{t('deliveryNew.amount')}</th>
                                 </tr>
-                              )}
-                            </tbody>
-                            <tfoot>
-                              <tr className="border-t-2 font-bold bg-green-50">
-                                <td colSpan={6} className="py-2 text-right">الإجمالي</td>
-                                <td className="py-2 text-left text-green-600">
-                                  {formatNumber(order.grand_total)}
-                                </td>
-                              </tr>
-                            </tfoot>
-                          </table>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800">
+                                {order.items && order.items.length > 0 ? (
+                                  order.items.map((item, idx) => {
+                                    const piecesPerUnit = item.product?.pieces_per_package || 1;
+                                    const totalPieces = item.quantity_confirmed * piecesPerUnit;
+                                    const lineTotal = item.quantity_confirmed * item.unit_price;
+                                    return (
+                                      <tr key={idx} className="hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors">
+                                        <td className="py-2 px-2 text-center text-gray-500 dark:text-gray-400">{idx + 1}</td>
+                                        <td className="py-2 px-2 font-medium text-gray-800 dark:text-gray-100">{item.product?.name || '-'}</td>
+                                        <td className="py-2 px-2 text-center font-bold text-blue-600 dark:text-blue-400">{formatQty(item.quantity_confirmed, piecesPerUnit)}</td>
+                                        <td className="py-2 px-2 text-center text-gray-600 dark:text-gray-400">{formatNumber(piecesPerUnit)}</td>
+                                        <td className="py-2 px-2 text-center text-gray-600 dark:text-gray-400">{formatNumber(totalPieces)}</td>
+                                        <td className="py-2 px-2 text-center text-gray-600 dark:text-gray-400">{formatNumber(item.unit_price)}</td>
+                                        <td className="py-2 px-2 font-medium text-gray-800 dark:text-gray-100">{formatNumber(lineTotal)}</td>
+                                      </tr>
+                                    );
+                                  })
+                                ) : (
+                                  <tr><td colSpan={7} className="py-4 text-center text-gray-500 dark:text-gray-400">{t('deliveryNew.noProducts')}</td></tr>
+                                )}
+                              </tbody>
+                              <tfoot>
+                                <tr className="border-t-2 border-gray-200 dark:border-gray-600 font-bold bg-green-50/50 dark:bg-green-900/10">
+                                  <td colSpan={6} className="py-2.5 px-2 text-start text-gray-700 dark:text-gray-300">{t('deliveryNew.totalLabel')}</td>
+                                  <td className="py-2.5 px-2 text-green-600 dark:text-green-400">{formatNumber(order.grand_total)}</td>
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -932,50 +823,54 @@ export default function NewDeliveryPage() {
           </div>
         </div>
 
-        {/* Right Side - Selected Orders (Roadmap) */}
-        <div className="space-y-6">
-          {/* Summary */}
-          <div className="card bg-blue-50 border-blue-200">
-            <h3 className="font-bold text-blue-800 mb-4">ملخص الرحلة</h3>
+        {/* ═══════ Right Side ═══════ */}
+        <div data-tour="dn-summary" className="space-y-5">
+
+          {/* ───── Summary Card ───── */}
+          <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 rounded-2xl border border-indigo-200/80 dark:border-indigo-800/50 shadow-sm p-5">
+            <h3 className="font-bold text-indigo-800 dark:text-indigo-300 mb-4">{t('deliveryNew.summaryTitle')}</h3>
             <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-gray-600">عدد الطلبات</span>
-                <span className="font-bold">{selectedOrders.length}</span>
+                <span className="text-gray-600 dark:text-gray-400">{t('deliveryNew.orderCount')}</span>
+                <span className="font-bold text-gray-800 dark:text-gray-100">{selectedOrders.length}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">عدد المنتجات</span>
-                <span className="font-bold">{Math.round(totalProducts)}</span>
+                <span className="text-gray-600 dark:text-gray-400">{t('deliveryNew.productCount')}</span>
+                <span className="font-bold text-gray-800 dark:text-gray-100">{Math.round(totalProducts)}</span>
               </div>
-              <div className="flex justify-between text-lg border-t pt-2">
-                <span className="text-gray-600">المبلغ الإجمالي</span>
-                <span className="font-bold text-green-600">{formatCurrency(totalAmount)}</span>
+              <div className="flex justify-between text-lg border-t border-indigo-200/60 dark:border-indigo-700/50 pt-3">
+                <span className="text-gray-600 dark:text-gray-400">{t('deliveryNew.totalAmount')}</span>
+                <span className="font-extrabold text-green-600 dark:text-green-400">{formatCurrency(totalAmount)}</span>
               </div>
             </div>
 
             {selectedOrders.length > 0 && (
               <button
                 onClick={printMergedProducts}
-                className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-bold transition-colors"
+                className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700 text-white rounded-xl font-bold transition-colors active:scale-[0.98]"
               >
                 <PrinterIcon className="w-5 h-5" />
-                طباعة قائمة التحميل (مجمّعة)
+                {t('deliveryNew.printLoadingList')}
               </button>
             )}
           </div>
 
-          {/* Selected Orders - Roadmap */}
-          <div className="card">
-            <h3 className="font-bold mb-4 flex items-center gap-2">
-              <ArrowsUpDownIcon className="w-5 h-5" />
-              ترتيب التوصيل (اسحب لإعادة الترتيب)
-            </h3>
+          {/* ───── Delivery Order (Roadmap) ───── */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center">
+                <ArrowsUpDownIcon className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-800 dark:text-gray-100">{t('deliveryNew.deliveryOrder')}</h3>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500">{t('deliveryNew.dragToReorder')}</p>
+              </div>
+            </div>
 
             {selectedOrders.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                اختر الطلبات من القائمة على اليسار
-              </div>
+              <div className="text-center py-10 text-gray-500 dark:text-gray-400 text-sm">{t('deliveryNew.selectFromList')}</div>
             ) : (
-              <div className="space-y-2 max-h-[400px] overflow-y-auto">
+              <div className="divide-y divide-gray-100 dark:divide-gray-700 max-h-[400px] overflow-y-auto">
                 {selectedOrders.map((order, index) => {
                   const hasGps = order.client?.gps_lat && order.client?.gps_lng;
                   const isExpanded = expandedOrders.includes(order.id);
@@ -987,84 +882,36 @@ export default function NewDeliveryPage() {
                       onDragStart={() => handleDragStart(index)}
                       onDragOver={(e) => handleDragOver(e, index)}
                       onDragEnd={handleDragEnd}
-                      className={`border rounded-lg bg-white ${
-                        draggedIndex === index ? 'opacity-50 border-blue-500' : 'border-gray-200'
-                      }`}
+                      className={`transition-opacity ${draggedIndex === index ? 'opacity-50' : ''}`}
                     >
                       <div className="p-3 cursor-move">
                         <div className="flex items-center gap-3">
-                          <div className="flex flex-col gap-1">
-                            <button
-                              onClick={() => moveOrder(index, 'up')}
-                              disabled={index === 0}
-                              className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"
-                            >
-                              <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M5 15l7-7 7 7"
-                                />
-                              </svg>
+                          <div className="flex flex-col gap-0.5">
+                            <button onClick={() => moveOrder(index, 'up')} disabled={index === 0} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-30 transition-colors">
+                              <ChevronUpIcon className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
                             </button>
-                            <button
-                              onClick={() => moveOrder(index, 'down')}
-                              disabled={index === selectedOrders.length - 1}
-                              className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"
-                            >
-                              <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M19 9l-7 7-7-7"
-                                />
-                              </svg>
+                            <button onClick={() => moveOrder(index, 'down')} disabled={index === selectedOrders.length - 1} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-30 transition-colors">
+                              <ChevronDownIcon className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
                             </button>
                           </div>
 
-                          <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
+                          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm flex-shrink-0 shadow-sm">
                             {index + 1}
                           </div>
 
                           <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm truncate">{order.client?.name}</div>
-                            <div className="text-xs text-gray-500">
-                              {order.reference} - {formatCurrency(order.grand_total)}
-                            </div>
+                            <div className="font-medium text-sm text-gray-800 dark:text-gray-100 truncate">{order.client?.name}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">{order.reference} - {formatCurrency(order.grand_total)}</div>
                           </div>
 
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            <button
-                              onClick={(e) => toggleOrderExpand(order.id, e)}
-                              className="p-1.5 hover:bg-blue-50 text-blue-600 rounded-lg"
-                              title="عرض المنتجات"
-                            >
+                          <div className="flex items-center gap-0.5 flex-shrink-0">
+                            <button onClick={(e) => toggleOrderExpand(order.id, e)} className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg transition-colors" title={t('deliveryNew.viewProducts')}>
                               <EyeIcon className="w-4 h-4" />
                             </button>
-                            <button
-                              onClick={(e) => downloadOrderPDF(order, e)}
-                              className="p-1.5 hover:bg-green-50 text-green-600 rounded-lg"
-                              title="تحميل PDF"
-                            >
+                            <button onClick={(e) => downloadOrderPDF(order, e)} className="p-1.5 hover:bg-green-50 dark:hover:bg-green-900/20 text-green-600 dark:text-green-400 rounded-lg transition-colors" title={t('deliveryNew.downloadPDF')}>
                               <DocumentArrowDownIcon className="w-4 h-4" />
                             </button>
-                            <button
-                              onClick={(e) => printOrder(order, e)}
-                              className="p-1.5 hover:bg-gray-100 text-gray-600 rounded-lg"
-                              title="طباعة"
-                            >
+                            <button onClick={(e) => printOrder(order, e)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-lg transition-colors" title={t('deliveryNew.print')}>
                               <PrinterIcon className="w-4 h-4" />
                             </button>
                             {hasGps && (
@@ -1073,58 +920,52 @@ export default function NewDeliveryPage() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
-                                className="p-1.5 hover:bg-green-50 text-green-600 rounded-lg"
-                                title="الموقع"
+                                className="p-1.5 hover:bg-green-50 dark:hover:bg-green-900/20 text-green-600 dark:text-green-400 rounded-lg transition-colors"
+                                title={t('deliveryNew.location')}
                               >
                                 <MapPinIcon className="w-4 h-4" />
                               </a>
                             )}
-                            <button
-                              onClick={() => handleRemoveSelected(order.id)}
-                              className="p-1.5 hover:bg-red-50 text-red-600 rounded-lg"
-                              title="إزالة"
-                            >
+                            <button onClick={() => handleRemoveSelected(order.id)} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg transition-colors" title={t('deliveryNew.remove')}>
                               <XMarkIcon className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
                       </div>
 
-                      {/* Expanded Product Details */}
+                      {/* Expanded products in roadmap */}
                       {isExpanded && (
-                        <div className="border-t bg-gray-50 p-2">
+                        <div className="border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20 p-2">
                           <table className="w-full text-xs">
                             <thead>
-                              <tr className="text-gray-500 border-b">
+                              <tr className="text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                                 <th className="text-center py-1 w-6">#</th>
-                                <th className="text-right py-1">التعيين</th>
-                                <th className="text-center py-1 w-10">الكمية</th>
-                                <th className="text-center py-1 w-10">الوحدة</th>
-                                <th className="text-center py-1 w-10">العدد</th>
-                                <th className="text-left py-1 w-14">المبلغ</th>
+                                <th className="text-start py-1">{t('deliveryNew.designation')}</th>
+                                <th className="text-center py-1 w-10">{t('deliveryNew.quantity')}</th>
+                                <th className="text-center py-1 w-10">{t('deliveryNew.unit')}</th>
+                                <th className="text-center py-1 w-10">{t('deliveryNew.count')}</th>
+                                <th className="text-start py-1 w-14">{t('deliveryNew.amount')}</th>
                               </tr>
                             </thead>
-                            <tbody>
+                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                               {order.items && order.items.length > 0 ? (
                                 order.items.map((item, idx) => {
                                   const piecesPerUnit = item.product?.pieces_per_package || 1;
                                   const totalPieces = item.quantity_confirmed * piecesPerUnit;
                                   const lineTotal = item.quantity_confirmed * item.unit_price;
                                   return (
-                                    <tr key={idx} className="border-b last:border-0">
+                                    <tr key={idx} className="text-gray-700 dark:text-gray-300">
                                       <td className="py-1 text-center text-gray-400">{idx + 1}</td>
                                       <td className="py-1 truncate max-w-[100px]">{item.product?.name}</td>
-                                      <td className="py-1 text-center font-bold text-blue-600">{formatQty(item.quantity_confirmed, piecesPerUnit)}</td>
+                                      <td className="py-1 text-center font-bold text-blue-600 dark:text-blue-400">{formatQty(item.quantity_confirmed, piecesPerUnit)}</td>
                                       <td className="py-1 text-center">{piecesPerUnit}</td>
                                       <td className="py-1 text-center">{totalPieces}</td>
-                                      <td className="py-1 text-left font-medium">{formatNumber(lineTotal)}</td>
+                                      <td className="py-1 font-medium">{formatNumber(lineTotal)}</td>
                                     </tr>
                                   );
                                 })
                               ) : (
-                                <tr>
-                                  <td colSpan={6} className="text-center text-gray-500 py-2">لا توجد منتجات</td>
-                                </tr>
+                                <tr><td colSpan={6} className="text-center text-gray-500 dark:text-gray-400 py-2">{t('deliveryNew.noProducts')}</td></tr>
                               )}
                             </tbody>
                           </table>
@@ -1136,50 +977,43 @@ export default function NewDeliveryPage() {
               </div>
             )}
 
-            {/* Create Delivery Button */}
-            <div className="mt-6 pt-4 border-t">
+            {/* Create Button */}
+            <div className="p-5 border-t border-gray-100 dark:border-gray-700">
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting || selectedOrders.length === 0 || !formData.livreur_id}
-                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-bold text-white transition-colors disabled:opacity-50 ${
+                className={`w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl font-bold text-white transition-all disabled:opacity-50 active:scale-[0.98] shadow-sm ${
                   autoStart
-                    ? 'bg-green-600 hover:bg-green-700'
-                    : 'bg-blue-600 hover:bg-blue-700'
+                    ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
+                    : 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700'
                 }`}
               >
                 {isSubmitting ? (
                   <>
                     <div className="spinner w-5 h-5 border-white"></div>
-                    {autoStart ? 'جاري الإنشاء والبدء...' : 'جاري الإنشاء...'}
+                    {autoStart ? t('deliveryNew.creatingAndStarting') : t('deliveryNew.creating')}
                   </>
                 ) : (
                   <>
-                    {autoStart ? (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    ) : (
-                      <TruckIcon className="w-5 h-5" />
-                    )}
-                    {autoStart ? 'إنشاء وبدء الرحلة' : 'إنشاء رحلة التوصيل'}
+                    {autoStart ? <PlayIcon className="w-5 h-5" /> : <TruckIcon className="w-5 h-5" />}
+                    {autoStart ? t('deliveryNew.createAndStart') : t('deliveryNew.createDelivery')}
                   </>
                 )}
               </button>
               {autoStart && (
-                <p className="text-xs text-center text-green-600 mt-2">
-                  سيتم بدء الرحلة وخصم المنتجات تلقائياً
-                </p>
+                <p className="text-xs text-center text-green-600 dark:text-green-400 mt-2">{t('deliveryNew.autoStartNote')}</p>
               )}
             </div>
           </div>
 
-          {/* Map Preview */}
+          {/* ───── Map Preview ───── */}
           {selectedOrders.some((o) => o.client?.gps_lat && o.client?.gps_lng) && (
-            <div className="card">
-              <h3 className="font-bold mb-4 flex items-center gap-2">
-                <MapPinIcon className="w-5 h-5" />
-                معاينة المسار
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm p-5">
+              <h3 className="font-bold text-gray-800 dark:text-gray-100 mb-3 flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-green-50 dark:bg-green-900/30 flex items-center justify-center">
+                  <MapPinIcon className="w-4 h-4 text-green-600 dark:text-green-400" />
+                </div>
+                {t('deliveryNew.routePreview')}
               </h3>
               <a
                 href={`https://www.google.com/maps/dir/${selectedOrders
@@ -1188,15 +1022,20 @@ export default function NewDeliveryPage() {
                   .join('/')}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn btn-secondary w-full flex items-center justify-center gap-2"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium text-sm transition-colors"
               >
-                <MapPinIcon className="w-5 h-5" />
-                فتح المسار في خرائط Google
+                <MapPinIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
+                {t('deliveryNew.openGoogleMaps')}
               </a>
             </div>
           )}
         </div>
       </div>
+
+      {/* ───── Guided Tour ───── */}
+      {showTour && (
+        <GuidedTour steps={tourSteps} onComplete={() => setShowTour(false)} storageKey="delivery_new_tour_step" />
+      )}
     </div>
   );
 }

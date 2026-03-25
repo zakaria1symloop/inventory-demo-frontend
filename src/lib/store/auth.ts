@@ -16,39 +16,28 @@ export interface User {
 interface AuthState {
   user: User | null;
   token: string | null;
+  features: string[];
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (data: { company_name: string; name: string; email: string; password: string; password_confirmation: string }) => Promise<void>;
+  login: (identifier: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   setUser: (user: User) => void;
   checkAuth: () => Promise<void>;
+  fetchFeatures: () => Promise<void>;
+  hasFeature: (key: string) => boolean;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       token: null,
+      features: [],
       isLoading: true,
       isAuthenticated: false,
 
-      login: async (email: string, password: string) => {
-        const response = await authApi.login(email, password);
-        const { user, token } = response.data;
-
-        localStorage.setItem('token', token);
-
-        set({
-          user,
-          token,
-          isAuthenticated: true,
-          isLoading: false,
-        });
-      },
-
-      register: async (data) => {
-        const response = await authApi.register(data);
+      login: async (identifier: string, password: string) => {
+        const response = await authApi.login(identifier, password);
         const { user, token } = response.data;
 
         localStorage.setItem('token', token);
@@ -73,6 +62,7 @@ export const useAuthStore = create<AuthState>()(
         set({
           user: null,
           token: null,
+          features: [],
           isAuthenticated: false,
           isLoading: false,
         });
@@ -103,10 +93,21 @@ export const useAuthStore = create<AuthState>()(
           set({
             user: null,
             token: null,
+            features: [],
             isAuthenticated: false,
             isLoading: false,
           });
         }
+      },
+
+      fetchFeatures: async () => {
+        // Single-tenant: no feature gating, always show all
+      },
+
+      hasFeature: (key: string) => {
+        const { features } = get();
+        if (features.length === 0) return true; // No features loaded = show all
+        return features.includes(key);
       },
     }),
     {

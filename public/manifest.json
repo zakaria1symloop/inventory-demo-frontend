@@ -1,0 +1,21 @@
+{
+  "name": "تراكسيرا - برنامج إدارة التوزيع",
+  "short_name": "تراكسيرا",
+  "description": "برنامج إدارة التوزيع المتكامل في الجزائر - طلبات، توصيل، بيع متنقل، مخزون وتقارير",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "orientation": "any",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "/sym-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"]
+}

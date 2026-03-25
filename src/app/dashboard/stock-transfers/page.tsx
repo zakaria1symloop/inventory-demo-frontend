@@ -1,10 +1,37 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { stockTransfersApi, warehousesApi } from '@/lib/api';
+import { useLocale } from '@/lib/i18n/context';
+import GuidedTour from '@/components/GuidedTour';
+import type { TourStep } from '@/components/GuidedTour';
 import DateInput from '@/components/ui/DateInput';
 import toast from 'react-hot-toast';
+import {
+  ArrowsRightLeftIcon,
+  MagnifyingGlassIcon,
+  FunnelIcon,
+  XMarkIcon,
+  ArrowPathIcon,
+  PlusIcon,
+  ClockIcon,
+  BoltIcon,
+  CheckBadgeIcon,
+  EyeIcon,
+  PrinterIcon,
+  PencilSquareIcon,
+  CheckCircleIcon,
+  TrashIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  BuildingStorefrontIcon,
+  TruckIcon,
+  CubeIcon,
+  UserIcon,
+  CalendarDaysIcon,
+  ArchiveBoxArrowDownIcon,
+} from '@heroicons/react/24/outline';
 
 interface AssignedUser {
   id: number;
@@ -47,6 +74,9 @@ interface StockTransfer {
 
 export default function StockTransfersPage() {
   const router = useRouter();
+  const { t, locale, dir } = useLocale();
+  const isRTL = dir === 'rtl';
+
   const [transfers, setTransfers] = useState<StockTransfer[]>([]);
   const [warehouses, setWarehouses] = useState<WarehouseWithUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -59,6 +89,64 @@ export default function StockTransfersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const [viewMode, setViewMode] = useState<'active' | 'archive'>('active');
+  const [showFilters, setShowFilters] = useState(false);
+  const [showTour, setShowTour] = useState(false);
+  const [isActioning, setIsActioning] = useState<number | null>(null);
+
+  const STATUS_CONFIG = useMemo(() => ({
+    pending: {
+      label: t('stockTransfersList.statusPending'),
+      bg: 'bg-amber-50 dark:bg-amber-900/30',
+      text: 'text-amber-700 dark:text-amber-400',
+      border: 'border-amber-200 dark:border-amber-700',
+    },
+    loading: {
+      label: t('stockTransfersList.statusLoading'),
+      bg: 'bg-blue-50 dark:bg-blue-900/30',
+      text: 'text-blue-700 dark:text-blue-400',
+      border: 'border-blue-200 dark:border-blue-700',
+    },
+    collected: {
+      label: t('stockTransfersList.statusCollected'),
+      bg: 'bg-emerald-50 dark:bg-emerald-900/30',
+      text: 'text-emerald-700 dark:text-emerald-400',
+      border: 'border-emerald-200 dark:border-emerald-700',
+    },
+  } as Record<string, { label: string; bg: string; text: string; border: string }>), [t]);
+
+  const tourSteps: TourStep[] = useMemo(() => [
+    {
+      target: '[data-tour="st-title"]',
+      title: t('stockTransfersList.tourTitleStep'),
+      desc: t('stockTransfersList.tourTitleDesc'),
+      position: 'bottom',
+    },
+    {
+      target: '[data-tour="st-kpis"]',
+      title: t('stockTransfersList.tourKpisStep'),
+      desc: t('stockTransfersList.tourKpisDesc'),
+      position: 'bottom',
+    },
+    {
+      target: '[data-tour="st-search"]',
+      title: t('stockTransfersList.tourSearchStep'),
+      desc: t('stockTransfersList.tourSearchDesc'),
+      position: 'bottom',
+    },
+    {
+      target: '[data-tour="st-quick-filters"]',
+      title: t('stockTransfersList.tourQuickFiltersStep'),
+      desc: t('stockTransfersList.tourQuickFiltersDesc'),
+      position: 'bottom',
+    },
+    {
+      target: '[data-tour="st-cards"]',
+      title: t('stockTransfersList.tourCardsStep'),
+      desc: t('stockTransfersList.tourCardsDesc'),
+      position: 'top',
+    },
+  ], [t]);
 
   useEffect(() => {
     fetchWarehouses();
@@ -66,7 +154,7 @@ export default function StockTransfersPage() {
 
   useEffect(() => {
     fetchTransfers();
-  }, [currentPage, statusFilter, fromWarehouseFilter, toWarehouseFilter, dateFrom, dateTo]);
+  }, [currentPage, statusFilter, fromWarehouseFilter, toWarehouseFilter, dateFrom, dateTo, viewMode]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -97,6 +185,8 @@ export default function StockTransfersPage() {
     try {
       const params: Record<string, unknown> = { page: currentPage, per_page: 20 };
       if (statusFilter) params.status = statusFilter;
+      else if (viewMode === 'active') params.active = 1;
+      else if (viewMode === 'archive') params.archived = 1;
       if (fromWarehouseFilter) params.from_warehouse_id = fromWarehouseFilter;
       if (toWarehouseFilter) params.to_warehouse_id = toWarehouseFilter;
       if (dateFrom) params.from_date = dateFrom;
@@ -112,47 +202,56 @@ export default function StockTransfersPage() {
         setTotalItems(Array.isArray(data) ? data.length : 0);
       }
     } catch {
-      toast.error('خطأ في تحميل التحويلات');
+      toast.error(t('stockTransfersList.errorLoading'));
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleApprove = async (id: number) => {
-    if (!confirm('هل أنت متأكد من الموافقة على هذا الطلب؟ سيتم التحقق من توفر المخزون.')) return;
+    if (!confirm(t('stockTransfersList.confirmApprove'))) return;
+    setIsActioning(id);
     try {
       await stockTransfersApi.approve(id);
-      toast.success('تمت الموافقة - جاري التحميل');
+      toast.success(t('stockTransfersList.approvedSuccess'));
       fetchTransfers();
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string; errors?: string[] } } };
-      const msg = err.response?.data?.errors?.join('\n') || err.response?.data?.message || 'خطأ في الموافقة';
+      const msg = err.response?.data?.errors?.join('\n') || err.response?.data?.message || t('stockTransfersList.errorApproving');
       toast.error(msg);
+    } finally {
+      setIsActioning(null);
     }
   };
 
   const handleCollect = async (id: number) => {
-    if (!confirm('هل أنت متأكد من تسليم البضاعة؟ سيتم نقل المخزون فوراً.')) return;
+    if (!confirm(t('stockTransfersList.confirmCollect'))) return;
+    setIsActioning(id);
     try {
       await stockTransfersApi.collect(id);
-      toast.success('تم التسليم بنجاح - يمكن للسائق البدء');
+      toast.success(t('stockTransfersList.collectedSuccess'));
       fetchTransfers();
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string; errors?: string[] } } };
-      const msg = err.response?.data?.errors?.join('\n') || err.response?.data?.message || 'خطأ في التسليم';
+      const msg = err.response?.data?.errors?.join('\n') || err.response?.data?.message || t('stockTransfersList.errorCollecting');
       toast.error(msg);
+    } finally {
+      setIsActioning(null);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('هل أنت متأكد من حذف هذا التحويل؟')) return;
+    if (!confirm(t('stockTransfersList.confirmDelete'))) return;
+    setIsActioning(id);
     try {
       await stockTransfersApi.delete(id);
-      toast.success('تم حذف التحويل');
+      toast.success(t('stockTransfersList.deletedSuccess'));
       fetchTransfers();
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'خطأ في الحذف');
+      toast.error(err.response?.data?.message || t('stockTransfersList.errorDeleting'));
+    } finally {
+      setIsActioning(null);
     }
   };
 
@@ -166,11 +265,8 @@ export default function StockTransfersPage() {
     setCurrentPage(1);
   };
 
-  const hasActiveFilters = statusFilter || fromWarehouseFilter || toWarehouseFilter || dateFrom || dateTo;
-
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('ar-DZ', {
-      year: 'numeric',
+    return new Date(date).toLocaleDateString(locale === 'fr' ? 'fr-DZ' : 'ar-DZ', {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
@@ -178,16 +274,13 @@ export default function StockTransfersPage() {
     });
   };
 
-  const getStatusBadge = (status: string) => {
-    const badges: Record<string, { class: string; text: string }> = {
-      pending: { class: 'badge-warning', text: 'طلب جديد' },
-      loading: { class: 'badge-info', text: 'جاري التحميل' },
-      collected: { class: 'badge-success', text: 'تم التسليم' },
-    };
-    return badges[status] || { class: 'badge-secondary', text: status };
-  };
+  const getItemsCount = (transfer: StockTransfer) => transfer.items?.length || 0;
+
+  const getTotalPieces = (transfer: StockTransfer) =>
+    transfer.items?.reduce((sum, item) => sum + Math.round(Number(item.quantity)), 0) || 0;
 
   const handlePrint = (transfer: StockTransfer) => {
+    // NOTE: Print template is Arabic-only for now
     const items = transfer.items || [];
     let totalCartons = 0;
     let totalExtraPieces = 0;
@@ -198,11 +291,9 @@ export default function StockTransfersPage() {
       const tp = Math.round(Number(item.quantity));
       const cartons = ppp > 1 ? Math.floor(tp / ppp) : tp;
       const extra = ppp > 1 ? tp % ppp : 0;
-
       totalCartons += cartons;
       totalExtraPieces += extra;
       totalPieces += tp;
-
       return `<tr>
         <td class="text-center">${index + 1}</td>
         <td>${item.product?.name || '-'}${ppp > 1 ? ` <span style="font-size:11px;color:#888">(${ppp} ق/كرتون)</span>` : ''}</td>
@@ -214,129 +305,7 @@ export default function StockTransfersPage() {
 
     const statusText = transfer.status === 'pending' ? 'طلب جديد' : transfer.status === 'loading' ? 'جاري التحميل' : 'تم التسليم';
 
-    const printContent = `
-      <!DOCTYPE html>
-      <html dir="rtl" lang="ar">
-      <head>
-        <meta charset="UTF-8">
-        <title>تحويل مخزون - ${transfer.reference}</title>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 20px; font-size: 14px; }
-          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-          .header h1 { font-size: 24px; margin-bottom: 5px; }
-          .header .ref { font-size: 18px; color: #666; }
-          .header .status { display: inline-block; padding: 4px 16px; border-radius: 20px; font-size: 14px; font-weight: bold; margin-top: 8px; }
-          .status-pending { background: #fef3c7; color: #92400e; }
-          .status-loading { background: #dbeafe; color: #1e40af; }
-          .status-collected { background: #dcfce7; color: #166534; }
-          .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
-          .info-box { background: #f9f9f9; padding: 15px; border-radius: 8px; }
-          .info-box h3 { font-size: 14px; color: #666; margin-bottom: 8px; }
-          .info-box p { font-size: 16px; font-weight: bold; }
-          .info-box .sub { font-size: 12px; color: #888; font-weight: normal; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-          th, td { padding: 10px 8px; text-align: right; border-bottom: 1px solid #ddd; }
-          th { background: #f5f5f5; font-weight: bold; font-size: 13px; }
-          .text-center { text-align: center; }
-          .text-blue { color: #1d4ed8; }
-          .text-orange { color: #c2410c; }
-          tfoot td { background: #f5f5f5; font-weight: bold; }
-          .summary { display: flex; gap: 20px; margin-top: 10px; }
-          .summary-item { flex: 1; background: #f0f9ff; border: 1px solid #bae6fd; padding: 12px; border-radius: 8px; text-align: center; }
-          .summary-item .label { font-size: 12px; color: #0369a1; margin-bottom: 4px; }
-          .summary-item .value { font-size: 20px; font-weight: bold; color: #0c4a6e; }
-          .footer { margin-top: 40px; text-align: center; color: #666; font-size: 12px; }
-          .notes { margin-top: 20px; padding: 15px; background: #f9f9f9; border-radius: 8px; }
-          .signature { display: flex; justify-content: space-between; margin-top: 50px; padding-top: 20px; }
-          .signature-box { text-align: center; width: 200px; }
-          .signature-box .line { border-top: 1px solid #333; margin-top: 50px; padding-top: 5px; }
-          @media print { body { padding: 0; } }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>وصل تحويل مخزون</h1>
-          <div class="ref">${transfer.reference}</div>
-          <div class="status status-${transfer.status}">${statusText}</div>
-        </div>
-
-        <div class="info-grid">
-          <div class="info-box">
-            <h3>المستودع المصدر</h3>
-            <p>${transfer.from_warehouse?.name || '-'}</p>
-            ${transfer.from_warehouse?.assigned_user ? `<p class="sub">المسؤول: ${transfer.from_warehouse.assigned_user.name}</p>` : ''}
-          </div>
-          <div class="info-box">
-            <h3>المستودع الوجهة</h3>
-            <p>${transfer.to_warehouse?.name || '-'}</p>
-            ${transfer.to_warehouse?.assigned_user ? `<p class="sub">السائق: ${transfer.to_warehouse.assigned_user.name}</p>` : ''}
-          </div>
-          <div class="info-box">
-            <h3>تاريخ الإنشاء</h3>
-            <p>${formatDate(transfer.created_at)}</p>
-            <p class="sub">بواسطة: ${transfer.creator?.name || '-'}</p>
-          </div>
-          <div class="info-box">
-            <h3>${transfer.collected_at ? 'تاريخ التسليم' : 'تاريخ الموافقة'}</h3>
-            <p>${transfer.collected_at ? formatDate(transfer.collected_at) : transfer.approved_at ? formatDate(transfer.approved_at) : '-'}</p>
-            ${transfer.approver ? `<p class="sub">وافق: ${transfer.approver.name}</p>` : ''}
-          </div>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th class="text-center">#</th>
-              <th>المنتج</th>
-              <th class="text-center">كرتون</th>
-              <th class="text-center">قطع إضافية</th>
-              <th class="text-center">إجمالي القطع</th>
-            </tr>
-          </thead>
-          <tbody>${itemRows}</tbody>
-          <tfoot>
-            <tr>
-              <td colspan="2" class="text-center">الإجمالي (${items.length} منتج)</td>
-              <td class="text-center text-blue">${totalCartons}</td>
-              <td class="text-center text-orange">${totalExtraPieces || '-'}</td>
-              <td class="text-center" style="font-weight:bold">${totalPieces}</td>
-            </tr>
-          </tfoot>
-        </table>
-
-        <div class="summary">
-          <div class="summary-item">
-            <div class="label">عدد المنتجات</div>
-            <div class="value">${items.length}</div>
-          </div>
-          <div class="summary-item">
-            <div class="label">إجمالي الكراتين</div>
-            <div class="value">${totalCartons}</div>
-          </div>
-          <div class="summary-item">
-            <div class="label">إجمالي القطع</div>
-            <div class="value">${totalPieces}</div>
-          </div>
-        </div>
-
-        ${transfer.notes ? `<div class="notes"><strong>ملاحظات:</strong><p>${transfer.notes}</p></div>` : ''}
-
-        <div class="signature">
-          <div class="signature-box">
-            <div class="line">توقيع المسؤول (المستودع)</div>
-          </div>
-          <div class="signature-box">
-            <div class="line">توقيع السائق</div>
-          </div>
-        </div>
-
-        <div class="footer">
-          <p>تم الطباعة بتاريخ ${new Date().toLocaleDateString('ar-DZ')}</p>
-        </div>
-      </body>
-      </html>
-    `;
+    const printContent = `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تحويل مخزون - ${transfer.reference}</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Tahoma,sans-serif;padding:20px;font-size:14px}.header{text-align:center;margin-bottom:30px;border-bottom:2px solid #333;padding-bottom:20px}.header h1{font-size:24px;margin-bottom:5px}.header .ref{font-size:18px;color:#666}.header .status{display:inline-block;padding:4px 16px;border-radius:20px;font-size:14px;font-weight:bold;margin-top:8px}.status-pending{background:#fef3c7;color:#92400e}.status-loading{background:#dbeafe;color:#1e40af}.status-collected{background:#dcfce7;color:#166534}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:30px}.info-box{background:#f9f9f9;padding:15px;border-radius:8px}.info-box h3{font-size:14px;color:#666;margin-bottom:8px}.info-box p{font-size:16px;font-weight:bold}.info-box .sub{font-size:12px;color:#888;font-weight:normal}table{width:100%;border-collapse:collapse;margin-bottom:20px}th,td{padding:10px 8px;text-align:right;border-bottom:1px solid #ddd}th{background:#f5f5f5;font-weight:bold;font-size:13px}.text-center{text-align:center}.text-blue{color:#1d4ed8}.text-orange{color:#c2410c}tfoot td{background:#f5f5f5;font-weight:bold}.summary{display:flex;gap:20px;margin-top:10px}.summary-item{flex:1;background:#f0f9ff;border:1px solid #bae6fd;padding:12px;border-radius:8px;text-align:center}.summary-item .label{font-size:12px;color:#0369a1;margin-bottom:4px}.summary-item .value{font-size:20px;font-weight:bold;color:#0c4a6e}.footer{margin-top:40px;text-align:center;color:#666;font-size:12px}.notes{margin-top:20px;padding:15px;background:#f9f9f9;border-radius:8px}.signature{display:flex;justify-content:space-between;margin-top:50px;padding-top:20px}.signature-box{text-align:center;width:200px}.signature-box .line{border-top:1px solid #333;margin-top:50px;padding-top:5px}@media print{body{padding:0}}</style></head><body><div class="header"><h1>وصل تحويل مخزون</h1><div class="ref">${transfer.reference}</div><div class="status status-${transfer.status}">${statusText}</div></div><div class="info-grid"><div class="info-box"><h3>المستودع المصدر</h3><p>${transfer.from_warehouse?.name || '-'}</p>${transfer.from_warehouse?.assigned_user ? `<p class="sub">المسؤول: ${transfer.from_warehouse.assigned_user.name}</p>` : ''}</div><div class="info-box"><h3>المستودع الوجهة</h3><p>${transfer.to_warehouse?.name || '-'}</p>${transfer.to_warehouse?.assigned_user ? `<p class="sub">السائق: ${transfer.to_warehouse.assigned_user.name}</p>` : ''}</div><div class="info-box"><h3>تاريخ الإنشاء</h3><p>${formatDate(transfer.created_at)}</p><p class="sub">بواسطة: ${transfer.creator?.name || '-'}</p></div><div class="info-box"><h3>${transfer.collected_at ? 'تاريخ التسليم' : 'تاريخ الموافقة'}</h3><p>${transfer.collected_at ? formatDate(transfer.collected_at) : transfer.approved_at ? formatDate(transfer.approved_at) : '-'}</p>${transfer.approver ? `<p class="sub">وافق: ${transfer.approver.name}</p>` : ''}</div></div><table><thead><tr><th class="text-center">#</th><th>المنتج</th><th class="text-center">كرتون</th><th class="text-center">قطع إضافية</th><th class="text-center">إجمالي القطع</th></tr></thead><tbody>${itemRows}</tbody><tfoot><tr><td colspan="2" class="text-center">الإجمالي (${items.length} منتج)</td><td class="text-center text-blue">${totalCartons}</td><td class="text-center text-orange">${totalExtraPieces || '-'}</td><td class="text-center" style="font-weight:bold">${totalPieces}</td></tr></tfoot></table><div class="summary"><div class="summary-item"><div class="label">عدد المنتجات</div><div class="value">${items.length}</div></div><div class="summary-item"><div class="label">إجمالي الكراتين</div><div class="value">${totalCartons}</div></div><div class="summary-item"><div class="label">إجمالي القطع</div><div class="value">${totalPieces}</div></div></div>${transfer.notes ? `<div class="notes"><strong>ملاحظات:</strong><p>${transfer.notes}</p></div>` : ''}<div class="signature"><div class="signature-box"><div class="line">توقيع المسؤول (المستودع)</div></div><div class="signature-box"><div class="line">توقيع السائق</div></div></div><div class="footer"><p>تم الطباعة بتاريخ ${new Date().toLocaleDateString('ar-DZ')}</p></div></body></html>`;
 
     const iframe = document.createElement('iframe');
     iframe.style.position = 'absolute';
@@ -344,7 +313,6 @@ export default function StockTransfersPage() {
     iframe.style.height = '0';
     iframe.style.border = 'none';
     document.body.appendChild(iframe);
-
     const iframeDoc = iframe.contentWindow?.document;
     if (iframeDoc) {
       iframeDoc.open();
@@ -358,329 +326,488 @@ export default function StockTransfersPage() {
     }
   };
 
-  const filteredTransfers = transfers.filter(t => {
+  const filteredTransfers = transfers.filter(tr => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
     return (
-      t.reference.toLowerCase().includes(term) ||
-      t.from_warehouse?.name?.toLowerCase().includes(term) ||
-      t.to_warehouse?.name?.toLowerCase().includes(term) ||
-      t.creator?.name?.toLowerCase().includes(term)
+      tr.reference.toLowerCase().includes(term) ||
+      tr.from_warehouse?.name?.toLowerCase().includes(term) ||
+      tr.to_warehouse?.name?.toLowerCase().includes(term) ||
+      tr.creator?.name?.toLowerCase().includes(term)
     );
   });
 
-  const getItemsCount = (transfer: StockTransfer) => {
-    return transfer.items?.length || 0;
-  };
+  // Stats
+  const pendingCount = transfers.filter(tr => tr.status === 'pending').length;
+  const loadingCount = transfers.filter(tr => tr.status === 'loading').length;
+  const activeFilterCount = [statusFilter, fromWarehouseFilter, toWarehouseFilter, dateFrom, dateTo, searchTerm].filter(Boolean).length;
 
-  const getTotalPieces = (transfer: StockTransfer) => {
-    return transfer.items?.reduce((sum, item) => {
-      const ppp = item.product?.pieces_per_package || 1;
-      return sum + Math.round(Number(item.quantity));
-    }, 0) || 0;
-  };
-
-  // Stats from current page
-  const pendingCount = transfers.filter(t => t.status === 'pending').length;
-  const loadingCount = transfers.filter(t => t.status === 'loading').length;
-  const collectedCount = transfers.filter(t => t.status === 'collected').length;
+  const storageKey = 'stock_transfers_tour_step';
 
   if (isLoading && transfers.length === 0) {
-    return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
+    return <div className="flex items-center justify-center h-64"><div className="spinner w-8 h-8"></div></div>;
   }
 
   return (
-    <div>
-      {/* Shortcuts hint */}
-      <div className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg mb-4 flex items-center gap-6 text-sm">
-        <span className="font-medium">اختصارات:</span>
-        <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Insert</kbd> تحويل جديد</span>
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" data-tour="st-title">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-teal-500/20">
+            <ArrowsRightLeftIcon className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-gray-100 tracking-tight leading-none">{t('stockTransfersList.title')}</h1>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('stockTransfersList.subtitle')}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { localStorage.removeItem(storageKey); setShowTour(true); }}
+            className="text-sm font-medium text-gray-400 hover:text-teal-500 dark:hover:text-teal-400 transition-colors"
+          >
+            {t('stockTransfersList.tourBtn')}
+          </button>
+          <button
+            onClick={() => { setIsLoading(true); fetchTransfers(); }}
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
+          >
+            <ArrowPathIcon className="w-4 h-4" />
+            <span className="hidden sm:inline">{t('stockTransfersList.refresh')}</span>
+          </button>
+          <button
+            onClick={() => router.push('/dashboard/stock-transfers/new')}
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-l from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 rounded-xl shadow-sm transition-all"
+          >
+            <PlusIcon className="w-4 h-4" />
+            {t('stockTransfersList.newTransfer')}
+            <kbd className={`bg-white/20 px-1.5 py-0.5 rounded text-[10px] font-medium ${isRTL ? 'mr-1' : 'ml-1'}`}>Insert</kbd>
+          </button>
+        </div>
       </div>
 
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">تحويلات المخزون</h1>
-        <button onClick={() => router.push('/dashboard/stock-transfers/new')} className="btn btn-primary">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          تحويل جديد
-          <kbd className="bg-blue-700 px-1.5 py-0.5 rounded text-xs mr-2">Insert</kbd>
+      {/* View Mode Toggle: Active vs Archive */}
+      <div className="flex items-center gap-2" data-tour="st-kpis">
+        <button
+          onClick={() => { setViewMode('active'); setStatusFilter(''); setCurrentPage(1); }}
+          className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl border text-sm font-bold transition-all ${
+            viewMode === 'active'
+              ? 'bg-white dark:bg-gray-800 border-teal-300 dark:border-teal-600 ring-1 ring-teal-200 dark:ring-teal-700 text-teal-700 dark:text-teal-400 shadow-sm'
+              : 'bg-white dark:bg-gray-800 border-gray-200/80 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
+          }`}
+        >
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${viewMode === 'active' ? 'bg-teal-100 dark:bg-teal-900/40' : 'bg-gray-100 dark:bg-gray-700'}`}>
+            <ArrowsRightLeftIcon className={`w-4.5 h-4.5 ${viewMode === 'active' ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400 dark:text-gray-500'}`} />
+          </div>
+          <div className="text-start">
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium leading-none">{t('stockTransfersList.activeTransfers')}</p>
+            <p className={`text-lg font-black tabular-nums leading-tight ${viewMode === 'active' ? 'text-teal-600 dark:text-teal-400' : 'text-gray-500 dark:text-gray-400'}`}>{viewMode === 'active' && !statusFilter ? totalItems : pendingCount + loadingCount}</p>
+          </div>
+        </button>
+        <button
+          onClick={() => { setStatusFilter('pending'); setViewMode('active'); setCurrentPage(1); }}
+          className={`hidden sm:inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl border text-sm font-bold transition-all ${
+            statusFilter === 'pending'
+              ? 'bg-white dark:bg-gray-800 border-amber-300 dark:border-amber-600 ring-1 ring-amber-200 dark:ring-amber-700 text-amber-700 dark:text-amber-400 shadow-sm'
+              : 'bg-white dark:bg-gray-800 border-gray-200/80 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
+          }`}
+        >
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${statusFilter === 'pending' ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-gray-100 dark:bg-gray-700'}`}>
+            <ClockIcon className={`w-4.5 h-4.5 ${statusFilter === 'pending' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500'}`} />
+          </div>
+          <div className="text-start">
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium leading-none">{t('stockTransfersList.statusPending')}</p>
+            <p className={`text-lg font-black tabular-nums leading-tight ${statusFilter === 'pending' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'}`}>{pendingCount}</p>
+          </div>
+        </button>
+        <button
+          onClick={() => { setStatusFilter('loading'); setViewMode('active'); setCurrentPage(1); }}
+          className={`hidden sm:inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl border text-sm font-bold transition-all ${
+            statusFilter === 'loading'
+              ? 'bg-white dark:bg-gray-800 border-blue-300 dark:border-blue-600 ring-1 ring-blue-200 dark:ring-blue-700 text-blue-700 dark:text-blue-400 shadow-sm'
+              : 'bg-white dark:bg-gray-800 border-gray-200/80 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
+          }`}
+        >
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${statusFilter === 'loading' ? 'bg-blue-100 dark:bg-blue-900/40' : 'bg-gray-100 dark:bg-gray-700'}`}>
+            <BoltIcon className={`w-4.5 h-4.5 ${statusFilter === 'loading' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`} />
+          </div>
+          <div className="text-start">
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium leading-none">{t('stockTransfersList.statusLoading')}</p>
+            <p className={`text-lg font-black tabular-nums leading-tight ${statusFilter === 'loading' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}>{loadingCount}</p>
+          </div>
+        </button>
+        <button
+          onClick={() => { setViewMode('archive'); setStatusFilter(''); setCurrentPage(1); }}
+          className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl border text-sm font-bold transition-all ${
+            viewMode === 'archive'
+              ? 'bg-white dark:bg-gray-800 border-gray-400 dark:border-gray-500 ring-1 ring-gray-300 dark:ring-gray-600 text-gray-700 dark:text-gray-300 shadow-sm'
+              : 'bg-white dark:bg-gray-800 border-gray-200/80 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
+          }`}
+        >
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${viewMode === 'archive' ? 'bg-gray-200 dark:bg-gray-600' : 'bg-gray-100 dark:bg-gray-700'}`}>
+            <ArchiveBoxArrowDownIcon className={`w-4.5 h-4.5 ${viewMode === 'archive' ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'}`} />
+          </div>
+          <div className="text-start">
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium leading-none">{t('stockTransfersList.archive')}</p>
+            <p className={`text-lg font-black tabular-nums leading-tight ${viewMode === 'archive' ? 'text-gray-700 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>{viewMode === 'archive' ? totalItems : '—'}</p>
+          </div>
         </button>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="card flex items-center gap-4">
-          <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-xl flex items-center justify-center">
-            <svg className="w-6 h-6 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">الإجمالي</p>
-            <p className="text-2xl font-bold">{totalItems || transfers.length}</p>
-          </div>
-        </div>
-        <div className="card flex items-center gap-4">
-          <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center">
-            <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">طلبات جديدة</p>
-            <p className="text-2xl font-bold text-amber-600">{pendingCount}</p>
-          </div>
-        </div>
-        <div className="card flex items-center gap-4">
-          <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
-            <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">جاري التحميل</p>
-            <p className="text-2xl font-bold text-blue-600">{loadingCount}</p>
-          </div>
-        </div>
-        <div className="card flex items-center gap-4">
-          <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
-            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">تم التسليم</p>
-            <p className="text-2xl font-bold text-green-600">{collectedCount}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="card">
-        {/* Filters */}
-        <div className="space-y-3 mb-4">
-          <div className="flex flex-wrap gap-3">
+      {/* Search + Filters + Cards */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm">
+        {/* Search bar */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-700" data-tour="st-search">
+          <div className="relative flex-1">
+            <MagnifyingGlassIcon className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500`} />
             <input
               type="text"
-              placeholder="بحث بالمرجع أو المستودع..."
+              placeholder={t('stockTransfersList.searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="input max-w-xs"
+              className={`input w-full ${isRTL ? 'pr-9' : 'pl-9'} text-sm`}
             />
-            <select
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-              className="select max-w-xs"
-            >
-              <option value="">كل الحالات</option>
-              <option value="pending">طلب جديد</option>
-              <option value="loading">جاري التحميل</option>
-              <option value="collected">تم التسليم</option>
-            </select>
-            <select
-              value={fromWarehouseFilter}
-              onChange={(e) => { setFromWarehouseFilter(e.target.value); setCurrentPage(1); }}
-              className="select max-w-xs"
-            >
-              <option value="">المستودع المصدر (الكل)</option>
-              {warehouses.map(w => (
-                <option key={w.id} value={w.id}>{w.name}</option>
-              ))}
-            </select>
-            <select
-              value={toWarehouseFilter}
-              onChange={(e) => { setToWarehouseFilter(e.target.value); setCurrentPage(1); }}
-              className="select max-w-xs"
-            >
-              <option value="">المستودع الوجهة (الكل)</option>
-              {warehouses.map(w => (
-                <option key={w.id} value={w.id}>{w.name}</option>
-              ))}
-            </select>
           </div>
-          <div className="flex flex-wrap gap-3 items-center">
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-500 whitespace-nowrap">من:</label>
-              <DateInput
-                value={dateFrom}
-                onChange={(v) => { setDateFrom(v); setCurrentPage(1); }}
-                placeholder="من تاريخ"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-500 whitespace-nowrap">إلى:</label>
-              <DateInput
-                value={dateTo}
-                onChange={(v) => { setDateTo(v); setCurrentPage(1); }}
-                placeholder="إلى تاريخ"
-              />
-            </div>
-            {hasActiveFilters && (
-              <button onClick={clearFilters} className="btn btn-sm btn-outline">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                مسح الفلاتر
-              </button>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl border transition-all ${
+              showFilters || activeFilterCount > 0
+                ? 'border-teal-300 dark:border-teal-600 bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400'
+                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+            }`}
+          >
+            <FunnelIcon className="w-4 h-4" />
+            <span className="hidden sm:inline">{t('stockTransfersList.filter')}</span>
+            {activeFilterCount > 0 && (
+              <span className="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center">
+                {activeFilterCount}
+              </span>
             )}
-          </div>
+          </button>
+          {activeFilterCount > 0 && (
+            <button onClick={clearFilters} className="text-sm text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium flex items-center gap-1">
+              <XMarkIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('stockTransfersList.clear')}</span>
+            </button>
+          )}
+          <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:inline">
+            {filteredTransfers.length} / {totalItems || transfers.length}
+          </span>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table>
-            <thead>
-              <tr>
-                <th>المرجع</th>
-                <th>من مستودع</th>
-                <th>إلى مستودع</th>
-                <th>السائق</th>
-                <th>المنتجات</th>
-                <th>القطع</th>
-                <th>أنشأ بواسطة</th>
-                <th>التاريخ</th>
-                <th>الحالة</th>
-                <th>الإجراءات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTransfers.length === 0 ? (
-                <tr>
-                  <td colSpan={10} className="text-center py-8 text-gray-500">
-                    لا توجد تحويلات
-                  </td>
-                </tr>
-              ) : (
-                filteredTransfers.map((transfer) => {
-                  const statusBadge = getStatusBadge(transfer.status);
-                  return (
-                    <tr
-                      key={transfer.id}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer"
-                      onClick={() => router.push(`/dashboard/stock-transfers/${transfer.id}`)}
-                    >
-                      <td className="font-medium font-mono text-sm">{transfer.reference}</td>
-                      <td>{transfer.from_warehouse?.name || '-'}</td>
-                      <td>{transfer.to_warehouse?.name || '-'}</td>
-                      <td className="font-medium text-blue-600">
-                        {transfer.to_warehouse?.assigned_user?.name || transfer.from_warehouse?.assigned_user?.name || '-'}
-                      </td>
-                      <td>{getItemsCount(transfer)}</td>
-                      <td>{getTotalPieces(transfer)}</td>
-                      <td>{transfer.creator?.name || '-'}</td>
-                      <td className="text-sm">{formatDate(transfer.created_at)}</td>
-                      <td>
-                        <span className={`badge ${statusBadge.class}`}>{statusBadge.text}</span>
-                      </td>
-                      <td>
-                        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            onClick={() => router.push(`/dashboard/stock-transfers/${transfer.id}`)}
-                            className="text-blue-600 hover:text-blue-800"
-                            title="عرض التفاصيل"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handlePrint(transfer)}
-                            className="text-gray-600 hover:text-gray-800"
-                            title="طباعة"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                            </svg>
-                          </button>
-                          {transfer.status === 'pending' && (
-                            <>
-                              <button
-                                onClick={() => router.push(`/dashboard/stock-transfers/${transfer.id}/edit`)}
-                                className="text-amber-600 hover:text-amber-800"
-                                title="تعديل"
-                              >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={() => handleApprove(transfer.id)}
-                                className="text-green-600 hover:text-green-800"
-                                title="موافقة (بدء التحميل)"
-                              >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={() => handleDelete(transfer.id)}
-                                className="text-red-600 hover:text-red-800"
-                                title="حذف"
-                              >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                              </button>
-                            </>
+        {/* Expanded Filters */}
+        {showFilters && (
+          <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              <div>
+                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('stockTransfersList.filterStatus')}</label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+                  className="select w-full"
+                >
+                  <option value="">{t('stockTransfersList.allStatuses')}</option>
+                  <option value="pending">{t('stockTransfersList.statusPending')}</option>
+                  <option value="loading">{t('stockTransfersList.statusLoading')}</option>
+                  <option value="collected">{t('stockTransfersList.statusCollected')}</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('stockTransfersList.fromWarehouse')}</label>
+                <select
+                  value={fromWarehouseFilter}
+                  onChange={(e) => { setFromWarehouseFilter(e.target.value); setCurrentPage(1); }}
+                  className="select w-full"
+                >
+                  <option value="">{t('stockTransfersList.all')}</option>
+                  {warehouses.map(w => (
+                    <option key={w.id} value={w.id}>{w.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('stockTransfersList.toWarehouse')}</label>
+                <select
+                  value={toWarehouseFilter}
+                  onChange={(e) => { setToWarehouseFilter(e.target.value); setCurrentPage(1); }}
+                  className="select w-full"
+                >
+                  <option value="">{t('stockTransfersList.all')}</option>
+                  {warehouses.map(w => (
+                    <option key={w.id} value={w.id}>{w.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('stockTransfersList.fromDate')}</label>
+                <DateInput
+                  value={dateFrom}
+                  onChange={(v) => { setDateFrom(v); setCurrentPage(1); }}
+                  placeholder={t('stockTransfersList.fromDate')}
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('stockTransfersList.toDate')}</label>
+                <DateInput
+                  value={dateTo}
+                  onChange={(v) => { setDateTo(v); setCurrentPage(1); }}
+                  placeholder={t('stockTransfersList.toDate')}
+                  className="w-full"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Quick Filters */}
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 dark:border-gray-700 overflow-x-auto" data-tour="st-quick-filters">
+          {viewMode === 'active' ? (
+            <>
+              {([
+                { value: '', label: t('stockTransfersList.allActive') },
+                { value: 'pending', label: t('stockTransfersList.statusPending') },
+                { value: 'loading', label: t('stockTransfersList.statusLoading') },
+              ]).map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => { setStatusFilter(opt.value); setCurrentPage(1); }}
+                  className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                    statusFilter === opt.value
+                      ? 'bg-teal-600 text-white shadow-sm'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+              <ArchiveBoxArrowDownIcon className="w-3.5 h-3.5" />
+              {t('stockTransfersList.archiveDelivered')}
+            </span>
+          )}
+        </div>
+
+        {/* Transfer Cards */}
+        <div className="p-4 space-y-3" data-tour="st-cards">
+          {filteredTransfers.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500">
+              <ArchiveBoxArrowDownIcon className="w-12 h-12 mb-3" />
+              <p className="text-lg font-semibold">
+                {viewMode === 'archive' ? t('stockTransfersList.noArchivedTransfers') : t('stockTransfersList.noActiveTransfers')}
+              </p>
+              <p className="text-sm mt-1">
+                {viewMode === 'archive' ? t('stockTransfersList.noDeliveredYet') : t('stockTransfersList.noProcessingNow')}
+              </p>
+              {viewMode === 'active' && (
+                <button
+                  onClick={() => router.push('/dashboard/stock-transfers/new')}
+                  className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-l from-teal-600 to-cyan-600 rounded-xl shadow-sm transition-all hover:from-teal-700 hover:to-cyan-700"
+                >
+                  <PlusIcon className="w-4 h-4" />
+                  {t('stockTransfersList.createNewTransfer')}
+                </button>
+              )}
+            </div>
+          ) : (
+            filteredTransfers.map(transfer => {
+              const statusCfg = STATUS_CONFIG[transfer.status] || { label: transfer.status, bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-600 dark:text-gray-400', border: 'border-gray-200 dark:border-gray-700' };
+              const itemsCount = getItemsCount(transfer);
+              const totalPcs = getTotalPieces(transfer);
+              const driverName = transfer.to_warehouse?.assigned_user?.name || transfer.from_warehouse?.assigned_user?.name || '';
+              const acting = isActioning === transfer.id;
+
+              return (
+                <div
+                  key={transfer.id}
+                  className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden hover:border-gray-300 dark:hover:border-gray-600 transition-all cursor-pointer"
+                  onClick={() => router.push(`/dashboard/stock-transfers/${transfer.id}`)}
+                >
+                  <div className="flex items-center justify-between px-5 py-4">
+                    <div className="flex items-center gap-4 min-w-0 flex-1">
+                      {/* Status icon */}
+                      <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
+                        transfer.status === 'pending' ? 'bg-amber-100 dark:bg-amber-900/30' :
+                        transfer.status === 'loading' ? 'bg-blue-100 dark:bg-blue-900/30' :
+                        'bg-emerald-100 dark:bg-emerald-900/30'
+                      }`}>
+                        {transfer.status === 'pending' && <ClockIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />}
+                        {transfer.status === 'loading' && <BoltIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
+                        {transfer.status === 'collected' && <CheckBadgeIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        {/* Top row: reference + status + driver */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-sm font-bold text-gray-800 dark:text-gray-100">{transfer.reference}</span>
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${statusCfg.bg} ${statusCfg.text}`}>
+                            {statusCfg.label}
+                          </span>
+                          {driverName && (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400">
+                              {driverName}
+                            </span>
                           )}
-                          {transfer.status === 'loading' && (
+                        </div>
+
+                        {/* Bottom row: warehouses + items info */}
+                        <div className="flex items-center gap-2 mt-1.5 flex-wrap text-xs text-gray-400 dark:text-gray-500">
+                          <span className="flex items-center gap-1">
+                            <BuildingStorefrontIcon className="w-3.5 h-3.5" />
+                            {transfer.from_warehouse?.name || '-'}
+                          </span>
+                          <span className="text-gray-300 dark:text-gray-600">{isRTL ? '\u2190' : '\u2192'}</span>
+                          <span className="flex items-center gap-1">
+                            <TruckIcon className="w-3.5 h-3.5" />
+                            {transfer.to_warehouse?.name || '-'}
+                          </span>
+                          <span className="text-gray-300 dark:text-gray-600">&middot;</span>
+                          <span className="flex items-center gap-1">
+                            <CubeIcon className="w-3.5 h-3.5" />
+                            {itemsCount} {t('stockTransfersList.product')}
+                          </span>
+                          <span className="text-gray-300 dark:text-gray-600">&middot;</span>
+                          <span>{totalPcs} {t('stockTransfersList.piece')}</span>
+                          {transfer.creator && (
                             <>
-                              <button
-                                onClick={() => handleCollect(transfer.id)}
-                                className="text-green-600 hover:text-green-800"
-                                title="تسليم (انطلاق)"
-                              >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={() => handleDelete(transfer.id)}
-                                className="text-red-600 hover:text-red-800"
-                                title="إلغاء"
-                              >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
+                              <span className="text-gray-300 dark:text-gray-600">&middot;</span>
+                              <span className="flex items-center gap-1">
+                                <UserIcon className="w-3.5 h-3.5" />
+                                {transfer.creator.name}
+                              </span>
                             </>
                           )}
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                      </div>
+                    </div>
+
+                    {/* Right/End side: date + actions */}
+                    <div className={`flex items-center gap-3 shrink-0 ${isRTL ? 'mr-4' : 'ml-4'}`}>
+                      <div className="hidden sm:flex flex-col items-end text-xs text-gray-400 dark:text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <CalendarDaysIcon className="w-3.5 h-3.5" />
+                          {formatDate(transfer.created_at)}
+                        </span>
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                        <button
+                          onClick={() => router.push(`/dashboard/stock-transfers/${transfer.id}`)}
+                          className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/30 transition-colors"
+                          title={t('stockTransfersList.viewDetails')}
+                        >
+                          <EyeIcon className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handlePrint(transfer)}
+                          className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          title={t('stockTransfersList.print')}
+                        >
+                          <PrinterIcon className="w-4 h-4" />
+                        </button>
+
+                        {transfer.status === 'pending' && (
+                          <>
+                            <button
+                              onClick={() => router.push(`/dashboard/stock-transfers/${transfer.id}/edit`)}
+                              className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
+                              title={t('stockTransfersList.edit')}
+                            >
+                              <PencilSquareIcon className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleApprove(transfer.id)}
+                              disabled={acting}
+                              className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors disabled:opacity-50"
+                              title={t('stockTransfersList.approve')}
+                            >
+                              {acting ? <div className="w-4 h-4 border-2 border-emerald-300 border-t-emerald-600 rounded-full animate-spin" /> : <CheckCircleIcon className="w-4 h-4" />}
+                            </button>
+                            <button
+                              onClick={() => handleDelete(transfer.id)}
+                              disabled={acting}
+                              className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
+                              title={t('stockTransfersList.delete')}
+                            >
+                              <TrashIcon className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+
+                        {transfer.status === 'loading' && (
+                          <>
+                            <button
+                              onClick={() => handleCollect(transfer.id)}
+                              disabled={acting}
+                              className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors disabled:opacity-50"
+                              title={t('stockTransfersList.collect')}
+                            >
+                              {acting ? <div className="w-4 h-4 border-2 border-emerald-300 border-t-emerald-600 rounded-full animate-spin" /> : <BoltIcon className="w-4 h-4" />}
+                            </button>
+                            <button
+                              onClick={() => handleDelete(transfer.id)}
+                              disabled={acting}
+                              className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
+                              title={t('stockTransfersList.cancel')}
+                            >
+                              <XMarkIcon className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+
+                        {transfer.status === 'collected' && (
+                          isRTL
+                            ? <ChevronLeftIcon className="w-4 h-4 text-gray-300 dark:text-gray-600" />
+                            : <ChevronRightIcon className="w-4 h-4 text-gray-300 dark:text-gray-600" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-4 pt-4 border-t dark:border-gray-700">
-            <span className="text-sm text-gray-500">
-              إجمالي {totalItems} تحويل - صفحة {currentPage} من {totalPages}
+          <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100 dark:border-gray-700">
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              {t('stockTransfersList.totalTransfers', { total: String(totalItems) })} &middot; {t('stockTransfersList.pageOf', { current: String(currentPage), total: String(totalPages) })}
             </span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="btn btn-sm btn-secondary"
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                السابق
+                {isRTL ? <ChevronRightIcon className="w-3.5 h-3.5" /> : <ChevronLeftIcon className="w-3.5 h-3.5" />}
+                {t('stockTransfersList.previous')}
               </button>
               <button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className="btn btn-sm btn-secondary"
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                التالي
+                {t('stockTransfersList.next')}
+                {isRTL ? <ChevronLeftIcon className="w-3.5 h-3.5" /> : <ChevronRightIcon className="w-3.5 h-3.5" />}
               </button>
             </div>
           </div>
         )}
       </div>
+
+      {/* Guided Tour */}
+      {showTour && (
+        <GuidedTour
+          steps={tourSteps}
+          storageKey={storageKey}
+          onComplete={() => setShowTour(false)}
+        />
+      )}
     </div>
   );
 }

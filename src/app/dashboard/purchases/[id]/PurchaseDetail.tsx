@@ -25,6 +25,7 @@ import {
 } from '@heroicons/react/24/outline';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import Modal from '@/components/ui/Modal';
+import { useLocale } from '@/lib/i18n/context';
 
 interface PurchaseItem {
   id: number;
@@ -83,6 +84,7 @@ interface Purchase {
 export default function PurchaseDetail() {
   const params = useParams();
   const router = useRouter();
+  const { t, locale, dir } = useLocale();
   const [id, setId] = useState<string | null>(null);
   const [purchase, setPurchase] = useState<Purchase | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -124,7 +126,7 @@ export default function PurchaseDetail() {
       const response = await purchasesApi.getOne(parseInt(id));
       setPurchase(response.data.data || response.data);
     } catch (error) {
-      toast.error('خطأ في تحميل البيانات');
+      toast.error(t('purchases.dataLoadError'));
     } finally {
       setIsLoading(false);
     }
@@ -132,11 +134,13 @@ export default function PurchaseDetail() {
 
   const formatCurrency = (value: number) => {
     const safeValue = isNaN(value) ? 0 : value;
-    return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(safeValue);
+    const loc = locale === 'ar' ? 'ar-DZ' : 'fr-DZ';
+    return new Intl.NumberFormat(loc, { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(safeValue);
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('ar-DZ', {
+    const loc = locale === 'ar' ? 'ar-DZ' : 'fr-DZ';
+    return new Date(dateString).toLocaleDateString(loc, {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -145,9 +149,9 @@ export default function PurchaseDetail() {
 
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { bg: string; text: string; icon: any; label: string }> = {
-      pending: { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: ClockIcon, label: 'قيد الانتظار' },
-      received: { bg: 'bg-green-100', text: 'text-green-800', icon: CheckCircleIcon, label: 'مستلم' },
-      partial: { bg: 'bg-blue-100', text: 'text-blue-800', icon: TruckIcon, label: 'جزئي' },
+      pending: { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-800 dark:text-yellow-300', icon: ClockIcon, label: t('purchases.pendingLabel') },
+      received: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-800 dark:text-green-300', icon: CheckCircleIcon, label: t('purchases.receivedLabel') },
+      partial: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-800 dark:text-blue-300', icon: TruckIcon, label: t('purchases.partialLabel') },
     };
     const config = statusConfig[status] || statusConfig.pending;
     const Icon = config.icon;
@@ -161,9 +165,9 @@ export default function PurchaseDetail() {
 
   const getPaymentStatusBadge = (status: string) => {
     const statusConfig: Record<string, { bg: string; text: string; icon: any; label: string }> = {
-      unpaid: { bg: 'bg-red-100', text: 'text-red-800', icon: XCircleIcon, label: 'غير مدفوع' },
-      partial: { bg: 'bg-orange-100', text: 'text-orange-800', icon: BanknotesIcon, label: 'مدفوع جزئياً' },
-      paid: { bg: 'bg-green-100', text: 'text-green-800', icon: CheckCircleIcon, label: 'مدفوع' },
+      unpaid: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-300', icon: XCircleIcon, label: t('purchases.unpaidLabel') },
+      partial: { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-800 dark:text-orange-300', icon: BanknotesIcon, label: t('purchases.partiallyPaid') },
+      paid: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-800 dark:text-green-300', icon: CheckCircleIcon, label: t('purchases.paidLabel') },
     };
     const config = statusConfig[status] || statusConfig.unpaid;
     const Icon = config.icon;
@@ -177,10 +181,10 @@ export default function PurchaseDetail() {
 
   const getPaymentMethodLabel = (method: string) => {
     const methods: Record<string, string> = {
-      cash: 'نقدي',
-      bank: 'تحويل بنكي',
-      check: 'شيك',
-      other: 'أخرى',
+      cash: t('purchases.cash'),
+      bank: t('purchases.bankTransfer'),
+      check: t('purchases.check'),
+      other: t('purchases.other'),
     };
     return methods[method] || method;
   };
@@ -205,7 +209,7 @@ export default function PurchaseDetail() {
           table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
           th, td { padding: 12px; text-align: right; border-bottom: 1px solid #ddd; }
           th { background: #f5f5f5; font-weight: bold; }
-          .totals { margin-top: 20px; }
+          .totals { margin-top: 20px; text-align: left; }
           .totals .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
           .totals .row.grand { font-size: 18px; font-weight: bold; border-top: 2px solid #333; margin-top: 10px; padding-top: 15px; }
           .footer { margin-top: 40px; text-align: center; color: #666; font-size: 12px; }
@@ -287,7 +291,7 @@ export default function PurchaseDetail() {
         ${purchase?.note ? `<div style="margin-top:30px;padding:15px;background:#f9f9f9;border-radius:8px"><strong>ملاحظات:</strong><p>${purchase.note}</p></div>` : ''}
 
         <div class="footer">
-          <p>تم الطباعة بتاريخ ${new Date().toLocaleDateString('ar-DZ')}</p>
+          <p>${t('purchases.printedAt')} ${new Date().toLocaleDateString('ar-DZ')}</p>
         </div>
       </body>
       </html>
@@ -323,10 +327,10 @@ export default function PurchaseDetail() {
     setIsDeleting(true);
     try {
       await purchasesApi.delete(purchase.id);
-      toast.success('تم حذف الفاتورة بنجاح');
+      toast.success(t('purchases.deleteSuccessDetail'));
       router.push('/dashboard/purchases');
     } catch (error: any) {
-      const message = error.response?.data?.message || 'خطأ في حذف الفاتورة';
+      const message = error.response?.data?.message || t('purchases.deleteErrorDetail');
       toast.error(message);
     } finally {
       setIsDeleting(false);
@@ -351,12 +355,12 @@ export default function PurchaseDetail() {
 
     const amount = parseFloat(paymentData.amount);
     if (isNaN(amount) || amount <= 0) {
-      toast.error('الرجاء إدخال مبلغ صحيح');
+      toast.error(t('purchases.validAmountError'));
       return;
     }
 
     if (amount > purchase.due_amount) {
-      toast.error('المبلغ أكبر من المتبقي');
+      toast.error(t('purchases.amountExceedsError'));
       return;
     }
 
@@ -368,11 +372,11 @@ export default function PurchaseDetail() {
         notes: paymentData.notes,
         date: paymentData.date,
       });
-      toast.success('تم تسجيل الدفعة بنجاح');
+      toast.success(t('purchases.paymentSuccessful'));
       setIsPaymentOpen(false);
       fetchPurchase(); // Reload purchase data
     } catch (error: any) {
-      const message = error.response?.data?.message || 'خطأ في تسجيل الدفعة';
+      const message = error.response?.data?.message || t('purchases.paymentError');
       toast.error(message);
     } finally {
       setIsProcessingPayment(false);
@@ -387,13 +391,13 @@ export default function PurchaseDetail() {
       await purchasesApi.addPayment(purchase.id, {
         amount: parseFloat(String(purchase.due_amount)),
         payment_method: 'cash',
-        notes: 'دفع كامل',
+        notes: t('purchases.fullPaymentNote'),
         date: new Date().toISOString().split('T')[0],
       });
-      toast.success('تم دفع المبلغ بالكامل');
+      toast.success(t('purchases.fullPaymentDone'));
       fetchPurchase();
     } catch (error: any) {
-      const message = error.response?.data?.message || 'خطأ في الدفع';
+      const message = error.response?.data?.message || t('purchases.paymentError');
       toast.error(message);
     } finally {
       setIsProcessingPayment(false);
@@ -405,10 +409,10 @@ export default function PurchaseDetail() {
     setIsConfirming(true);
     try {
       await purchasesApi.confirm(purchase.id);
-      toast.success('تم تأكيد الفاتورة بنجاح');
+      toast.success(t('purchases.confirmSuccessDetail'));
       fetchPurchase();
     } catch (error: any) {
-      const message = error.response?.data?.message || 'خطأ في تأكيد الفاتورة';
+      const message = error.response?.data?.message || t('purchases.confirmErrorDetail');
       toast.error(message);
     } finally {
       setIsConfirming(false);
@@ -431,9 +435,9 @@ export default function PurchaseDetail() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">لم يتم العثور على الفاتورة</h3>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">{t('purchases.notFoundTitle')}</h3>
         <Link href="/dashboard/purchases" className="text-blue-600 hover:text-blue-800">
-          العودة إلى قائمة المشتريات
+          {t('purchases.backToPurchases')}
         </Link>
       </div>
     );
@@ -446,14 +450,14 @@ export default function PurchaseDetail() {
         <div className="flex items-center gap-4">
           <Link
             href="/dashboard/purchases"
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
-            <ArrowRightIcon className="w-5 h-5 text-gray-600" />
+            <ArrowRightIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{purchase.reference}</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{purchase.reference}</h1>
             <p className="text-sm text-gray-500">
-              تم الإنشاء في {formatDate(purchase.created_at)}
+              {t('purchases.createdAt', { date: formatDate(purchase.created_at) })}
             </p>
           </div>
         </div>
@@ -467,28 +471,28 @@ export default function PurchaseDetail() {
                 disabled={isConfirming}
               >
                 <CheckCircleIcon className="w-5 h-5" />
-                {isConfirming ? 'جاري التأكيد...' : 'تأكيد الاستلام'}
+                {isConfirming ? t('purchases.confirming') : t('purchases.confirmReceipt')}
               </button>
               <Link
                 href={`/dashboard/purchases/edit/${purchase.id}`}
                 className="btn btn-secondary"
               >
                 <PencilIcon className="w-5 h-5" />
-                تعديل
+                {t('purchases.edit')}
               </Link>
               <button
                 onClick={handlePrint}
                 className="btn btn-secondary"
               >
                 <PrinterIcon className="w-5 h-5" />
-                طباعة
+                {t('purchases.print')}
               </button>
               <button
                 onClick={() => setIsDeleteOpen(true)}
-                className="btn bg-red-50 text-red-600 hover:bg-red-100"
+                className="btn bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"
               >
                 <TrashIcon className="w-5 h-5" />
-                حذف
+                {t('purchases.delete')}
               </button>
             </>
           )}
@@ -502,7 +506,7 @@ export default function PurchaseDetail() {
                     disabled={isProcessingPayment}
                   >
                     <CreditCardIcon className="w-5 h-5" />
-                    إضافة دفعة
+                    {t('purchases.addPayment')}
                   </button>
                   <button
                     onClick={handlePayFull}
@@ -510,7 +514,7 @@ export default function PurchaseDetail() {
                     disabled={isProcessingPayment}
                   >
                     <BanknotesIcon className="w-5 h-5" />
-                    دفع الكل
+                    {t('purchases.payAll')}
                   </button>
                 </>
               )}
@@ -519,14 +523,14 @@ export default function PurchaseDetail() {
                 className="btn btn-secondary"
               >
                 <PencilIcon className="w-5 h-5" />
-                تعديل
+                {t('purchases.edit')}
               </Link>
               <button
                 onClick={handlePrint}
                 className="btn btn-secondary"
               >
                 <PrinterIcon className="w-5 h-5" />
-                طباعة
+                {t('purchases.print')}
               </button>
             </>
           )}
@@ -537,39 +541,39 @@ export default function PurchaseDetail() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="card">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <BuildingStorefrontIcon className="w-5 h-5 text-blue-600" />
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+              <BuildingStorefrontIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">المورد</p>
-              <p className="font-semibold">{purchase.supplier?.name || 'بدون مورد'}</p>
+              <p className="text-sm text-gray-500">{t('purchases.supplier')}</p>
+              <p className="font-semibold">{purchase.supplier?.name || t('purchases.noSupplierLabel')}</p>
             </div>
           </div>
         </div>
 
         <div className="card">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <CalendarIcon className="w-5 h-5 text-purple-600" />
+            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+              <CalendarIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">التاريخ</p>
+              <p className="text-sm text-gray-500">{t('purchases.date')}</p>
               <p className="font-semibold">{formatDate(purchase.date)}</p>
             </div>
           </div>
         </div>
 
         <div className="card">
-          <p className="text-sm text-gray-500 mb-2">حالة الاستلام</p>
+          <p className="text-sm text-gray-500 mb-2">{t('purchases.receivingStatus')}</p>
           {getStatusBadge(purchase.status)}
         </div>
 
         <div className="card">
-          <p className="text-sm text-gray-500 mb-2">حالة الدفع</p>
+          <p className="text-sm text-gray-500 mb-2">{t('purchases.paymentStatusLabel')}</p>
           {purchase.status === 'pending' ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
               <ClockIcon className="w-4 h-4" />
-              في انتظار التأكيد
+              {t('purchases.awaitingConfirm')}
             </span>
           ) : (
             getPaymentStatusBadge(purchase.payment_status)
@@ -582,19 +586,19 @@ export default function PurchaseDetail() {
         {/* Items Table */}
         <div className="lg:col-span-2">
           <div className="card">
-            <h3 className="text-lg font-semibold mb-4">المنتجات ({purchase.items?.length || 0})</h3>
+            <h3 className="text-lg font-semibold mb-4">{t('purchases.products', { count: String(purchase.items?.length || 0) })}</h3>
             <div className="overflow-x-auto">
               <table>
                 <thead>
                   <tr>
                     <th className="text-center w-12">#</th>
-                    <th>المنتج</th>
-                    <th className="text-center">الكمية</th>
-                    <th className="text-center">السعر</th>
-                    <th className="text-center">قطع/وحدة</th>
-                    <th className="text-center">الخصم</th>
-                    <th className="text-center">الضريبة</th>
-                    <th className="text-center">المجموع</th>
+                    <th>{t('purchases.product')}</th>
+                    <th className="text-center">{t('purchases.quantity')}</th>
+                    <th className="text-center">{t('purchases.price')}</th>
+                    <th className="text-center">{t('purchases.piecesPerUnit')}</th>
+                    <th className="text-center">{t('purchases.discount')}</th>
+                    <th className="text-center">{t('purchases.tax')}</th>
+                    <th className="text-center">{t('purchases.subtotal')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -613,16 +617,16 @@ export default function PurchaseDetail() {
                         <td className="text-center">
                           {formatCurrency(item.unit_price)}
                           {piecesPerPkg > 1 && (
-                            <div className="text-xs text-blue-500">({formatCurrency(item.unit_price * piecesPerPkg)}/كرتون)</div>
+                            <div className="text-xs text-blue-500">({formatCurrency(item.unit_price * piecesPerPkg)}/carton)</div>
                           )}
                         </td>
                         <td className="text-center">
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
                             {piecesPerPkg}
                           </span>
                         </td>
-                        <td className="text-center text-red-600">{item.discount > 0 ? `-${formatCurrency(item.discount)}` : '-'}</td>
-                        <td className="text-center text-blue-600">{item.tax > 0 ? formatCurrency(item.tax) : '-'}</td>
+                        <td className="text-center text-red-600 dark:text-red-400">{item.discount > 0 ? `-${formatCurrency(item.discount)}` : '-'}</td>
+                        <td className="text-center text-blue-600 dark:text-blue-400">{item.tax > 0 ? formatCurrency(item.tax) : '-'}</td>
                         <td className="text-center font-semibold">
                           {formatCurrency(item.subtotal)}
                           <div className="text-xs text-gray-400">
@@ -641,9 +645,9 @@ export default function PurchaseDetail() {
           {purchase.payments && purchase.payments.length > 0 && (
             <div className="card mt-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">سجل الدفعات ({purchase.payments.length})</h3>
+                <h3 className="text-lg font-semibold">{t('purchases.paymentHistory', { count: String(purchase.payments.length) })}</h3>
                 <span className="text-sm text-gray-500">
-                  إجمالي المدفوع: <span className="font-semibold text-green-600">{formatCurrency(purchase.paid_amount)}</span>
+                  {t('purchases.totalPaid')}: <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(purchase.paid_amount)}</span>
                 </span>
               </div>
               <div className="overflow-x-auto">
@@ -651,12 +655,12 @@ export default function PurchaseDetail() {
                   <thead>
                     <tr>
                       <th className="text-center w-12">#</th>
-                      <th className="text-center">المرجع</th>
-                      <th className="text-center">التاريخ</th>
-                      <th className="text-center">طريقة الدفع</th>
-                      <th className="text-center">المبلغ</th>
-                      <th className="text-center">بواسطة</th>
-                      <th>ملاحظات</th>
+                      <th className="text-center">{t('purchases.paymentRef')}</th>
+                      <th className="text-center">{t('purchases.paymentDate')}</th>
+                      <th className="text-center">{t('purchases.paymentMethod')}</th>
+                      <th className="text-center">{t('purchases.amount')}</th>
+                      <th className="text-center">{t('purchases.by')}</th>
+                      <th>{t('purchases.notes')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -667,16 +671,16 @@ export default function PurchaseDetail() {
                         <td className="text-center">{formatDate(payment.date)}</td>
                         <td className="text-center">
                           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            payment.payment_method === 'cash' ? 'bg-green-100 text-green-800' :
-                            payment.payment_method === 'bank' ? 'bg-blue-100 text-blue-800' :
-                            payment.payment_method === 'check' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-gray-100 text-gray-800'
+                            payment.payment_method === 'cash' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' :
+                            payment.payment_method === 'bank' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' :
+                            payment.payment_method === 'check' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' :
+                            'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
                           }`}>
                             {getPaymentMethodLabel(payment.payment_method)}
                           </span>
                         </td>
-                        <td className="text-center font-semibold text-green-600">{formatCurrency(payment.amount)}</td>
-                        <td className="text-center text-gray-600">{payment.user?.name || '-'}</td>
+                        <td className="text-center font-semibold text-green-600 dark:text-green-400">{formatCurrency(payment.amount)}</td>
+                        <td className="text-center text-gray-600 dark:text-gray-400">{payment.user?.name || '-'}</td>
                         <td className="text-gray-500 text-sm">{payment.notes || '-'}</td>
                       </tr>
                     ))}
@@ -691,50 +695,50 @@ export default function PurchaseDetail() {
         <div className="space-y-6">
           {/* Totals */}
           <div className="card">
-            <h3 className="text-lg font-semibold mb-4">ملخص الفاتورة</h3>
+            <h3 className="text-lg font-semibold mb-4">{t('purchases.invoiceSummary')}</h3>
             <div className="space-y-3">
-              <div className="flex justify-between text-gray-600">
-                <span>المجموع الفرعي</span>
+              <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                <span>{t('purchases.subtotalAmount')}</span>
                 <span>{formatCurrency(purchase.total_amount)}</span>
               </div>
               {purchase.discount > 0 && (
-                <div className="flex justify-between text-red-600">
-                  <span>الخصم</span>
+                <div className="flex justify-between text-red-600 dark:text-red-400">
+                  <span>{t('purchases.discount')}</span>
                   <span>-{formatCurrency(purchase.discount)}</span>
                 </div>
               )}
               {purchase.tax > 0 && (
-                <div className="flex justify-between text-blue-600">
-                  <span>الضريبة</span>
+                <div className="flex justify-between text-blue-600 dark:text-blue-400">
+                  <span>{t('purchases.tax')}</span>
                   <span>+{formatCurrency(purchase.tax)}</span>
                 </div>
               )}
               {purchase.shipping > 0 && (
-                <div className="flex justify-between text-gray-600">
-                  <span>الشحن</span>
+                <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                  <span>{t('purchases.shipping')}</span>
                   <span>+{formatCurrency(purchase.shipping)}</span>
                 </div>
               )}
-              <hr />
+              <hr className="dark:border-gray-700" />
               <div className="flex justify-between text-lg font-bold">
-                <span>المجموع النهائي</span>
-                <span className="text-green-600">{formatCurrency(purchase.grand_total)}</span>
+                <span>{t('purchases.grandTotal')}</span>
+                <span className="text-green-600 dark:text-green-400">{formatCurrency(purchase.grand_total)}</span>
               </div>
               {purchase.status === 'pending' ? (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center">
-                  <p className="text-yellow-700 text-sm font-medium">فاتورة غير مؤكدة</p>
-                  <p className="text-yellow-600 text-xs mt-1">لن يتم احتساب الدين إلا بعد التأكيد</p>
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-3 text-center">
+                  <p className="text-yellow-700 dark:text-yellow-300 text-sm font-medium">{t('purchases.unconfirmedInvoice')}</p>
+                  <p className="text-yellow-600 dark:text-yellow-400 text-xs mt-1">{t('purchases.debtAfterConfirm')}</p>
                 </div>
               ) : (
                 <>
-                  <hr />
-                  <div className="flex justify-between text-gray-600">
-                    <span>المدفوع</span>
-                    <span className="text-green-600">{formatCurrency(purchase.paid_amount)}</span>
+                  <hr className="dark:border-gray-700" />
+                  <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                    <span>{t('purchases.paidAmount')}</span>
+                    <span className="text-green-600 dark:text-green-400">{formatCurrency(purchase.paid_amount)}</span>
                   </div>
                   <div className="flex justify-between font-semibold">
-                    <span>المتبقي</span>
-                    <span className={purchase.due_amount > 0 ? 'text-red-600' : 'text-green-600'}>
+                    <span>{t('purchases.remainingAmount')}</span>
+                    <span className={purchase.due_amount > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}>
                       {formatCurrency(purchase.due_amount)}
                     </span>
                   </div>
@@ -745,35 +749,35 @@ export default function PurchaseDetail() {
 
           {/* Additional Info */}
           <div className="card">
-            <h3 className="text-lg font-semibold mb-4">معلومات إضافية</h3>
+            <h3 className="text-lg font-semibold mb-4">{t('purchases.additionalInfo')}</h3>
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-gray-100 rounded-lg">
-                  <TruckIcon className="w-4 h-4 text-gray-600" />
+                <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                  <TruckIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">المستودع</p>
+                  <p className="text-xs text-gray-500">{t('purchases.warehouse')}</p>
                   <p className="font-medium">{purchase.warehouse?.name || '-'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-gray-100 rounded-lg">
-                  <UserIcon className="w-4 h-4 text-gray-600" />
+                <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                  <UserIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">بواسطة</p>
+                  <p className="text-xs text-gray-500">{t('purchases.by')}</p>
                   <p className="font-medium">{purchase.user?.name || '-'}</p>
                 </div>
               </div>
               {purchase.supplier?.phone && (
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gray-100 rounded-lg">
-                    <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                    <svg className="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                     </svg>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">هاتف المورد</p>
+                    <p className="text-xs text-gray-500">{t('purchases.supplierPhone')}</p>
                     <p className="font-medium">{purchase.supplier.phone}</p>
                   </div>
                 </div>
@@ -784,8 +788,8 @@ export default function PurchaseDetail() {
           {/* Notes */}
           {purchase.note && (
             <div className="card">
-              <h3 className="text-lg font-semibold mb-3">ملاحظات</h3>
-              <p className="text-gray-600 whitespace-pre-wrap">{purchase.note}</p>
+              <h3 className="text-lg font-semibold mb-3">{t('purchases.notes')}</h3>
+              <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{purchase.note}</p>
             </div>
           )}
         </div>
@@ -796,8 +800,8 @@ export default function PurchaseDetail() {
         isOpen={isDeleteOpen}
         onClose={() => setIsDeleteOpen(false)}
         onConfirm={handleDelete}
-        title="حذف الفاتورة"
-        message={`هل أنت متأكد من حذف الفاتورة "${purchase.reference}"؟ سيتم إلغاء جميع حركات المخزون المرتبطة.`}
+        title={t('purchases.deleteInvoice')}
+        message={t('purchases.deleteInvoiceMsg', { ref: purchase.reference })}
         isLoading={isDeleting}
       />
 
@@ -805,26 +809,26 @@ export default function PurchaseDetail() {
       <Modal
         isOpen={isPaymentOpen}
         onClose={() => setIsPaymentOpen(false)}
-        title="إضافة دفعة"
+        title={t('purchases.addPaymentTitle')}
       >
         <form onSubmit={handlePayment} className="space-y-4">
-          <div className="bg-gray-50 p-4 rounded-lg mb-4">
+          <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-4">
             <div className="flex justify-between mb-2">
-              <span className="text-gray-600">المبلغ الإجمالي:</span>
+              <span className="text-gray-600 dark:text-gray-400">{t('purchases.totalAmountLabel')}</span>
               <span className="font-semibold">{formatCurrency(purchase.grand_total)}</span>
             </div>
             <div className="flex justify-between mb-2">
-              <span className="text-gray-600">المدفوع:</span>
-              <span className="font-semibold text-green-600">{formatCurrency(purchase.paid_amount)}</span>
+              <span className="text-gray-600 dark:text-gray-400">{t('purchases.paidAmount')}:</span>
+              <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(purchase.paid_amount)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">المتبقي:</span>
-              <span className="font-bold text-red-600">{formatCurrency(purchase.due_amount)}</span>
+              <span className="text-gray-600 dark:text-gray-400">{t('purchases.remainingAmount')}:</span>
+              <span className="font-bold text-red-600 dark:text-red-400">{formatCurrency(purchase.due_amount)}</span>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">المبلغ</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('purchases.amount')}</label>
             <input
               type="number"
               value={paymentData.amount}
@@ -840,37 +844,37 @@ export default function PurchaseDetail() {
               <button
                 type="button"
                 onClick={() => setPaymentData(prev => ({ ...prev, amount: purchase.due_amount.toString() }))}
-                className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200"
+                className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded hover:bg-blue-200 dark:hover:bg-blue-900/50"
               >
-                المبلغ الكامل
+                {t('purchases.fullAmount')}
               </button>
               <button
                 type="button"
                 onClick={() => setPaymentData(prev => ({ ...prev, amount: (purchase.due_amount / 2).toFixed(2) }))}
-                className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded hover:bg-gray-200"
+                className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
               >
-                النصف
+                {t('purchases.halfAmount')}
               </button>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">طريقة الدفع</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('purchases.paymentMethod')}</label>
             <select
               value={paymentData.payment_method}
               onChange={(e) => setPaymentData(prev => ({ ...prev, payment_method: e.target.value as any }))}
               className="select w-full"
               required
             >
-              <option value="cash">نقدي</option>
-              <option value="bank">تحويل بنكي</option>
-              <option value="check">شيك</option>
-              <option value="other">أخرى</option>
+              <option value="cash">{t('purchases.cash')}</option>
+              <option value="bank">{t('purchases.bankTransfer')}</option>
+              <option value="check">{t('purchases.check')}</option>
+              <option value="other">{t('purchases.other')}</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">التاريخ</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('purchases.paymentDate')}</label>
             <DateInput
               value={paymentData.date}
               onChange={(v) => setPaymentData(prev => ({ ...prev, date: v }))}
@@ -880,23 +884,23 @@ export default function PurchaseDetail() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">ملاحظات</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('purchases.notes')}</label>
             <textarea
               value={paymentData.notes}
               onChange={(e) => setPaymentData(prev => ({ ...prev, notes: e.target.value }))}
               className="input w-full"
               rows={2}
-              placeholder="ملاحظات اختيارية..."
+              placeholder={t('purchases.optionalNotes')}
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t">
+          <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
             <button
               type="button"
               onClick={() => setIsPaymentOpen(false)}
               className="btn btn-secondary"
             >
-              إلغاء
+              {t('purchases.cancel')}
             </button>
             <button
               type="submit"
@@ -908,7 +912,7 @@ export default function PurchaseDetail() {
               ) : (
                 <>
                   <CheckCircleIcon className="w-5 h-5" />
-                  تأكيد الدفع
+                  {t('purchases.confirmPayment')}
                 </>
               )}
             </button>

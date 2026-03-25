@@ -2,8 +2,9 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { passwordApi } from '@/lib/api';
+import { saasApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 export default function ForgotPasswordPage() {
@@ -31,7 +32,7 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await passwordApi.forgotPassword(email);
+      await saasApi.forgotPassword(email);
       toast.success('تم إرسال رمز التحقق');
       setStep(2);
       setCountdown(60);
@@ -49,7 +50,7 @@ export default function ForgotPasswordPage() {
     if (countdown > 0) return;
     setIsLoading(true);
     try {
-      await passwordApi.forgotPassword(email);
+      await saasApi.forgotPassword(email);
       toast.success('تم إعادة إرسال رمز التحقق');
       setCountdown(60);
       setOtp(['', '', '', '', '', '']);
@@ -115,7 +116,7 @@ export default function ForgotPasswordPage() {
     }
     setIsLoading(true);
     try {
-      await passwordApi.resetPassword({
+      await saasApi.resetPassword({
         email,
         otp: otp.join(''),
         password,
@@ -154,9 +155,10 @@ export default function ForgotPasswordPage() {
       <div className="flex-1 flex items-center justify-center p-6 sm:p-10 bg-white">
         <div className="w-full max-w-[420px]">
           {/* Logo */}
-          <div className="inline-flex items-center gap-2.5 mb-10">
-            <span className="text-2xl font-bold text-blue-600">TrackSera</span>
-          </div>
+          <Link href="/" className="inline-flex items-center gap-2.5 mb-10 group">
+            <Image src="/t.png" alt="TrackSera" width={40} height={40} className="object-contain transition-transform group-hover:scale-105" />
+            <span className="text-lg font-bold text-gray-900">TrackSera</span>
+          </Link>
 
           {/* Back link */}
           <Link href="/login" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors mb-6">

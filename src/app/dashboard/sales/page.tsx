@@ -22,7 +22,11 @@ import {
   DevicePhoneMobileIcon,
   ComputerDesktopIcon,
   CheckCircleIcon,
+  QuestionMarkCircleIcon,
 } from '@heroicons/react/24/outline';
+import GuidedTour from '@/components/GuidedTour';
+import type { TourStep } from '@/components/GuidedTour';
+import { useLocale } from '@/lib/i18n/context';
 
 interface Sale {
   id: number;
@@ -65,11 +69,66 @@ interface Tab {
 }
 
 export default function SalesPage() {
+  const { t, locale, dir } = useLocale();
+
+  const salesTourSteps: TourStep[] = useMemo(() => [
+    {
+      target: '[data-tour="sales-title"]',
+      title: t('sales.tourPageTitle'),
+      desc: t('sales.tourPageDesc'),
+      position: 'bottom',
+    },
+    {
+      target: '[data-tour="sales-add"]',
+      title: t('sales.tourAddTitle'),
+      desc: t('sales.tourAddDesc'),
+      position: 'bottom',
+    },
+    {
+      target: '[data-tour="sales-debtors"]',
+      title: t('sales.tourDebtorsTitle'),
+      desc: t('sales.tourDebtorsDesc'),
+      position: 'bottom',
+    },
+    {
+      target: '[data-tour="sales-kpis"]',
+      title: t('sales.tourKpisTitle'),
+      desc: t('sales.tourKpisDesc'),
+      position: 'bottom',
+    },
+    {
+      target: '[data-tour="sales-profit"]',
+      title: t('sales.tourProfitTitle'),
+      desc: t('sales.tourProfitDesc'),
+      position: 'bottom',
+    },
+    {
+      target: '[data-tour="sales-tabs"]',
+      title: t('sales.tourTabsTitle'),
+      desc: t('sales.tourTabsDesc'),
+      position: 'bottom',
+    },
+    {
+      target: '[data-tour="sales-filters"]',
+      title: t('sales.tourFiltersTitle'),
+      desc: t('sales.tourFiltersDesc'),
+      position: 'bottom',
+    },
+  ], [t]);
+
   // Tab state
   const [tabs, setTabs] = useState<Tab[]>([
-    { id: 'list', type: 'list', title: 'قائمة الفواتير' }
+    { id: 'list', type: 'list', title: t('sales.invoicesList') }
   ]);
   const [activeTabId, setActiveTabId] = useState('list');
+  const [showTour, setShowTour] = useState(false);
+
+  // Update list tab title when locale changes
+  useEffect(() => {
+    setTabs(prev => prev.map(tab =>
+      tab.id === 'list' ? { ...tab, title: t('sales.invoicesList') } : tab
+    ));
+  }, [locale, t]);
 
   // List data
   const [sales, setSales] = useState<Sale[]>([]);
@@ -97,11 +156,11 @@ export default function SalesPage() {
     const newTab: Tab = {
       id: generateTabId(),
       type: 'new',
-      title: 'فاتورة جديدة',
+      title: t('sales.newInvoice'),
     };
     setTabs(prev => [...prev, newTab]);
     setActiveTabId(newTab.id);
-  }, []);
+  }, [t]);
 
   // Open edit tab
   const openEditTab = useCallback((saleId: number, reference: string) => {
@@ -115,13 +174,13 @@ export default function SalesPage() {
     const newTab: Tab = {
       id: generateTabId(),
       type: 'edit',
-      title: `تعديل ${reference}`,
+      title: t('sales.editRef', { ref: reference }),
       saleId,
       reference,
     };
     setTabs(prev => [...prev, newTab]);
     setActiveTabId(newTab.id);
-  }, [tabs]);
+  }, [tabs, t]);
 
   // Close tab
   const closeTab = useCallback((tabId: string, e?: React.MouseEvent) => {
@@ -176,7 +235,7 @@ export default function SalesPage() {
       const response = await salesApi.getAll();
       setSales(response.data.data || response.data);
     } catch (error) {
-      toast.error('خطأ في تحميل البيانات');
+      toast.error(t('sales.dataLoadError'));
     } finally {
       setIsLoading(false);
     }
@@ -202,15 +261,15 @@ export default function SalesPage() {
 
   const handleDelete = async (id: number, isDraft: boolean = false) => {
     const msg = isDraft
-      ? 'هل أنت متأكد من حذف هذه المسودة؟'
-      : 'هل أنت متأكد من إلغاء هذه الفاتورة؟ سيتم إرجاع المخزون وعكس المبالغ المالية.';
+      ? t('sales.deleteDraftConfirm')
+      : t('sales.deleteInvoiceConfirm');
     if (!confirm(msg)) return;
     try {
       await salesApi.delete(id);
-      toast.success('تم حذف الفاتورة بنجاح');
+      toast.success(t('sales.deleteSuccess'));
       fetchData();
     } catch (error: any) {
-      const message = error.response?.data?.message || 'خطأ في حذف الفاتورة';
+      const message = error.response?.data?.message || t('sales.deleteError');
       toast.error(message);
     }
   };
@@ -220,13 +279,13 @@ export default function SalesPage() {
   };
 
   const handleConfirmDraft = async (id: number) => {
-    if (!confirm('هل تريد تأكيد هذه الفاتورة؟ سيتم خصم المخزون وتسجيل العملية.')) return;
+    if (!confirm(t('sales.confirmDraftQuestion'))) return;
     try {
       await salesApi.confirm(id);
-      toast.success('تم تأكيد الفاتورة بنجاح');
+      toast.success(t('sales.confirmSuccess'));
       fetchData();
     } catch (error: any) {
-      const message = error.response?.data?.message || 'خطأ في تأكيد الفاتورة';
+      const message = error.response?.data?.message || t('sales.confirmError');
       toast.error(message);
     }
   };
@@ -241,9 +300,9 @@ export default function SalesPage() {
       link.download = `facture-${id}.pdf`;
       link.click();
       window.URL.revokeObjectURL(url);
-      toast.success('تم تحميل الفاتورة');
+      toast.success(t('sales.downloadFactureSuccess'));
     } catch (error) {
-      toast.error('خطأ في تحميل الفاتورة');
+      toast.error(t('sales.downloadFactureError'));
     }
   };
 
@@ -257,37 +316,39 @@ export default function SalesPage() {
       link.download = `bon-livraison-${id}.pdf`;
       link.click();
       window.URL.revokeObjectURL(url);
-      toast.success('تم تحميل وصل التسليم');
+      toast.success(t('sales.downloadBonSuccess'));
     } catch (error) {
-      toast.error('خطأ في تحميل وصل التسليم');
+      toast.error(t('sales.downloadBonError'));
     }
   };
 
+  const intlLocale = locale === 'fr' ? 'fr-DZ' : 'ar-DZ';
+
   const formatCurrency = (value: number | string | null | undefined) => {
     const num = typeof value === 'string' ? parseFloat(value) : (value ?? 0);
-    if (isNaN(num)) return '0 د.ج.';
-    return new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(num);
+    if (isNaN(num)) return locale === 'fr' ? '0 DA' : '0 د.ج.';
+    return new Intl.NumberFormat(intlLocale, { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(num);
   };
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('ar-DZ');
+    return new Date(date).toLocaleDateString(intlLocale);
   };
 
   const getStatusBadge = (status: string) => {
     const badges: Record<string, { class: string; text: string }> = {
-      draft: { class: 'badge-info', text: 'مسودة' },
-      pending: { class: 'badge-warning', text: 'معلق' },
-      completed: { class: 'badge-success', text: 'مكتمل' },
-      cancelled: { class: 'badge-danger', text: 'ملغي' },
+      draft: { class: 'badge-info', text: t('sales.draft') },
+      pending: { class: 'badge-warning', text: t('sales.pending') },
+      completed: { class: 'badge-success', text: t('sales.completed') },
+      cancelled: { class: 'badge-danger', text: t('sales.cancelled') },
     };
     return badges[status] || { class: 'badge-secondary', text: status };
   };
 
   const getPaymentBadge = (status: string) => {
     const badges: Record<string, { class: string; text: string }> = {
-      unpaid: { class: 'badge-danger', text: 'غير مدفوع' },
-      partial: { class: 'badge-warning', text: 'جزئي' },
-      paid: { class: 'badge-success', text: 'مدفوع' },
+      unpaid: { class: 'badge-danger', text: t('sales.unpaid') },
+      partial: { class: 'badge-warning', text: t('sales.partial') },
+      paid: { class: 'badge-success', text: t('sales.paidBadge') },
     };
     return badges[status] || { class: 'badge-secondary', text: status };
   };
@@ -385,142 +446,228 @@ export default function SalesPage() {
     switch (tab.type) {
       case 'list':
         return (
-          <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold">المبيعات</h1>
-                <p className="text-gray-500 mt-1">إدارة فواتير المبيعات</p>
+          <div className="space-y-5">
+            {/* --- Header --- */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-3">
+              <div data-tour="sales-title" className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                  <DocumentTextIcon className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('sales.title')}</h1>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-1.5">{t('sales.subtitle')}</p>
+                </div>
               </div>
-              <div className="flex gap-3">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Link
                   href="/dashboard/sales/debtors"
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors shadow-sm"
+                  className="group inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold rounded-xl border-2 border-amber-200 dark:border-amber-700 text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 hover:border-amber-300 dark:hover:border-amber-600 transition-all duration-200"
+                  data-tour="sales-debtors"
                 >
-                  <BanknotesIcon className="w-5 h-5" />
-                  الديون المستحقة
+                  <BanknotesIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  {t('sales.outstandingDebts')}
                 </Link>
-                <button onClick={openNewTab} className="btn btn-primary inline-flex items-center gap-2">
-                  <PlusIcon className="w-5 h-5" />
-                  إضافة فاتورة بيع
-                  <kbd className="bg-blue-700 px-1.5 py-0.5 rounded text-xs">Insert</kbd>
+                <button
+                  onClick={openNewTab}
+                  className="group inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/30 active:scale-[0.98] transition-all duration-200"
+                  data-tour="sales-add"
+                >
+                  <PlusIcon className="w-5 h-5 group-hover:rotate-90 transition-transform duration-200" />
+                  <span className="hidden sm:inline">{t('sales.addSaleInvoice')}</span>
+                  <span className="sm:hidden">{t('sales.add')}</span>
+                  <kbd className="hidden sm:inline bg-white/20 px-1.5 py-0.5 rounded-md text-[10px] font-mono">Insert</kbd>
                 </button>
               </div>
             </div>
 
-            {/* Cost / Sell / Profit Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="card bg-orange-50 border-2 border-orange-200">
-                <div className="text-orange-600 text-sm font-medium">إجمالي سعر الشراء</div>
-                <div className="text-2xl font-bold text-orange-700">{formatCurrency(kpis.totalCost)}</div>
-              </div>
-              <div className="card bg-green-50 border-2 border-green-200">
-                <div className="text-green-600 text-sm font-medium">إجمالي سعر البيع</div>
-                <div className="text-2xl font-bold text-green-700">{formatCurrency(kpis.totalAmount)}</div>
-              </div>
-              <div className="card bg-blue-50 border-2 border-blue-200">
-                <div className="text-blue-600 text-sm font-medium">هامش الربح</div>
-                <div className={`text-2xl font-bold ${kpis.profit >= 0 ? 'text-blue-700' : 'text-red-700'}`}>{formatCurrency(kpis.profit)}</div>
-              </div>
-            </div>
-
-            {/* KPIs Row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              <div className="card bg-blue-50 border-2 border-blue-200">
-                <div className="text-blue-600 text-sm font-medium">إجمالي الفواتير</div>
-                <div className="text-3xl font-bold text-blue-700">{kpis.totalSales}</div>
-              </div>
-              <div className="card bg-purple-50 border-2 border-purple-200">
-                <div className="text-purple-600 text-sm font-medium">إجمالي المبيعات</div>
-                <div className="text-lg font-bold text-purple-700">{formatCurrency(kpis.totalAmount)}</div>
-              </div>
-              <div className="card bg-green-50 border-2 border-green-200">
-                <div className="text-green-600 text-sm font-medium">المحصل</div>
-                <div className="text-lg font-bold text-green-700">{formatCurrency(kpis.paidAmount)}</div>
-              </div>
-              <div className="card bg-red-50 border-2 border-red-200">
-                <div className="text-red-600 text-sm font-medium">الديون</div>
-                <div className="text-lg font-bold text-red-700">{formatCurrency(kpis.dueAmount)}</div>
-              </div>
-              <div className="card bg-indigo-50 border-2 border-indigo-200">
-                <div className="text-indigo-600 text-sm font-medium">مبيعات اليوم</div>
-                <div className="text-3xl font-bold text-indigo-700">{kpis.todaySales}</div>
-                <div className="text-xs text-indigo-500">{formatCurrency(kpis.todayAmount)}</div>
-              </div>
-              <div className="card bg-amber-50 border-2 border-amber-200">
-                <div className="text-amber-600 text-sm font-medium">غير مدفوع</div>
-                <div className="text-3xl font-bold text-amber-700">{kpis.unpaidCount}</div>
+            {/* --- Profit Strip --- */}
+            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden" data-tour="sales-profit">
+              <div className={`grid grid-cols-1 md:grid-cols-3 md:divide-x ${dir === 'rtl' ? 'md:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
+                <div className="group relative p-5 hover:bg-orange-50/40 dark:hover:bg-orange-900/10 transition-colors duration-200">
+                  <div className="absolute top-0 inset-x-0 h-[3px] bg-orange-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+                  <div className="text-center">
+                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 mb-2.5">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20 12H4" /></svg>
+                    </div>
+                    <div className="text-lg font-black text-gray-900 dark:text-white tabular-nums leading-none">{formatCurrency(kpis.totalCost)}</div>
+                    <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.totalCostPrice')}</div>
+                  </div>
+                </div>
+                <div className="group relative p-5 hover:bg-green-50/40 dark:hover:bg-green-900/10 transition-colors duration-200">
+                  <div className="absolute top-0 inset-x-0 h-[3px] bg-green-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+                  <div className="text-center">
+                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 mb-2.5">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
+                    </div>
+                    <div className="text-lg font-black text-gray-900 dark:text-white tabular-nums leading-none">{formatCurrency(kpis.totalAmount)}</div>
+                    <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.totalSellingPrice')}</div>
+                  </div>
+                </div>
+                <div className="group relative p-5 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors duration-200">
+                  <div className="absolute top-0 inset-x-0 h-[3px] bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+                  <div className="text-center">
+                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mb-2.5">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                    </div>
+                    <div className={`text-lg font-black tabular-nums leading-none ${kpis.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(kpis.profit)}</div>
+                    <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.profitMargin')}</div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Filters */}
-            <div className="card">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-700 flex items-center gap-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                  </svg>
-                  الفلاتر
-                </h3>
+            {/* --- KPI Strip --- */}
+            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden" data-tour="sales-kpis">
+              <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 sm:divide-x ${dir === 'rtl' ? 'sm:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
+                <div className="group relative p-5 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors duration-200">
+                  <div className="absolute top-0 inset-x-0 h-[3px] bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+                  <div className="text-center">
+                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mb-2.5">
+                      <span className="text-sm font-black">#</span>
+                    </div>
+                    <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.totalSales}</div>
+                    <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.totalInvoices')}</div>
+                  </div>
+                </div>
+
+                <div className="group relative p-5 hover:bg-purple-50/40 dark:hover:bg-purple-900/10 transition-colors duration-200">
+                  <div className="absolute top-0 inset-x-0 h-[3px] bg-purple-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+                  <div className="text-center">
+                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 mb-2.5">
+                      <BanknotesIcon className="w-4 h-4" />
+                    </div>
+                    <div className="text-lg font-black text-gray-900 dark:text-white tabular-nums leading-none">{formatCurrency(kpis.totalAmount)}</div>
+                    <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.totalSales')}</div>
+                  </div>
+                </div>
+
+                <div className="group relative p-5 hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10 transition-colors duration-200">
+                  <div className="absolute top-0 inset-x-0 h-[3px] bg-emerald-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+                  <div className="text-center">
+                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 mb-2.5">
+                      <CheckCircleIcon className="w-4 h-4" />
+                    </div>
+                    <div className="text-lg font-black text-emerald-600 tabular-nums leading-none">{formatCurrency(kpis.paidAmount)}</div>
+                    <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.collected')}</div>
+                  </div>
+                </div>
+
+                <div className="group relative p-5 hover:bg-red-50/40 dark:hover:bg-red-900/10 transition-colors duration-200">
+                  <div className="absolute top-0 inset-x-0 h-[3px] bg-red-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+                  <div className="text-center">
+                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 mb-2.5">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </div>
+                    <div className="text-lg font-black text-red-600 tabular-nums leading-none">{formatCurrency(kpis.dueAmount)}</div>
+                    <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.debts')}</div>
+                  </div>
+                </div>
+
+                <div className="group relative p-5 hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 transition-colors duration-200">
+                  <div className="absolute top-0 inset-x-0 h-[3px] bg-indigo-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+                  <div className="text-center">
+                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 mb-2.5">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    </div>
+                    <div className="text-3xl font-black text-indigo-600 tabular-nums leading-none">{kpis.todaySales}</div>
+                    <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.todaySales')}</div>
+                    <div className="text-[10px] text-indigo-400 mt-0.5">{formatCurrency(kpis.todayAmount)}</div>
+                  </div>
+                </div>
+
+                <div className="group relative p-5 hover:bg-amber-50/40 dark:hover:bg-amber-900/10 transition-colors duration-200">
+                  <div className="absolute top-0 inset-x-0 h-[3px] bg-amber-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
+                  <div className="text-center">
+                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 mb-2.5">
+                      <XMarkIcon className="w-4 h-4" />
+                    </div>
+                    <div className="text-3xl font-black text-amber-600 tabular-nums leading-none">{kpis.unpaidCount}</div>
+                    <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.unpaidCount')}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* --- Filters --- */}
+            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden" data-tour="sales-filters">
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-750">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-gray-200/70 dark:bg-gray-600 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                  </div>
+                  <span className="text-sm font-bold text-gray-700 dark:text-gray-200">{t('sales.filters')}</span>
+                  {hasActiveFilters && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">{t('sales.active')}</span>
+                  )}
+                </div>
                 {hasActiveFilters && (
-                  <button onClick={clearFilters} className="text-sm text-red-600 hover:text-red-800 flex items-center gap-1">
-                    <XMarkIcon className="w-4 h-4" />
-                    مسح الفلاتر
+                  <button onClick={clearFilters} className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 px-2.5 py-1.5 rounded-lg transition-colors">
+                    <XMarkIcon className="w-3.5 h-3.5" />
+                    {t('sales.clearAll')}
                   </button>
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="رقم المرجع أو اسم العميل..."
-                  className="input"
-                />
-                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select">
-                  <option value="">كل الحالات</option>
-                  <option value="draft">مسودة</option>
-                  <option value="pending">معلق</option>
-                  <option value="completed">مكتمل</option>
-                  <option value="cancelled">ملغي</option>
-                </select>
-                <select value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value)} className="select">
-                  <option value="">حالة الدفع</option>
-                  <option value="unpaid">غير مدفوع</option>
-                  <option value="partial">جزئي</option>
-                  <option value="paid">مدفوع</option>
-                </select>
-                <select value={clientFilter} onChange={(e) => setClientFilter(e.target.value)} className="select">
-                  <option value="">كل العملاء</option>
-                  {clients.map(client => (
-                    <option key={client.id} value={client.id}>{client.name}</option>
-                  ))}
-                </select>
-              </div>
+              <div className="p-5 space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder={t('sales.searchPlaceholder')}
+                    className="input"
+                  />
+                  <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select">
+                    <option value="">{t('sales.allStatuses')}</option>
+                    <option value="draft">{t('sales.draft')}</option>
+                    <option value="pending">{t('sales.pending')}</option>
+                    <option value="completed">{t('sales.completed')}</option>
+                    <option value="cancelled">{t('sales.cancelled')}</option>
+                  </select>
+                  <select value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value)} className="select">
+                    <option value="">{t('sales.paymentStatus')}</option>
+                    <option value="unpaid">{t('sales.unpaid')}</option>
+                    <option value="partial">{t('sales.partial')}</option>
+                    <option value="paid">{t('sales.paidBadge')}</option>
+                  </select>
+                  <select value={clientFilter} onChange={(e) => setClientFilter(e.target.value)} className="select">
+                    <option value="">{t('sales.allClients')}</option>
+                    {clients.map(client => (
+                      <option key={client.id} value={client.id}>{client.name}</option>
+                    ))}
+                  </select>
+                </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <select value={warehouseFilter} onChange={(e) => setWarehouseFilter(e.target.value)} className="select">
-                  <option value="">كل المستودعات</option>
-                  {warehouses.map(warehouse => (
-                    <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
-                  ))}
-                </select>
-                <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} className="select">
-                  <option value="">جميع المصادر</option>
-                  <option value="web">من المنصة</option>
-                  <option value="app">من التطبيق</option>
-                  <option value="delivery">من التوصيل</option>
-                </select>
-                <DateInput value={dateFrom} onChange={(v) => setDateFrom(v)} placeholder="من تاريخ" />
-                <DateInput value={dateTo} onChange={(v) => setDateTo(v)} placeholder="إلى تاريخ" />
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <select value={warehouseFilter} onChange={(e) => setWarehouseFilter(e.target.value)} className="select">
+                    <option value="">{t('sales.allWarehouses')}</option>
+                    {warehouses.map(warehouse => (
+                      <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
+                    ))}
+                  </select>
+                  <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} className="select">
+                    <option value="">{t('sales.allSources')}</option>
+                    <option value="web">{t('sales.fromPlatform')}</option>
+                    <option value="app">{t('sales.fromApp')}</option>
+                    <option value="delivery">{t('sales.fromDelivery')}</option>
+                  </select>
+                  <DateInput value={dateFrom} onChange={(v) => setDateFrom(v)} placeholder={t('sales.fromDate')} />
+                  <DateInput value={dateTo} onChange={(v) => setDateTo(v)} placeholder={t('sales.toDate')} />
+                </div>
               </div>
             </div>
 
-            {/* Sales Table */}
-            <div className="card">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-700">قائمة الفواتير ({filteredSales.length})</h3>
+            {/* --- Table --- */}
+            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden" data-tour="sales-table">
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-750">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-gray-700 dark:text-gray-200">{t('sales.invoicesList')}</h3>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 tabular-nums">
+                    {filteredSales.length}
+                  </span>
+                </div>
               </div>
 
               {isLoading ? (
@@ -530,106 +677,115 @@ export default function SalesPage() {
                   <table className="w-full">
                     <thead>
                       <tr>
-                        <th>المرجع</th>
-                        <th>العميل</th>
-                        <th>المستودع</th>
-                        <th>التاريخ</th>
-                        <th>التكلفة</th>
-                        <th>الإجمالي</th>
-                        <th>الربح</th>
-                        <th>المدفوع</th>
-                        <th>المتبقي</th>
-                        <th>الحالة</th>
-                        <th>الدفع</th>
-                        <th>
-                          المصدر
-                          <span className="inline-block mr-1 px-1.5 py-0.5 text-[10px] font-bold bg-emerald-500 text-white rounded-full leading-none">جديد</span>
-                        </th>
-                        <th>الإجراءات</th>
+                        <th>{t('sales.reference')}</th>
+                        <th>{t('sales.client')}</th>
+                        <th>{t('sales.warehouse')}</th>
+                        <th>{t('sales.date')}</th>
+                        <th>{t('sales.cost')}</th>
+                        <th>{t('sales.total')}</th>
+                        <th>{t('sales.profit')}</th>
+                        <th>{t('sales.paid')}</th>
+                        <th>{t('sales.remaining')}</th>
+                        <th>{t('sales.status')}</th>
+                        <th>{t('sales.payment')}</th>
+                        <th>{t('sales.source')}</th>
+                        <th>{t('sales.actions')}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredSales.length === 0 ? (
-                        <tr><td colSpan={13} className="text-center py-8 text-gray-500">لا توجد فواتير بيع</td></tr>
+                        <tr>
+                          <td colSpan={13} className="text-center py-16">
+                            <div className="flex flex-col items-center gap-3">
+                              <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                                <DocumentTextIcon className="w-8 h-8 text-gray-300 dark:text-gray-500" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-gray-400 dark:text-gray-500">{t('sales.noSaleInvoices')}</p>
+                                <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">{t('sales.tryChangeFilters')}</p>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
                       ) : (
                         filteredSales.map((sale) => {
                           const statusBadge = getStatusBadge(sale.status);
                           const paymentBadge = getPaymentBadge(sale.payment_status);
                           return (
-                            <tr key={sale.id} className="hover:bg-gray-50">
-                              <td className="font-medium">{sale.reference}</td>
-                              <td>{sale.client?.name || 'عميل نقدي'}</td>
+                            <tr key={sale.id} className="group hover:bg-emerald-50/30 dark:hover:bg-emerald-900/10 transition-colors duration-150">
+                              <td className="font-bold text-emerald-600">{sale.reference}</td>
+                              <td className="font-medium text-gray-700 dark:text-gray-200">{sale.client?.name || t('sales.cashClient')}</td>
                               <td>{sale.warehouse?.name || '-'}</td>
-                              <td>{formatDate(sale.date)}</td>
-                              <td className="text-orange-600">{formatCurrency(sale.total_cost ?? 0)}</td>
-                              <td>{formatCurrency(sale.grand_total)}</td>
-                              <td className={`font-medium ${(Number(sale.grand_total) - Number(sale.total_cost ?? 0)) >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                              <td className="tabular-nums">{formatDate(sale.date)}</td>
+                              <td className="text-orange-600 tabular-nums">{formatCurrency(sale.total_cost ?? 0)}</td>
+                              <td className="font-medium tabular-nums">{formatCurrency(sale.grand_total)}</td>
+                              <td className={`font-bold tabular-nums ${(Number(sale.grand_total) - Number(sale.total_cost ?? 0)) >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
                                 {formatCurrency(Number(sale.grand_total) - Number(sale.total_cost ?? 0))}
                               </td>
-                              <td className="text-green-600 font-medium">{formatCurrency(sale.paid_amount)}</td>
-                              <td className="text-red-600">{formatCurrency(sale.due_amount)}</td>
+                              <td className="text-emerald-600 font-medium tabular-nums">{formatCurrency(sale.paid_amount)}</td>
+                              <td className="text-red-600 tabular-nums">{formatCurrency(sale.due_amount)}</td>
                               <td><span className={`badge ${statusBadge.class}`}>{statusBadge.text}</span></td>
                               <td><span className={`badge ${paymentBadge.class}`}>{paymentBadge.text}</span></td>
                               <td className="text-center">
                                 <div className="flex flex-col items-center gap-0.5">
                                   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
                                     sale.source === 'app'
-                                      ? 'bg-violet-100 text-violet-700'
+                                      ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400'
                                       : sale.source === 'delivery'
-                                      ? 'bg-amber-100 text-amber-700'
-                                      : 'bg-sky-100 text-sky-700'
+                                      ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                                      : 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400'
                                   }`}>
                                     {sale.source === 'app' ? (
                                       <>
                                         <DevicePhoneMobileIcon className="w-3 h-3" />
-                                        تطبيق
+                                        {t('sales.sourceApp')}
                                       </>
                                     ) : sale.source === 'delivery' ? (
                                       <>
                                         <TruckIcon className="w-3 h-3" />
-                                        توصيل
+                                        {t('sales.sourceDelivery')}
                                       </>
                                     ) : (
                                       <>
                                         <ComputerDesktopIcon className="w-3 h-3" />
-                                        منصة
+                                        {t('sales.sourcePlatform')}
                                       </>
                                     )}
                                   </span>
                                   {sale.user && (
-                                    <span className="text-[10px] text-gray-500">{sale.user.name}</span>
+                                    <span className="text-[10px] text-gray-500 dark:text-gray-400">{sale.user.name}</span>
                                   )}
                                 </div>
                               </td>
                               <td>
-                                <div className="flex gap-2">
+                                <div className="flex gap-1.5">
                                   {sale.status === 'draft' && (
                                     <button
                                       onClick={() => handleConfirmDraft(sale.id)}
-                                      className="text-green-600 hover:text-green-800"
-                                      title="تأكيد الفاتورة"
+                                      className="p-1.5 rounded-lg text-green-600 hover:text-green-800 hover:bg-green-100 dark:hover:bg-green-900/20 transition-colors"
+                                      title={t('sales.confirmInvoice')}
                                     >
                                       <CheckCircleIcon className="w-5 h-5" />
                                     </button>
                                   )}
                                   <button
                                     onClick={() => openEditTab(sale.id, sale.reference)}
-                                    className="text-amber-600 hover:text-amber-800"
-                                    title="تعديل"
+                                    className="p-1.5 rounded-lg text-amber-600 hover:text-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/20 transition-colors"
+                                    title={t('sales.edit')}
                                   >
                                     <PencilIcon className="w-5 h-5" />
                                   </button>
-                                  <Link href={`/dashboard/sales/${sale.id}`} className="text-blue-600 hover:text-blue-800" title="عرض الفاتورة">
+                                  <Link href={`/dashboard/sales/${sale.id}`} className="p-1.5 rounded-lg text-blue-600 hover:text-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-colors" title={t('sales.viewInvoice')}>
                                     <EyeIcon className="w-5 h-5" />
                                   </Link>
-                                  <button onClick={() => handleDownloadFacture(sale.id)} className="text-red-600 hover:text-red-800" title="تحميل الفاتورة PDF">
+                                  <button onClick={() => handleDownloadFacture(sale.id)} className="p-1.5 rounded-lg text-red-600 hover:text-red-800 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors" title={t('sales.downloadInvoicePdf')}>
                                     <ArrowDownTrayIcon className="w-5 h-5" />
                                   </button>
-                                  <button onClick={() => handleDownloadBonLivraison(sale.id)} className="text-green-600 hover:text-green-800" title="Bon de Livraison">
+                                  <button onClick={() => handleDownloadBonLivraison(sale.id)} className="p-1.5 rounded-lg text-green-600 hover:text-green-800 hover:bg-green-100 dark:hover:bg-green-900/20 transition-colors" title="Bon de Livraison">
                                     <TruckIcon className="w-5 h-5" />
                                   </button>
                                   {canDelete(sale) && (
-                                    <button onClick={() => handleDelete(sale.id, sale.status === 'draft')} className="text-red-600 hover:text-red-800" title={sale.status === 'draft' ? 'حذف' : 'إلغاء الفاتورة'}>
+                                    <button onClick={() => handleDelete(sale.id, sale.status === 'draft')} className="p-1.5 rounded-lg text-red-600 hover:text-red-800 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors" title={sale.status === 'draft' ? t('sales.delete') : t('sales.cancelInvoice')}>
                                       <TrashIcon className="w-5 h-5" />
                                     </button>
                                   )}
@@ -674,14 +830,22 @@ export default function SalesPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Shortcuts hint */}
-      <div className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg mb-2 flex items-center gap-6 text-sm">
-        <span className="font-medium">اختصارات:</span>
-        <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Insert</kbd> فاتورة جديدة</span>
-        <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Ctrl+W</kbd> إغلاق التبويب</span>
+      <div className="bg-gradient-to-l from-slate-800 to-slate-900 text-slate-300 px-4 py-2 rounded-xl mb-2 hidden sm:flex items-center gap-6 text-sm shadow-sm">
+        <span className="font-bold text-white text-xs tracking-wide">{t('sales.shortcuts')}</span>
+        <span><kbd className="bg-emerald-600/30 text-emerald-300 px-2 py-0.5 rounded-md text-[10px] font-mono">Insert</kbd> {t('sales.newInvoiceShortcut')}</span>
+        <span><kbd className="bg-red-600/30 text-red-300 px-2 py-0.5 rounded-md text-[10px] font-mono">Ctrl+W</kbd> {t('sales.closeTabShortcut')}</span>
+        <button
+          onClick={() => setShowTour(true)}
+          className={`${dir === 'rtl' ? 'mr-auto' : 'ml-auto'} flex items-center gap-1.5 text-sm text-emerald-400 hover:text-emerald-300 transition-colors`}
+          title={t('sales.guidedTour')}
+        >
+          <QuestionMarkCircleIcon className="w-5 h-5" />
+          {t('sales.guidedTour')}
+        </button>
       </div>
 
       {/* Tab Bar */}
-      <div className="flex items-center gap-1 border-b border-gray-200 bg-gray-50 px-2 pt-2 overflow-x-auto">
+      <div className="flex items-center gap-1 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-750 px-2 pt-2 overflow-x-auto" data-tour="sales-tabs">
         {tabs.map((tab) => (
           <div
             key={tab.id}
@@ -689,8 +853,8 @@ export default function SalesPage() {
             className={`
               flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-t-lg border border-b-0 transition-colors cursor-pointer
               ${activeTabId === tab.id
-                ? 'bg-white border-gray-200 text-blue-600'
-                : 'bg-gray-100 border-transparent text-gray-600 hover:bg-gray-200'
+                ? 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-blue-600 dark:text-blue-400'
+                : 'bg-gray-100 dark:bg-gray-700 border-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
               }
             `}
           >
@@ -699,7 +863,7 @@ export default function SalesPage() {
             {tab.type !== 'list' && (
               <button
                 onClick={(e) => closeTab(tab.id, e)}
-                className="p-0.5 rounded hover:bg-gray-300 text-gray-400 hover:text-gray-600"
+                className="p-0.5 rounded hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
               >
                 <XMarkIcon className="w-4 h-4" />
               </button>
@@ -710,15 +874,15 @@ export default function SalesPage() {
         {/* Add New Tab Button */}
         <button
           onClick={openNewTab}
-          className="flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-colors"
-          title="فاتورة جديدة"
+          className="flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+          title={t('sales.newInvoiceTab')}
         >
           <PlusIcon className="w-5 h-5" />
         </button>
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 bg-white p-4 overflow-auto">
+      <div className="flex-1 bg-white dark:bg-gray-800 p-4 overflow-auto">
         {tabs.map((tab) => (
           <div
             key={tab.id}
@@ -728,6 +892,14 @@ export default function SalesPage() {
           </div>
         ))}
       </div>
+
+      {showTour && (
+        <GuidedTour
+          steps={salesTourSteps}
+          storageKey="sales_tour_step"
+          onComplete={() => setShowTour(false)}
+        />
+      )}
     </div>
   );
 }
