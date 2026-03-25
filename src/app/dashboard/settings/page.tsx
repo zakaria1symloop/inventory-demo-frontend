@@ -56,6 +56,7 @@ export default function SettingsPage() {
   const [isSettingPassword, setIsSettingPassword] = useState(false);
 
   // Backup state
+  const [isExportingSql, setIsExportingSql] = useState(false);
   const [isCreatingBackup, setIsCreatingBackup] = useState(false);
   const [isRestoringBackup, setIsRestoringBackup] = useState(false);
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
@@ -254,6 +255,27 @@ export default function SettingsPage() {
   };
 
   // Backup handlers
+  const handleExportSql = async () => {
+    setIsExportingSql(true);
+    try {
+      const response = await settingsApi.exportSql();
+      const blob = new Blob([response.data], { type: 'application/sql' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `database_${new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')}.sql`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('تم تصدير قاعدة البيانات بنجاح');
+    } catch {
+      toast.error('خطأ في تصدير قاعدة البيانات');
+    } finally {
+      setIsExportingSql(false);
+    }
+  };
+
   const handleCreateBackup = async () => {
     setIsCreatingBackup(true);
     try {
@@ -989,6 +1011,42 @@ export default function SettingsPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
                         إنشاء وتحميل نسخة احتياطية
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Export SQL Section */}
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 mb-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="font-medium dark:text-white">تصدير SQL</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        تحميل ملف SQL يمكن استيراده في أي قاعدة بيانات MySQL
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleExportSql}
+                    disabled={isExportingSql}
+                    className="btn btn-primary"
+                  >
+                    {isExportingSql ? (
+                      <>
+                        <div className="spinner w-5 h-5"></div>
+                        جاري التصدير...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                        </svg>
+                        تصدير قاعدة البيانات SQL
                       </>
                     )}
                   </button>
