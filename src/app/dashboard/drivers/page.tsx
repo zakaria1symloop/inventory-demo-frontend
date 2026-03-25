@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usersApi } from '@/lib/api';
-import { useAuthStore } from '@/lib/store/auth';
 import { useLocale } from '@/lib/i18n/context';
 import {
   PlusIcon,
@@ -62,8 +61,6 @@ export default function DriversPage() {
   const { t, locale, dir } = useLocale();
   const isRTL = dir === 'rtl';
   const queryClient = useQueryClient();
-  const tenantName = useAuthStore((s) => s.tenantName);
-  const emailSuffix = tenantName ? `@${tenantName}.com` : '';
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
@@ -211,9 +208,7 @@ export default function DriversPage() {
   const openModal = (driver?: Driver) => {
     if (driver) {
       setSelectedDriver(driver);
-      const editEmail = (tenantName && driver.email.endsWith(`@${tenantName}.com`))
-        ? driver.email.replace(`@${tenantName}.com`, '')
-        : driver.email;
+      const editEmail = driver.email;
       setFormData({
         name: driver.name,
         email: editEmail,
@@ -236,9 +231,7 @@ export default function DriversPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const email = tenantName
-      ? formData.email.replace(emailSuffix, '') + emailSuffix
-      : formData.email;
+    const email = formData.email;
 
     if (selectedDriver) {
       const updateData: Record<string, unknown> = {
@@ -725,31 +718,14 @@ export default function DriversPage() {
             <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">
               {t('drivers.labelEmail')} <span className="text-red-500">*</span>
             </label>
-            {tenantName ? (
-              <div className="flex items-center gap-0">
-                <input
-                  type="text"
-                  value={formData.email.replace(emailSuffix, '')}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value.replace(/[@\s]/g, '') })}
-                  className={`input ${isRTL ? 'rounded-s-none' : 'rounded-e-none'} flex-1`}
-                  placeholder={t('drivers.placeholderUsername')}
-                  required
-                  dir="ltr"
-                />
-                <span className={`inline-flex items-center px-3 py-2 bg-gray-100 dark:bg-gray-700 border ${isRTL ? 'border-l-0' : 'border-r-0'} border-gray-300 dark:border-gray-600 ${isRTL ? 'rounded-e-lg' : 'rounded-s-lg'} text-sm text-gray-600 dark:text-gray-400 font-medium whitespace-nowrap`} dir="ltr">
-                  {emailSuffix}
-                </span>
-              </div>
-            ) : (
-              <input
-                type="text"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="input"
-                required
-                dir="ltr"
-              />
-            )}
+            <input
+              type="text"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="input"
+              required
+              dir="ltr"
+            />
           </div>
           <div>
             <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">{t('drivers.labelPhone')}</label>
