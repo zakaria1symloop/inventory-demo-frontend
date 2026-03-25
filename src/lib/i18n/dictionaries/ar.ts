@@ -96,6 +96,7 @@ const ar = {
     // Seller items
     orders: 'الطلبات',
     sellerProductRequests: 'طلبات من المستودع',
+    livreurRequests: 'طلبات الليفريرز',
     sellerVendorRequests: 'طلبات من المورد',
     // Driver items
     trips: 'الجولات',

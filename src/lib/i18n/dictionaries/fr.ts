@@ -96,6 +96,7 @@ const fr = {
     // Seller items
     orders: 'Commandes',
     sellerProductRequests: 'Demandes entrepôt',
+    livreurRequests: 'Demandes livreurs',
     sellerVendorRequests: 'Demandes fournisseur',
     // Driver items
     trips: 'Tournées',
