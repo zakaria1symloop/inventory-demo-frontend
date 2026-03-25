@@ -92,16 +92,23 @@ function SaleRetourForm({ saleId, onSuccess, onCancel }: { saleId: number; onSuc
     salesApi.getOne(saleId).then(res => {
       const sale = res.data;
       setSaleRef(sale.reference || '');
-      setItems((sale.items || []).map((item: any) => ({
-        product_id: item.product_id,
-        product_name: item.product?.name || '',
-        pieces_per_package: item.product?.pieces_per_package > 1 ? item.product.pieces_per_package : 1,
-        unit_price: item.unit_price,
-        max_qty: item.quantity,
-        cartons: '',
-        pcs: '',
-        reason: '',
-      })));
+      const returns = sale.returns || [];
+      setItems((sale.items || []).map((item: any) => {
+        const alreadyReturned = returns.reduce((sum: number, r: any) => {
+          const ri = (r.items || []).find((i: any) => i.product_id === item.product_id);
+          return sum + (ri ? ri.quantity : 0);
+        }, 0);
+        return {
+          product_id: item.product_id,
+          product_name: item.product?.name || '',
+          pieces_per_package: item.product?.pieces_per_package > 1 ? item.product.pieces_per_package : 1,
+          unit_price: item.unit_price,
+          max_qty: item.quantity - alreadyReturned,
+          cartons: '',
+          pcs: '',
+          reason: '',
+        };
+      }));
     }).catch(() => toast.error(t('sales.retourLoadError')))
       .finally(() => setIsLoading(false));
   }, [saleId, t]);
@@ -146,7 +153,7 @@ function SaleRetourForm({ saleId, onSuccess, onCancel }: { saleId: number; onSuc
   if (isLoading) return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
 
   return (
-    <div className="space-y-5 max-w-5xl">
+    <div className="space-y-5 w-full">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center shadow-md">
           <ArrowUturnLeftIcon className="w-5 h-5 text-white" />

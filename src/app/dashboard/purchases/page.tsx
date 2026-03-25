@@ -42,6 +42,7 @@ interface Purchase {
   note?: string;
   supplier?: { id: number; name: string };
   warehouse?: { id: number; name: string };
+  returns_count?: number;
 }
 
 interface Tab {
@@ -75,16 +76,23 @@ function PurchaseRetourForm({ purchaseId, onSuccess, onCancel }: { purchaseId: n
     purchasesApi.getOne(purchaseId).then(res => {
       const purchase = res.data;
       setPurchaseRef(purchase.reference || '');
-      setItems((purchase.items || []).map((item: any) => ({
-        product_id: item.product_id,
-        product_name: item.product?.name || '',
-        pieces_per_package: item.product?.pieces_per_package > 1 ? item.product.pieces_per_package : 1,
-        unit_price: item.unit_price,
-        max_qty: item.quantity,
-        cartons: '',
-        pcs: '',
-        reason: '',
-      })));
+      const returns = purchase.returns || [];
+      setItems((purchase.items || []).map((item: any) => {
+        const alreadyReturned = returns.reduce((sum: number, r: any) => {
+          const ri = (r.items || []).find((i: any) => i.product_id === item.product_id);
+          return sum + (ri ? ri.quantity : 0);
+        }, 0);
+        return {
+          product_id: item.product_id,
+          product_name: item.product?.name || '',
+          pieces_per_package: item.product?.pieces_per_package > 1 ? item.product.pieces_per_package : 1,
+          unit_price: item.unit_price,
+          max_qty: item.quantity - alreadyReturned,
+          cartons: '',
+          pcs: '',
+          reason: '',
+        };
+      }));
     }).catch(() => toast.error(t('purchases.prRetourLoadError')))
       .finally(() => setIsLoading(false));
   }, [purchaseId, t]);
@@ -129,7 +137,7 @@ function PurchaseRetourForm({ purchaseId, onSuccess, onCancel }: { purchaseId: n
   if (isLoading) return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
 
   return (
-    <div className="space-y-5 max-w-5xl">
+    <div className="space-y-5 w-full">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center shadow-md">
           <ArrowUturnLeftIcon className="w-5 h-5 text-white" />
@@ -277,6 +285,7 @@ export default function PurchasesPage() {
   const [warehouseFilter, setWarehouseFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [hasReturnFilter, setHasReturnFilter] = useState<'' | 'yes' | 'no'>('');
 
   // Data for filters
   const [suppliers, setSuppliers] = useState<{ id: number; name: string }[]>([]);
@@ -533,9 +542,11 @@ export default function PurchasesPage() {
       if (warehouseFilter && p.warehouse_id !== parseInt(warehouseFilter)) return false;
       if (dateFrom && new Date(p.date) < new Date(dateFrom)) return false;
       if (dateTo && new Date(p.date) > new Date(dateTo)) return false;
+      if (hasReturnFilter === 'yes' && !(p.returns_count && p.returns_count > 0)) return false;
+      if (hasReturnFilter === 'no' && p.returns_count && p.returns_count > 0) return false;
       return true;
     });
-  }, [purchases, searchTerm, statusFilter, paymentStatusFilter, supplierFilter, warehouseFilter, dateFrom, dateTo]);
+  }, [purchases, searchTerm, statusFilter, paymentStatusFilter, supplierFilter, warehouseFilter, dateFrom, dateTo, hasReturnFilter]);
 
   // KPIs
   const kpis = useMemo(() => {
@@ -565,9 +576,10 @@ export default function PurchasesPage() {
     setWarehouseFilter('');
     setDateFrom('');
     setDateTo('');
+    setHasReturnFilter('');
   };
 
-  const hasActiveFilters = searchTerm || statusFilter || paymentStatusFilter || supplierFilter || warehouseFilter || dateFrom || dateTo;
+  const hasActiveFilters = searchTerm || statusFilter || paymentStatusFilter || supplierFilter || warehouseFilter || dateFrom || dateTo || hasReturnFilter;
 
   // Render tab content
   const renderTabContent = (tab: Tab) => {
@@ -739,6 +751,11 @@ export default function PurchasesPage() {
                   </select>
                   <DateInput value={dateFrom} onChange={(v) => setDateFrom(v)} placeholder={t('purchases.fromDate')} />
                   <DateInput value={dateTo} onChange={(v) => setDateTo(v)} placeholder={t('purchases.toDate')} />
+                  <select value={hasReturnFilter} onChange={(e) => setHasReturnFilter(e.target.value as '' | 'yes' | 'no')} className="select">
+                    <option value="">{t('purchases.allReturns')}</option>
+                    <option value="yes">{t('purchases.hasReturn')}</option>
+                    <option value="no">{t('purchases.noReturn')}</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -801,7 +818,17 @@ export default function PurchasesPage() {
                             <td className="font-bold text-gray-900 dark:text-white tabular-nums">{formatCurrency(purchase.grand_total)}</td>
                             <td className="font-semibold text-emerald-600 tabular-nums">{formatCurrency(purchase.paid_amount)}</td>
                             <td className="font-semibold text-red-600 tabular-nums">{formatCurrency(purchase.due_amount)}</td>
-                            <td><span className={`badge ${statusBadge.class}`}>{statusBadge.text}</span></td>
+                            <td>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`badge ${statusBadge.class}`}>{statusBadge.text}</span>
+                                {purchase.returns_count && purchase.returns_count > 0 ? (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">
+                                    <ArrowUturnLeftIcon className="w-3 h-3" />
+                                    {purchase.returns_count}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </td>
                             <td><span className={`badge ${paymentBadge.class}`}>{paymentBadge.text}</span></td>
                             <td>
                               <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">

@@ -982,6 +982,9 @@ const fr = {
     prRetourNoItems: 'Veuillez saisir une quantité pour au moins un produit',
     prRetourExceedsMax: 'La quantité dépasse le maximum autorisé',
     prRetourLoadError: 'Échec du chargement des données de la facture',
+    allReturns: 'Toutes les factures',
+    hasReturn: 'Avec retour',
+    noReturn: 'Sans retour',
     noSupplierLabel: 'Sans fournisseur',
     invalidInvoiceId: 'Identifiant de facture invalide',
     // Suppliers page - additional

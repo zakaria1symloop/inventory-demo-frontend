@@ -997,6 +997,9 @@ const ar = {
     prRetourNoItems: 'يجب إدخال كمية إرجاع لمنتج واحد على الأقل',
     prRetourExceedsMax: 'الكمية تتجاوز الحد المسموح',
     prRetourLoadError: 'فشل في تحميل بيانات الفاتورة',
+    allReturns: 'كل الفواتير',
+    hasReturn: 'لديها مرتجع',
+    noReturn: 'بدون مرتجع',
     noSupplierLabel: 'بدون مورد',
     invalidInvoiceId: 'معرف الفاتورة غير صالح',
     // Suppliers page - additional
