@@ -205,7 +205,7 @@ export default function PurchaseDetail() {
           table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
           th, td { padding: 12px; text-align: right; border-bottom: 1px solid #ddd; }
           th { background: #f5f5f5; font-weight: bold; }
-          .totals { margin-top: 20px; text-align: left; }
+          .totals { margin-top: 20px; }
           .totals .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
           .totals .row.grand { font-size: 18px; font-weight: bold; border-top: 2px solid #333; margin-top: 10px; padding-top: 15px; }
           .footer { margin-top: 40px; text-align: center; color: #666; font-size: 12px; }
