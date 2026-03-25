@@ -106,7 +106,6 @@ const menuSections: MenuSection[] = [
     items: [
       { nameKey: 'sidebar.orders', href: '/dashboard/orders', icon: ShoppingCartIcon, feature: 'orders' },
       { nameKey: 'sidebar.sellerProductRequests', href: '/dashboard/seller-product-requests', icon: ClipboardDocumentListIcon, feature: 'product_requests' },
-      { nameKey: 'sidebar.sellerVendorRequests', href: '/dashboard/purchases', icon: BuildingStorefrontIcon, feature: 'purchases' },
     ],
   },
   {

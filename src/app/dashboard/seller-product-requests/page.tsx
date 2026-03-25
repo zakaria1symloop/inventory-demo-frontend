@@ -7,9 +7,9 @@ export default function SellerProductRequestsPage() {
   const { t } = useLocale();
   return (
     <ProductRequestsContent
-      requestType="cashvan"
-      title={t('productRequests.sellerTitle')}
-      subtitle={t('productRequests.sellerSubtitle')}
+      requestType="livreur"
+      title={t('productRequests.livreurTitle')}
+      subtitle={t('productRequests.livreurSubtitle')}
     />
   );
 }
