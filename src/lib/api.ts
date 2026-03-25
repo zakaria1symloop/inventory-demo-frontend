@@ -97,6 +97,9 @@ export const dashboardApi = {
   getSystemHealth: () => api.get('/dashboard/system-health'),
   fixMissingCaisses: () => api.post('/dashboard/fix-caisses'),
   getAppVersions: () => api.get('/tenant/apps'),
+  uploadApk: (formData: FormData) =>
+    api.post('/apps/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  deleteApk: (type: string) => api.post('/apps/delete', { type }),
 };
 
 // Products API
