@@ -5,7 +5,7 @@ import '../../data/services/api_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 
-final clientsListProvider = FutureProvider.family<List<ClientModel>, String?>((ref, search) async {
+final clientsListProvider = FutureProvider.autoDispose.family<List<ClientModel>, String?>((ref, search) async {
   debugPrint('[CLIENTS] Fetching...');
   final response = await ApiService.instance.getClients(
     params: search != null && search.isNotEmpty ? {"search": search} : null,
@@ -148,12 +148,12 @@ class _ClientCard extends ConsumerWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('الدين الحالي: ${client.balance.toStringAsFixed(0)} د.ج',
+            Text('الدين الحالي: ${client.totalDebt.toStringAsFixed(2)} د.ج',
                 style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.dangerColor)),
             const SizedBox(height: 16),
             TextField(
               controller: amountController,
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(
                 labelText: 'المبلغ المحصل',
                 border: OutlineInputBorder(),
@@ -185,7 +185,7 @@ class _ClientCard extends ConsumerWidget {
                 );
                 return;
               }
-              if (amount > client.balance) {
+              if (amount > client.totalDebt) {
                 ScaffoldMessenger.of(dialogContext).showSnackBar(
                   const SnackBar(content: Text('المبلغ أكبر من الدين')),
                 );
@@ -205,7 +205,7 @@ class _ClientCard extends ConsumerWidget {
 
                 if (response.statusCode == 201 || response.statusCode == 200) {
                   ScaffoldMessenger.of(parentContext).showSnackBar(
-                    SnackBar(content: Text('تم تحصيل ${amount.toStringAsFixed(0)} د.ج')),
+                    SnackBar(content: Text('تم تحصيل ${amount.toStringAsFixed(2)} د.ج')),
                   );
                   ref.invalidate(clientsListProvider);
                 } else {
@@ -275,13 +275,13 @@ class _ClientCard extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  "${client.balance.toStringAsFixed(0)} د.ج",
+                  "${client.totalDebt.toStringAsFixed(2)} د.ج",
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: client.balance > 0 ? AppTheme.dangerColor : AppTheme.successColor,
+                    color: client.totalDebt > 0 ? AppTheme.dangerColor : AppTheme.successColor,
                   ),
                 ),
-                if (client.balance > 0 && canCollectDebt) ...[
+                if (client.totalDebt > 0 && canCollectDebt) ...[
                   const SizedBox(height: 4),
                   ElevatedButton.icon(
                     onPressed: () => _showPaymentDialog(context, ref),

@@ -6,6 +6,7 @@ class UserModel {
   final String role;
   final bool isActive;
   final int? warehouseId;
+  final bool canCollectDebt;
 
   UserModel({
     required this.id,
@@ -15,6 +16,7 @@ class UserModel {
     required this.role,
     required this.isActive,
     this.warehouseId,
+    this.canCollectDebt = false,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -26,6 +28,7 @@ class UserModel {
       role: json['role'],
       isActive: json['is_active'] ?? true,
       warehouseId: json['warehouse_id'],
+      canCollectDebt: json['can_collect_debt'] ?? false,
     );
   }
 
@@ -38,6 +41,7 @@ class UserModel {
       'role': role,
       'is_active': isActive,
       'warehouse_id': warehouseId,
+      'can_collect_debt': canCollectDebt,
     };
   }
 }

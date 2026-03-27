@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/delivery_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/delivery_model.dart';
@@ -932,6 +933,18 @@ class _OrderDeliveryScreenState extends ConsumerState<OrderDeliveryScreen> {
     final notifier = ref.read(deliveryProvider.notifier);
     final collectedAmount = actualCollectedAmount;
 
+    // Client-side check: if can't collect debt, don't allow more than order amount
+    final user = ref.read(authProvider).user;
+    if (collectedAmount > totalDeliveredAmount && user?.canCollectDebt != true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ليس لديك صلاحية تحصيل الديون. لا يمكنك تحصيل أكثر من مبلغ الفاتورة'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isProcessing = true);
 
     bool success;
@@ -959,7 +972,16 @@ class _OrderDeliveryScreenState extends ConsumerState<OrderDeliveryScreen> {
 
     if (!mounted) return;
     setState(() => _isProcessing = false);
-    if (success) Navigator.pop(context, true);
+    if (success) {
+      Navigator.pop(context, true);
+    } else {
+      final error = ref.read(deliveryProvider).error;
+      if (error != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   Future<void> _postponeOrder() async {

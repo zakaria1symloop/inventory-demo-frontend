@@ -39,7 +39,7 @@ class ClientModel {
   final int? clientCategoryId;
   final String? clientCategoryName;
 
-  double get totalDebt => balance > 0 ? balance : 0;
+  double get totalDebt => combinedDebt > 0 ? combinedDebt : (balance > 0 ? balance : 0);
 
   ClientModel({
     required this.id,

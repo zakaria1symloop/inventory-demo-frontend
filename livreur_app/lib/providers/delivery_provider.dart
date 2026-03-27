@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/delivery_model.dart';
@@ -151,6 +152,11 @@ class DeliveryNotifier extends StateNotifier<DeliveryState> {
       );
       await fetchActiveDelivery();
       return true;
+    } on DioException catch (e) {
+      debugPrint('[DELIVERY] DioException delivering order: ${e.response?.data}');
+      final msg = (e.response?.data is Map ? e.response?.data['message'] : null) ?? 'خطأ في تسجيل التسليم';
+      state = state.copyWith(error: msg);
+      return false;
     } catch (e) {
       debugPrint('[DELIVERY] Error delivering order: $e');
       state = state.copyWith(error: 'خطأ في تسجيل التسليم');
@@ -207,6 +213,11 @@ class DeliveryNotifier extends StateNotifier<DeliveryState> {
       });
       await fetchActiveDelivery();
       return true;
+    } on DioException catch (e) {
+      debugPrint('[DELIVERY] DioException partial delivery: ${e.response?.data}');
+      final msg = (e.response?.data is Map ? e.response?.data['message'] : null) ?? 'خطأ في تسجيل التسليم الجزئي';
+      state = state.copyWith(error: msg);
+      return false;
     } catch (e) {
       debugPrint('[DELIVERY] Error partial delivery: $e');
       state = state.copyWith(error: 'خطأ في تسجيل التسليم الجزئي');
