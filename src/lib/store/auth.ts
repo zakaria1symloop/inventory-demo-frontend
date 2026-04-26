@@ -38,9 +38,12 @@ export const useAuthStore = create<AuthState>()(
 
       login: async (identifier: string, password: string) => {
         const response = await authApi.login(identifier, password);
-        const { user, token } = response.data;
+        const { user, token, tenant_id } = response.data;
 
         localStorage.setItem('token', token);
+        if (tenant_id) {
+          localStorage.setItem('tenantId', String(tenant_id));
+        }
 
         set({
           user,

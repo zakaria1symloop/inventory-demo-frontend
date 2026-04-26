@@ -66,6 +66,7 @@ interface Sale {
   discount: number;
   tax: number;
   shipping: number;
+  timbre: number;
   grand_total: number;
   paid_amount: number;
   due_amount: number;
@@ -299,6 +300,7 @@ export default function SaleDetail() {
           <div class="row"><span>${t('saleDetail.discount')}:</span><span>${formatCurrency(sale?.discount || 0)}</span></div>
           <div class="row"><span>${t('saleDetail.tax')}:</span><span>${formatCurrency(sale?.tax || 0)}</span></div>
           <div class="row"><span>${t('saleDetail.shipping')}:</span><span>${formatCurrency(sale?.shipping || 0)}</span></div>
+          ${(sale?.timbre || 0) > 0 ? `<div class="row"><span>${locale === 'ar' ? 'الطابع' : 'Timbre'}:</span><span>${formatCurrency(sale?.timbre || 0)}</span></div>` : ''}
           <div class="row grand"><span>${t('saleDetail.grandTotal')}:</span><span>${formatCurrency(sale?.grand_total || 0)}</span></div>
           <div class="row"><span>${t('saleDetail.paidAmount')}:</span><span>${formatCurrency(sale?.paid_amount || 0)}</span></div>
           <div class="row" style="color: ${(sale?.due_amount || 0) > 0 ? 'red' : 'green'}"><span>${t('saleDetail.remaining')}:</span><span>${formatCurrency(sale?.due_amount || 0)}</span></div>
@@ -710,6 +712,12 @@ export default function SaleDetail() {
                 <div className="flex justify-between text-gray-600 dark:text-gray-400">
                   <span>{t('saleDetail.shipping')}</span>
                   <span>+{formatCurrency(sale.shipping)}</span>
+                </div>
+              )}
+              {sale.timbre > 0 && (
+                <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                  <span>{locale === 'ar' ? 'الطابع' : 'Timbre'}</span>
+                  <span>+{formatCurrency(sale.timbre)}</span>
                 </div>
               )}
               <hr className="dark:border-gray-700" />

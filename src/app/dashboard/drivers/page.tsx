@@ -21,6 +21,7 @@ import {
   EnvelopeIcon,
   PhoneIcon,
   CalendarDaysIcon,
+  CubeIcon,
 } from '@heroicons/react/24/outline';
 import Modal from '@/components/ui/Modal';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
@@ -36,6 +37,7 @@ interface Driver {
   role: string;
   is_active: boolean;
   can_collect_debt: boolean;
+  sell_from_main_stock: boolean;
   created_at: string;
 }
 
@@ -189,6 +191,15 @@ export default function DriversPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['drivers'] });
       toast.success(t('drivers.toastDebtUpdated'));
+    },
+    onError: () => toast.error(t('drivers.toastGenericError')),
+  });
+
+  const toggleSellFromMainStockMutation = useMutation({
+    mutationFn: (id: number) => usersApi.toggleSellFromMainStock(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['drivers'] });
+      toast.success(locale === 'ar' ? 'تم تحديث إعداد البيع من المخزون الرئيسي' : 'Paramètre vente depuis stock principal mis à jour');
     },
     onError: () => toast.error(t('drivers.toastGenericError')),
   });
@@ -576,6 +587,22 @@ export default function DriversPage() {
                             <BanknotesIcon className="w-3.5 h-3.5" />
                             {driver.can_collect_debt ? t('drivers.debtCollectEnabled') : t('drivers.debtCollectDisabled')}
                           </button>
+                          {driver.role === 'cashvan' && (
+                            <button
+                              onClick={() => toggleSellFromMainStockMutation.mutate(driver.id)}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-colors ${
+                                driver.sell_from_main_stock
+                                  ? 'bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/30'
+                                  : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                              }`}
+                              title={locale === 'ar' ? 'البيع من المخزون الرئيسي' : 'Vendre depuis stock principal'}
+                            >
+                              <CubeIcon className="w-3.5 h-3.5" />
+                              {driver.sell_from_main_stock
+                                ? (locale === 'ar' ? 'مخزون رئيسي' : 'Stock principal')
+                                : (locale === 'ar' ? 'تحويل مطلوب' : 'Transfert requis')}
+                            </button>
+                          )}
                         </div>
 
                         {/* Date */}
@@ -636,7 +663,7 @@ export default function DriversPage() {
             {Array.from({ length: pagination.lastPage }, (_, i) => i + 1)
               .filter(p => p === 1 || p === pagination.lastPage || Math.abs(p - page) <= 2)
               .map((pg, i, arr) => (
-                <span key={pg} className="flex items-center">
+                <span key={`page-${pg}`} className="flex items-center">
                   {i > 0 && arr[i - 1] !== pg - 1 && (
                     <span className="px-1.5 text-gray-400">...</span>
                   )}

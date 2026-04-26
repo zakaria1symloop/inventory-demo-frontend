@@ -418,10 +418,16 @@ export default function NewDeliveryPage() {
     return Object.values(merged).sort((a, b) => a.name.localeCompare(b.name));
   };
 
-  // ── Print merged loading list (Arabic-only) ──
+  // ── Print merged loading list (professional invoice style) ──
   const printMergedProducts = () => {
     const products = getMergedProducts();
     const livreur = livreurs.find((l) => l.id === Number(formData.livreur_id));
+    const vehicle = vehicles.find((v) => v.id === Number(formData.vehicle_id));
+    const dateStr = formData.date ? new Date(formData.date).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR');
+    const uniqueClients = new Set(selectedOrders.map(o => o.client_id)).size;
+    const totalCartons = products.reduce((s, p) => s + (p.piecesPerUnit > 1 ? Math.floor(p.totalQty / p.piecesPerUnit) : 0), 0);
+    const totalPieces = products.reduce((s, p) => s + (p.piecesPerUnit > 1 ? p.totalQty % p.piecesPerUnit : p.totalQty), 0);
+    const totalUnits = products.reduce((s, p) => s + p.totalQty, 0);
 
     const iframe = document.createElement('iframe');
     iframe.style.position = 'fixed';
@@ -434,73 +440,180 @@ export default function NewDeliveryPage() {
       <html dir="rtl">
       <head>
         <meta charset="UTF-8">
-        <title>قائمة التحميل</title>
+        <title>بون التحميل</title>
         <style>
-          @media print { @page { size: A4; margin: 10mm; } }
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: Arial, sans-serif; padding: 15px; direction: rtl; }
-          h1 { text-align: center; font-size: 22px; margin-bottom: 5px; }
-          .subtitle { text-align: center; font-size: 14px; color: #666; margin-bottom: 15px; }
-          .info-bar { display: flex; justify-content: space-between; background: #f5f5f5; padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; font-size: 13px; }
-          .info-item { display: flex; gap: 5px; }
-          .info-label { color: #666; }
-          .info-value { font-weight: bold; }
-          table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-          th, td { border: 1px solid #ddd; padding: 10px 12px; text-align: center; font-size: 14px; }
-          th { background-color: #333; color: white; font-weight: bold; }
-          tr:nth-child(even) { background-color: #f9f9f9; }
-          .product-name { text-align: right; font-weight: 600; }
-          .qty { font-size: 18px; font-weight: bold; color: #1a56db; }
-          .pieces { font-size: 16px; font-weight: bold; color: #047857; }
-          .check-col { width: 50px; }
-          .total-row { background-color: #e8f4fd !important; font-weight: bold; font-size: 15px; }
-          .footer { text-align: center; margin-top: 20px; font-size: 11px; color: #999; border-top: 1px dashed #ccc; padding-top: 10px; }
-          .clients-list { margin-top: 20px; border-top: 2px solid #333; padding-top: 10px; }
-          .clients-list h3 { font-size: 16px; margin-bottom: 8px; }
-          .client-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dotted #ddd; font-size: 12px; }
+          @media print { @page { size: A4; margin: 8mm; } }
+          * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; }
+          body { font-size: 9px; line-height: 1.3; color: #000; padding: 10px 15px; }
+          table { border-collapse: collapse; width: 100%; }
+
+          .title-bar { text-align: center; background: #000; color: #fff; padding: 8px; margin-bottom: 10px; }
+          .title-bar h1 { font-size: 16px; margin: 0; }
+          .title-bar .ref { font-size: 10px; margin-top: 2px; }
+
+          .info-section { margin-bottom: 8px; }
+          .info-box { border: 1px solid #000; padding: 5px; font-size: 8px; }
+          .info-box h3 { font-size: 9px; font-weight: bold; margin-bottom: 3px; background: #eee; padding: 2px 4px; margin: -5px -5px 4px -5px; }
+
+          .stats-bar { display: flex; justify-content: space-around; background: #f8f8f8; border: 1px solid #ddd; padding: 8px; margin-bottom: 10px; }
+          .stat { text-align: center; }
+          .stat-value { font-size: 16px; font-weight: bold; color: #1a56db; }
+          .stat-label { font-size: 7px; color: #666; text-transform: uppercase; }
+
+          table.products th { background: #333; color: #fff; padding: 5px 4px; font-size: 8px; text-align: center; border: 1px solid #000; }
+          table.products td { padding: 4px 3px; font-size: 8px; border: 1px solid #000; text-align: center; }
+          table.products td.name { text-align: right; font-weight: 600; font-size: 9px; }
+          table.products .carton { font-weight: bold; color: #1a56db; font-size: 11px; }
+          table.products .piece { font-weight: bold; color: #047857; }
+          table.products .total-qty { font-weight: bold; font-size: 10px; }
+          tr:nth-child(even) { background: #fafafa; }
+          .total-row { background: #e8f4fd !important; font-weight: bold; }
+          .total-row td { font-size: 9px; padding: 6px 4px; border-top: 2px solid #000; }
+
+          .clients-section { margin-top: 12px; }
+          .clients-section h3 { font-size: 10px; font-weight: bold; background: #333; color: #fff; padding: 4px 6px; margin-bottom: 0; }
+          table.clients th { background: #eee; padding: 4px; font-size: 7px; text-align: center; border: 1px solid #000; }
+          table.clients td { padding: 3px 4px; font-size: 8px; border: 1px solid #000; }
+          table.clients td.client-name { text-align: right; font-weight: 600; }
+          table.clients .client-total { font-weight: bold; }
+
+          .signatures { margin-top: 20px; }
+          .signatures td { width: 33%; text-align: center; padding-top: 30px; font-size: 8px; }
+          .sig-line { border-top: 1px solid #000; width: 80%; margin: 0 auto; padding-top: 3px; }
+
+          .footer { text-align: center; font-size: 7px; color: #666; margin-top: 10px; border-top: 1px dashed #000; padding-top: 5px; }
+          .check-col { width: 30px; }
         </style>
       </head>
       <body>
-        <h1>قائمة التحميل - Bon de Chargement</h1>
-        <div class="subtitle">${formData.date ? new Date(formData.date).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR')}</div>
-        <div class="info-bar">
-          <div class="info-item"><span class="info-label">السائق:</span> <span class="info-value">${livreur?.name || '-'}</span></div>
-          <div class="info-item"><span class="info-label">عدد الطلبات:</span> <span class="info-value">${selectedOrders.length}</span></div>
-          <div class="info-item"><span class="info-label">عدد العملاء:</span> <span class="info-value">${new Set(selectedOrders.map(o => o.client_id)).size}</span></div>
-          <div class="info-item"><span class="info-label">المبلغ:</span> <span class="info-value">${Number(totalAmount).toLocaleString('fr-FR')} DA</span></div>
+        <!-- Title -->
+        <div class="title-bar">
+          <h1>بون التحميل — Bon de Chargement</h1>
+          <div class="ref">${dateStr}</div>
         </div>
-        <table>
-          <thead><tr><th style="width:40px">#</th><th>المنتج</th><th style="width:80px">الكمية</th><th style="width:60px">الوحدة</th><th style="width:80px">العدد</th><th class="check-col">&#x2713;</th></tr></thead>
+
+        <!-- Info Section -->
+        <table class="info-section">
+          <tr>
+            <td style="width:50%; vertical-align:top;">
+              <div class="info-box">
+                <h3>معلومات التوصيل</h3>
+                <strong>السائق:</strong> ${livreur?.name || '-'}<br>
+                ${vehicle ? `<strong>المركبة:</strong> ${vehicle.name}<br>` : ''}
+                <strong>التاريخ:</strong> ${dateStr}
+              </div>
+            </td>
+            <td style="width:50%; vertical-align:top; padding-right:8px;">
+              <div class="info-box">
+                <h3>ملخص</h3>
+                <strong>عدد الطلبات:</strong> ${selectedOrders.length}<br>
+                <strong>عدد العملاء:</strong> ${uniqueClients}<br>
+                <strong>عدد المنتجات:</strong> ${products.length}<br>
+                <strong>المبلغ الإجمالي:</strong> ${Number(totalAmount).toLocaleString('fr-FR')} د.ج
+              </div>
+            </td>
+          </tr>
+        </table>
+
+        <!-- Stats Bar -->
+        <div class="stats-bar">
+          <div class="stat"><div class="stat-value">${selectedOrders.length}</div><div class="stat-label">طلبات</div></div>
+          <div class="stat"><div class="stat-value">${uniqueClients}</div><div class="stat-label">عملاء</div></div>
+          <div class="stat"><div class="stat-value">${totalCartons}</div><div class="stat-label">كرتون</div></div>
+          <div class="stat"><div class="stat-value">${totalPieces}</div><div class="stat-label">قطعة</div></div>
+          <div class="stat"><div class="stat-value">${Number(totalAmount).toLocaleString('fr-FR')}</div><div class="stat-label">المبلغ (د.ج)</div></div>
+        </div>
+
+        <!-- Products Table -->
+        <table class="products">
+          <thead>
+            <tr>
+              <th style="width:25px">#</th>
+              <th>المنتج — Produit</th>
+              <th style="width:55px">كرتون<br>Carton</th>
+              <th style="width:45px">قطعة<br>Pièce</th>
+              <th style="width:45px">و/كرتون<br>U/Crt</th>
+              <th style="width:55px">الإجمالي<br>Total</th>
+              <th class="check-col">✓</th>
+            </tr>
+          </thead>
           <tbody>
-            ${products.map((p, i) => `
+            ${products.map((p, i) => {
+              const cartons = p.piecesPerUnit > 1 ? Math.floor(p.totalQty / p.piecesPerUnit) : 0;
+              const pieces = p.piecesPerUnit > 1 ? p.totalQty % p.piecesPerUnit : p.totalQty;
+              return `
               <tr>
                 <td>${i + 1}</td>
-                <td class="product-name">${p.name}</td>
-                <td class="qty">${formatQtyLong(p.totalQty, p.piecesPerUnit)}</td>
+                <td class="name">${p.name}</td>
+                <td class="carton">${p.piecesPerUnit > 1 ? cartons : '-'}</td>
+                <td class="piece">${pieces > 0 ? pieces : (p.piecesPerUnit > 1 ? '-' : p.totalQty)}</td>
                 <td>${p.piecesPerUnit > 1 ? p.piecesPerUnit : '-'}</td>
-                <td class="pieces">${p.piecesPerUnit > 1 ? Math.round(p.totalPieces) : '-'}</td>
+                <td class="total-qty">${p.totalQty}</td>
                 <td class="check-col"></td>
-              </tr>
-            `).join('')}
+              </tr>`;
+            }).join('')}
             <tr class="total-row">
-              <td colspan="2" style="text-align:right">المجموع</td>
-              <td>${products.reduce((s, p) => s + p.totalQty, 0)}</td>
+              <td colspan="2" style="text-align:right; font-size:9px;">المجموع — Total</td>
+              <td class="carton">${totalCartons}</td>
+              <td class="piece">${totalPieces}</td>
               <td></td>
-              <td>${products.reduce((s, p) => s + p.totalPieces, 0)}</td>
+              <td class="total-qty">${totalUnits}</td>
               <td></td>
             </tr>
           </tbody>
         </table>
-        <div class="clients-list">
-          <h3>تفصيل حسب العميل (${selectedOrders.length} طلب)</h3>
-          ${selectedOrders.map((o, i) => `
-            <div class="client-row">
-              <span><strong>${i + 1}.</strong> ${o.client?.name || '-'} (${o.reference})</span>
-              <span>${Number(o.grand_total).toLocaleString('fr-FR')} DA - ${o.items?.length || 0} منتج</span>
-            </div>
-          `).join('')}
+
+        <!-- Client Details -->
+        <div class="clients-section">
+          <h3>تفصيل حسب العميل — Détail par client (${selectedOrders.length} طلب)</h3>
+          <table class="clients">
+            <thead>
+              <tr>
+                <th style="width:25px">#</th>
+                <th>العميل — Client</th>
+                <th style="width:70px">المرجع — Réf</th>
+                <th style="width:45px">المنتجات</th>
+                <th style="width:45px">القطع</th>
+                <th style="width:70px">المبلغ (د.ج)</th>
+                <th class="check-col">✓</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${selectedOrders.map((o, i) => {
+                const orderPieces = o.items?.reduce((s, item) => s + (Number(item.quantity_confirmed) || 0), 0) || 0;
+                return `
+                <tr>
+                  <td>${i + 1}</td>
+                  <td class="client-name">${o.client?.name || '-'}${o.client?.phone ? ` <span style="color:#666;font-size:7px">(${o.client.phone})</span>` : ''}</td>
+                  <td>${o.reference}</td>
+                  <td>${o.items?.length || 0}</td>
+                  <td>${orderPieces}</td>
+                  <td class="client-total">${Number(o.grand_total).toLocaleString('fr-FR')}</td>
+                  <td class="check-col"></td>
+                </tr>`;
+              }).join('')}
+              <tr class="total-row">
+                <td colspan="4" style="text-align:right; font-size:9px;">المجموع — Total</td>
+                <td>${selectedOrders.reduce((s, o) => s + (o.items?.reduce((ss, i) => ss + (Number(i.quantity_confirmed) || 0), 0) || 0), 0)}</td>
+                <td class="client-total">${Number(totalAmount).toLocaleString('fr-FR')}</td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-        <div class="footer"><p>تم الطباعة في ${new Date().toLocaleDateString('fr-FR')} - ${new Date().toLocaleTimeString('fr-FR')}</p></div>
+
+        <!-- Signatures -->
+        <table class="signatures">
+          <tr>
+            <td><div class="sig-line">المسؤول — Responsable</div></td>
+            <td><div class="sig-line">السائق — Chauffeur</div></td>
+            <td><div class="sig-line">المستودع — Magasinier</div></td>
+          </tr>
+        </table>
+
+        <div class="footer">
+          <p>تم الطباعة في ${new Date().toLocaleDateString('fr-FR')} - ${new Date().toLocaleTimeString('fr-FR')}</p>
+        </div>
       </body>
       </html>
     `;

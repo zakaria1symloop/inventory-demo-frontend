@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { paymentsApi, usersApi } from '@/lib/api';
+import { paymentsApi, usersApi, clientsApi, suppliersApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/store/auth';
 import { useLocale } from '@/lib/i18n/context';
 import DateInput from '@/components/ui/DateInput';
@@ -68,6 +68,10 @@ export default function PaymentsPage() {
   const [showTour, setShowTour] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [users, setUsers] = useState<{ id: number; name: string; role: string }[]>([]);
+  const [clientFilter, setClientFilter] = useState('');
+  const [supplierFilter, setSupplierFilter] = useState('');
+  const [clients, setClients] = useState<{ id: number; name: string }[]>([]);
+  const [suppliers, setSuppliers] = useState<{ id: number; name: string }[]>([]);
 
   const isAdmin = user?.role === 'admin';
 
@@ -140,6 +144,12 @@ export default function PaymentsPage() {
       const data = res.data?.data || res.data || [];
       setUsers(data);
     }).catch(() => {});
+    clientsApi.getAll({ per_page: 10000 }).then(res => {
+      setClients(res.data?.data || res.data || []);
+    }).catch(() => {});
+    suppliersApi.getAll({ per_page: 10000 }).then(res => {
+      setSuppliers(res.data?.data || res.data || []);
+    }).catch(() => {});
   }, []);
 
   // Debounce search
@@ -150,7 +160,7 @@ export default function PaymentsPage() {
 
   useEffect(() => {
     fetchPayments();
-  }, [page, methodFilter, typeFilter, dateFrom, dateTo, debouncedSearch, userFilter, sourceFilter]);
+  }, [page, methodFilter, typeFilter, dateFrom, dateTo, debouncedSearch, userFilter, sourceFilter, clientFilter, supplierFilter]);
 
   const fetchPayments = async () => {
     setIsLoading(true);
@@ -164,6 +174,8 @@ export default function PaymentsPage() {
       if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
       if (userFilter) params.user_id = userFilter;
       if (sourceFilter) params.source = sourceFilter;
+      if (clientFilter) params.client_id = clientFilter;
+      if (supplierFilter) params.supplier_id = supplierFilter;
 
       const response = await paymentsApi.getAll(params);
       const data = response.data;
@@ -441,7 +453,23 @@ export default function PaymentsPage() {
                 <option value="delivery">{t('payments.fromDelivery')}</option>
               </select>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              <select
+                value={clientFilter}
+                onChange={(e) => { setClientFilter(e.target.value); setSupplierFilter(''); setPage(1); }}
+                className="select"
+              >
+                <option value="">{locale === 'ar' ? 'كل العملاء' : 'Tous les clients'}</option>
+                {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <select
+                value={supplierFilter}
+                onChange={(e) => { setSupplierFilter(e.target.value); setClientFilter(''); setPage(1); }}
+                className="select"
+              >
+                <option value="">{locale === 'ar' ? 'كل الموردين' : 'Tous les fournisseurs'}</option>
+                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
               <DateInput value={dateFrom} onChange={(v) => { setDateFrom(v); setPage(1); }} placeholder={t('payments.fromDate')} />
               <DateInput value={dateTo} onChange={(v) => { setDateTo(v); setPage(1); }} placeholder={t('payments.toDate')} />
             </div>

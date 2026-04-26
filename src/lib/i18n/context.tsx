@@ -51,15 +51,19 @@ function interpolate(template: string, params?: Record<string, string | number>)
 }
 
 export function LocaleProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('locale');
-      if (stored === 'ar' || stored === 'fr') return stored;
-    }
-    return defaultLocale;
-  });
+  // Always start with defaultLocale on both server and client to avoid SSR
+  // hydration mismatch. Sync from localStorage in the effect below.
+  const [locale, setLocaleState] = useState<Locale>(defaultLocale);
 
   const dir = localeConfig[locale].dir;
+
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('locale') : null;
+    if ((stored === 'ar' || stored === 'fr') && stored !== locale) {
+      setLocaleState(stored);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     document.documentElement.lang = locale;

@@ -121,6 +121,7 @@ const fr = {
     sellersReport: 'Vendeurs',
     profitLossReport: 'Pertes & Profits',
     returnRatioReport: 'Taux de retour',
+    productReport: 'Rapport Produits',
     // Admin items
     fieldEmployees: 'Employés terrain',
     employees: 'Employés',
@@ -2388,6 +2389,8 @@ const fr = {
     reject: 'Rejeter',
     edit: 'Modifier',
     delete: 'Supprimer',
+    view: 'Voir',
+    print: 'Imprimer',
 
     // Fulfill
     fulfillProducts: 'Livrer les produits (déduire du stock et ajouter au camion)',

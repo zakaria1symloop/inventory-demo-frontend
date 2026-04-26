@@ -155,6 +155,7 @@ const menuSections: MenuSection[] = [
       { nameKey: 'sidebar.sellersReport', href: '/dashboard/reports/sellers', icon: UsersIcon, feature: 'reports' },
       { nameKey: 'sidebar.profitLossReport', href: '/dashboard/reports/profit-loss', icon: ScaleIcon, feature: 'reports' },
       { nameKey: 'sidebar.returnRatioReport', href: '/dashboard/reports/return-ratio', icon: ArrowUturnLeftIcon, feature: 'reports' },
+      { nameKey: 'sidebar.productReport', href: '/dashboard/reports/products', icon: CubeIcon, feature: 'reports' },
     ],
   },
   {

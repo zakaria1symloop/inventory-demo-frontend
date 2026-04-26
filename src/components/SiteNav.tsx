@@ -62,7 +62,7 @@ export default function SiteNav({ lang, onLangToggle }: Props) {
             <div className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
               <Link href="/#modules" className="hover:text-blue-600 transition-colors">{n.modules}</Link>
               <Link href="/#audience" className="hover:text-blue-600 transition-colors">{n.audience}</Link>
-              <Link href="/#pricing" className="hover:text-blue-600 transition-colors">{n.pricing}</Link>
+              <Link href="/tarifs" className="hover:text-blue-600 transition-colors">{n.pricing}</Link>
               <Link href="/#contact" className="hover:text-blue-600 transition-colors">{n.contact}</Link>
               <Link href="/blog" className="hover:text-blue-600 transition-colors">{n.blog}</Link>
             </div>
@@ -94,7 +94,7 @@ export default function SiteNav({ lang, onLangToggle }: Props) {
             <div className="px-4 py-4 space-y-1">
               <Link href="/#modules" onClick={() => setOpen(false)} className="block px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">{n.modules}</Link>
               <Link href="/#audience" onClick={() => setOpen(false)} className="block px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">{n.audience}</Link>
-              <Link href="/#pricing" onClick={() => setOpen(false)} className="block px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">{n.pricing}</Link>
+              <Link href="/tarifs" onClick={() => setOpen(false)} className="block px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">{n.pricing}</Link>
               <Link href="/#contact" onClick={() => setOpen(false)} className="block px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">{n.contact}</Link>
               <Link href="/blog" onClick={() => setOpen(false)} className="block px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">{n.blog}</Link>
               <div className="border-t border-gray-100 pt-3 mt-3 flex items-center justify-between px-4">

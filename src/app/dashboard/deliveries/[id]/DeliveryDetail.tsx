@@ -353,8 +353,8 @@ export default function DeliveryDetail() {
 
   const statusConfig = getStatusConfig(delivery.status);
   const StatusIcon = statusConfig.icon;
-  const uncollectedAmount = (delivery.total_amount || 0) - (delivery.collected_amount || 0);
-  const collectionRate = delivery.total_amount > 0 ? ((delivery.collected_amount || 0) / delivery.total_amount) * 100 : 0;
+  const uncollectedAmount = (Number(delivery.total_amount) || 0) - (Number(delivery.collected_amount) || 0);
+  const collectionRate = Number(delivery.total_amount) > 0 ? ((Number(delivery.collected_amount) || 0) / Number(delivery.total_amount)) * 100 : 0;
   const totalDelivered = delivery.delivery_orders?.filter(o => ['delivered', 'partial'].includes(o.status)).length || 0;
   const totalReturns = delivery.returns?.length || 0;
   const totalLoss = delivery.returns?.filter(r => !r.returnable_to_stock).reduce((sum, r) => sum + (r.loss_amount || 0), 0) || 0;
@@ -445,8 +445,8 @@ export default function DeliveryDetail() {
       <div data-tour="dd-kpi" className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
         <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 ${isRTL ? 'divide-x-reverse' : ''} divide-x divide-gray-100 dark:divide-gray-700`}>
           {[
-            { icon: BanknotesIcon, label: t('deliveryDetail.totalAmount'), value: formatCurrency(delivery.total_amount || 0), color: 'blue', bar: 'bg-blue-500' },
-            { icon: CheckCircleIcon, label: t('deliveryDetail.collected'), value: formatCurrency(delivery.collected_amount || 0), color: 'green', bar: 'bg-green-500' },
+            { icon: BanknotesIcon, label: t('deliveryDetail.totalAmount'), value: formatCurrency(Number(delivery.total_amount) || 0), color: 'blue', bar: 'bg-blue-500' },
+            { icon: CheckCircleIcon, label: t('deliveryDetail.collected'), value: formatCurrency(Number(delivery.collected_amount) || 0), color: 'green', bar: 'bg-green-500' },
             { icon: XCircleIcon, label: t('deliveryDetail.remaining'), value: formatCurrency(uncollectedAmount), color: 'red', bar: 'bg-red-500' },
             { icon: ChartBarIcon, label: t('deliveryDetail.collectionRate'), value: `${collectionRate.toFixed(0)}%`, color: 'indigo', bar: 'bg-indigo-500' },
             { icon: ExclamationTriangleIcon, label: t('deliveryDetail.totalLoss'), value: formatCurrency(totalLoss), color: 'orange', bar: 'bg-orange-500' },

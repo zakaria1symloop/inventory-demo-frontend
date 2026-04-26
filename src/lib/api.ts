@@ -5,29 +5,49 @@ console.log('API Base URL configured:', apiBaseUrl);
 
 const api = axios.create({
   baseURL: apiBaseUrl,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
 });
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token and tenant ID
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    const tenantId = localStorage.getItem('tenantId');
+    if (tenantId) {
+      config.headers['X-Tenant-Id'] = tenantId;
+    }
   }
   return config;
 });
 
-// Response interceptor to handle errors
+// Response interceptor with retry on transient network errors
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const config = error.config;
+
+    // Retry on network errors or 5xx, max 2 retries with backoff
+    const isNetworkError = !error.response || error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK';
+    const is5xx = error.response?.status >= 500 && error.response?.status < 600;
+
+    if (config && (isNetworkError || is5xx) && !config._retryDone) {
+      config._retryCount = (config._retryCount || 0) + 1;
+      if (config._retryCount <= 2) {
+        await new Promise((r) => setTimeout(r, 800 * config._retryCount));
+        return api(config);
+      }
+      config._retryDone = true;
+    }
+
     if (error.response?.status === 401) {
-      if (typeof window !== 'undefined') {
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.href = '/login';
@@ -42,7 +62,7 @@ export default api;
 // Auth API
 export const authApi = {
   login: (identifier: string, password: string) =>
-    api.post('/login', { email: identifier, password }),
+    api.post('/saas/login', { identifier, password }),
   register: (data: {
     register_with: 'email' | 'phone';
     company_name: string;
@@ -51,6 +71,7 @@ export const authApi = {
     phone?: string;
     password: string;
     password_confirmation: string;
+    accept_call?: boolean;
   }) => api.post('/saas/register', data),
   googleAuth: (data: { credential: string; company_name?: string }) =>
     api.post('/saas/google-auth', data),
@@ -268,6 +289,7 @@ export const usersApi = {
     api.post(`/users/${id}/reset-password`, data),
   toggleActive: (id: number) => api.post(`/users/${id}/toggle-active`),
   toggleCollectDebt: (id: number) => api.post(`/users/${id}/toggle-collect-debt`),
+  toggleSellFromMainStock: (id: number) => api.post(`/users/${id}/toggle-sell-from-main-stock`),
   getSellers: () => api.get('/sellers'),
   getLivreurs: () => api.get('/livreurs'),
 };

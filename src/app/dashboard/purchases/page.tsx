@@ -433,7 +433,7 @@ export default function PurchasesPage() {
     }
   };
 
-  const canDelete = (purchase: Purchase) => purchase.status !== 'received';
+  const canDelete = () => true;
 
   const openRetourTab = useCallback((purchaseId: number, reference: string) => {
     const existingTab = tabs.find(t => t.type === 'retour' && t.purchaseId === purchaseId);
@@ -832,27 +832,22 @@ export default function PurchasesPage() {
                             <td><span className={`badge ${paymentBadge.class}`}>{paymentBadge.text}</span></td>
                             <td>
                               <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                                {purchase.status === 'received' ? (
+                                {purchase.status === 'received' && (
                                   <button onClick={() => openRetourTab(purchase.id, purchase.reference)} className="p-1.5 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-500 transition-colors" title={t('purchases.prRetourButton')}>
                                     <ArrowUturnLeftIcon className="w-5 h-5" />
                                   </button>
-                                ) : (
-                                  <>
-                                    {purchase.status === 'pending' && (
-                                      <button onClick={() => handleConfirmPurchase(purchase.id)} className="p-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 transition-colors" title={t('purchases.confirmReceipt')}>
-                                        <CheckCircleIcon className="w-5 h-5" />
-                                      </button>
-                                    )}
-                                    <button onClick={() => openEditTab(purchase.id, purchase.reference)} className="p-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/30 text-amber-600 transition-colors" title={t('purchases.edit')}>
-                                      <PencilSquareIcon className="w-5 h-5" />
-                                    </button>
-                                    {canDelete(purchase) && (
-                                      <button onClick={() => handleDelete(purchase.id)} className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 transition-colors" title={t('purchases.delete')}>
-                                        <TrashIcon className="w-5 h-5" />
-                                      </button>
-                                    )}
-                                  </>
                                 )}
+                                {purchase.status === 'pending' && (
+                                  <button onClick={() => handleConfirmPurchase(purchase.id)} className="p-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 transition-colors" title={t('purchases.confirmReceipt')}>
+                                    <CheckCircleIcon className="w-5 h-5" />
+                                  </button>
+                                )}
+                                <button onClick={() => openEditTab(purchase.id, purchase.reference)} className="p-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/30 text-amber-600 transition-colors" title={t('purchases.edit')}>
+                                  <PencilSquareIcon className="w-5 h-5" />
+                                </button>
+                                <button onClick={() => handleDelete(purchase.id)} className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 transition-colors" title={t('purchases.delete')}>
+                                  <TrashIcon className="w-5 h-5" />
+                                </button>
                                 <Link href={`/dashboard/purchases/${purchase.id}`} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 transition-colors" title={t('purchases.view')}>
                                   <EyeIcon className="w-5 h-5" />
                                 </Link>

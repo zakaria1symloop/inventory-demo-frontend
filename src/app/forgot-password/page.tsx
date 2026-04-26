@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { saasApi } from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -156,8 +155,12 @@ export default function ForgotPasswordPage() {
         <div className="w-full max-w-[420px]">
           {/* Logo */}
           <Link href="/" className="inline-flex items-center gap-2.5 mb-10 group">
-            <Image src="/t.png" alt="TrackSera" width={40} height={40} className="object-contain transition-transform group-hover:scale-105" />
-            <span className="text-lg font-bold text-gray-900">TrackSera</span>
+            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+            </div>
+            <span className="text-lg font-bold text-gray-900">تراكسيرا</span>
           </Link>
 
           {/* Back link */}

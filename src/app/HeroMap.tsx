@@ -4,74 +4,19 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-/* ── Algeria distribution network ── */
-
-const HUBS = [
-  { lat: 36.7538, lng: 3.0588, color: '#3b82f6' },   // Algiers
-  { lat: 35.6969, lng: -0.6331, color: '#8b5cf6' },   // Oran
-  { lat: 36.3650, lng: 6.6147, color: '#10b981' },    // Constantine
-  { lat: 36.1898, lng: 5.4108, color: '#f59e0b' },    // Sétif
-  { lat: 35.5567, lng: 6.1744, color: '#ef4444' },    // Batna
+/* ── Routes spread left & right so desktop center stays clear for glass card ── */
+const ROUTES = [
+  // Left cluster (west Algiers) — Hub: Draria
+  { from: { lat: 36.72, lng: 2.96 }, to: { lat: 36.74, lng: 2.93 }, color: '#6366f1' },  // → Ouled Fayet
+  { from: { lat: 36.72, lng: 2.96 }, to: { lat: 36.70, lng: 2.95 }, color: '#818cf8' },  // → Baba Hassen
+  { from: { lat: 36.72, lng: 2.96 }, to: { lat: 36.66, lng: 2.97 }, color: '#a78bfa' },  // → Birtouta
+  // Right cluster (east Algiers) — Hub: near Bab Ezzouar
+  { from: { lat: 36.73, lng: 3.18 }, to: { lat: 36.71, lng: 3.21 }, color: '#34d399' },  // → Dar El Beida
+  { from: { lat: 36.73, lng: 3.18 }, to: { lat: 36.73, lng: 3.28 }, color: '#fbbf24' },  // → Rouiba
+  { from: { lat: 36.73, lng: 3.18 }, to: { lat: 36.70, lng: 3.15 }, color: '#f472b6' },  // → Les Eucalyptus
 ];
 
-const ROUTES = [
-  // From Algiers (main hub — 10 routes)
-  { from: [36.7538, 3.0588], to: [35.6969, -0.6331], color: '#818cf8', curve: -0.18 },   // → Oran
-  { from: [36.7538, 3.0588], to: [36.3650, 6.6147],  color: '#34d399', curve: 0.14 },    // → Constantine
-  { from: [36.7538, 3.0588], to: [36.1898, 5.4108],  color: '#fbbf24', curve: 0.10 },    // → Sétif
-  { from: [36.7538, 3.0588], to: [36.4700, 2.8300],  color: '#60a5fa', curve: -0.40 },   // → Blida
-  { from: [36.7538, 3.0588], to: [36.7117, 4.0456],  color: '#a78bfa', curve: -0.15 },   // → Tizi Ouzou
-  { from: [36.7538, 3.0588], to: [36.1647, 1.3325],  color: '#fb923c', curve: -0.14 },   // → Chlef
-  { from: [36.7538, 3.0588], to: [36.7500, 5.0833],  color: '#2dd4bf', curve: 0.08 },    // → Béjaïa
-  { from: [36.7538, 3.0588], to: [34.6707, 3.2503],  color: '#f472b6', curve: 0.14 },    // → Djelfa
-  { from: [36.7538, 3.0588], to: [36.2644, 2.7544],  color: '#38bdf8', curve: -0.35 },   // → Médéa
-  { from: [36.7538, 3.0588], to: [36.3800, 3.9000],  color: '#67e8f9', curve: -0.12 },   // → Bouira
-  // From Oran (west hub — 4 routes)
-  { from: [35.6969, -0.6331], to: [34.8781, -1.3150], color: '#c084fc', curve: -0.22 },   // → Tlemcen
-  { from: [35.6969, -0.6331], to: [35.9333, 0.0833],  color: '#e879f9', curve: 0.22 },    // → Mostaganem
-  { from: [35.6969, -0.6331], to: [35.3700, -0.2833], color: '#d8b4fe', curve: -0.25 },   // → Sidi Bel Abbès
-  { from: [35.6969, -0.6331], to: [35.4308, 0.8414],  color: '#f0abfc', curve: 0.15 },    // → Relizane
-  // From Constantine (east hub — 4 routes)
-  { from: [36.3650, 6.6147], to: [36.9000, 7.7667],  color: '#6ee7b7', curve: 0.18 },    // → Annaba
-  { from: [36.3650, 6.6147], to: [35.5567, 6.1744],  color: '#4ade80', curve: 0.18 },    // → Batna
-  { from: [36.3650, 6.6147], to: [36.8764, 6.9061],  color: '#86efac', curve: -0.20 },   // → Skikda
-  { from: [36.3650, 6.6147], to: [36.8000, 5.7667],  color: '#a7f3d0', curve: 0.25 },    // → Jijel
-  // From Sétif (central hub — 3 routes)
-  { from: [36.1898, 5.4108], to: [35.7050, 4.5420],  color: '#fcd34d', curve: -0.18 },   // → M'sila
-  { from: [36.1898, 5.4108], to: [35.4000, 5.0000],  color: '#fde68a', curve: 0.16 },    // → Bordj Bou Arréridj
-  { from: [36.1898, 5.4108], to: [36.6500, 4.8500],  color: '#fef08a', curve: -0.20 },   // → Béjaïa (south route)
-  // From Batna (south hub — 3 routes)
-  { from: [35.5567, 6.1744], to: [34.8481, 5.7280],  color: '#fca5a5', curve: 0.18 },    // → Biskra
-  { from: [35.5567, 6.1744], to: [35.0547, 7.6331],  color: '#f87171', curve: -0.15 },   // → Tébessa
-  { from: [35.5567, 6.1744], to: [35.3833, 7.5833],  color: '#fb7185', curve: 0.12 },    // → Khenchela
-] as const;
-
-const TRAIL_LENGTH = 6;
-
-/* ── Helpers ── */
-
-function generateArc(
-  from: readonly number[],
-  to: readonly number[],
-  curvature: number,
-  segments = 80,
-): [number, number][] {
-  const mid = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2];
-  const dx = to[1] - from[1];
-  const dy = to[0] - from[0];
-  const ctrl = [mid[0] + dx * curvature, mid[1] - dy * curvature];
-
-  const pts: [number, number][] = [];
-  for (let i = 0; i <= segments; i++) {
-    const t = i / segments;
-    const u = 1 - t;
-    pts.push([
-      u * u * from[0] + 2 * u * t * ctrl[0] + t * t * to[0],
-      u * u * from[1] + 2 * u * t * ctrl[1] + t * t * to[1],
-    ]);
-  }
-  return pts;
-}
+const TRAIL_LENGTH = 8;
 
 function lerp(coords: [number, number][], t: number): [number, number] {
   const n = coords.length - 1;
@@ -80,85 +25,83 @@ function lerp(coords: [number, number][], t: number): [number, number] {
   const f = raw - i;
   const a = coords[i];
   const b = coords[i + 1] || a;
-  return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
+  return [a[1] + (b[1] - a[1]) * f, a[0] + (b[0] - a[0]) * f];
 }
 
-/* ── CSS injection ── */
-
-function injectStyles() {
-  if (document.getElementById('hm2-css')) return;
-  const s = document.createElement('style');
-  s.id = 'hm2-css';
-  s.textContent = `
-    @keyframes hm2-sonar {
-      0%   { transform: translate(-50%,-50%) scale(0.5); opacity: 0.6; }
-      100% { transform: translate(-50%,-50%) scale(3.5); opacity: 0; }
+function injectMapStyles() {
+  if (document.getElementById('heromap-styles')) return;
+  const style = document.createElement('style');
+  style.id = 'heromap-styles';
+  style.textContent = `
+    @keyframes hm-sonar {
+      0%   { transform: translate(-50%,-50%) scale(0.3); opacity: 0.7; }
+      100% { transform: translate(-50%,-50%) scale(2.8); opacity: 0; }
     }
-    @keyframes hm2-ping {
+    @keyframes hm-ping {
       0%, 100% { transform: translate(-50%,-50%) scale(1); opacity: 1; }
-      50%      { transform: translate(-50%,-50%) scale(1.15); opacity: 0.85; }
+      50%      { transform: translate(-50%,-50%) scale(1.15); opacity: 0.8; }
     }
-    @keyframes hm2-glow {
-      0%, 100% { box-shadow: 0 0 4px var(--c), 0 0 10px var(--c); }
-      50%      { box-shadow: 0 0 8px var(--c), 0 0 20px var(--c); }
+    @keyframes hm-marker-breathe {
+      0%, 100% { filter: drop-shadow(0 0 6px var(--c)) drop-shadow(0 0 12px var(--c)); }
+      50%      { filter: drop-shadow(0 0 10px var(--c)) drop-shadow(0 0 22px var(--c)); }
     }
-    @keyframes hm2-dash {
-      to { stroke-dashoffset: -30; }
+    @keyframes hm-dash-flow {
+      to { stroke-dashoffset: -40; }
     }
-    @keyframes hm2-notif {
-      0%   { opacity: 0; transform: translate(-50%, 5px) scale(0.8); }
-      12%  { opacity: 1; transform: translate(-50%, -8px) scale(1); }
-      80%  { opacity: 1; transform: translate(-50%, -8px) scale(1); }
-      100% { opacity: 0; transform: translate(-50%, -20px) scale(0.9); }
+    .hm-hub-sonar {
+      position: absolute; top: 50%; left: 50%;
+      width: 50px; height: 50px; border-radius: 50%;
+      transform: translate(-50%,-50%) scale(0.3);
+      pointer-events: none;
     }
-    @keyframes hm2-dest-pulse {
-      0%, 100% { transform: translate(-50%,-50%) scale(1); opacity: 0.5; }
-      50%      { transform: translate(-50%,-50%) scale(2.2); opacity: 0; }
+    .hm-hub-sonar-1 { animation: hm-sonar 2.4s ease-out infinite; }
+    .hm-hub-sonar-2 { animation: hm-sonar 2.4s ease-out 0.8s infinite; }
+    .hm-hub-sonar-3 { animation: hm-sonar 2.4s ease-out 1.6s infinite; }
+    .hm-hub-core {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      animation: hm-ping 2s ease-in-out infinite;
     }
-    .hm2-flow {
-      stroke-dasharray: 10 6;
-      animation: hm2-dash 1s linear infinite;
+    .hm-marker {
+      --c: #fff;
+      animation: hm-marker-breathe 2s ease-in-out infinite;
+      transition: transform 0.1s linear;
+    }
+    .hm-trail-dot {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      border-radius: 50%;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+    .hm-route-flow {
+      stroke-dasharray: 12 8;
+      animation: hm-dash-flow 1.2s linear infinite;
     }
   `;
-  document.head.appendChild(s);
+  document.head.appendChild(style);
 }
-
-/* ── Component ── */
 
 export default function HeroMap() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const rafRef = useRef(0);
-  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const notifIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const initRef = useRef(false);
 
   useEffect(() => {
-    if (!containerRef.current) return;
-
-    // Prevent double-init — but allow re-init after cleanup
-    if (mapRef.current) return;
-
-    injectStyles();
+    if (!containerRef.current || initRef.current) return;
+    initRef.current = true;
+    injectMapStyles();
 
     const isMobile = window.innerWidth < 640;
-    const segments = isMobile ? 50 : 80;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    timersRef.current = timers;
 
-    // Helper to track all timeouts
-    function later(fn: () => void, ms: number) {
-      timers.push(setTimeout(fn, ms));
-    }
-
-    // Generate all arc paths
-    const arcs = ROUTES.map((r) => generateArc(r.from, r.to, r.curve, segments));
-
-    // Compute bounds
-    const allPts: [number, number][] = [];
+    /* Auto-fit camera to all route points */
+    const allPoints: [number, number][] = [];
     ROUTES.forEach((r) => {
-      allPts.push([r.from[0], r.from[1]]);
-      allPts.push([r.to[0], r.to[1]]);
+      allPoints.push([r.from.lat, r.from.lng]);
+      allPoints.push([r.to.lat, r.to.lng]);
     });
+    const bounds = L.latLngBounds(allPoints);
 
     const map = L.map(containerRef.current, {
       zoomControl: false,
@@ -170,30 +113,94 @@ export default function HeroMap() {
       keyboard: false,
       boxZoom: false,
     });
-    map.fitBounds(L.latLngBounds(allPts), { padding: isMobile ? [15, 15] : [50, 50] });
-    mapRef.current = map;
+
+    map.fitBounds(bounds, { padding: [50, 50] });
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 19,
     }).addTo(map);
 
-    /* ── Vehicle animation state ── */
+    mapRef.current = map;
+
+    /* ── Instant loading indicators — pulsing dots + dashed connector lines ── */
+    const loadingLayers: L.Layer[] = [];
+
+    ROUTES.forEach((route) => {
+      /* Thin dashed line connecting from → to as a "skeleton" */
+      const skeleton = L.polyline(
+        [[route.from.lat, route.from.lng], [route.to.lat, route.to.lng]],
+        { color: route.color, weight: 2, opacity: 0.15, dashArray: '6 8', interactive: false },
+      ).addTo(map);
+      loadingLayers.push(skeleton);
+    });
+
+    /* Pulsing dots at unique points */
+    const seenPts = new Set<string>();
+    ROUTES.forEach((route) => {
+      [
+        { lat: route.from.lat, lng: route.from.lng, color: route.color, size: 16 },
+        { lat: route.to.lat, lng: route.to.lng, color: route.color, size: 10 },
+      ].forEach((p) => {
+        const key = `${p.lat},${p.lng}`;
+        if (seenPts.has(key)) return;
+        seenPts.add(key);
+        const m = L.marker([p.lat, p.lng], {
+          icon: L.divIcon({
+            className: '',
+            iconSize: [p.size * 2, p.size * 2],
+            iconAnchor: [p.size, p.size],
+            html: `
+              <div style="position:relative;width:${p.size * 2}px;height:${p.size * 2}px">
+                <div style="
+                  position:absolute;inset:0;border-radius:50%;
+                  background:${p.color}25;
+                  animation: hm-sonar 1.8s ease-out infinite;
+                "></div>
+                <div style="
+                  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+                  width:${p.size}px;height:${p.size}px;border-radius:50%;
+                  background:${p.color};border:2px solid white;
+                  box-shadow: 0 0 8px ${p.color}55;
+                  animation: hm-ping 1.5s ease-in-out infinite;
+                "></div>
+              </div>
+            `,
+          }),
+          interactive: false,
+        }).addTo(map);
+        loadingLayers.push(m);
+      });
+    });
+
+    /* Remove loading indicators when a route draws */
+    let loadingCleared = false;
+    function clearLoading() {
+      if (loadingCleared) return;
+      loadingCleared = true;
+      loadingLayers.forEach((l) => l.remove());
+    }
+
+    /* ── Fetch & draw each OSRM route instantly as it loads ── */
+    const abortCtrl = new AbortController();
+
     const vehicles: {
       marker: L.Marker;
       trailDots: L.Marker[];
       coords: [number, number][];
       speed: number;
+      color: string;
       history: [number, number][];
     }[] = [];
 
+    let animStarted = false;
     let t0: number | null = null;
     let lastTrailUpdate = 0;
-    let animStarted = false;
 
     function tick(ts: number) {
       if (!mapRef.current) return;
       if (!t0) t0 = ts;
       const elapsed = ts - t0;
+
       const shouldUpdateTrail = elapsed - lastTrailUpdate > 80;
       if (shouldUpdateTrail) lastTrailUpdate = elapsed;
 
@@ -206,8 +213,11 @@ export default function HeroMap() {
         if (shouldUpdateTrail) {
           v.history.unshift(pos);
           if (v.history.length > TRAIL_LENGTH) v.history.pop();
+
           v.trailDots.forEach((dot, idx) => {
-            if (v.history[idx + 1]) dot.setLatLng(v.history[idx + 1]);
+            if (v.history[idx + 1]) {
+              dot.setLatLng(v.history[idx + 1]);
+            }
           });
         }
       });
@@ -222,35 +232,128 @@ export default function HeroMap() {
       }
     }
 
-    /* ── Hub markers ── */
-    HUBS.forEach((hub, hIdx) => {
-      const hubSize = isMobile ? 26 : 42;
-      const sonarSize = isMobile ? 36 : 68;
+    /* Draw a single route on the map as soon as it loads */
+    function drawLoadedRoute(coords: [number, number][], i: number, color: string) {
+      if (!mapRef.current) return;
+      clearLoading();
+      const latLngs: [number, number][] = coords.map(([lng, lat]) => [lat, lng]);
 
-      later(() => {
-        if (!mapRef.current) return;
-        L.marker([hub.lat, hub.lng], {
+      /* Soft shadow */
+      L.polyline(latLngs, {
+        color: '#000', weight: isMobile ? 10 : 8, opacity: isMobile ? 0.06 : 0.04,
+        interactive: false, lineCap: 'round', lineJoin: 'round',
+      }).addTo(mapRef.current!);
+
+      /* Base route */
+      L.polyline(latLngs, {
+        color, weight: isMobile ? 4 : 3, opacity: isMobile ? 0.3 : 0.18,
+        interactive: false, lineCap: 'round', lineJoin: 'round',
+      }).addTo(mapRef.current!);
+
+      /* Animated flowing dashed overlay */
+      const flowLine = L.polyline(latLngs, {
+        color, weight: isMobile ? 3.5 : 2.5, opacity: isMobile ? 0.7 : 0.55,
+        interactive: false, lineCap: 'round', lineJoin: 'round',
+        className: 'hm-route-flow',
+      }).addTo(mapRef.current!);
+
+      const el = flowLine.getElement() as HTMLElement | null;
+      if (el) el.style.animationDuration = `${1 + i * 0.15}s`;
+
+      /* Vehicles + trails (desktop only) */
+      if (!isMobile) {
+        const trailDots: L.Marker[] = [];
+        for (let t = 0; t < TRAIL_LENGTH; t++) {
+          const size = Math.max(4, 10 - t * 1);
+          const opacity = Math.max(0.06, 0.35 - t * 0.04);
+          const dot = L.marker(lerp(coords, 0), {
+            icon: L.divIcon({
+              className: '',
+              iconSize: [size, size],
+              iconAnchor: [size / 2, size / 2],
+              html: `<div class="hm-trail-dot" style="
+                width:${size}px;height:${size}px;
+                background:${color};
+                opacity:${opacity};
+                box-shadow: 0 0 ${4 + (TRAIL_LENGTH - t)}px ${color}${Math.round(opacity * 255).toString(16).padStart(2, '0')};
+              "></div>`,
+            }),
+            interactive: false,
+          }).addTo(mapRef.current!);
+          trailDots.push(dot);
+        }
+
+        const vehicleIcon = L.divIcon({
+          className: '',
+          iconSize: [28, 28],
+          iconAnchor: [14, 14],
+          html: `
+            <div class="hm-marker" style="--c:${color};width:28px;height:28px;position:relative">
+              <div style="
+                width:28px;height:28px;border-radius:50%;
+                background: linear-gradient(135deg, ${color}, ${color}cc);
+                border:3px solid white;
+                box-shadow: 0 2px 12px ${color}88, 0 0 20px ${color}44;
+                display:flex;align-items:center;justify-content:center;
+              ">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="white" stroke="none">
+                  <path d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>
+                </svg>
+              </div>
+            </div>
+          `,
+        });
+
+        const marker = L.marker(lerp(coords, 0), {
+          icon: vehicleIcon,
+          interactive: false,
+        }).addTo(mapRef.current!);
+
+        vehicles.push({ marker, trailDots, coords, speed: 14000 + i * 2500, color, history: [] });
+        startAnim();
+      }
+    }
+
+    /* Fire all fetches in parallel — each draws as soon as it resolves */
+    ROUTES.forEach((route, i) => {
+      fetch(
+        `https://router.project-osrm.org/route/v1/driving/${route.from.lng},${route.from.lat};${route.to.lng},${route.to.lat}?overview=full&geometries=geojson`,
+        { signal: abortCtrl.signal },
+      )
+        .then((res) => res.json())
+        .then((json) => {
+          const coords: [number, number][] | undefined = json.routes?.[0]?.geometry?.coordinates;
+          if (coords) drawLoadedRoute(coords, i, route.color);
+        })
+        .catch(() => {});
+    });
+
+    /* Add hub + destination markers (desktop only) — show immediately */
+    if (!isMobile) {
+      const hubs = [
+        { lat: 36.72, lng: 2.96, color: '#4f46e5' },
+        { lat: 36.73, lng: 3.18, color: '#059669' },
+      ];
+
+      hubs.forEach((h) => {
+        L.marker([h.lat, h.lng], {
           icon: L.divIcon({
             className: '',
-            iconSize: [sonarSize, sonarSize],
-            iconAnchor: [sonarSize / 2, sonarSize / 2],
+            iconSize: [60, 60],
+            iconAnchor: [30, 30],
             html: `
-              <div style="position:relative;width:${sonarSize}px;height:${sonarSize}px">
-                ${!isMobile ? `
-                  <div style="position:absolute;top:50%;left:50%;width:${sonarSize}px;height:${sonarSize}px;border-radius:50%;border:1.5px solid ${hub.color}55;animation:hm2-sonar 2.8s ease-out infinite"></div>
-                  <div style="position:absolute;top:50%;left:50%;width:${sonarSize}px;height:${sonarSize}px;border-radius:50%;border:1.5px solid ${hub.color}35;animation:hm2-sonar 2.8s ease-out 0.9s infinite"></div>
-                  <div style="position:absolute;top:50%;left:50%;width:${sonarSize}px;height:${sonarSize}px;border-radius:50%;border:1.5px solid ${hub.color}22;animation:hm2-sonar 2.8s ease-out 1.8s infinite"></div>
-                ` : ''}
-                <div style="
-                  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-                  width:${hubSize}px;height:${hubSize}px;border-radius:${isMobile ? '8px' : '12px'};
-                  background:linear-gradient(135deg, ${hub.color}, ${hub.color}cc);
-                  border:${isMobile ? '2px' : '3px'} solid rgba(255,255,255,0.85);
-                  box-shadow: 0 2px 12px ${hub.color}55, 0 0 24px ${hub.color}22;
+              <div style="position:relative;width:60px;height:60px">
+                <div class="hm-hub-sonar hm-hub-sonar-1" style="border:2px solid ${h.color}40"></div>
+                <div class="hm-hub-sonar hm-hub-sonar-2" style="border:2px solid ${h.color}30"></div>
+                <div class="hm-hub-sonar hm-hub-sonar-3" style="border:2px solid ${h.color}20"></div>
+                <div class="hm-hub-core" style="
+                  width:36px;height:36px;border-radius:10px;
+                  background:linear-gradient(135deg, ${h.color}, ${h.color}dd);
+                  border:3px solid white;
+                  box-shadow: 0 4px 20px ${h.color}55, 0 0 30px ${h.color}22;
                   display:flex;align-items:center;justify-content:center;
-                  animation: hm2-ping 2.5s ease-in-out infinite;
                 ">
-                  <svg width="${isMobile ? 11 : 17}" height="${isMobile ? 11 : 17}" viewBox="0 0 24 24" fill="white" stroke="none">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
                     <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
                   </svg>
                 </div>
@@ -258,207 +361,44 @@ export default function HeroMap() {
             `,
           }),
           interactive: false,
-        }).addTo(mapRef.current);
-      }, 80 + hIdx * 120);
-    });
+        }).addTo(map);
+      });
 
-    /* ── Staggered route drawing ── */
-    arcs.forEach((arcPts, i) => {
-      const route = ROUTES[i];
-
-      later(() => {
-        if (!mapRef.current) return;
-
-        // Glow / shadow layer
-        const glow = L.polyline(arcPts, {
-          color: route.color,
-          weight: isMobile ? 7 : 6,
-          opacity: 0.12,
-          interactive: false,
-          lineCap: 'round',
-          lineJoin: 'round',
-        }).addTo(mapRef.current);
-
-        // Main route line
-        const line = L.polyline(arcPts, {
-          color: route.color,
-          weight: isMobile ? 3 : 2.5,
-          opacity: 0,
-          interactive: false,
-          lineCap: 'round',
-          lineJoin: 'round',
-        }).addTo(mapRef.current);
-
-        // Draw animation via stroke-dashoffset
-        requestAnimationFrame(() => {
-          const glowEl = glow.getElement() as SVGPathElement | null;
-          const lineEl = line.getElement() as SVGPathElement | null;
-
-          if (lineEl) {
-            const len = lineEl.getTotalLength();
-            lineEl.style.opacity = '0.75';
-            lineEl.style.strokeDasharray = `${len}`;
-            lineEl.style.strokeDashoffset = `${len}`;
-            lineEl.getBoundingClientRect();
-            lineEl.style.transition = 'stroke-dashoffset 1.5s ease-in-out';
-            lineEl.style.strokeDashoffset = '0';
-          }
-          if (glowEl) {
-            const len = glowEl.getTotalLength();
-            glowEl.style.strokeDasharray = `${len}`;
-            glowEl.style.strokeDashoffset = `${len}`;
-            glowEl.getBoundingClientRect();
-            glowEl.style.transition = 'stroke-dashoffset 1.5s ease-in-out';
-            glowEl.style.strokeDashoffset = '0';
-          }
-        });
-
-        // After draw animation: add flowing overlay + vehicle
-        later(() => {
-          if (!mapRef.current) return;
-
-          const flow = L.polyline(arcPts, {
-            color: route.color,
-            weight: isMobile ? 2 : 1.5,
-            opacity: 0.5,
-            interactive: false,
-            lineCap: 'round',
-            lineJoin: 'round',
-            className: 'hm2-flow',
-          }).addTo(mapRef.current);
-
-          const flowEl = flow.getElement() as HTMLElement | null;
-          if (flowEl) flowEl.style.animationDuration = `${0.8 + i * 0.08}s`;
-
-          // Vehicle + comet trail (desktop only)
-          if (!isMobile) {
-            const trailDots: L.Marker[] = [];
-            for (let t = 0; t < TRAIL_LENGTH; t++) {
-              const size = Math.max(3, 8 - t);
-              const opacity = Math.max(0.05, 0.4 - t * 0.06);
-              const dot = L.marker(lerp(arcPts, 0), {
-                icon: L.divIcon({
-                  className: '',
-                  iconSize: [size, size],
-                  iconAnchor: [size / 2, size / 2],
-                  html: `<div style="
-                    width:${size}px;height:${size}px;border-radius:50%;
-                    background:${route.color};opacity:${opacity};
-                    box-shadow: 0 0 ${3 + (TRAIL_LENGTH - t)}px ${route.color};
-                  "></div>`,
-                }),
-                interactive: false,
-              }).addTo(mapRef.current!);
-              trailDots.push(dot);
-            }
-
-            const marker = L.marker(lerp(arcPts, 0), {
-              icon: L.divIcon({
-                className: '',
-                iconSize: [20, 20],
-                iconAnchor: [10, 10],
-                html: `<div style="
-                  --c:${route.color};
-                  width:20px;height:20px;border-radius:50%;
-                  background:${route.color};
-                  border:2.5px solid rgba(255,255,255,0.9);
-                  animation: hm2-glow 2s ease-in-out infinite;
-                "></div>`,
-              }),
-              interactive: false,
-            }).addTo(mapRef.current!);
-
-            vehicles.push({
-              marker,
-              trailDots,
-              coords: arcPts,
-              speed: 10000 + i * 1500,
-              history: [],
-            });
-            startAnim();
-          }
-        }, 1600);
-      }, 200 + i * 120);
-    });
-
-    /* ── Destination dots ── */
-    ROUTES.forEach((r, rIdx) => {
-      later(() => {
-        if (!mapRef.current) return;
-        const dotSize = isMobile ? 7 : 12;
-        L.marker([r.to[0], r.to[1]], {
+      ROUTES.forEach((r) => {
+        L.marker([r.to.lat, r.to.lng], {
           icon: L.divIcon({
             className: '',
-            iconSize: [dotSize * 2, dotSize * 2],
-            iconAnchor: [dotSize, dotSize],
+            iconSize: [22, 22],
+            iconAnchor: [11, 11],
             html: `
-              <div style="position:relative;width:${dotSize * 2}px;height:${dotSize * 2}px">
-                ${!isMobile ? `
-                  <div style="
-                    position:absolute;top:50%;left:50%;
-                    width:${dotSize * 2}px;height:${dotSize * 2}px;border-radius:50%;
-                    background:${r.color}30;
-                    animation: hm2-dest-pulse 2.5s ease-in-out infinite;
-                  "></div>
-                ` : ''}
+              <div style="position:relative;width:22px;height:22px">
                 <div style="
                   position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-                  width:${dotSize}px;height:${dotSize}px;border-radius:50%;
-                  background:${r.color};
-                  border:${isMobile ? '1.5px' : '2.5px'} solid rgba(255,255,255,0.85);
-                  box-shadow: 0 0 8px ${r.color}88, 0 0 16px ${r.color}44;
+                  width:22px;height:22px;border-radius:50%;
+                  background:${r.color}18;
+                "></div>
+                <div style="
+                  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+                  width:12px;height:12px;border-radius:50%;
+                  background:${r.color};border:2.5px solid white;
+                  box-shadow: 0 2px 8px ${r.color}66, 0 0 16px ${r.color}33;
                 "></div>
               </div>
             `,
           }),
           interactive: false,
-        }).addTo(mapRef.current);
-      }, 400 + rIdx * 120);
-    });
-
-    /* ── Delivery notification popups (desktop only) ── */
-    if (!isMobile) {
-      let notifIdx = 0;
-      later(() => {
-        notifIntervalRef.current = setInterval(() => {
-          if (!mapRef.current) return;
-          const route = ROUTES[notifIdx % ROUTES.length];
-          const notif = L.marker([route.to[0], route.to[1]], {
-            icon: L.divIcon({
-              className: '',
-              iconSize: [120, 32],
-              iconAnchor: [60, 44],
-              html: `<div style="
-                background:${route.color};color:white;
-                padding:5px 14px;border-radius:16px;
-                font-size:11px;font-weight:700;font-family:system-ui,sans-serif;
-                white-space:nowrap;letter-spacing:0.02em;
-                box-shadow: 0 4px 16px ${route.color}44, 0 0 12px ${route.color}22;
-                animation: hm2-notif 3.5s ease forwards;
-                text-align:center;
-              ">&#x2713; تم التسليم</div>`,
-            }),
-            interactive: false,
-          }).addTo(mapRef.current);
-          later(() => notif.remove(), 3600);
-          notifIdx++;
-        }, 3000);
-      }, 200 + ROUTES.length * 120 + 1800);
+        }).addTo(map);
+      });
     }
 
     return () => {
-      // Clear ALL pending timeouts
-      timersRef.current.forEach(clearTimeout);
-      timersRef.current = [];
+      abortCtrl.abort();
       cancelAnimationFrame(rafRef.current);
-      if (notifIntervalRef.current) {
-        clearInterval(notifIntervalRef.current);
-        notifIntervalRef.current = null;
-      }
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
       }
+      initRef.current = false;
     };
   }, []);
 

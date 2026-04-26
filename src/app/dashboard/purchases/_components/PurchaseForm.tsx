@@ -145,6 +145,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
   const [discount, setDiscount] = useState<number>(0);
   const [tax, setTax] = useState<number>(0);
   const [shipping, setShipping] = useState<number>(0);
+  const [timbre, setTimbre] = useState<number>(0);
   const [note, setNote] = useState('');
   const [items, setItems] = useState<PurchaseItem[]>([]);
   const [paidAmount, setPaidAmount] = useState<number>(0);
@@ -426,6 +427,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
       setDiscount(purchase.discount || 0);
       setTax(purchase.tax || 0);
       setShipping(purchase.shipping || 0);
+      setTimbre(purchase.timbre_percentage || 0);
       setNote(purchase.note || '');
       setPaidAmount(purchase.paid_amount || 0);
 
@@ -744,7 +746,9 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
   };
 
   const totalAmount = items.reduce((sum, item) => sum + (Number(item.subtotal) || 0), 0);
-  const grandTotal = Math.max(0, totalAmount - (Number(discount) || 0) + (Number(tax) || 0) + (Number(shipping) || 0));
+  const afterDiscount = totalAmount - (Number(discount) || 0);
+  const timbreAmount = afterDiscount * ((Number(timbre) || 0) / 100);
+  const grandTotal = Math.max(0, afterDiscount + (Number(tax) || 0) + (Number(shipping) || 0) + timbreAmount);
 
   // Calculate how payment is applied
   // previousDebt = what we already owe the supplier BEFORE this purchase
@@ -787,6 +791,8 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
           discount,
           tax,
           shipping,
+          timbre: timbreAmount,
+          timbre_percentage: timbre,
           note,
           items: items.map((item) => ({
             product_id: item.product_id,
@@ -843,6 +849,8 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
         discount,
         tax,
         shipping,
+        timbre: timbreAmount,
+        timbre_percentage: timbre,
         note,
         paid_amount: paidAmount,
         status: 'received',
@@ -886,6 +894,8 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
         discount,
         tax,
         shipping,
+        timbre: timbreAmount,
+        timbre_percentage: timbre,
         note,
         paid_amount: paidAmount,
         status: 'pending',
@@ -1770,6 +1780,20 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                       min="0"
                       step="0.01"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-400 mb-1">{locale === 'ar' ? 'الطابع %' : 'Timbre %'}</label>
+                    <input
+                      type="number"
+                      value={timbre}
+                      onChange={(e) => setTimbre(parseFloat(e.target.value) || 0)}
+                      className="input w-full text-center text-sm"
+                      min="0"
+                      step="0.01"
+                    />
+                    {timbre > 0 && (
+                      <div className="text-[10px] text-gray-400 mt-0.5 text-center">= {formatCurrency(timbreAmount)}</div>
+                    )}
                   </div>
                 </div>
 

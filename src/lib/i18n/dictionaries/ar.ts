@@ -121,6 +121,7 @@ const ar = {
     sellersReport: 'الباعة',
     profitLossReport: 'الأرباح والخسائر',
     returnRatioReport: 'نسبة المرتجعات',
+    productReport: 'تقرير المنتجات',
     // Admin items
     fieldEmployees: 'الموظفين الميدانيين',
     employees: 'الموظفين',
@@ -2403,6 +2404,8 @@ const ar = {
     reject: 'رفض',
     edit: 'تعديل',
     delete: 'حذف',
+    view: 'عرض',
+    print: 'طباعة',
 
     // Fulfill
     fulfillProducts: 'تسليم المنتجات (خصم من المستودع وإضافة للشاحنة)',

@@ -159,6 +159,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
   const [discount, setDiscount] = useState<number>(0);
   const [tax, setTax] = useState<number>(0);
   const [shipping, setShipping] = useState<number>(0);
+  const [timbre, setTimbre] = useState<number>(0);
   const [note, setNote] = useState('');
   const [items, setItems] = useState<SaleItem[]>([]);
   const [paidAmount, setPaidAmount] = useState<number>(0);
@@ -334,6 +335,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       setDiscount(sale.discount || 0);
       setTax(sale.tax_percentage || 0);
       setShipping(sale.shipping || 0);
+      setTimbre(sale.timbre_percentage || 0);
       setNote(sale.note || '');
       setPaidAmount(sale.paid_amount || 0);
 
@@ -746,7 +748,8 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
   const totalAmount = items.reduce((sum, item) => sum + (Number(item.subtotal) || 0), 0);
   const afterDiscount = totalAmount - (Number(discount) || 0);
   const taxAmount = afterDiscount * ((Number(tax) || 0) / 100);
-  const grandTotal = Math.max(0, afterDiscount + taxAmount + (Number(shipping) || 0));
+  const timbreAmount = afterDiscount * ((Number(timbre) || 0) / 100);
+  const grandTotal = Math.max(0, afterDiscount + taxAmount + timbreAmount + (Number(shipping) || 0));
 
   // Calculate how payment is applied
   // previousDebt = what the client already owes us BEFORE this sale
@@ -769,6 +772,8 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       tax: taxAmount,
       tax_percentage: tax,
       shipping,
+      timbre: timbreAmount,
+      timbre_percentage: timbre,
       note,
       paid_amount: paidAmount,
       status,
@@ -801,6 +806,8 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
           discount,
           tax: taxAmount,
           shipping,
+          timbre: timbreAmount,
+          timbre_percentage: timbre,
           note,
           paid_amount: paidAmount,
           items: items.map((item) => ({
@@ -1781,6 +1788,20 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                       min="0"
                       step="0.01"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 mb-1">{locale === 'ar' ? 'الطابع %' : 'Timbre %'}</label>
+                    <input
+                      type="number"
+                      value={timbre}
+                      onChange={(e) => setTimbre(parseFloat(e.target.value) || 0)}
+                      className="input w-full text-center text-sm py-1.5"
+                      min="0"
+                      step="0.01"
+                    />
+                    {timbre > 0 && (
+                      <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 text-center">= {formatCurrency(timbreAmount)}</div>
+                    )}
                   </div>
                 </div>
 

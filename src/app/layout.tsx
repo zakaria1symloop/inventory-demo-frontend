@@ -1,60 +1,46 @@
 import type { Metadata } from 'next';
-import { Tajawal } from 'next/font/google';
+import { Toaster } from 'react-hot-toast';
 import Providers from '@/components/Providers';
+import WhatsAppButton from '@/components/WhatsAppButton';
+import { SITE_URL } from '@/lib/site';
 import './globals.css';
 
-const tajawal = Tajawal({
-  subsets: ['arabic', 'latin'],
-  weight: ['300', '400', '500', '700', '800'],
-  display: 'swap',
-  variable: '--font-tajawal',
-});
-
 export const metadata: Metadata = {
-  metadataBase: new URL('https://www.tracksera.com'),
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: 'تراكسيرا — برنامج إدارة التوزيع في الجزائر | Logiciel de Distribution',
+    default: 'تراكسيرا — برنامج إدارة المنتجات، الكاشير والتوزيع في الجزائر | Logiciel Gestion, Caisse & Distribution',
     template: '%s | تراكسيرا',
   },
-  description: 'برنامج إدارة التوزيع الأول في الجزائر. إدارة الطلبات، التوصيل، البيع المتنقل (Cashvan)، تتبع السائقين، إدارة المخزون والمستودعات، الفوترة والتقارير المالية. حل متكامل لشركات التوزيع والجملة. Logiciel de gestion de distribution en Algérie.',
+  description: 'برنامج متكامل لإدارة المنتجات، نقاط البيع (الكاشير) والتوزيع في الجزائر. كاتالوج المنتجات، المخزون والمستودعات، الكاشير POS، الطلبات والتوصيل، البيع المتنقل (Cashvan)، تتبع السائقين، الفوترة والتقارير — كل شيء في منصة واحدة.',
   keywords: [
-    // Arabic keywords
+    // Product management
+    'برنامج إدارة المنتجات',
+    'برنامج مخزون الجزائر',
+    'gestion de produits algerie',
+    'gestion de stock algerie',
+    // POS / Caisse
+    'برنامج كاشير الجزائر',
+    'نقطة بيع POS الجزائر',
+    'logiciel caisse algerie',
+    'logiciel point de vente algerie',
+    'logiciel POS algerie',
+    // Distribution
     'برنامج إدارة التوزيع',
     'برنامج توزيع الجزائر',
-    'برنامج تسيير التوزيع',
-    'برنامج إدارة المبيعات',
-    'برنامج تسيير المبيعات الجزائر',
-    'إدارة الطلبات والتوصيل',
-    'البيع المتنقل',
-    'تتبع السائقين',
-    'إدارة المخزون والمستودعات',
-    'برنامج فوترة الجزائر',
-    'برنامج الجملة والتجزئة',
-    'برنامج كاش فان',
-    'تطبيق إدارة الموزعين',
-    'برنامج تسيير المخزون',
-    'برنامج محاسبة التوزيع',
-    'برنامج المندوب الطبي',
-    'تطبيق المندوب التجاري',
-    'إدارة بونات الطلب',
-    'délégué médical algérie',
-    // French keywords
     'logiciel de distribution algerie',
     'logiciel gestion distribution',
-    'gestion commerciale algerie',
-    'logiciel ERP distribution',
-    'logiciel de gestion commerciale algerie',
-    'logiciel de facturation algerie',
-    'gestion de tournees livraison',
-    'logiciel cashvan algerie',
-    'logiciel grossiste algerie',
-    'gestion stock distribution',
-    'suivi livreurs GPS',
-    // English keywords
-    'distribution management software algeria',
+    'إدارة الطلبات والتوصيل',
+    'البيع المتنقل',
     'cashvan algerie',
-    'delivery tracking software algeria',
-    'wholesale management system',
+    'تتبع السائقين',
+    // General
+    'برنامج إدارة المبيعات',
+    'برنامج فوترة الجزائر',
+    'gestion commerciale algerie',
+    'logiciel ERP algerie',
+    'ERP PME algerie',
+    'application gestion commerce algerie',
+    'برنامج الجملة والتجزئة',
   ],
   alternates: {
     canonical: '/',
@@ -64,31 +50,28 @@ export const metadata: Metadata = {
       'x-default': '/',
     },
   },
-  verification: {
-    google: 'REPLACE_WITH_GOOGLE_VERIFICATION_CODE',
-  },
-  category: 'business software',
   openGraph: {
-    title: 'تراكسيرا — برنامج إدارة التوزيع في الجزائر',
-    description: 'حل متكامل لشركات التوزيع: طلبات، توصيل، بيع متنقل، تتبع سائقين، مخزون، فوترة وتقارير مالية.',
+    title: 'تراكسيرا — المنتجات، الكاشير والتوزيع في منصة واحدة',
+    description: 'حل شامل للمؤسسات الجزائرية: كاتالوج المنتجات، الكاشير POS، الطلبات، التوصيل، البيع المتنقل، المخزون متعدد المستودعات، الفوترة والتقارير.',
     type: 'website',
     locale: 'ar_DZ',
-    url: 'https://www.tracksera.com',
-    siteName: 'تراكسيرا - TrackSera',
+    alternateLocale: ['fr_DZ'],
+    siteName: 'TrackSera',
+    url: SITE_URL,
     images: [
       {
-        url: '/og-image.png',
+        url: '/api/og?title=TrackSera&subtitle=Produits+%C2%B7+Caisse+%C2%B7+Distribution',
         width: 1200,
         height: 630,
-        alt: 'تراكسيرا - برنامج إدارة التوزيع في الجزائر',
+        alt: 'TrackSera — Gestion de produits, caisse et distribution en Algérie',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'تراكسيرا — برنامج إدارة التوزيع في الجزائر',
-    description: 'حل متكامل لشركات التوزيع: طلبات، توصيل، بيع متنقل، تتبع سائقين، مخزون وتقارير.',
-    images: ['/og-image.png'],
+    title: 'TrackSera — Produits · Caisse · Distribution',
+    description: 'La plateforme tout-en-un pour gérer vos produits, votre caisse et votre distribution en Algérie.',
+    images: ['/api/og?title=TrackSera&subtitle=Produits+%C2%B7+Caisse+%C2%B7+Distribution'],
   },
   robots: {
     index: true,
@@ -96,247 +79,10 @@ export const metadata: Metadata = {
     googleBot: {
       index: true,
       follow: true,
-      'max-video-preview': -1,
       'max-image-preview': 'large',
       'max-snippet': -1,
     },
   },
-  manifest: '/manifest.json',
-  icons: {
-    icon: [
-      { url: '/t.png', type: 'image/png', sizes: '512x512' },
-    ],
-    apple: '/t.png',
-    shortcut: '/t.png',
-  },
-};
-
-const jsonLd = {
-  '@context': 'https://schema.org',
-  '@graph': [
-    {
-      '@type': ['Organization', 'LocalBusiness'],
-      '@id': 'https://www.tracksera.com/#organization',
-      name: 'TrackSera',
-      alternateName: 'تراكسيرا',
-      url: 'https://www.tracksera.com',
-      logo: {
-        '@type': 'ImageObject',
-        url: 'https://www.tracksera.com/t.png',
-        width: 512,
-        height: 512,
-      },
-      image: 'https://www.tracksera.com/t.png',
-      description: 'برنامج إدارة التوزيع الأول في الجزائر — Logiciel N°1 de gestion de distribution en Algérie',
-      address: {
-        '@type': 'PostalAddress',
-        streetAddress: 'El Biar',
-        addressLocality: 'Alger',
-        addressRegion: 'Alger',
-        postalCode: '16030',
-        addressCountry: 'DZ',
-      },
-      geo: {
-        '@type': 'GeoCoordinates',
-        latitude: 36.7680,
-        longitude: 3.0297,
-      },
-      telephone: '+213549575512',
-      email: 'contact@tracksera.com',
-      priceRange: '0 DZD - 12900 DZD',
-      openingHoursSpecification: {
-        '@type': 'OpeningHoursSpecification',
-        dayOfWeek: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'],
-        opens: '08:00',
-        closes: '17:00',
-      },
-      areaServed: {
-        '@type': 'Country',
-        name: 'Algeria',
-        alternateName: 'الجزائر',
-      },
-      serviceArea: {
-        '@type': 'GeoCircle',
-        geoMidpoint: { '@type': 'GeoCoordinates', latitude: 36.7, longitude: 3.0 },
-        geoRadius: '2000000',
-      },
-      contactPoint: [
-        {
-          '@type': 'ContactPoint',
-          contactType: 'customer service',
-          telephone: '+213549575512',
-          email: 'contact@tracksera.com',
-          availableLanguage: ['Arabic', 'French'],
-          areaServed: 'DZ',
-        },
-        {
-          '@type': 'ContactPoint',
-          contactType: 'sales',
-          telephone: '+213549575512',
-          email: 'contact@tracksera.com',
-          availableLanguage: ['Arabic', 'French'],
-        },
-      ],
-      sameAs: [],
-      knowsLanguage: ['ar', 'fr'],
-    },
-    {
-      '@type': 'WebSite',
-      '@id': 'https://www.tracksera.com/#website',
-      url: 'https://www.tracksera.com',
-      name: 'TrackSera - تراكسيرا',
-      description: 'برنامج إدارة التوزيع في الجزائر — Logiciel de gestion de distribution en Algérie',
-      publisher: { '@id': 'https://www.tracksera.com/#organization' },
-      inLanguage: ['ar', 'fr'],
-      potentialAction: {
-        '@type': 'SearchAction',
-        target: {
-          '@type': 'EntryPoint',
-          urlTemplate: 'https://www.tracksera.com/blog?q={search_term_string}',
-        },
-        'query-input': 'required name=search_term_string',
-      },
-    },
-    {
-      '@type': 'SoftwareApplication',
-      '@id': 'https://www.tracksera.com/#software',
-      name: 'TrackSera',
-      alternateName: 'تراكسيرا',
-      applicationCategory: 'BusinessApplication',
-      applicationSubCategory: 'Distribution Management Software',
-      operatingSystem: 'Web, Android',
-      description: 'برنامج إدارة التوزيع المتكامل: إدارة الطلبات، التوصيل، البيع المتنقل، تتبع السائقين، المخزون، الفوترة والتقارير المالية. Logiciel complet de gestion de distribution en Algérie.',
-      offers: [
-        {
-          '@type': 'Offer',
-          name: 'مجاني - Gratuit',
-          price: '0',
-          priceCurrency: 'DZD',
-          description: 'خطة مجانية - 25 منتج',
-          availability: 'https://schema.org/InStock',
-        },
-        {
-          '@type': 'Offer',
-          name: 'المبتدئ - Starter',
-          price: '2900',
-          priceCurrency: 'DZD',
-          billingIncrement: 'P1M',
-          description: 'خطة المبتدئ - 100 منتج',
-          availability: 'https://schema.org/InStock',
-        },
-        {
-          '@type': 'Offer',
-          name: 'المحترف - Pro',
-          price: '6900',
-          priceCurrency: 'DZD',
-          billingIncrement: 'P1M',
-          description: 'خطة المحترف - 500 منتج',
-          availability: 'https://schema.org/InStock',
-        },
-        {
-          '@type': 'Offer',
-          name: 'الأعمال - Business',
-          price: '12900',
-          priceCurrency: 'DZD',
-          billingIncrement: 'P1M',
-          description: 'خطة الأعمال - 2000 منتج',
-          availability: 'https://schema.org/InStock',
-        },
-      ],
-      featureList: [
-        'إدارة الطلبات — Gestion des commandes',
-        'التوصيل وتتبع GPS — Livraison & suivi GPS',
-        'البيع المتنقل Cashvan — Vente mobile Cashvan',
-        'المبيعات والفوترة — Ventes & facturation',
-        'إدارة المشتريات — Achats',
-        'المخزون والمستودعات — Stock & entrepôts',
-        'إدارة العملاء — Gestion clients',
-        'إدارة الصندوق — Caisse',
-        'التقارير والتحليلات — Rapports & analytiques',
-        'تطبيقات الموبايل — Applications mobiles',
-      ],
-      screenshot: 'https://www.tracksera.com/opengraph-image',
-      author: { '@id': 'https://www.tracksera.com/#organization' },
-      aggregateRating: {
-        '@type': 'AggregateRating',
-        ratingValue: '4.8',
-        reviewCount: '47',
-        bestRating: '5',
-        worstRating: '1',
-      },
-    },
-    /* ── FAQ Schema — targets featured snippets (position 0) ── */
-    {
-      '@type': 'FAQPage',
-      '@id': 'https://www.tracksera.com/#faq',
-      mainEntity: [
-        {
-          '@type': 'Question',
-          name: 'ما هو تراكسيرا؟ — Qu\'est-ce que TrackSera ?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'تراكسيرا هو برنامج إدارة التوزيع الأول في الجزائر. يوفر حلاً متكاملاً لإدارة الطلبات، التوصيل وتتبع السائقين GPS، البيع المتنقل Cashvan، إدارة المخزون والمستودعات، الفوترة والتقارير المالية. TrackSera est le logiciel N°1 de gestion de distribution en Algérie.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'هل يعمل تراكسيرا بدون إنترنت؟ — TrackSera fonctionne-t-il hors ligne ?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'نعم، تطبيقات تراكسيرا الموبايل (البائع، السائق، Cashvan) تعمل بالكامل بدون إنترنت. يتم مزامنة البيانات تلقائياً عند عودة الاتصال. مثالي للمناطق ذات التغطية الضعيفة. Oui, les applications mobiles TrackSera fonctionnent entièrement hors ligne avec synchronisation automatique.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'ما هو سعر تراكسيرا؟ — Quel est le prix de TrackSera ?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'يبدأ تراكسيرا مجاناً (25 منتج). الخطط المدفوعة: المبتدئ 2,900 د.ج/شهر (100 منتج)، المحترف 6,900 د.ج/شهر (500 منتج)، الأعمال 12,900 د.ج/شهر (2,000 منتج). تجربة مجانية 14 يوم. الدفع بالدينار عبر CCP وبريدي موب.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'ما هو نظام البيع المتنقل Cashvan؟ — Qu\'est-ce que le Cashvan ?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'Cashvan هو نظام البيع المتنقل حيث يقوم البائع بالتنقل بسيارة محملة بالمنتجات والبيع مباشرة للعملاء. تراكسيرا يوفر تطبيق Cashvan متكامل: تحميل المخزون، البيع، الفوترة الفورية، الطباعة بلوتوث، إدارة المرتجعات، وتقرير نهاية الجولة — يعمل بدون إنترنت.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'أي شركات يمكنها استخدام تراكسيرا؟ — Quelles entreprises peuvent utiliser TrackSera ?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'تراكسيرا مصمم لشركات التوزيع والجملة، شركات المواد الغذائية والمشروبات، شركات البيع المتنقل Cashvan، موزعي مواد البناء والتنظيف، موزعي الأدوية، شركات التجميل، المندوبين الطبيين والتجاريين، وموزعي التبغ والقرطاسية في كل ولايات الجزائر الـ 48.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'هل تراكسيرا يدعم العربية والفرنسية؟ — TrackSera supporte-t-il l\'arabe et le français ?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'نعم، تراكسيرا يدعم واجهة كاملة باللغتين العربية والفرنسية. كل التطبيقات والتقارير والفواتير متاحة باللغتين. الدعم الفني متوفر أيضاً بالعربية والفرنسية.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'كيف أبدأ مع تراكسيرا؟ — Comment commencer avec TrackSera ?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'سجل مجاناً في 5 دقائق واحصل على تجربة 14 يوم كاملة بدون بطاقة بنكية. أضف منتجاتك وعملاءك وابدأ استخدام كل الوحدات: الطلبات، التوصيل، البيع المتنقل، المخزون، الفوترة والتقارير.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'هل يتتبع تراكسيرا السائقين بالـ GPS؟ — TrackSera suit-il les chauffeurs par GPS ?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'نعم، تراكسيرا يوفر تتبع GPS مباشر لكل السائقين على الخريطة. يمكنك رؤية موقع كل سائق في الوقت الحقيقي، مع إثبات التسليم بالصورة والتوقيع، وتخطيط ذكي لجولات التوصيل.',
-          },
-        },
-      ],
-    },
-  ],
 };
 
 export default function RootLayout({
@@ -345,19 +91,262 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ar" dir="rtl" className={tajawal.variable} suppressHydrationWarning>
+    <html lang="ar" dir="rtl">
       <head>
-        <link rel="author" href="https://www.tracksera.com/llms.txt" />
-        <link rel="alternate" type="text/plain" href="https://www.tracksera.com/llms.txt" title="LLM Reference" />
-        <link rel="alternate" type="text/plain" href="https://www.tracksera.com/llms-full.txt" title="LLM Full Reference" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap"
+          rel="stylesheet"
+        />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@graph': [
+                {
+                  '@type': ['Organization', 'LocalBusiness'],
+                  '@id': `${SITE_URL}/#organization`,
+                  name: 'TrackSera',
+                  alternateName: 'تراكسيرا',
+                  legalName: 'TrackSera SARL',
+                  url: SITE_URL,
+                  logo: {
+                    '@type': 'ImageObject',
+                    url: `${SITE_URL}/t-logo.png`,
+                    width: 512,
+                    height: 512,
+                  },
+                  image: `${SITE_URL}/t-logo.png`,
+                  description:
+                    'Plateforme tout-en-un pour les entreprises algériennes : gestion de produits, caisse (POS), et distribution.',
+                  address: {
+                    '@type': 'PostalAddress',
+                    streetAddress: 'El Biar',
+                    addressLocality: 'Alger',
+                    addressRegion: 'Alger',
+                    postalCode: '16030',
+                    addressCountry: 'DZ',
+                  },
+                  geo: {
+                    '@type': 'GeoCoordinates',
+                    latitude: 36.7680,
+                    longitude: 3.0297,
+                  },
+                  telephone: '+213549575512',
+                  email: 'contact@tracksera.com',
+                  priceRange: '0 DZD - 12900 DZD',
+                  openingHoursSpecification: {
+                    '@type': 'OpeningHoursSpecification',
+                    dayOfWeek: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'],
+                    opens: '08:00',
+                    closes: '17:00',
+                  },
+                  areaServed: [
+                    { '@type': 'Country', name: 'Algeria', alternateName: 'الجزائر' },
+                  ],
+                  serviceArea: {
+                    '@type': 'GeoCircle',
+                    geoMidpoint: { '@type': 'GeoCoordinates', latitude: 28.0339, longitude: 1.6596 },
+                    geoRadius: '2000000',
+                  },
+                  contactPoint: [
+                    {
+                      '@type': 'ContactPoint',
+                      contactType: 'customer service',
+                      telephone: '+213549575512',
+                      email: 'contact@tracksera.com',
+                      availableLanguage: ['Arabic', 'French'],
+                      areaServed: 'DZ',
+                    },
+                    {
+                      '@type': 'ContactPoint',
+                      contactType: 'sales',
+                      telephone: '+213549575512',
+                      email: 'sales@tracksera.com',
+                      availableLanguage: ['Arabic', 'French'],
+                    },
+                  ],
+                  knowsLanguage: ['ar', 'fr'],
+                  sameAs: [
+                    'https://www.facebook.com/tracksera',
+                    'https://www.linkedin.com/company/tracksera',
+                    'https://www.instagram.com/tracksera',
+                  ],
+                },
+                {
+                  '@type': 'WebSite',
+                  '@id': `${SITE_URL}/#website`,
+                  url: SITE_URL,
+                  name: 'TrackSera',
+                  alternateName: 'تراكسيرا',
+                  description:
+                    'Plateforme SaaS algérienne pour la gestion de produits, caisse POS et distribution.',
+                  publisher: { '@id': `${SITE_URL}/#organization` },
+                  inLanguage: ['ar-DZ', 'fr-DZ'],
+                  potentialAction: {
+                    '@type': 'SearchAction',
+                    target: {
+                      '@type': 'EntryPoint',
+                      urlTemplate: `${SITE_URL}/blog?q={search_term_string}`,
+                    },
+                    'query-input': 'required name=search_term_string',
+                  },
+                },
+                {
+                  '@type': 'SoftwareApplication',
+                  '@id': `${SITE_URL}/#software`,
+                  name: 'TrackSera',
+                  alternateName: 'تراكسيرا',
+                  applicationCategory: 'BusinessApplication',
+                  applicationSubCategory: 'ERP, POS, Distribution Management',
+                  operatingSystem: 'Web, Android, iOS',
+                  url: SITE_URL,
+                  screenshot: `${SITE_URL}/api/og?title=TrackSera&subtitle=Dashboard`,
+                  softwareVersion: '2.0',
+                  releaseNotes: 'Multi-depot, CashVan, livraisons GPS, facturation conforme Algérie',
+                  offers: [
+                    {
+                      '@type': 'Offer',
+                      name: 'Free',
+                      price: '0',
+                      priceCurrency: 'DZD',
+                      description: 'Plan gratuit — 25 produits',
+                      availability: 'https://schema.org/InStock',
+                    },
+                    {
+                      '@type': 'Offer',
+                      name: 'Starter',
+                      price: '2900',
+                      priceCurrency: 'DZD',
+                      description: 'Plan starter — 100 produits',
+                      availability: 'https://schema.org/InStock',
+                    },
+                    {
+                      '@type': 'Offer',
+                      name: 'Pro',
+                      price: '6900',
+                      priceCurrency: 'DZD',
+                      description: 'Plan pro — 500 produits',
+                      availability: 'https://schema.org/InStock',
+                    },
+                    {
+                      '@type': 'Offer',
+                      name: 'Business',
+                      price: '12900',
+                      priceCurrency: 'DZD',
+                      description: 'Plan business — 2000 produits',
+                      availability: 'https://schema.org/InStock',
+                    },
+                  ],
+                  aggregateRating: {
+                    '@type': 'AggregateRating',
+                    ratingValue: '4.8',
+                    reviewCount: '52',
+                    bestRating: '5',
+                    worstRating: '1',
+                  },
+                  description:
+                    'Plateforme SaaS tout-en-un pour l\'Algérie : catalogue produits, caisse (POS), stock multi-dépôts, commandes, livraisons, CashVan, suivi GPS, facturation conforme.',
+                  featureList: [
+                    'Catalogue produits et gestion de stock multi-dépôts',
+                    'Caisse (POS) et ventes en magasin',
+                    'Gestion des commandes et clients',
+                    'Livraisons et tournées',
+                    'Vente mobile CashVan',
+                    'Suivi GPS des livreurs',
+                    'Facturation conforme Algérie (TVA, timbre, mentions obligatoires)',
+                    'Tableau de bord temps réel et rapports',
+                  ],
+                },
+                {
+                  '@type': 'FAQPage',
+                  '@id': `${SITE_URL}/#faq`,
+                  mainEntity: [
+                    {
+                      '@type': 'Question',
+                      name: 'Qu\'est-ce que TrackSera ? — ما هو تراكسيرا؟',
+                      acceptedAnswer: {
+                        '@type': 'Answer',
+                        text: 'TrackSera est une plateforme SaaS algérienne tout-en-un pour gérer vos produits, caisse (POS), stock multi-dépôts, commandes, livraisons, vente mobile CashVan, suivi GPS des livreurs, et facturation conforme à la législation algérienne (TVA, timbre fiscal, mentions obligatoires). تراكسيرا هو منصة سحابية جزائرية متكاملة لإدارة المنتجات، الكاشير، المخزون متعدد المستودعات، الطلبات، التوصيل، البيع المتنقل وتتبع السائقين بالـ GPS.',
+                      },
+                    },
+                    {
+                      '@type': 'Question',
+                      name: 'Quel est le prix de TrackSera ? — كم سعر تراكسيرا؟',
+                      acceptedAnswer: {
+                        '@type': 'Answer',
+                        text: 'TrackSera commence gratuitement (25 produits). Plans payants : Starter 2 900 DZD/mois (100 produits), Pro 6 900 DZD/mois (500 produits), Business 12 900 DZD/mois (2 000 produits). Essai gratuit 14 jours. Paiement en dinars via CCP, BaridiMob, ou virement bancaire.',
+                      },
+                    },
+                    {
+                      '@type': 'Question',
+                      name: 'TrackSera fonctionne-t-il hors ligne ? — هل يعمل بدون انترنت؟',
+                      acceptedAnswer: {
+                        '@type': 'Answer',
+                        text: 'Oui. Les applications mobiles TrackSera (Vendeur, Livreur, CashVan) fonctionnent entièrement hors ligne avec synchronisation automatique dès que la connexion revient. Idéal pour les zones avec couverture faible en Algérie.',
+                      },
+                    },
+                    {
+                      '@type': 'Question',
+                      name: 'La facturation est-elle conforme à la législation algérienne ? — هل الفوترة متوافقة مع القانون الجزائري؟',
+                      acceptedAnswer: {
+                        '@type': 'Answer',
+                        text: 'Oui. TrackSera génère des factures conformes : TVA, timbre fiscal (en pourcentage), RC, NIF, NIS, AI, RIB, mentions obligatoires, numérotation séquentielle, et impression A4 ou ticket caisse 80mm.',
+                      },
+                    },
+                    {
+                      '@type': 'Question',
+                      name: 'Qu\'est-ce que CashVan ? — ما هو الكاشفان؟',
+                      acceptedAnswer: {
+                        '@type': 'Answer',
+                        text: 'CashVan est le système de vente mobile où le vendeur charge un véhicule avec des produits et vend directement aux clients sur la route. TrackSera fournit une application CashVan complète : chargement du stock, vente, facturation instantanée, impression Bluetooth, gestion des retours, et rapport de fin de tournée — fonctionne hors ligne.',
+                      },
+                    },
+                    {
+                      '@type': 'Question',
+                      name: 'Quels secteurs utilisent TrackSera ? — أي قطاعات تستخدم تراكسيرا؟',
+                      acceptedAnswer: {
+                        '@type': 'Answer',
+                        text: 'Distributeurs en gros, magasins de détail, supérettes, alimentation et boissons, matériaux de construction, produits de nettoyage, pharmacies, parapharmacies, cosmétiques, fournitures de bureau, tabac, et délégués médicaux et commerciaux dans les 58 wilayas d\'Algérie.',
+                      },
+                    },
+                    {
+                      '@type': 'Question',
+                      name: 'TrackSera supporte-t-il l\'arabe et le français ? — هل يدعم العربية والفرنسية؟',
+                      acceptedAnswer: {
+                        '@type': 'Answer',
+                        text: 'Oui, interface complète en arabe (RTL) et français. Toutes les applications, factures et rapports sont disponibles dans les deux langues. Support technique également bilingue.',
+                      },
+                    },
+                    {
+                      '@type': 'Question',
+                      name: 'Comment commencer avec TrackSera ? — كيف أبدأ؟',
+                      acceptedAnswer: {
+                        '@type': 'Answer',
+                        text: 'Inscrivez-vous gratuitement en 5 minutes et bénéficiez de 14 jours d\'essai complet sans carte bancaire. Ajoutez vos produits et clients, puis utilisez tous les modules : caisse, commandes, livraisons, CashVan, stock, facturation et rapports.',
+                      },
+                    },
+                  ],
+                },
+              ],
+            }),
+          }}
         />
       </head>
-      <body className={`${tajawal.className} antialiased`}>
+      <body className="font-sans antialiased">
         <Providers>
           {children}
+          <WhatsAppButton />
+          <Toaster
+            position="top-center"
+            toastOptions={{
+              duration: 3000,
+              style: {
+                direction: 'rtl',
+                fontFamily: 'Tajawal',
+              },
+            }}
+          />
         </Providers>
       </body>
     </html>

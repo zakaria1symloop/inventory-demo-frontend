@@ -66,6 +66,7 @@ interface Purchase {
   discount: number;
   tax: number;
   shipping: number;
+  timbre: number;
   grand_total: number;
   paid_amount: number;
   due_amount: number;
@@ -283,6 +284,7 @@ export default function PurchaseDetail() {
           <div class="row"><span>الخصم:</span><span>${formatCurrency(purchase?.discount || 0)}</span></div>
           <div class="row"><span>الضريبة:</span><span>${formatCurrency(purchase?.tax || 0)}</span></div>
           <div class="row"><span>الشحن:</span><span>${formatCurrency(purchase?.shipping || 0)}</span></div>
+          ${(purchase?.timbre || 0) > 0 ? `<div class="row"><span>الطابع:</span><span>${formatCurrency(purchase?.timbre || 0)}</span></div>` : ''}
           <div class="row grand"><span>المجموع النهائي:</span><span>${formatCurrency(purchase?.grand_total || 0)}</span></div>
           <div class="row"><span>المدفوع:</span><span>${formatCurrency(purchase?.paid_amount || 0)}</span></div>
           <div class="row" style="color: ${(purchase?.due_amount || 0) > 0 ? 'red' : 'green'}"><span>المتبقي:</span><span>${formatCurrency(purchase?.due_amount || 0)}</span></div>
@@ -717,6 +719,12 @@ export default function PurchaseDetail() {
                 <div className="flex justify-between text-gray-600 dark:text-gray-400">
                   <span>{t('purchases.shipping')}</span>
                   <span>+{formatCurrency(purchase.shipping)}</span>
+                </div>
+              )}
+              {purchase.timbre > 0 && (
+                <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                  <span>{locale === 'ar' ? 'الطابع' : 'Timbre'}</span>
+                  <span>+{formatCurrency(purchase.timbre)}</span>
                 </div>
               )}
               <hr className="dark:border-gray-700" />

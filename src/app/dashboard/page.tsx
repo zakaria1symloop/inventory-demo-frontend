@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -240,7 +240,15 @@ function PlanBanner({ plan }: { plan: PlanInfo }) {
 // ======================
 // Main Dashboard Page
 // ======================
-export default function DashboardPage() {
+export default function DashboardPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-screen"><div className="spinner w-8 h-8"></div></div>}>
+      <DashboardPage />
+    </Suspense>
+  );
+}
+
+function DashboardPage() {
   const { t, locale } = useLocale();
   const [chartPeriod, setChartPeriod] = useState<string>('month');
   const [paymentMsg, setPaymentMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);

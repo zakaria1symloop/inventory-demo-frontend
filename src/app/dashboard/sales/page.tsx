@@ -446,9 +446,7 @@ export default function SalesPage() {
     }
   };
 
-  const canDelete = (sale: Sale) => {
-    return sale.status !== 'cancelled' && sale.status !== 'completed';
-  };
+  const canDelete = () => true;
 
   const openRetourTab = useCallback((saleId: number, reference: string) => {
     const existingTab = tabs.find(t => t.type === 'retour' && t.saleId === saleId);
@@ -950,7 +948,7 @@ export default function SalesPage() {
                               </td>
                               <td>
                                 <div className="flex gap-1.5">
-                                  {sale.status === 'completed' ? (
+                                  {sale.status === 'completed' && (
                                     <button
                                       onClick={() => openRetourTab(sale.id, sale.reference)}
                                       className="p-1.5 rounded-lg text-orange-500 hover:text-orange-700 hover:bg-orange-100 dark:hover:bg-orange-900/20 transition-colors"
@@ -958,31 +956,26 @@ export default function SalesPage() {
                                     >
                                       <ArrowUturnLeftIcon className="w-5 h-5" />
                                     </button>
-                                  ) : (
-                                    <>
-                                      {sale.status === 'draft' && (
-                                        <button
-                                          onClick={() => handleConfirmDraft(sale.id)}
-                                          className="p-1.5 rounded-lg text-green-600 hover:text-green-800 hover:bg-green-100 dark:hover:bg-green-900/20 transition-colors"
-                                          title={t('sales.confirmInvoice')}
-                                        >
-                                          <CheckCircleIcon className="w-5 h-5" />
-                                        </button>
-                                      )}
-                                      <button
-                                        onClick={() => openEditTab(sale.id, sale.reference)}
-                                        className="p-1.5 rounded-lg text-amber-600 hover:text-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/20 transition-colors"
-                                        title={t('sales.edit')}
-                                      >
-                                        <PencilIcon className="w-5 h-5" />
-                                      </button>
-                                      {canDelete(sale) && (
-                                        <button onClick={() => handleDelete(sale.id, sale.status === 'draft')} className="p-1.5 rounded-lg text-red-600 hover:text-red-800 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors" title={sale.status === 'draft' ? t('sales.delete') : t('sales.cancelInvoice')}>
-                                          <TrashIcon className="w-5 h-5" />
-                                        </button>
-                                      )}
-                                    </>
                                   )}
+                                  {sale.status === 'draft' && (
+                                    <button
+                                      onClick={() => handleConfirmDraft(sale.id)}
+                                      className="p-1.5 rounded-lg text-green-600 hover:text-green-800 hover:bg-green-100 dark:hover:bg-green-900/20 transition-colors"
+                                      title={t('sales.confirmInvoice')}
+                                    >
+                                      <CheckCircleIcon className="w-5 h-5" />
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => openEditTab(sale.id, sale.reference)}
+                                    className="p-1.5 rounded-lg text-amber-600 hover:text-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/20 transition-colors"
+                                    title={t('sales.edit')}
+                                  >
+                                    <PencilIcon className="w-5 h-5" />
+                                  </button>
+                                  <button onClick={() => handleDelete(sale.id, sale.status === 'draft')} className="p-1.5 rounded-lg text-red-600 hover:text-red-800 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors" title={sale.status === 'draft' ? t('sales.delete') : t('sales.cancelInvoice')}>
+                                    <TrashIcon className="w-5 h-5" />
+                                  </button>
                                   <Link href={`/dashboard/sales/${sale.id}`} className="p-1.5 rounded-lg text-blue-600 hover:text-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-colors" title={t('sales.viewInvoice')}>
                                     <EyeIcon className="w-5 h-5" />
                                   </Link>

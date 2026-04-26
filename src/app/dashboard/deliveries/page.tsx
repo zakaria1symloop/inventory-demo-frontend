@@ -190,8 +190,8 @@ export default function DeliveriesPage() {
 
       // Collection filter
       if (collectionFilter) {
-        const totalAmt = d.total_amount || 0;
-        const collectedAmt = d.collected_amount || 0;
+        const totalAmt = Number(d.total_amount) || 0;
+        const collectedAmt = Number(d.collected_amount) || 0;
         if (collectionFilter === 'collected' && collectedAmt < totalAmt) return false;
         if (collectionFilter === 'pending' && collectedAmt > 0) return false;
         if (collectionFilter === 'partial' && (collectedAmt === 0 || collectedAmt >= totalAmt)) return false;
@@ -220,8 +220,8 @@ export default function DeliveriesPage() {
 
     const successRate = totalOrders > 0 ? ((deliveredOrders / totalOrders) * 100).toFixed(1) : '0';
 
-    const totalAmount = filteredDeliveries.reduce((sum, d) => sum + (d.total_amount || 0), 0);
-    const collectedAmount = filteredDeliveries.reduce((sum, d) => sum + (d.collected_amount || 0), 0);
+    const totalAmount = filteredDeliveries.reduce((sum, d) => sum + (Number(d.total_amount) || 0), 0);
+    const collectedAmount = filteredDeliveries.reduce((sum, d) => sum + (Number(d.collected_amount) || 0), 0);
 
     return {
       totalDeliveries: filteredDeliveries.length,
@@ -571,8 +571,8 @@ export default function DeliveriesPage() {
               const progressPercent = delivery.total_orders > 0
                 ? Math.round((delivery.delivered_count / delivery.total_orders) * 100)
                 : 0;
-              const totalAmt = delivery.total_amount || 0;
-              const collectedAmt = delivery.collected_amount || 0;
+              const totalAmt = Number(delivery.total_amount) || 0;
+              const collectedAmt = Number(delivery.collected_amount) || 0;
               const collectionPercent = totalAmt > 0 ? Math.round((collectedAmt / totalAmt) * 100) : 0;
 
               return (

@@ -27,6 +27,8 @@ import {
   PencilSquareIcon,
   TrashIcon,
   ShoppingCartIcon,
+  PrinterIcon,
+  EyeIcon,
 } from '@heroicons/react/24/outline';
 
 interface ProductRequestItem {
@@ -381,6 +383,45 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString(locale === 'fr' ? 'fr-DZ' : 'ar-DZ', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
+  const handlePrint = (req: ProductRequest) => {
+    const statusLabels: Record<string, string> = {
+      pending: t('productRequests.statusPending'),
+      approved: t('productRequests.statusApproved'),
+      rejected: t('productRequests.statusRejected'),
+      fulfilled: t('productRequests.statusFulfilled'),
+    };
+    const rows = req.items.map(item =>
+      `<tr>
+        <td style="padding:8px;border:1px solid #ddd;text-align:right">${item.product?.name || '#' + item.product_id}</td>
+        <td style="padding:8px;border:1px solid #ddd;text-align:center">${fmtQty(item.quantity_requested, item.product?.pieces_per_package)}</td>
+        <td style="padding:8px;border:1px solid #ddd;text-align:center">${item.quantity_approved ? fmtQty(item.quantity_approved, item.product?.pieces_per_package) : '-'}</td>
+      </tr>`
+    ).join('');
+
+    const html = `<!DOCTYPE html><html dir="rtl"><head><meta charset="utf-8">
+      <title>${req.reference}</title>
+      <style>body{font-family:Tajawal,Arial,sans-serif;padding:30px;color:#333}
+      table{width:100%;border-collapse:collapse;margin:20px 0}
+      th{background:#f3f4f6;padding:8px;border:1px solid #ddd;text-align:center;font-size:12px}
+      td{font-size:13px}
+      .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:2px solid #333;padding-bottom:15px}
+      .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px}
+      .info-item{font-size:13px}.info-label{font-weight:bold;color:#666;font-size:11px}</style></head><body>
+      <div class="header"><div><h2 style="margin:0">${t('productRequests.title')}</h2><p style="margin:5px 0;color:#666">${req.reference}</p></div>
+      <div style="text-align:left"><strong>${statusLabels[req.status] || req.status}</strong><br><span style="font-size:12px;color:#666">${formatDate(req.created_at)}</span></div></div>
+      <div class="info-grid">
+        <div class="info-item"><span class="info-label">${t('productRequests.requester')}</span><br>${req.requester?.name || '-'}</div>
+        <div class="info-item"><span class="info-label">${t('productRequests.warehouse')}</span><br>${req.warehouse?.name || '-'}</div>
+      </div>
+      <table><thead><tr><th>${t('productRequests.product')}</th><th>${t('productRequests.quantityRequested')}</th><th>${t('productRequests.quantityApproved')}</th></tr></thead><tbody>${rows}</tbody></table>
+      ${req.notes ? `<p><strong>${t('productRequests.driverNotes')}:</strong> ${req.notes}</p>` : ''}
+      ${req.admin_notes ? `<p><strong>${t('productRequests.adminNotesPlaceholder')}:</strong> ${req.admin_notes}</p>` : ''}
+      ${req.processor ? `<p style="font-size:12px;color:#666">${t('productRequests.processedBy')} ${req.processor.name} - ${req.processed_at ? formatDate(req.processed_at) : ''}</p>` : ''}
+      </body></html>`;
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); w.print(); }
+  };
+
   const fmtQty = (val: unknown, piecesPerPkg?: number): string => {
     const totalPieces = Math.round(Number(val) || 0);
     if (totalPieces === 0) return '0';
@@ -711,8 +752,68 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:inline">{formatDate(req.created_at)}</span>
+                      {/* Quick action buttons */}
+                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        {/* View/Expand */}
+                        <button
+                          onClick={() => { setExpandedId(isExpanded ? null : req.id); setAdminNotes(''); setEditedQuantities({}); if (isEditing) cancelEditing(); }}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/30 transition-colors"
+                          title={t('productRequests.view') || 'عرض'}
+                        >
+                          <EyeIcon className="w-4 h-4" />
+                        </button>
+                        {/* Print */}
+                        <button
+                          onClick={() => handlePrint(req)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/30 transition-colors"
+                          title={t('productRequests.print') || 'طباعة'}
+                        >
+                          <PrinterIcon className="w-4 h-4" />
+                        </button>
+                        {/* Approve - pending only */}
+                        {req.status === 'pending' && (
+                          <button
+                            onClick={() => { setExpandedId(req.id); }}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:text-emerald-400 dark:hover:bg-emerald-900/30 transition-colors"
+                            title={t('productRequests.approve')}
+                          >
+                            <CheckCircleIcon className="w-4 h-4" />
+                          </button>
+                        )}
+                        {/* Reject - pending only */}
+                        {req.status === 'pending' && (
+                          <button
+                            onClick={() => handleReject(req)}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/30 transition-colors"
+                            title={t('productRequests.reject')}
+                          >
+                            <XCircleIcon className="w-4 h-4" />
+                          </button>
+                        )}
+                        {/* Fulfill - approved non-cashvan only */}
+                        {req.status === 'approved' && !cashvan && (
+                          <button
+                            onClick={() => handleFulfill(req)}
+                            disabled={isActioning}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:text-emerald-400 dark:hover:bg-emerald-900/30 transition-colors disabled:opacity-50"
+                            title={t('productRequests.fulfillProducts')}
+                          >
+                            <CubeIcon className="w-4 h-4" />
+                          </button>
+                        )}
+                        {/* Delete - pending only */}
+                        {req.status === 'pending' && (
+                          <button
+                            onClick={() => handleDelete(req)}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/30 transition-colors"
+                            title={t('productRequests.delete')}
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                       <ChevronDownIcon className={`w-5 h-5 text-gray-400 dark:text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                     </div>
                   </div>
