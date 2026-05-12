@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { productsApi, categoriesApi, brandsApi, unitsApi, clientCategoriesApi } from '@/lib/api';
+import { productsApi, categoriesApi, brandsApi, unitsApi, clientCategoriesApi, suppliersApi } from '@/lib/api';
 import { PlusIcon, PencilIcon, TrashIcon, DocumentArrowDownIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import ImportPreviewPanel from '@/components/products/ImportPreviewPanel';
 import type { ImportPreviewResponse, ImportRow } from '@/lib/types';
@@ -45,6 +45,7 @@ export default function ProductsPage() {
     name: '',
     category_id: '',
     brand_id: '',
+    supplier_id: '',
     unit_buy_id: '',
     unit_sale_id: '',
     barcode: '',
@@ -99,6 +100,15 @@ export default function ProductsPage() {
       return response.data;
     },
   });
+
+  const { data: suppliersData } = useQuery({
+    queryKey: ['suppliers-list-products'],
+    queryFn: async () => {
+      const response = await suppliersApi.getAll({ per_page: 1000 });
+      return response.data?.data || response.data;
+    },
+  });
+  const suppliers = (suppliersData as Array<{ id: number; name: string }> | undefined) || [];
 
   const { data: clientCategories } = useQuery({
     queryKey: ['client-categories-list'],
@@ -158,6 +168,7 @@ export default function ProductsPage() {
       name: '',
       category_id: '',
       brand_id: '',
+      supplier_id: '',
       unit_buy_id: '',
       unit_sale_id: '',
       barcode: '',
@@ -177,6 +188,7 @@ export default function ProductsPage() {
       name: product.name,
       category_id: product.category_id?.toString() || '',
       brand_id: product.brand_id?.toString() || '',
+      supplier_id: (product as any).supplier_id?.toString() || '',
       unit_buy_id: product.unit_buy_id?.toString() || '',
       unit_sale_id: product.unit_sale_id?.toString() || '',
       barcode: product.barcode || '',
@@ -211,10 +223,20 @@ export default function ProductsPage() {
         price: parseFloat(price),
       }));
 
+    // Block sell price < buy price (per piece basis)
+    const ppp = parseInt(formData.pieces_per_package) || 1;
+    const costPerPiece = (parseFloat(formData.cost_price) || 0) / ppp;
+    const tooLow = categoryPrices.find(cp => cp.price < costPerPiece);
+    if (tooLow) {
+      toast.error(t('stock.sellBelowCost') || 'سعر البيع لا يمكن أن يكون أقل من سعر الشراء');
+      return;
+    }
+
     const data = {
       ...formData,
       category_id: parseInt(formData.category_id) || null,
       brand_id: formData.brand_id ? parseInt(formData.brand_id) : null,
+      supplier_id: formData.supplier_id ? parseInt(formData.supplier_id) : null,
       unit_buy_id: parseInt(formData.unit_buy_id) || null,
       unit_sale_id: parseInt(formData.unit_sale_id) || null,
       cost_price: parseFloat(formData.cost_price) || 0,
@@ -243,15 +265,12 @@ export default function ProductsPage() {
   };
 
   const getTotalStock = (product: ProductWithStock): number => {
-    // Prefer available_stock (warehouse-specific with reserved deducted) if provided
-    if (product.available_stock !== undefined) {
-      return product.available_stock;
-    }
-    // Fallback to current_stock (total across warehouses)
+    // Show physical stock (matches the inventory page).
+    // available_stock deducts reserved quantities and is only meaningful inside order forms,
+    // so we don't use it here — it caused users to see 0 in products vs 1 in inventory.
     if (product.current_stock !== undefined) {
       return product.current_stock;
     }
-    // Fallback to summing stock array
     if (!product.stock || product.stock.length === 0) return 0;
     return product.stock.reduce((sum, s) => sum + (parseFloat(String(s.quantity)) || 0), 0);
   };
@@ -666,7 +685,7 @@ export default function ProductsPage() {
             <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
               <div className="flex-1 overflow-y-auto p-5 space-y-4">
                 <div data-tour="products-form-name">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stock.productName')}</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stock.productName')} <span className="text-red-500">*</span></label>
                   <input
                     type="text"
                     value={formData.name}
@@ -679,7 +698,7 @@ export default function ProductsPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-tour="products-form-category">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stock.category')}</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stock.category')} <span className="text-red-500">*</span></label>
                     <select
                       value={formData.category_id}
                       onChange={(e) => setFormData((p) => ({ ...p, category_id: e.target.value }))}
@@ -707,9 +726,25 @@ export default function ProductsPage() {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stock.supplier') || 'Supplier'}</label>
+                    <select
+                      value={formData.supplier_id}
+                      onChange={(e) => setFormData((p) => ({ ...p, supplier_id: e.target.value }))}
+                      className="select w-full"
+                    >
+                      <option value="">{t('stock.selectSupplier') || '— Any supplier —'}</option>
+                      {suppliers.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-tour="products-form-units">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stock.buyUnit')}</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stock.buyUnit')} <span className="text-red-500">*</span></label>
                     <select
                       value={formData.unit_buy_id}
                       onChange={(e) => setFormData((p) => ({ ...p, unit_buy_id: e.target.value }))}
@@ -723,7 +758,7 @@ export default function ProductsPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stock.sellUnit')}</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stock.sellUnit')} <span className="text-red-500">*</span></label>
                     <select
                       value={formData.unit_sale_id}
                       onChange={(e) => setFormData((p) => ({ ...p, unit_sale_id: e.target.value }))}
@@ -740,7 +775,7 @@ export default function ProductsPage() {
 
                 <div data-tour="products-form-pieces">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    {t('stock.piecesIn', { unit: (units as Unit[])?.find(u => u.id.toString() === formData.unit_buy_id)?.name || t('stock.unitLabel') })}
+                    {t('stock.piecesIn', { unit: (units as Unit[])?.find(u => u.id.toString() === formData.unit_buy_id)?.name || t('stock.unitLabel') })} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
@@ -770,7 +805,7 @@ export default function ProductsPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-tour="products-form-prices">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stock.costPricePerUnit')}</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stock.costPricePerUnit')} <span className="text-red-500">*</span></label>
                     <input
                       type="number"
                       value={formData.cost_price}
@@ -781,6 +816,11 @@ export default function ProductsPage() {
                       step="0.01"
                       placeholder="0.00"
                     />
+                    {(parseInt(formData.pieces_per_package) || 1) > 1 && parseFloat(formData.cost_price) > 0 && (
+                      <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                        {(parseFloat(formData.cost_price) / (parseInt(formData.pieces_per_package) || 1)).toFixed(2)} د.ج/{(units as Unit[])?.find(u => u.id.toString() === formData.unit_sale_id)?.short_name || (units as Unit[])?.find(u => u.id.toString() === formData.unit_sale_id)?.name || t('stock.unitLabel')}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stock.taxPercent')}</label>
@@ -798,37 +838,50 @@ export default function ProductsPage() {
                 </div>
 
                 {/* Category Prices */}
-                {(clientCategories as ClientCategory[])?.length > 0 && (
-                  <div className="border dark:border-gray-600 rounded-lg p-3 bg-amber-50 dark:bg-amber-900/20" data-tour="products-form-catprices">
-                    <h4 className="font-semibold text-amber-800 dark:text-amber-400 text-sm mb-2">{t('stock.categoryPricesTitle')}</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {(clientCategories as ClientCategory[])?.map((cat) => (
-                        <div key={cat.id}>
-                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">{cat.name}</label>
-                          <input
-                            type="number"
-                            value={categoryPricesForm[cat.id.toString()] || ''}
-                            onChange={(e) => setCategoryPricesForm(prev => ({ ...prev, [cat.id.toString()]: e.target.value }))}
-                            className="input w-full text-sm"
-                            min="0"
-                            step="0.01"
-                            placeholder="0.00"
-                          />
-                        </div>
-                      ))}
+                {(clientCategories as ClientCategory[])?.length > 0 && (() => {
+                  const ppp = parseInt(formData.pieces_per_package) || 1;
+                  const costPerPiece = (parseFloat(formData.cost_price) || 0) / ppp;
+                  return (
+                    <div className="border dark:border-gray-600 rounded-lg p-3 bg-amber-50 dark:bg-amber-900/20" data-tour="products-form-catprices">
+                      <h4 className="font-semibold text-amber-800 dark:text-amber-400 text-sm mb-2">{t('stock.categoryPricesTitle')}</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {(clientCategories as ClientCategory[])?.map((cat) => {
+                          const raw = categoryPricesForm[cat.id.toString()] || '';
+                          const numeric = parseFloat(raw);
+                          const isBelowCost = raw !== '' && !isNaN(numeric) && costPerPiece > 0 && numeric < costPerPiece;
+                          return (
+                            <div key={cat.id}>
+                              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">{cat.name}</label>
+                              <input
+                                type="number"
+                                value={raw}
+                                onChange={(e) => setCategoryPricesForm(prev => ({ ...prev, [cat.id.toString()]: e.target.value }))}
+                                className={`input w-full text-sm ${isBelowCost ? 'border-red-400 ring-1 ring-red-200 bg-red-50 dark:bg-red-900/20' : ''}`}
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                              />
+                              {isBelowCost && (
+                                <p className="text-[11px] text-red-600 dark:text-red-400 mt-0.5">{t('stock.sellBelowCost')}</p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stock.stockAlert')}</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stock.stockAlert')} <span className="text-red-500">*</span></label>
                     <input
                       type="number"
                       value={formData.stock_alert}
                       onChange={(e) => setFormData((p) => ({ ...p, stock_alert: e.target.value }))}
                       className="input w-full"
                       min="0"
+                      required
                     />
                   </div>
                   <div className="flex items-end pb-2">

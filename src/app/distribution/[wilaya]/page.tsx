@@ -15,23 +15,32 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const w = getWilaya(wilaya);
   if (!w) return { title: 'Wilaya introuvable', robots: { index: false, follow: false } };
 
-  const titleFr = `Logiciel de gestion & distribution à ${w.name.fr} (${w.code}) — TrackSera`;
-  const titleAr = `برنامج إدارة وتوزيع في ${w.name.ar} — تراكسيرا`;
-  const desc = `${w.pitch.fr} TrackSera est la plateforme SaaS algérienne tout-en-un pour distributeurs, grossistes et magasins à ${w.name.fr}. Caisse POS, stock multi-dépôts, livraisons GPS, CashVan et facturation conforme.`;
+  const titleFr = `Logiciel de gestion & distribution à ${w.name.fr} (${w.code})`;
+  const desc = `${w.pitch.fr} TrackSera est le logiciel algérien tout-en-un pour distributeurs, grossistes et magasins à ${w.name.fr}. Caisse POS, gestion stock multi-dépôts, livraisons GPS, CashVan et facturation conforme.`;
 
   return {
-    title: `${titleFr} | ${titleAr}`,
+    title: titleFr,
     description: desc,
     keywords: [
       `logiciel gestion ${w.name.fr.toLowerCase()}`,
       `logiciel distribution ${w.name.fr.toLowerCase()}`,
       `logiciel caisse ${w.name.fr.toLowerCase()}`,
-      `برنامج إدارة ${w.name.ar}`,
-      `برنامج توزيع ${w.name.ar}`,
-      `برنامج كاشير ${w.name.ar}`,
+      `logiciel facturation ${w.name.fr.toLowerCase()}`,
+      `logiciel commerce ${w.name.fr.toLowerCase()}`,
+      `logiciel point de vente ${w.name.fr.toLowerCase()}`,
+      `programme gestion stock ${w.name.fr.toLowerCase()}`,
+      `application gestion magasin ${w.name.fr.toLowerCase()}`,
       `gestion stock ${w.name.fr.toLowerCase()}`,
       `POS ${w.name.fr.toLowerCase()}`,
       `cashvan ${w.name.fr.toLowerCase()}`,
+      `برنامج إدارة ${w.name.ar}`,
+      `برنامج توزيع ${w.name.ar}`,
+      `برنامج كاشير ${w.name.ar}`,
+      `برنامج فاتورة ${w.name.ar}`,
+      `برنامج مخزون ${w.name.ar}`,
+      `برنامج محل ${w.name.ar}`,
+      `تطبيق إدارة محل ${w.name.ar}`,
+      `برنامج نقطة البيع ${w.name.ar}`,
     ],
     alternates: {
       canonical: `/distribution/${w.slug}`,
@@ -101,7 +110,7 @@ export default async function WilayaPage({ params }: { params: Params }) {
       {
         '@type': 'Service',
         '@id': `${canonical}#service`,
-        serviceType: 'Logiciel de gestion et distribution SaaS',
+        serviceType: 'Logiciel de gestion commerciale et distribution',
         provider: { '@id': `${SITE_URL}/#organization` },
         areaServed: {
           '@type': 'Place',

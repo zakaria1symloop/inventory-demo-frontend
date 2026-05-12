@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { clientCategoriesApi } from '@/lib/api';
 import { useLocale } from '@/lib/i18n/context';
 import toast from 'react-hot-toast';
@@ -24,6 +25,7 @@ interface ClientCategory {
 
 export default function ClientCategoriesPage() {
   const { t, locale } = useLocale();
+  const queryClient = useQueryClient();
   const [categories, setCategories] = useState<ClientCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -86,6 +88,7 @@ export default function ClientCategoriesPage() {
       }
       handleCloseModal();
       fetchCategories();
+      queryClient.invalidateQueries({ queryKey: ['client-categories-list'] });
     } catch (error) {
       toast.error(t('clientCategories.saveError'));
     } finally {
@@ -101,6 +104,7 @@ export default function ClientCategoriesPage() {
       setIsDeleteOpen(false);
       setSelectedCategory(null);
       fetchCategories();
+      queryClient.invalidateQueries({ queryKey: ['client-categories-list'] });
     } catch (error: any) {
       const message = error.response?.data?.message || t('clientCategories.deleteError');
       toast.error(message);

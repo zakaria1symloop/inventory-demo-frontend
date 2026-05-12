@@ -561,20 +561,20 @@ export default function CaissesPage() {
       <div className="space-y-5">
         {/* Detail Header Card */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div className="flex items-center gap-4 min-w-0">
               <button
                 onClick={() => setSelectedCaisse(null)}
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors flex-shrink-0"
               >
                 <BackArrowIcon className="w-4 h-4" />
                 {t('caisses.back')}
               </button>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100 truncate">
                   {selectedCaisse.name || `${t('caisses.caisseLabel')} ${selectedCaisse.user?.name}`}
                 </h1>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${typeBadgeColors[selectedCaisse.type]}`}>
                     {typeLabels[selectedCaisse.type]}
                   </span>
@@ -584,9 +584,9 @@ export default function CaissesPage() {
                 </div>
               </div>
             </div>
-            <div className={isRTL ? 'text-left' : 'text-right'}>
+            <div className={`${isRTL ? 'text-left sm:text-left' : 'text-right sm:text-right'} flex-shrink-0`}>
               <p className="text-sm text-gray-500 dark:text-gray-400">{t('caisses.currentBalance')}</p>
-              <p className={`text-3xl font-bold ${Number(selectedCaisse.balance) > 0 ? 'text-green-600 dark:text-green-400' : Number(selectedCaisse.balance) < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-300'}`}>
+              <p className={`text-2xl sm:text-3xl font-bold ${Number(selectedCaisse.balance) > 0 ? 'text-green-600 dark:text-green-400' : Number(selectedCaisse.balance) < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-300'}`}>
                 {formatCurrency(selectedCaisse.balance)}
               </p>
             </div>
@@ -734,9 +734,6 @@ export default function CaissesPage() {
               <div className="group relative p-5 hover:bg-green-50/40 dark:hover:bg-green-900/10 transition-colors duration-200">
                 <div className="absolute top-0 inset-x-0 h-[3px] bg-green-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
                 <div className="text-center">
-                  <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 mb-2.5">
-                    <ArrowTrendingUpIcon className="w-4 h-4" />
-                  </div>
                   <div className="text-lg font-black text-green-600 dark:text-green-400 tabular-nums leading-none">{formatCurrency(filteredTotals.total_in)}</div>
                   <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('caisses.totalIn')}</div>
                 </div>
@@ -744,9 +741,6 @@ export default function CaissesPage() {
               <div className="group relative p-5 hover:bg-red-50/40 dark:hover:bg-red-900/10 transition-colors duration-200">
                 <div className="absolute top-0 inset-x-0 h-[3px] bg-red-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
                 <div className="text-center">
-                  <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 mb-2.5">
-                    <ArrowTrendingDownIcon className="w-4 h-4" />
-                  </div>
                   <div className="text-lg font-black text-red-600 dark:text-red-400 tabular-nums leading-none">{formatCurrency(filteredTotals.total_out)}</div>
                   <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('caisses.totalOut')}</div>
                 </div>
@@ -754,9 +748,6 @@ export default function CaissesPage() {
               <div className="group relative p-5 hover:bg-gray-50/40 dark:hover:bg-gray-700/20 transition-colors duration-200">
                 <div className="absolute top-0 inset-x-0 h-[3px] bg-gray-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
                 <div className="text-center">
-                  <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 mb-2.5">
-                    <BanknotesIcon className="w-4 h-4" />
-                  </div>
                   <div className={`text-lg font-black tabular-nums leading-none ${Number(filteredTotals.net) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatCurrency(filteredTotals.net)}</div>
                   <div className="text-[11px] font-semibold text-gray-400 mt-2">{hasActiveFilters ? t('caisses.netFiltered') : t('caisses.net')}</div>
                 </div>
@@ -764,9 +755,6 @@ export default function CaissesPage() {
               <div className="group relative p-5 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors duration-200">
                 <div className="absolute top-0 inset-x-0 h-[3px] bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
                 <div className="text-center">
-                  <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mb-2.5">
-                    <CurrencyDollarIcon className="w-4 h-4" />
-                  </div>
                   <div className={`text-lg font-black tabular-nums leading-none ${Number(selectedCaisse.balance) > 0 ? 'text-blue-600 dark:text-blue-400' : Number(selectedCaisse.balance) < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>{formatCurrency(selectedCaisse.balance)}</div>
                   <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('caisses.currentBalanceForCollection')}</div>
                 </div>
@@ -1321,18 +1309,13 @@ export default function CaissesPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between" data-tour="caisses-header">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center">
-            <BanknotesIcon className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{t('caisses.title')}</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{t('caisses.subtitle')}</p>
-          </div>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between" data-tour="caisses-header">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100">{t('caisses.title')}</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{t('caisses.subtitle')}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowTour(true)} className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={() => setShowTour(true)} className="hidden sm:inline-block text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors">
             {t('caisses.tourTitle')}
           </button>
           <button onClick={exportCaissesExcel} className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">

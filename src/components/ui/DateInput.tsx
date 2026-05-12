@@ -17,8 +17,10 @@ interface DateInputProps {
 
 const MONTH_NAMES_AR = ['جانفي', 'فيفري', 'مارس', 'أفريل', 'ماي', 'جوان', 'جويلية', 'أوت', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 const MONTH_NAMES_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+const MONTH_NAMES_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DAY_NAMES_AR = ['سب', 'أح', 'إث', 'ثل', 'أر', 'خم', 'جم'];
 const DAY_NAMES_FR = ['Sam', 'Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven'];
+const DAY_NAMES_EN = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
 function toDisplay(iso: string): string {
   if (!iso) return '';
@@ -54,8 +56,10 @@ export default function DateInput({
   disabled,
 }: DateInputProps) {
   const { locale, dir } = useLocale();
-  const monthNames = locale === 'fr' ? MONTH_NAMES_FR : MONTH_NAMES_AR;
-  const dayNames = locale === 'fr' ? DAY_NAMES_FR : DAY_NAMES_AR;
+  const monthNames =
+    locale === 'ar' ? MONTH_NAMES_AR : locale === 'en' ? MONTH_NAMES_EN : MONTH_NAMES_FR;
+  const dayNames =
+    locale === 'ar' ? DAY_NAMES_AR : locale === 'en' ? DAY_NAMES_EN : DAY_NAMES_FR;
 
   const [isOpen, setIsOpen] = useState(false);
   const [displayValue, setDisplayValue] = useState(toDisplay(value));
@@ -328,7 +332,7 @@ export default function DateInput({
           onClick={handleToday}
           className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium transition-colors"
         >
-          {locale === 'fr' ? 'Aujourd\'hui' : 'اليوم'}
+          {locale === 'ar' ? 'اليوم' : locale === 'en' ? 'Today' : 'Aujourd\'hui'}
         </button>
         {value && (
           <button
@@ -336,7 +340,7 @@ export default function DateInput({
             onClick={handleClear}
             className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium transition-colors"
           >
-            {locale === 'fr' ? 'Effacer' : 'مسح'}
+            {locale === 'ar' ? 'مسح' : locale === 'en' ? 'Clear' : 'Effacer'}
           </button>
         )}
       </div>

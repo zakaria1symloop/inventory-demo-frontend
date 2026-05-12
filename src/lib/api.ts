@@ -12,7 +12,9 @@ const api = axios.create({
   },
 });
 
-// Request interceptor to add auth token and tenant ID
+// Request interceptor to add auth token, tenant ID, and locale.
+// Accept-Language lets the backend return localized error messages
+// (e.g., "Invalid credentials." vs "بيانات الدخول غير صحيحة.").
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('token');
@@ -22,6 +24,10 @@ api.interceptors.request.use((config) => {
     const tenantId = localStorage.getItem('tenantId');
     if (tenantId) {
       config.headers['X-Tenant-Id'] = tenantId;
+    }
+    const locale = localStorage.getItem('locale');
+    if (locale === 'ar' || locale === 'fr' || locale === 'en') {
+      config.headers['Accept-Language'] = locale;
     }
   }
   return config;
@@ -33,11 +39,15 @@ api.interceptors.response.use(
   async (error) => {
     const config = error.config;
 
-    // Retry on network errors or 5xx, max 2 retries with backoff
+    // Retry on network errors or 5xx for idempotent methods only.
+    // POST/PUT/DELETE are not retried because they may have side effects
+    // (e.g., a slow tenant provision creating duplicate tenants on retry).
+    const method = (config?.method || 'get').toLowerCase();
+    const isIdempotent = method === 'get' || method === 'head' || method === 'options';
     const isNetworkError = !error.response || error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK';
     const is5xx = error.response?.status >= 500 && error.response?.status < 600;
 
-    if (config && (isNetworkError || is5xx) && !config._retryDone) {
+    if (config && isIdempotent && (isNetworkError || is5xx) && !config._retryDone) {
       config._retryCount = (config._retryCount || 0) + 1;
       if (config._retryCount <= 2) {
         await new Promise((r) => setTimeout(r, 800 * config._retryCount));
@@ -72,7 +82,7 @@ export const authApi = {
     password: string;
     password_confirmation: string;
     accept_call?: boolean;
-  }) => api.post('/saas/register', data),
+  }) => api.post('/saas/register', data, { timeout: 180000 }),
   googleAuth: (data: { credential: string; company_name?: string }) =>
     api.post('/saas/google-auth', data),
   logout: () => api.post('/logout'),
@@ -552,6 +562,8 @@ export const caissesApi = {
     api.post('/caisses/transfer', data),
   getMyCaisse: () => api.get('/caisses/my'),
   getSummary: () => api.get('/caisses/summary'),
+  getPeriodSummary: (params?: { from_date?: string; to_date?: string }) =>
+    api.get('/caisses/summary-period', { params }),
 };
 
 // Stock Transfers API (Cashvan)

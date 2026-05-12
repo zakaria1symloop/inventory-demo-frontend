@@ -37,6 +37,21 @@ const UI = {
     tryBtn: "Démarrer l'essai gratuit",
     backHome: "Retour à l'accueil",
   },
+  en: {
+    badge: 'FAQ',
+    title: 'Everything you need to know about TrackSera',
+    subtitle:
+      'Clear answers to the most common questions from retailers, wholesalers, and distributors.',
+    all: 'All questions',
+    search: 'Search questions...',
+    empty: 'No results. Try different keywords or contact us.',
+    stillQuestionsTitle: 'Still have questions?',
+    stillQuestionsSub:
+      'Our team is available to answer all your questions about TrackSera — via WhatsApp, phone, or email.',
+    contactBtn: 'Contact us',
+    tryBtn: 'Start free trial',
+    backHome: 'Back to home',
+  },
 };
 
 export default function FaqClient() {
@@ -68,23 +83,23 @@ export default function FaqClient() {
             </Link>
             <div className="hidden md:flex items-center gap-7 text-[13px] text-gray-600">
               <Link href="/#modules" className="hover:text-gray-900 transition-colors">
-                {locale === 'ar' ? 'الوحدات' : 'Modules'}
+                {locale === 'ar' ? 'الوحدات' : locale === 'en' ? 'Modules' : 'Modules'}
               </Link>
               <Link href="/tarifs" className="hover:text-gray-900 transition-colors">
-                {locale === 'ar' ? 'الأسعار' : 'Tarifs'}
+                {locale === 'ar' ? 'الأسعار' : locale === 'en' ? 'Pricing' : 'Tarifs'}
               </Link>
               <Link href="/faq" className="text-gray-900 font-medium">
-                {locale === 'ar' ? 'الأسئلة' : 'FAQ'}
+                {locale === 'ar' ? 'الأسئلة' : locale === 'en' ? 'FAQ' : 'FAQ'}
               </Link>
               <Link href="/blog" className="hover:text-gray-900 transition-colors">
-                {locale === 'ar' ? 'المدونة' : 'Blog'}
+                {locale === 'ar' ? 'المدونة' : locale === 'en' ? 'Blog' : 'Blog'}
               </Link>
             </div>
             <Link
               href="/register"
               className="text-[13px] font-medium px-3.5 py-2 rounded-lg bg-gray-900 text-white hover:bg-gray-800 transition-colors"
             >
-              {locale === 'ar' ? 'ابدأ مجاناً' : 'Essai gratuit'}
+              {locale === 'ar' ? 'ابدأ مجاناً' : locale === 'en' ? 'Start free' : 'Essai gratuit'}
             </Link>
           </div>
         </div>

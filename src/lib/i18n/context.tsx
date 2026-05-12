@@ -5,8 +5,9 @@ import type { Locale, Direction } from './locales';
 import { defaultLocale, localeConfig } from './locales';
 import ar from './dictionaries/ar';
 import fr from './dictionaries/fr';
+import en from './dictionaries/en';
 
-const dictionaries = { ar, fr } as const;
+const dictionaries = { ar, fr, en } as const;
 
 type Dictionary = typeof ar;
 
@@ -50,18 +51,46 @@ function interpolate(template: string, params?: Record<string, string | number>)
   );
 }
 
-export function LocaleProvider({ children }: { children: React.ReactNode }) {
-  // Always start with defaultLocale on both server and client to avoid SSR
-  // hydration mismatch. Sync from localStorage in the effect below.
-  const [locale, setLocaleState] = useState<Locale>(defaultLocale);
+export function LocaleProvider({
+  children,
+  initialLocale,
+}: {
+  children: React.ReactNode;
+  initialLocale?: Locale;
+}) {
+  // SSR seeds the locale from a server-detected value (middleware sets a
+  // cookie from Accept-Language / ?lang=). Client effects below refine from
+  // localStorage and the actual navigator language.
+  const [locale, setLocaleState] = useState<Locale>(initialLocale ?? defaultLocale);
 
   const dir = localeConfig[locale].dir;
 
   useEffect(() => {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('locale') : null;
-    if ((stored === 'ar' || stored === 'fr') && stored !== locale) {
-      setLocaleState(stored);
+    if (typeof window === 'undefined') return;
+    // 1. Explicit ?lang= query param wins. Used by Paddle review links
+    //    and any other place that needs to deep-link to a specific locale.
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get('lang');
+    if (q === 'ar' || q === 'fr' || q === 'en') {
+      if (q !== locale) setLocaleState(q);
+      localStorage.setItem('locale', q);
+      return;
     }
+    // 2. User's prior choice from localStorage.
+    const stored = localStorage.getItem('locale');
+    if (stored === 'ar' || stored === 'fr' || stored === 'en') {
+      if (stored !== locale) setLocaleState(stored);
+      return;
+    }
+    // 3. First visit: detect from browser. Algerian/Arabic browsers stay
+    //    on the default AR. French browsers get FR. Anyone else (English,
+    //    Spanish, German, etc.) gets EN — that's the international default.
+    const nav = (window.navigator.language || '').toLowerCase();
+    let detected: Locale = defaultLocale;
+    if (nav.startsWith('ar')) detected = 'ar';
+    else if (nav.startsWith('fr')) detected = 'fr';
+    else detected = 'en';
+    if (detected !== locale) setLocaleState(detected);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -75,13 +104,24 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('locale', newLocale);
   }, []);
 
+  // Fallback chain when a key is missing in the current locale:
+  //   en → fr → ar
+  //   fr → ar
+  //   ar → key (final fallback)
+  // Why this order: en.ts is gradually being filled. While it's still partial,
+  // English visitors get French strings (much more readable than Arabic for
+  // most English speakers) for any missing key.
   const t = useCallback(
     (key: TranslationKey, params?: Record<string, string | number>): string => {
       const result = getNestedValue(dictionaries[locale] as unknown as Record<string, unknown>, key);
       if (result !== key) return interpolate(result, params);
+      if (locale === 'en') {
+        const fr2 = getNestedValue(dictionaries.fr as unknown as Record<string, unknown>, key);
+        if (fr2 !== key) return interpolate(fr2, params);
+      }
       if (locale !== 'ar') {
-        const fallback = getNestedValue(dictionaries.ar as unknown as Record<string, unknown>, key);
-        if (fallback !== key) return interpolate(fallback, params);
+        const arFallback = getNestedValue(dictionaries.ar as unknown as Record<string, unknown>, key);
+        if (arFallback !== key) return interpolate(arFallback, params);
       }
       return key;
     },

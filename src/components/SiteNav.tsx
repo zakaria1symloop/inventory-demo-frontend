@@ -8,15 +8,17 @@ import LanguageSwitcher from './LanguageSwitcher';
 const nav = {
   ar: { modules: 'الوحدات', audience: 'لمن هذا البرنامج؟', pricing: 'الأسعار', contact: 'تواصل معنا', blog: 'المدونة', login: 'تسجيل الدخول', cta: 'ابدأ مجاناً' },
   fr: { modules: 'Modules', audience: 'Pour qui ?', pricing: 'Tarifs', contact: 'Contact', blog: 'Blog', login: 'Connexion', cta: 'Essai gratuit' },
+  en: { modules: 'Modules', audience: 'Who is this for?', pricing: 'Pricing', contact: 'Contact', blog: 'Blog', login: 'Sign in', cta: 'Free trial' },
 };
 
 const topBar = {
   ar: { address: 'الجزائر العاصمة، البيار', addressShort: 'الجزائر، البيار' },
   fr: { address: 'Alger, El Biar', addressShort: 'Alger, El Biar' },
+  en: { address: 'Algiers, El Biar', addressShort: 'Algiers, El Biar' },
 };
 
 interface Props {
-  lang: 'ar' | 'fr';
+  lang: 'ar' | 'fr' | 'en';
   onLangToggle: () => void;
 }
 

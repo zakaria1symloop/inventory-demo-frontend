@@ -953,6 +953,11 @@ export default function InventoryPage() {
                             <td className="px-4 py-2 text-center">
                               <div className="font-bold">{totalPieces} <span className="text-xs font-normal text-gray-500">{t('stock.pieceSuffix')}</span></div>
                               {ppp > 1 && <div className="text-xs text-blue-600 dark:text-blue-400">{fmtCartonPieces(totalPieces, ppp)}</div>}
+                              {typeof product.available_stock === 'number' && product.available_stock !== totalPieces && (
+                                <div className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5" title={`${totalPieces - product.available_stock} ${t('stock.pieceSuffix')} reserved`}>
+                                  {product.available_stock} {t('stock.pieceSuffix')} ({totalPieces - product.available_stock} محجوز)
+                                </div>
+                              )}
                             </td>
                             <td className="px-4 py-2 text-center text-sm">{formatCurrency(costPerPiece)}</td>
                             <td className="px-4 py-2 text-center text-sm font-medium text-purple-700 dark:text-purple-400">{formatCurrency(totalPieces * costPerPiece)}</td>

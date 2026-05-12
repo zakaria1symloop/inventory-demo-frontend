@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { creditorsApi, purchasesApi } from '@/lib/api';
 import DateInput from '@/components/ui/DateInput';
 import toast from 'react-hot-toast';
@@ -70,6 +71,7 @@ interface SupplierDebtDetails {
 
 export default function CreditorsPage() {
   const { t, locale, dir } = useLocale();
+  const router = useRouter();
   const [creditors, setCreditors] = useState<Creditor[]>([]);
   const [totals, setTotals] = useState<CreditorsTotals | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -207,10 +209,11 @@ export default function CreditorsPage() {
 
   const getAgingBadge = (days: number | null) => {
     if (days === null) return { class: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200', text: '-' };
-    if (days <= 7) return { class: 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300', text: `${days} ${t('purchases.day')}` };
-    if (days <= 30) return { class: 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300', text: `${days} ${t('purchases.day')}` };
-    if (days <= 60) return { class: 'bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-300', text: `${days} ${t('purchases.day')}` };
-    return { class: 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300', text: `${days} ${t('purchases.day')}` };
+    const d = Math.floor(days);
+    if (d <= 7) return { class: 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300', text: `${d} ${t('purchases.day')}` };
+    if (d <= 30) return { class: 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300', text: `${d} ${t('purchases.day')}` };
+    if (d <= 60) return { class: 'bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-300', text: `${d} ${t('purchases.day')}` };
+    return { class: 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300', text: `${d} ${t('purchases.day')}` };
   };
 
   const filteredCreditors = creditors.filter(c => {
@@ -230,15 +233,23 @@ export default function CreditorsPage() {
           <h1 className="text-2xl font-bold">{t('purchases.creditorsTitle')}</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">{t('purchases.creditorsSubtitle')}</p>
         </div>
-        <Link
-          href="/dashboard/purchases"
+        <button
+          type="button"
+          onClick={() => {
+            // Use browser history if there's a referrer in the same app, else fall back to /purchases.
+            if (typeof window !== 'undefined' && window.history.length > 1 && document.referrer && document.referrer.includes(window.location.host)) {
+              router.back();
+            } else {
+              router.push('/dashboard/purchases');
+            }
+          }}
           className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
           {t('purchases.backToPurchasesLink')}
-        </Link>
+        </button>
       </div>
 
       {/* Summary Cards */}
@@ -572,7 +583,7 @@ export default function CreditorsPage() {
                 <button
                   type="submit"
                   disabled={isSubmittingPayment}
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <CheckIcon className="w-5 h-5" />
                   {isSubmittingPayment ? t('purchases.saving') : t('purchases.confirmPaymentBtn')}

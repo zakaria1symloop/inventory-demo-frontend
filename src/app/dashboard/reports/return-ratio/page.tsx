@@ -7,13 +7,8 @@ import { useLocale, type TranslationKey } from '@/lib/i18n/context';
 import DateInput from '@/components/ui/DateInput';
 import toast from 'react-hot-toast';
 import {
-  ArrowUturnLeftIcon,
   ArrowDownTrayIcon,
   ArrowPathIcon,
-  ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon,
-  ReceiptRefundIcon,
-  ChartBarIcon,
   ClipboardDocumentListIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -279,8 +274,11 @@ export default function ReturnRatioReportPage() {
   // ─── Export Excel ───
   const exportExcel = async () => {
     if (!userRows.length) { toast.error(t('returnRatio.noExportData' as TranslationKey)); return; }
+    const loadingToast = toast.loading(t('returnRatio.exporting' as TranslationKey) || 'Generating Excel…');
     try {
-      const ExcelJS = (await import('exceljs')).default;
+      await new Promise(r => setTimeout(r, 0));
+      const exceljsMod: any = await import('exceljs');
+      const ExcelJS = exceljsMod.default || exceljsMod;
       const { saveAs } = await import('file-saver');
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet(t('returnRatio.title' as TranslationKey));
@@ -292,7 +290,7 @@ export default function ReturnRatioReportPage() {
         { header: t('returnRatio.colReturnsAmount' as TranslationKey), key: 'returnsAmount', width: 20 },
         { header: t('returnRatio.colReturnRate' as TranslationKey), key: 'returnRate', width: 16 },
       ];
-      ws.getRow(1).eachCell((cell) => {
+      ws.getRow(1).eachCell((cell: any) => {
         cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEF4444' } };
         cell.alignment = { horizontal: 'center' };
@@ -309,51 +307,38 @@ export default function ReturnRatioReportPage() {
         returnsCount: kpis.returnsCount, returnsAmount: kpis.totalReturns,
         returnRate: `${kpis.returnRate.toFixed(1)}%`,
       });
-      ws.lastRow!.eachCell(cell => { cell.font = { bold: true }; });
+      ws.lastRow!.eachCell((cell: any) => { cell.font = { bold: true }; });
       const buf = await wb.xlsx.writeBuffer();
       saveAs(new Blob([buf]), `return-ratio_${dateFrom}_${dateTo}.xlsx`);
-      toast.success(t('returnRatio.exportSuccess' as TranslationKey));
-    } catch { toast.error(t('returnRatio.exportError' as TranslationKey)); }
+      toast.success(t('returnRatio.exportSuccess' as TranslationKey), { id: loadingToast });
+    } catch (err) { console.error('Excel export failed:', err); toast.error((err instanceof Error ? err.message : '') || t('returnRatio.exportError' as TranslationKey), { id: loadingToast }); }
   };
 
   // ─── Export PDF ───
   const exportPDF = async () => {
     if (!userRows.length) { toast.error(t('returnRatio.noExportData' as TranslationKey)); return; }
     try {
-      const { default: jsPDF } = await import('jspdf');
-      const autoTable = (await import('jspdf-autotable')).default;
-      const doc = new jsPDF({ orientation: 'landscape' });
-      doc.setFontSize(16);
-      doc.text(t('returnRatio.title' as TranslationKey), 14, 20);
-      doc.setFontSize(10);
-      doc.text(`${dateFrom} → ${dateTo}`, 14, 28);
-      autoTable(doc, {
-        startY: 35,
-        head: [[
+      const { printReport } = await import('@/lib/print-report');
+      printReport({
+        title: t('returnRatio.title' as TranslationKey),
+        subtitle: `${dateFrom} → ${dateTo}`,
+        columns: [
           t('returnRatio.colUser' as TranslationKey),
           t('returnRatio.colSalesCount' as TranslationKey),
           t('returnRatio.colSalesAmount' as TranslationKey),
           t('returnRatio.colReturnsCount' as TranslationKey),
           t('returnRatio.colReturnsAmount' as TranslationKey),
           t('returnRatio.colReturnRate' as TranslationKey),
-        ]],
-        body: [
-          ...userRows.map(r => [r.userName, r.salesCount, r.salesAmount.toLocaleString(), r.returnsCount, r.returnsAmount.toLocaleString(), `${r.returnRate.toFixed(1)}%`]),
-          [
-            { content: t('returnRatio.totalsLabel' as TranslationKey), styles: { fontStyle: 'bold' } },
-            { content: String(kpis.salesCount), styles: { fontStyle: 'bold' } },
-            { content: kpis.totalSales.toLocaleString(), styles: { fontStyle: 'bold' } },
-            { content: String(kpis.returnsCount), styles: { fontStyle: 'bold' } },
-            { content: kpis.totalReturns.toLocaleString(), styles: { fontStyle: 'bold' } },
-            { content: `${kpis.returnRate.toFixed(1)}%`, styles: { fontStyle: 'bold' } },
-          ],
         ],
-        styles: { fontSize: 8, cellPadding: 3 },
-        headStyles: { fillColor: [239, 68, 68] },
+        rows: [
+          ...userRows.map(r => [r.userName, r.salesCount, r.salesAmount.toLocaleString(), r.returnsCount, r.returnsAmount.toLocaleString(), `${r.returnRate.toFixed(1)}%`]),
+          [t('returnRatio.totalsLabel' as TranslationKey), String(kpis.salesCount), kpis.totalSales.toLocaleString(), String(kpis.returnsCount), kpis.totalReturns.toLocaleString(), `${kpis.returnRate.toFixed(1)}%`],
+        ],
+        orientation: 'landscape',
+        dir: isRTL ? 'rtl' : 'ltr',
       });
-      doc.save(`return-ratio_${dateFrom}_${dateTo}.pdf`);
       toast.success(t('returnRatio.exportSuccess' as TranslationKey));
-    } catch { toast.error(t('returnRatio.exportError' as TranslationKey)); }
+    } catch (err) { console.error('Excel export failed:', err); toast.error((err instanceof Error ? err.message : '') || t('returnRatio.exportError' as TranslationKey)); }
   };
 
   const Skeleton = () => <div className="w-20 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mx-auto" />;
@@ -366,16 +351,11 @@ export default function ReturnRatioReportPage() {
   return (
     <div className="space-y-5">
       {/* ─── Header ─── */}
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-2xl bg-red-600 flex items-center justify-center">
-          <ArrowUturnLeftIcon className="w-6 h-6 text-white" />
-        </div>
-        <div>
-          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">
-            {t('returnRatio.title' as TranslationKey)}
-          </h1>
-          <p className="text-sm text-gray-400 mt-1">{t('returnRatio.subtitle' as TranslationKey)}</p>
-        </div>
+      <div>
+        <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">
+          {t('returnRatio.title' as TranslationKey)}
+        </h1>
+        <p className="text-sm text-gray-400 mt-1">{t('returnRatio.subtitle' as TranslationKey)}</p>
       </div>
 
       {/* ─── Filter Bar ─── */}
@@ -421,17 +401,16 @@ export default function ReturnRatioReportPage() {
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
         <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 lg:divide-x ${isRTL ? 'lg:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
           {[
-            { label: t('returnRatio.kpiTotalSales' as TranslationKey), value: formatCurrency(kpis.totalSales), sub: `(${kpis.salesCount})`, color: 'emerald', icon: <ArrowTrendingUpIcon className="w-5 h-5" /> },
-            { label: t('returnRatio.kpiTotalReturns' as TranslationKey), value: formatCurrency(kpis.totalReturns), sub: `(${kpis.returnsCount})`, color: 'red', icon: <ReceiptRefundIcon className="w-5 h-5" /> },
-            { label: t('returnRatio.kpiReturnRate' as TranslationKey), value: `${kpis.returnRate.toFixed(1)}%`, sub: null, color: 'amber', icon: <ChartBarIcon className="w-5 h-5" /> },
-            { label: t('returnRatio.kpiReturnAmount' as TranslationKey), value: formatCurrency(kpis.totalReturns), sub: null, color: 'blue', icon: <ArrowTrendingDownIcon className="w-5 h-5" /> },
+            { label: t('returnRatio.kpiTotalSales' as TranslationKey), value: formatCurrency(kpis.totalSales), sub: `(${kpis.salesCount})`, color: 'emerald' },
+            { label: t('returnRatio.kpiTotalReturns' as TranslationKey), value: formatCurrency(kpis.totalReturns), sub: `(${kpis.returnsCount})`, color: 'red' },
+            { label: t('returnRatio.kpiReturnRate' as TranslationKey), value: `${kpis.returnRate.toFixed(1)}%`, sub: null, color: 'amber' },
+            { label: t('returnRatio.kpiReturnAmount' as TranslationKey), value: formatCurrency(kpis.totalReturns), sub: null, color: 'blue' },
           ].map((kpi, i) => {
             const c = colorMap[kpi.color];
             return (
               <div key={i} className={`group relative p-5 ${c.hover} ${c.hoverDark} transition-colors duration-200`}>
                 <div className={`absolute top-0 inset-x-0 h-[3px] ${c.bar} scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b`} />
                 <div className="text-center">
-                  <div className={`inline-flex items-center justify-center w-9 h-9 rounded-xl ${c.iconBg} ${c.iconText} mb-2.5`}>{kpi.icon}</div>
                   <div className={`text-xl font-black ${c.valueText} tabular-nums leading-none`}>
                     {isLoading ? <Skeleton /> : kpi.value}
                   </div>

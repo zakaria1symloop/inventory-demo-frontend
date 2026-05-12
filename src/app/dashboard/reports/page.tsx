@@ -9,7 +9,6 @@ import DateInput from '@/components/ui/DateInput';
 import toast from 'react-hot-toast';
 import type { Purchase, Sale } from '@/lib/types';
 import {
-  ChartBarSquareIcon,
   ShoppingCartIcon,
   BanknotesIcon,
   ArrowUturnLeftIcon,
@@ -17,13 +16,8 @@ import {
   ArrowDownTrayIcon,
   ArrowPathIcon,
   ClipboardDocumentListIcon,
-  CurrencyDollarIcon,
-  CheckCircleIcon,
-  ExclamationCircleIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  UserGroupIcon,
-  ReceiptRefundIcon,
   FunnelIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
@@ -376,21 +370,26 @@ export default function ReportsPage() {
   ) => {
     if (!rows.length) { toast.error(t('reports.noExportData')); return; }
     try {
-      const ExcelJS = (await import('exceljs')).default;
-      const { saveAs } = await import('file-saver');
+      const exceljsMod: any = await import('exceljs');
+      const ExcelJS = exceljsMod.default || exceljsMod;
+      const fileSaverMod: any = await import('file-saver');
+      const saveAs = fileSaverMod.saveAs || fileSaverMod.default?.saveAs || fileSaverMod.default;
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet(sheetName);
       ws.columns = columns;
-      ws.getRow(1).eachCell((cell) => {
+      ws.getRow(1).eachCell((cell: any) => {
         cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF6366F1' } };
         cell.alignment = { horizontal: 'center' };
       });
       rows.forEach(r => ws.addRow(r));
       const buf = await wb.xlsx.writeBuffer();
-      saveAs(new Blob([buf]), fileName);
+      saveAs(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), fileName);
       toast.success(t('reports.exportSuccess'));
-    } catch { toast.error(t('reports.exportError')); }
+    } catch (err) {
+      console.error('Excel export failed:', err);
+      toast.error(t('reports.exportError'));
+    }
   };
 
   const exportPDF = async (
@@ -398,25 +397,19 @@ export default function ReportsPage() {
     dateRange: string,
     headers: string[],
     rows: (string | number)[][],
-    fileName: string,
+    _fileName: string,
   ) => {
     if (!rows.length) { toast.error(t('reports.noExportData')); return; }
     try {
-      const { default: jsPDF } = await import('jspdf');
-      const autoTable = (await import('jspdf-autotable')).default;
-      const doc = new jsPDF({ orientation: 'landscape' });
-      doc.setFontSize(16);
-      doc.text(title, 14, 20);
-      doc.setFontSize(10);
-      doc.text(dateRange, 14, 28);
-      autoTable(doc, {
-        startY: 35,
-        head: [headers],
-        body: rows,
-        styles: { fontSize: 8, cellPadding: 3 },
-        headStyles: { fillColor: [99, 102, 241] },
+      const { printReport } = await import('@/lib/print-report');
+      printReport({
+        title,
+        subtitle: dateRange,
+        columns: headers,
+        rows,
+        orientation: 'landscape',
+        dir: locale === 'ar' ? 'rtl' : 'ltr',
       });
-      doc.save(fileName);
       toast.success(t('reports.exportSuccess'));
     } catch { toast.error(t('reports.exportError')); }
   };
@@ -557,7 +550,7 @@ export default function ReportsPage() {
     </div>
   );
 
-  const renderKpiStrip = (items: { label: string; value: string; color: string; icon: React.ReactNode }[], loading: boolean) => (
+  const renderKpiStrip = (items: { label: string; value: string; color: string }[], loading: boolean) => (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
       <div className={`grid grid-cols-2 md:grid-cols-${items.length} md:divide-x ${isRTL ? 'md:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
         {items.map((kpi, i) => {
@@ -566,7 +559,6 @@ export default function ReportsPage() {
             <div key={i} className={`group relative p-5 ${c.hover} ${c.hoverDark} transition-colors duration-200`}>
               <div className={`absolute top-0 inset-x-0 h-[3px] ${c.bar} scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b`} />
               <div className="text-center">
-                <div className={`inline-flex items-center justify-center w-9 h-9 rounded-xl ${c.iconBg} ${c.iconText} mb-2.5`}>{kpi.icon}</div>
                 <div className={`text-xl font-black ${c.valueText} tabular-nums leading-none`}>
                   {loading ? <div className="w-16 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mx-auto" /> : kpi.value}
                 </div>
@@ -682,14 +674,9 @@ export default function ReportsPage() {
   return (
     <div className="space-y-5">
       {/* ─── Header ─── */}
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-2xl bg-violet-600 flex items-center justify-center">
-          <ChartBarSquareIcon className="w-6 h-6 text-white" />
-        </div>
-        <div>
-          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('reports.title')}</h1>
-          <p className="text-sm text-gray-400 mt-1">{t('reports.subtitle')}</p>
-        </div>
+      <div>
+        <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('reports.title')}</h1>
+        <p className="text-sm text-gray-400 mt-1">{t('reports.subtitle')}</p>
       </div>
 
       {/* ─── Tab Navigation ─── */}
@@ -723,10 +710,10 @@ export default function ReportsPage() {
           {renderFilterBar(purchasesDateFrom, setPurchasesDateFrom, purchasesDateTo, setPurchasesDateTo, () => refetchPurchases(), exportPurchasesExcel, exportPurchasesPDF, { active: showFilters, onToggle: () => setShowFilters(!showFilters), count: activeFilterCount })}
 
           {renderKpiStrip([
-            { label: t('reports.kpiTotalPurchases'), value: purchasesKpis.count.toString(), color: 'indigo', icon: <ClipboardDocumentListIcon className="w-5 h-5" /> },
-            { label: t('reports.kpiTotalAmount'), value: formatCurrency(purchasesKpis.totalAmount), color: 'emerald', icon: <CurrencyDollarIcon className="w-5 h-5" /> },
-            { label: t('reports.kpiPaidAmount'), value: formatCurrency(purchasesKpis.paidAmount), color: 'blue', icon: <CheckCircleIcon className="w-5 h-5" /> },
-            { label: t('reports.kpiDueAmount'), value: formatCurrency(purchasesKpis.dueAmount), color: 'red', icon: <ExclamationCircleIcon className="w-5 h-5" /> },
+            { label: t('reports.kpiTotalPurchases'), value: purchasesKpis.count.toString(), color: 'indigo' },
+            { label: t('reports.kpiTotalAmount'), value: formatCurrency(purchasesKpis.totalAmount), color: 'emerald' },
+            { label: t('reports.kpiPaidAmount'), value: formatCurrency(purchasesKpis.paidAmount), color: 'blue' },
+            { label: t('reports.kpiDueAmount'), value: formatCurrency(purchasesKpis.dueAmount), color: 'red' },
           ], purchasesLoading)}
 
           {renderCharts(purchasesSupplierData, purchasesDailyData, t('reports.chartTopSuppliers'), t('reports.chartDailyTrend'), 'purchaseGrad', '#6366f1', purchasesLoading)}
@@ -843,10 +830,10 @@ export default function ReportsPage() {
           {renderFilterBar(salesDateFrom, setSalesDateFrom, salesDateTo, setSalesDateTo, () => refetchSales(), exportSalesExcel, exportSalesPDF)}
 
           {renderKpiStrip([
-            { label: t('reports.kpiTotalSales'), value: salesKpis.count.toString(), color: 'indigo', icon: <ClipboardDocumentListIcon className="w-5 h-5" /> },
-            { label: t('reports.kpiTotalAmount'), value: formatCurrency(salesKpis.totalAmount), color: 'emerald', icon: <CurrencyDollarIcon className="w-5 h-5" /> },
-            { label: t('reports.kpiPaidAmount'), value: formatCurrency(salesKpis.paidAmount), color: 'blue', icon: <CheckCircleIcon className="w-5 h-5" /> },
-            { label: t('reports.kpiDueAmount'), value: formatCurrency(salesKpis.dueAmount), color: 'red', icon: <ExclamationCircleIcon className="w-5 h-5" /> },
+            { label: t('reports.kpiTotalSales'), value: salesKpis.count.toString(), color: 'indigo' },
+            { label: t('reports.kpiTotalAmount'), value: formatCurrency(salesKpis.totalAmount), color: 'emerald' },
+            { label: t('reports.kpiPaidAmount'), value: formatCurrency(salesKpis.paidAmount), color: 'blue' },
+            { label: t('reports.kpiDueAmount'), value: formatCurrency(salesKpis.dueAmount), color: 'red' },
           ], salesLoading)}
 
           {renderCharts(salesClientData, salesDailyData, t('reports.chartTopClients'), t('reports.chartDailySalesTrend'), 'salesGrad', '#10b981', salesLoading)}
@@ -903,8 +890,8 @@ export default function ReportsPage() {
           {renderFilterBar(saleReturnsDateFrom, setSaleReturnsDateFrom, saleReturnsDateTo, setSaleReturnsDateTo, () => refetchSaleReturns(), exportSaleReturnsExcel, exportSaleReturnsPDF)}
 
           {renderKpiStrip([
-            { label: t('reports.kpiTotalSaleReturns'), value: saleReturnsKpis.count.toString(), color: 'violet', icon: <ReceiptRefundIcon className="w-5 h-5" /> },
-            { label: t('reports.kpiTotalReturnAmount'), value: formatCurrency(saleReturnsKpis.totalAmount), color: 'amber', icon: <CurrencyDollarIcon className="w-5 h-5" /> },
+            { label: t('reports.kpiTotalSaleReturns'), value: saleReturnsKpis.count.toString(), color: 'violet' },
+            { label: t('reports.kpiTotalReturnAmount'), value: formatCurrency(saleReturnsKpis.totalAmount), color: 'amber' },
           ], saleReturnsLoading)}
 
           {renderCharts(saleReturnsClientData, saleReturnsDailyData, t('reports.chartTopReturnClients'), t('reports.chartDailyReturnTrend'), 'saleReturnGrad', '#f59e0b', saleReturnsLoading)}
@@ -957,8 +944,8 @@ export default function ReportsPage() {
           {renderFilterBar(purchaseReturnsDateFrom, setPurchaseReturnsDateFrom, purchaseReturnsDateTo, setPurchaseReturnsDateTo, () => refetchPurchaseReturns(), exportPurchaseReturnsExcel, exportPurchaseReturnsPDF)}
 
           {renderKpiStrip([
-            { label: t('reports.kpiTotalPurchaseReturns'), value: purchaseReturnsKpis.count.toString(), color: 'violet', icon: <ReceiptRefundIcon className="w-5 h-5" /> },
-            { label: t('reports.kpiTotalReturnAmount'), value: formatCurrency(purchaseReturnsKpis.totalAmount), color: 'amber', icon: <CurrencyDollarIcon className="w-5 h-5" /> },
+            { label: t('reports.kpiTotalPurchaseReturns'), value: purchaseReturnsKpis.count.toString(), color: 'violet' },
+            { label: t('reports.kpiTotalReturnAmount'), value: formatCurrency(purchaseReturnsKpis.totalAmount), color: 'amber' },
           ], purchaseReturnsLoading)}
 
           {renderCharts(purchaseReturnsSupplierData, purchaseReturnsDailyData, t('reports.chartTopReturnSuppliers'), t('reports.chartDailyPurchaseReturnTrend'), 'purchaseReturnGrad', '#ef4444', purchaseReturnsLoading)}

@@ -117,7 +117,7 @@ const menuSections: MenuSection[] = [
       { nameKey: 'sidebar.driverStock', href: '/dashboard/livreur-stock', icon: ArchiveBoxIcon, feature: 'livreur_stock' },
       { nameKey: 'sidebar.driversMap', href: '/dashboard/drivers-map', icon: MapPinIcon, badgeKey: 'sidebar.new', feature: 'drivers_map' },
       { nameKey: 'sidebar.productRequests', href: '/dashboard/livreur-product-requests', icon: ClipboardDocumentListIcon, feature: 'product_requests' },
-      { nameKey: 'sidebar.livreurDispenses', href: '/dashboard/dispenses', icon: BanknotesIcon, feature: 'dispenses' },
+      // Removed duplicate "livreurDispenses" — finance section already exposes /dashboard/dispenses as "expenses".
     ],
   },
   {
@@ -641,8 +641,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </header>
 
-        {/* Email verification banner */}
-        {user && !user.email_verified_at && (
+        {/* Email verification banner — hide for phone-only users (no email) */}
+        {user && user.email && !user.email_verified_at && (
           <div className="mx-4 lg:mx-6 mt-4 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-xl p-4 flex items-center gap-3">
             <div className="w-10 h-10 bg-amber-100 dark:bg-amber-800 rounded-full flex items-center justify-center flex-shrink-0">
               <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -673,26 +673,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="flex items-center gap-2">
                 <Link
                   href="/dashboard/sales/new"
-                  className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 rounded-lg text-xs sm:text-sm font-medium transition-colors"
                 >
-                  <PlusIcon className="w-4 h-4" />
-                  <span className="hidden sm:inline">{t('footer.newSale')}</span>
+                  <PlusIcon className="w-4 h-4 flex-shrink-0" />
+                  <span>{t('footer.newSale')}</span>
                   <kbd className="hidden md:inline bg-green-700 px-1.5 py-0.5 rounded text-xs">Alt+S</kbd>
                 </Link>
                 <Link
                   href="/dashboard/purchases/new"
-                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-xs sm:text-sm font-medium transition-colors"
                 >
-                  <PlusIcon className="w-4 h-4" />
-                  <span className="hidden sm:inline">{t('footer.newPurchase')}</span>
+                  <PlusIcon className="w-4 h-4 flex-shrink-0" />
+                  <span>{t('footer.newPurchase')}</span>
                   <kbd className="hidden md:inline bg-blue-700 px-1.5 py-0.5 rounded text-xs">Alt+P</kbd>
                 </Link>
                 <Link
                   href="/dashboard/products"
-                  className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 rounded-lg text-xs sm:text-sm font-medium transition-colors"
                 >
-                  <CubeIcon className="w-4 h-4" />
-                  <span className="hidden sm:inline">{t('footer.productsFooter')}</span>
+                  <CubeIcon className="w-4 h-4 flex-shrink-0" />
+                  <span>{t('footer.productsFooter')}</span>
                   <kbd className="hidden md:inline bg-purple-700 px-1.5 py-0.5 rounded text-xs">Alt+N</kbd>
                 </Link>
               </div>

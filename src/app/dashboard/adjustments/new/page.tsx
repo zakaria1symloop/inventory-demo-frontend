@@ -340,7 +340,7 @@ export default function NewAdjustmentPage() {
                             value={item.quantity}
                             onChange={(e) => updateItemQuantity(index, parseInt(e.target.value) || 1)}
                             min="1"
-                            className="input w-20 text-center"
+                            className="input w-28 text-center text-base font-semibold"
                           />
                         </td>
                         <td>
@@ -350,7 +350,7 @@ export default function NewAdjustmentPage() {
                             onChange={(e) => updateItemPrice(index, parseFloat(e.target.value) || 0)}
                             min="0"
                             step="0.01"
-                            className="input w-28 text-center"
+                            className="input w-36 text-center text-base font-semibold"
                           />
                         </td>
                         <td className="font-medium">{formatCurrency(item.quantity * item.unit_price)}</td>

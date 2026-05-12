@@ -349,14 +349,9 @@ export default function OrdersPage() {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" data-tour="orders-title">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-orange-600 flex items-center justify-center">
-            <ClipboardDocumentListIcon className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-gray-100 tracking-tight leading-none">{t('orders.title')}</h1>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('orders.subtitle')}</p>
-          </div>
+        <div>
+          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-gray-100 tracking-tight leading-none">{t('orders.title')}</h1>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('orders.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -389,48 +384,36 @@ export default function OrdersPage() {
       <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden" data-tour="orders-kpis">
         <div className={`grid grid-cols-2 sm:grid-cols-4 sm:divide-x ${isRTL ? 'sm:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
           {/* Total Orders */}
-          <div className="group relative p-5 hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 transition-colors duration-200">
+          <div className="group relative p-5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors duration-200">
             <div className="absolute top-0 inset-x-0 h-[3px] bg-indigo-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 mb-2.5">
-                <ClipboardDocumentListIcon className="w-4 h-4" />
-              </div>
+              <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{t('orders.totalOrders')}</div>
               <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.totalOrders}</div>
-              <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('orders.totalOrders')}</div>
             </div>
           </div>
           {/* Today Orders */}
-          <div className="group relative p-5 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors duration-200">
+          <div className="group relative p-5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors duration-200">
             <div className="absolute top-0 inset-x-0 h-[3px] bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mb-2.5">
-                <CalendarDaysIcon className="w-4 h-4" />
-              </div>
+              <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{t('orders.todayOrders')}</div>
               <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.todayOrders}</div>
-              <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('orders.todayOrders')}</div>
-              {kpis.todayPending > 0 && <div className="text-[10px] text-amber-600 dark:text-amber-400 font-medium mt-0.5">{t('orders.pendingToday', { count: String(kpis.todayPending) })}</div>}
+              {kpis.todayPending > 0 && <div className="text-[10px] text-amber-600 dark:text-amber-400 font-medium mt-1">{t('orders.pendingToday', { count: String(kpis.todayPending) })}</div>}
             </div>
           </div>
           {/* Total Amounts */}
-          <div className="group relative p-5 hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10 transition-colors duration-200">
+          <div className="group relative p-5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors duration-200">
             <div className="absolute top-0 inset-x-0 h-[3px] bg-emerald-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 mb-2.5">
-                <BanknotesIcon className="w-4 h-4" />
-              </div>
+              <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{t('orders.totalAmounts')}</div>
               <div className="text-lg font-black text-gray-900 dark:text-white tabular-nums leading-none">{formatCurrency(kpis.totalAmount)}</div>
-              <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('orders.totalAmounts')}</div>
             </div>
           </div>
           {/* Problems */}
-          <div className="group relative p-5 hover:bg-red-50/40 dark:hover:bg-red-900/10 transition-colors duration-200">
+          <div className="group relative p-5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors duration-200">
             <div className="absolute top-0 inset-x-0 h-[3px] bg-red-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 mb-2.5">
-                <ExclamationTriangleIcon className="w-4 h-4" />
-              </div>
+              <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{t('orders.problems')}</div>
               <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.problemOrders}</div>
-              <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('orders.problems')}</div>
             </div>
           </div>
         </div>

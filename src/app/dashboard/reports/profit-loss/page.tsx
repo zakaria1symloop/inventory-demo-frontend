@@ -2,19 +2,13 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { salesApi, purchasesApi, saleReturnsApi, purchaseReturnsApi, dispensesApi, warehousesApi } from '@/lib/api';
+import { salesApi, purchasesApi, saleReturnsApi, purchaseReturnsApi, dispensesApi, warehousesApi, caissesApi } from '@/lib/api';
 import { useLocale, type TranslationKey } from '@/lib/i18n/context';
 import DateInput from '@/components/ui/DateInput';
 import toast from 'react-hot-toast';
 import {
-  ScaleIcon,
   ArrowDownTrayIcon,
   ArrowPathIcon,
-  ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon,
-  ShoppingCartIcon,
-  CubeIcon,
-  ReceiptRefundIcon,
   BanknotesIcon,
 } from '@heroicons/react/24/outline';
 import {
@@ -132,6 +126,15 @@ export default function ProfitLossReportPage() {
     queryFn: async () => { const res = await warehousesApi.getAll(); return res.data; },
   });
 
+  // Real cash movements from the caisse module — keeps the P&L page in sync with /dashboard/caisses
+  const { data: caisseSummary } = useQuery({
+    queryKey: ['pnl-caisse-period', dateFrom, dateTo],
+    queryFn: async () => {
+      const res = await caissesApi.getPeriodSummary({ from_date: dateFrom, to_date: dateTo });
+      return res.data as { total_in: number; total_out: number; net: number };
+    },
+  });
+
   const warehouses: Warehouse[] = warehousesRaw?.data || warehousesRaw || [];
   const isLoading = salesLoading || purchasesLoading || srLoading || prLoading || expLoading;
 
@@ -165,7 +168,16 @@ export default function ProfitLossReportPage() {
   }, [expensesRaw]);
 
   // ─── P&L Calculations ───
-  const pnl = useMemo(() => {
+  const pnl = useMemo<{
+    salesCount: number; salesTotal: number;
+    purchasesCount: number; purchasesTotal: number;
+    saleReturnsCount: number; saleReturnsTotal: number;
+    purchaseReturnsCount: number; purchaseReturnsTotal: number;
+    expensesTotal: number;
+    revenue: number; cogs: number;
+    paymentsReceived: number; paymentsSent: number; paymentsNet: number;
+    profitFifo: number; profitAvg: number;
+  }>(() => {
     const salesTotal = sales.reduce((s, sale) => s + num(sale.grand_total), 0);
     const salesPaid = sales.reduce((s, sale) => s + num(sale.paid_amount), 0);
     const purchasesTotal = purchases.reduce((s, p) => s + num(p.grand_total), 0);
@@ -175,8 +187,12 @@ export default function ProfitLossReportPage() {
     const expensesTotal = expenses.reduce((s, e) => s + num(e.amount || e.total_amount), 0);
 
     const revenue = salesTotal - saleReturnsTotal;
-    const paymentsReceived = salesPaid + purchaseReturnsTotal;
-    const paymentsSent = purchasesPaid + saleReturnsTotal + expensesTotal;
+    // Use real caisse cash flow when available (keeps this page in sync with /dashboard/caisses).
+    // Fall back to derived totals if the period summary is still loading or unavailable
+    // (e.g. when warehouse filter is set, since the caisse summary is not warehouse-scoped).
+    const useCaisseCash = !filterWarehouse && caisseSummary !== undefined;
+    const paymentsReceived = useCaisseCash ? num(caisseSummary?.total_in) : (salesPaid + purchaseReturnsTotal);
+    const paymentsSent = useCaisseCash ? num(caisseSummary?.total_out) : (purchasesPaid + saleReturnsTotal + expensesTotal);
     const paymentsNet = paymentsReceived - paymentsSent;
 
     // COGS: try item-level cost, fallback to net purchases
@@ -212,7 +228,7 @@ export default function ProfitLossReportPage() {
       profitFifo: profitNet,
       profitAvg: profitNet,
     };
-  }, [sales, purchases, saleReturns, purchaseReturns, expenses]);
+  }, [sales, purchases, saleReturns, purchaseReturns, expenses, caisseSummary, filterWarehouse]);
 
   // ─── Chart data ───
   const chartData = useMemo(() => [
@@ -245,8 +261,11 @@ export default function ProfitLossReportPage() {
   // ─── Export Excel ───
   const exportExcel = async () => {
     if (isLoading) { toast.error(t('profitLoss.noExportData' as TranslationKey)); return; }
+    const loadingToast = toast.loading(t('profitLoss.exporting' as TranslationKey) || 'Generating Excel…');
     try {
-      const ExcelJS = (await import('exceljs')).default;
+      await new Promise(r => setTimeout(r, 0));
+      const exceljsMod: any = await import('exceljs');
+      const ExcelJS = exceljsMod.default || exceljsMod;
       const { saveAs } = await import('file-saver');
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet(t('profitLoss.title' as TranslationKey));
@@ -289,48 +308,37 @@ export default function ProfitLossReportPage() {
 
       const buf = await wb.xlsx.writeBuffer();
       saveAs(new Blob([buf]), `profit-loss_${dateFrom}_${dateTo}.xlsx`);
-      toast.success(t('profitLoss.exportSuccess' as TranslationKey));
-    } catch { toast.error(t('profitLoss.exportError' as TranslationKey)); }
+      toast.success(t('profitLoss.exportSuccess' as TranslationKey), { id: loadingToast });
+    } catch (err) { console.error('Export failed:', err); toast.error((err instanceof Error ? err.message : '') || t('profitLoss.exportError' as TranslationKey), { id: loadingToast }); }
   };
 
   // ─── Export PDF ───
   const exportPDF = async () => {
     if (isLoading) { toast.error(t('profitLoss.noExportData' as TranslationKey)); return; }
     try {
-      const { default: jsPDF } = await import('jspdf');
-      const autoTable = (await import('jspdf-autotable')).default;
-      const doc = new jsPDF({ orientation: 'portrait' });
-      doc.setFontSize(16);
-      doc.text(t('profitLoss.title' as TranslationKey), 14, 20);
-      doc.setFontSize(10);
-      doc.text(`${dateFrom} → ${dateTo}`, 14, 28);
-
-      autoTable(doc, {
-        startY: 35,
-        head: [['', '', '']],
-        showHead: false,
-        body: [
-          [{ content: t('profitLoss.sales' as TranslationKey), styles: { fontStyle: 'bold' } }, `(${pnl.salesCount})`, pnl.salesTotal.toLocaleString()],
-          [{ content: t('profitLoss.purchases' as TranslationKey), styles: { fontStyle: 'bold' } }, `(${pnl.purchasesCount})`, pnl.purchasesTotal.toLocaleString()],
-          [{ content: t('profitLoss.salesReturn' as TranslationKey), styles: { fontStyle: 'bold' } }, `(${pnl.saleReturnsCount})`, pnl.saleReturnsTotal.toLocaleString()],
-          [{ content: t('profitLoss.purchasesReturn' as TranslationKey), styles: { fontStyle: 'bold' } }, `(${pnl.purchaseReturnsCount})`, pnl.purchaseReturnsTotal.toLocaleString()],
-          ['', '', ''],
-          [{ content: t('profitLoss.revenue' as TranslationKey), styles: { fontStyle: 'bold' } }, '', pnl.revenue.toLocaleString()],
-          [{ content: t('profitLoss.paymentsReceived' as TranslationKey), styles: { fontStyle: 'bold' } }, '', pnl.paymentsReceived.toLocaleString()],
-          [{ content: t('profitLoss.paymentsSent' as TranslationKey), styles: { fontStyle: 'bold' } }, '', pnl.paymentsSent.toLocaleString()],
-          [{ content: t('profitLoss.expenses' as TranslationKey), styles: { fontStyle: 'bold' } }, '', pnl.expensesTotal.toLocaleString()],
-          [{ content: t('profitLoss.paymentsNet' as TranslationKey), styles: { fontStyle: 'bold' } }, '', pnl.paymentsNet.toLocaleString()],
-          ['', '', ''],
-          [{ content: t('profitLoss.profitFifo' as TranslationKey), styles: { fontStyle: 'bold' } }, '', pnl.profitFifo.toLocaleString()],
-          [{ content: t('profitLoss.profitAvg' as TranslationKey), styles: { fontStyle: 'bold' } }, '', pnl.profitAvg.toLocaleString()],
+      const { printReport } = await import('@/lib/print-report');
+      printReport({
+        title: t('profitLoss.title' as TranslationKey),
+        subtitle: `${dateFrom} → ${dateTo}`,
+        columns: [t('profitLoss.label' as TranslationKey) || ' ', '#', t('profitLoss.amount' as TranslationKey) || ' '],
+        rows: [
+          [t('profitLoss.sales' as TranslationKey), `(${pnl.salesCount})`, pnl.salesTotal.toLocaleString()],
+          [t('profitLoss.purchases' as TranslationKey), `(${pnl.purchasesCount})`, pnl.purchasesTotal.toLocaleString()],
+          [t('profitLoss.salesReturn' as TranslationKey), `(${pnl.saleReturnsCount})`, pnl.saleReturnsTotal.toLocaleString()],
+          [t('profitLoss.purchasesReturn' as TranslationKey), `(${pnl.purchaseReturnsCount})`, pnl.purchaseReturnsTotal.toLocaleString()],
+          [t('profitLoss.revenue' as TranslationKey), '', pnl.revenue.toLocaleString()],
+          [t('profitLoss.paymentsReceived' as TranslationKey), '', pnl.paymentsReceived.toLocaleString()],
+          [t('profitLoss.paymentsSent' as TranslationKey), '', pnl.paymentsSent.toLocaleString()],
+          [t('profitLoss.expenses' as TranslationKey), '', pnl.expensesTotal.toLocaleString()],
+          [t('profitLoss.paymentsNet' as TranslationKey), '', pnl.paymentsNet.toLocaleString()],
+          [t('profitLoss.profitFifo' as TranslationKey), '', pnl.profitFifo.toLocaleString()],
+          [t('profitLoss.profitAvg' as TranslationKey), '', pnl.profitAvg.toLocaleString()],
         ],
-        styles: { fontSize: 9, cellPadding: 4 },
-        columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 25, halign: 'center' }, 2: { cellWidth: 50, halign: 'right' } },
+        orientation: 'portrait',
+        dir: isRTL ? 'rtl' : 'ltr',
       });
-
-      doc.save(`profit-loss_${dateFrom}_${dateTo}.pdf`);
       toast.success(t('profitLoss.exportSuccess' as TranslationKey));
-    } catch { toast.error(t('profitLoss.exportError' as TranslationKey)); }
+    } catch (err) { console.error('Export failed:', err); toast.error((err instanceof Error ? err.message : '') || t('profitLoss.exportError' as TranslationKey)); }
   };
 
   // ─── Skeleton for loading ───
@@ -371,16 +379,11 @@ export default function ProfitLossReportPage() {
   return (
     <div className="space-y-5">
       {/* ─── Header ─── */}
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-2xl bg-violet-600 flex items-center justify-center">
-          <ScaleIcon className="w-6 h-6 text-white" />
-        </div>
-        <div>
-          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">
-            {t('profitLoss.title' as TranslationKey)}
-          </h1>
-          <p className="text-sm text-gray-400 mt-1">{t('profitLoss.subtitle' as TranslationKey)}</p>
-        </div>
+      <div>
+        <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">
+          {t('profitLoss.title' as TranslationKey)}
+        </h1>
+        <p className="text-sm text-gray-400 mt-1">{t('profitLoss.subtitle' as TranslationKey)}</p>
       </div>
 
       {/* ─── Filter Bar ─── */}
@@ -426,17 +429,16 @@ export default function ProfitLossReportPage() {
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
         <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 lg:divide-x ${isRTL ? 'lg:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
           {[
-            { label: t('profitLoss.sales' as TranslationKey), count: pnl.salesCount, value: formatCurrency(pnl.salesTotal), color: 'emerald', icon: <ArrowTrendingUpIcon className="w-5 h-5" /> },
-            { label: t('profitLoss.purchases' as TranslationKey), count: pnl.purchasesCount, value: formatCurrency(pnl.purchasesTotal), color: 'blue', icon: <ShoppingCartIcon className="w-5 h-5" /> },
-            { label: t('profitLoss.salesReturn' as TranslationKey), count: pnl.saleReturnsCount, value: formatCurrency(pnl.saleReturnsTotal), color: 'amber', icon: <ReceiptRefundIcon className="w-5 h-5" /> },
-            { label: t('profitLoss.purchasesReturn' as TranslationKey), count: pnl.purchaseReturnsCount, value: formatCurrency(pnl.purchaseReturnsTotal), color: 'violet', icon: <CubeIcon className="w-5 h-5" /> },
+            { label: t('profitLoss.sales' as TranslationKey), count: pnl.salesCount, value: formatCurrency(pnl.salesTotal), color: 'emerald' },
+            { label: t('profitLoss.purchases' as TranslationKey), count: pnl.purchasesCount, value: formatCurrency(pnl.purchasesTotal), color: 'blue' },
+            { label: t('profitLoss.salesReturn' as TranslationKey), count: pnl.saleReturnsCount, value: formatCurrency(pnl.saleReturnsTotal), color: 'amber' },
+            { label: t('profitLoss.purchasesReturn' as TranslationKey), count: pnl.purchaseReturnsCount, value: formatCurrency(pnl.purchaseReturnsTotal), color: 'violet' },
           ].map((kpi, i) => {
             const c = colorMap[kpi.color];
             return (
               <div key={i} className={`group relative p-5 ${c.hover} ${c.hoverDark} transition-colors duration-200`}>
                 <div className={`absolute top-0 inset-x-0 h-[3px] ${c.bar} scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b`} />
                 <div className="text-center">
-                  <div className={`inline-flex items-center justify-center w-9 h-9 rounded-xl ${c.iconBg} ${c.iconText} mb-2.5`}>{kpi.icon}</div>
                   <div className={`text-xl font-black ${c.valueText} tabular-nums leading-none`}>
                     {isLoading ? <Skeleton /> : kpi.value}
                   </div>

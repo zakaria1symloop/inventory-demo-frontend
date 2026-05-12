@@ -10,12 +10,6 @@ import { useAuthStore } from '@/lib/store/auth';
 import { useLocale } from '@/lib/i18n/context';
 import toast from 'react-hot-toast';
 import {
-  CubeIcon,
-  UserGroupIcon,
-  TruckIcon,
-  ShoppingCartIcon,
-  ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon,
   ExclamationTriangleIcon,
   MapPinIcon,
   ShieldExclamationIcon,
@@ -49,26 +43,18 @@ interface StatCardProps {
   title: string;
   value: string | number;
   subValue?: string;
-  icon: React.ComponentType<{ className?: string }>;
   borderColor: string;
-  iconBg: string;
-  iconColor: string;
 }
 
-function StatCard({ title, value, subValue, icon: Icon, borderColor, iconBg, iconColor }: StatCardProps) {
+function StatCard({ title, value, subValue, borderColor }: StatCardProps) {
   return (
     <div className={`card !p-4 ${borderColor}`} style={{ borderInlineStartWidth: '4px' }}>
-      <div className="flex items-center justify-between">
-        <div className="min-w-0 flex-1">
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{title}</p>
-          <p className="text-xl font-bold text-gray-800 dark:text-gray-100 truncate">{value}</p>
-          {subValue && (
-            <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{subValue}</p>
-          )}
-        </div>
-        <div className={`w-10 h-10 ${iconBg} rounded-lg flex items-center justify-center flex-shrink-0 ms-3`}>
-          <Icon className={`w-5 h-5 ${iconColor}`} />
-        </div>
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">{title}</p>
+        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 tabular-nums truncate">{value}</p>
+        {subValue && (
+          <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">{subValue}</p>
+        )}
       </div>
     </div>
   );
@@ -112,8 +98,9 @@ function ListSkeleton() {
 }
 
 // --- Currency Formatter ---
-function formatDZD(value: number, locale: 'ar' | 'fr' = 'ar') {
-  return new Intl.NumberFormat(locale === 'fr' ? 'fr-DZ' : 'ar-DZ', {
+function formatDZD(value: number, locale: 'ar' | 'fr' | 'en' = 'ar') {
+  const intlLocale = locale === 'ar' ? 'ar-DZ' : locale === 'fr' ? 'fr-DZ' : 'en-US';
+  return new Intl.NumberFormat(intlLocale, {
     style: 'currency',
     currency: 'DZD',
     minimumFractionDigits: 0,
@@ -221,7 +208,7 @@ function PlanBanner({ plan }: { plan: PlanInfo }) {
               href="/dashboard/upgrade"
               className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
                 isNearLimit
-                  ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
                   : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:border-blue-300 hover:text-blue-600'
               }`}
             >
@@ -571,34 +558,22 @@ function DashboardPage() {
         <StatCard
           title={t('dashboard.products')}
           value={stats?.total_products || 0}
-          icon={CubeIcon}
           borderColor="border-blue-500"
-          iconBg="bg-blue-50 dark:bg-blue-900/30"
-          iconColor="text-blue-600 dark:text-blue-400"
         />
         <StatCard
           title={t('dashboard.clients')}
           value={stats?.total_clients || 0}
-          icon={UserGroupIcon}
           borderColor="border-green-500"
-          iconBg="bg-green-50 dark:bg-green-900/30"
-          iconColor="text-green-600 dark:text-green-400"
         />
         <StatCard
           title={t('dashboard.pendingOrders')}
           value={pending?.orders || 0}
-          icon={ShoppingCartIcon}
           borderColor="border-orange-500"
-          iconBg="bg-orange-50 dark:bg-orange-900/30"
-          iconColor="text-orange-600 dark:text-orange-400"
         />
         <StatCard
           title={t('dashboard.activeDeliveries')}
           value={pending?.deliveries || stats?.active_deliveries || 0}
-          icon={TruckIcon}
           borderColor="border-purple-500"
-          iconBg="bg-purple-50 dark:bg-purple-900/30"
-          iconColor="text-purple-600 dark:text-purple-400"
         />
       </div>
 
@@ -607,34 +582,22 @@ function DashboardPage() {
         <StatCard
           title={t('dashboard.todaySales')}
           value={formatDZD(today?.sales || 0, locale)}
-          icon={ArrowTrendingUpIcon}
           borderColor="border-emerald-500"
-          iconBg="bg-emerald-50 dark:bg-emerald-900/30"
-          iconColor="text-emerald-600 dark:text-emerald-400"
         />
         <StatCard
           title={t('dashboard.monthlySales')}
           value={formatDZD(parseFloat(monthly?.sales) || 0, locale)}
-          icon={ArrowTrendingUpIcon}
           borderColor="border-emerald-500"
-          iconBg="bg-emerald-50 dark:bg-emerald-900/30"
-          iconColor="text-emerald-600 dark:text-emerald-400"
         />
         <StatCard
           title={t('dashboard.todayPurchases')}
           value={formatDZD(today?.purchases || 0, locale)}
-          icon={ArrowTrendingDownIcon}
           borderColor="border-red-500"
-          iconBg="bg-red-50 dark:bg-red-900/30"
-          iconColor="text-red-600 dark:text-red-400"
         />
         <StatCard
           title={t('dashboard.monthlyPurchases')}
           value={formatDZD(parseFloat(monthly?.purchases) || 0, locale)}
-          icon={ArrowTrendingDownIcon}
           borderColor="border-red-500"
-          iconBg="bg-red-50 dark:bg-red-900/30"
-          iconColor="text-red-600 dark:text-red-400"
         />
       </div>
 
@@ -653,7 +616,7 @@ function DashboardPage() {
                   onClick={() => setChartPeriod(key)}
                   className={`px-3 py-1 text-xs rounded-md transition-colors ${
                     chartPeriod === key
-                      ? 'bg-white dark:bg-gray-600 text-gray-800 dark:text-gray-100 shadow-sm font-medium'
+                      ? 'bg-white dark:bg-gray-600 text-gray-800 dark:text-gray-100 font-medium'
                       : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >

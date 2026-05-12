@@ -526,7 +526,7 @@ export default function DebtorsPage() {
                                       <td className="px-2 py-2 whitespace-nowrap text-green-600 dark:text-green-400">{formatCurrency(sale.amount_paid)}</td>
                                       <td className="px-2 py-2 whitespace-nowrap text-red-600 dark:text-red-400 font-bold">{formatCurrency(sale.amount_remaining)}</td>
                                       <td className="px-2 py-2 whitespace-nowrap text-gray-500 dark:text-gray-400">
-                                        {sale.days_old !== null ? t('debtors.daysOld', { days: sale.days_old }) : '-'}
+                                        {sale.days_old !== null ? t('debtors.daysOld', { days: Math.floor(sale.days_old) }) : '-'}
                                       </td>
                                       <td className="px-2 py-2">
                                         <div className="flex gap-1 justify-center">
@@ -768,7 +768,7 @@ export default function DebtorsPage() {
                 <button
                   type="submit"
                   disabled={isSubmittingPayment}
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <CheckIcon className="w-5 h-5" />
                   {isSubmittingPayment ? t('debtors.saving') : t('debtors.confirmPayment')}

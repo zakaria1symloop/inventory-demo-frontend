@@ -7,13 +7,9 @@ import { useLocale, type TranslationKey } from '@/lib/i18n/context';
 import DateInput from '@/components/ui/DateInput';
 import toast from 'react-hot-toast';
 import {
-  ReceiptPercentIcon,
   ArrowDownTrayIcon,
   ArrowPathIcon,
   ClipboardDocumentListIcon,
-  CurrencyDollarIcon,
-  BanknotesIcon,
-  BuildingLibraryIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   FunnelIcon,
@@ -183,8 +179,12 @@ export default function TransactionsReportPage() {
   // ─── Export ───
   const exportExcel = async () => {
     if (!filtered.length) { toast.error(t('transactions.noExportData' as TranslationKey)); return; }
+    const loadingToast = toast.loading(t('transactions.exporting' as TranslationKey) || 'Generating Excel…');
     try {
-      const ExcelJS = (await import('exceljs')).default;
+      // Yield to the browser so the toast renders before heavy work starts.
+      await new Promise(r => setTimeout(r, 0));
+      const exceljsMod: any = await import('exceljs');
+      const ExcelJS = exceljsMod.default || exceljsMod;
       const { saveAs } = await import('file-saver');
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet(t('transactions.title' as TranslationKey));
@@ -197,44 +197,46 @@ export default function TransactionsReportPage() {
         { header: t('transactions.colDate' as TranslationKey), key: 'date', width: 14 },
         { header: t('transactions.colUser' as TranslationKey), key: 'user', width: 18 },
       ];
-      ws.getRow(1).eachCell((cell) => {
+      ws.getRow(1).eachCell((cell: any) => {
         cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF10B981' } };
         cell.alignment = { horizontal: 'center' };
       });
-      filtered.forEach(p => ws.addRow({
-        reference: p.reference || '-',
-        type: payableTypeLabel(p),
-        entity: entityName(p),
-        amount: parseFloat(String(p.amount)) || 0,
-        method: p.payment_method,
-        date: p.date,
-        user: p.user?.name || '-',
-      }));
+      // Add rows in chunks so the UI thread can breathe on large datasets.
+      const CHUNK = 500;
+      for (let i = 0; i < filtered.length; i += CHUNK) {
+        filtered.slice(i, i + CHUNK).forEach(p => ws.addRow({
+          reference: p.reference || '-',
+          type: payableTypeLabel(p),
+          entity: entityName(p),
+          amount: parseFloat(String(p.amount)) || 0,
+          method: p.payment_method,
+          date: p.date,
+          user: p.user?.name || '-',
+        }));
+        if (i + CHUNK < filtered.length) await new Promise(r => setTimeout(r, 0));
+      }
       const buf = await wb.xlsx.writeBuffer();
-      saveAs(new Blob([buf]), `transactions_${dateFrom}_${dateTo}.xlsx`);
-      toast.success(t('transactions.exportSuccess' as TranslationKey));
-    } catch { toast.error(t('transactions.exportError' as TranslationKey)); }
+      saveAs(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `transactions_${dateFrom}_${dateTo}.xlsx`);
+      toast.success(t('transactions.exportSuccess' as TranslationKey), { id: loadingToast });
+    } catch (err) {
+      console.error('Excel export failed:', err);
+      toast.error((err instanceof Error ? err.message : '') || t('transactions.exportError' as TranslationKey), { id: loadingToast });
+    }
   };
 
   const exportPDF = async () => {
     if (!filtered.length) { toast.error(t('transactions.noExportData' as TranslationKey)); return; }
     try {
-      const { default: jsPDF } = await import('jspdf');
-      const autoTable = (await import('jspdf-autotable')).default;
-      const doc = new jsPDF({ orientation: 'landscape' });
-      doc.setFontSize(16);
-      doc.text(t('transactions.title' as TranslationKey), 14, 20);
-      doc.setFontSize(10);
-      doc.text(`${dateFrom} → ${dateTo}`, 14, 28);
-      autoTable(doc, {
-        startY: 35,
-        head: [[t('transactions.colReference' as TranslationKey), t('transactions.colType' as TranslationKey), t('transactions.colEntity' as TranslationKey), t('transactions.colAmount' as TranslationKey), t('transactions.colMethod' as TranslationKey), t('transactions.colDate' as TranslationKey), t('transactions.colUser' as TranslationKey)]],
-        body: filtered.map(p => [p.reference || '-', payableTypeLabel(p), entityName(p), (parseFloat(String(p.amount)) || 0).toLocaleString(), p.payment_method, p.date, p.user?.name || '-']),
-        styles: { fontSize: 8, cellPadding: 3 },
-        headStyles: { fillColor: [16, 185, 129] },
+      const { printReport } = await import('@/lib/print-report');
+      printReport({
+        title: t('transactions.title' as TranslationKey),
+        subtitle: `${dateFrom} → ${dateTo}`,
+        columns: [t('transactions.colReference' as TranslationKey), t('transactions.colType' as TranslationKey), t('transactions.colEntity' as TranslationKey), t('transactions.colAmount' as TranslationKey), t('transactions.colMethod' as TranslationKey), t('transactions.colDate' as TranslationKey), t('transactions.colUser' as TranslationKey)],
+        rows: filtered.map(p => [p.reference || '-', payableTypeLabel(p), entityName(p), (parseFloat(String(p.amount)) || 0).toLocaleString(), p.payment_method, p.date, p.user?.name || '-']),
+        orientation: 'landscape',
+        dir: isRTL ? 'rtl' : 'ltr',
       });
-      doc.save(`transactions_${dateFrom}_${dateTo}.pdf`);
       toast.success(t('transactions.exportSuccess' as TranslationKey));
     } catch { toast.error(t('transactions.exportError' as TranslationKey)); }
   };
@@ -249,14 +251,9 @@ export default function TransactionsReportPage() {
   return (
     <div className="space-y-5">
       {/* ─── Header ─── */}
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-2xl bg-emerald-600 flex items-center justify-center">
-          <ReceiptPercentIcon className="w-6 h-6 text-white" />
-        </div>
-        <div>
-          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('transactions.title' as TranslationKey)}</h1>
-          <p className="text-sm text-gray-400 mt-1">{t('transactions.subtitle' as TranslationKey)}</p>
-        </div>
+      <div>
+        <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('transactions.title' as TranslationKey)}</h1>
+        <p className="text-sm text-gray-400 mt-1">{t('transactions.subtitle' as TranslationKey)}</p>
       </div>
 
       <div className="flex gap-5">
@@ -298,17 +295,16 @@ export default function TransactionsReportPage() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
             <div className={`grid grid-cols-2 md:grid-cols-4 md:divide-x ${isRTL ? 'md:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
               {[
-                { label: t('transactions.kpiTotalTransactions' as TranslationKey), value: kpis.count.toString(), color: 'indigo', icon: <ClipboardDocumentListIcon className="w-5 h-5" /> },
-                { label: t('transactions.kpiTotalAmount' as TranslationKey), value: formatCurrency(kpis.totalAmount), color: 'emerald', icon: <CurrencyDollarIcon className="w-5 h-5" /> },
-                { label: t('transactions.kpiCashPayments' as TranslationKey), value: formatCurrency(kpis.cashAmount), color: 'blue', icon: <BanknotesIcon className="w-5 h-5" /> },
-                { label: t('transactions.kpiBankCheck' as TranslationKey), value: formatCurrency(kpis.bankCheckAmount), color: 'violet', icon: <BuildingLibraryIcon className="w-5 h-5" /> },
+                { label: t('transactions.kpiTotalTransactions' as TranslationKey), value: kpis.count.toString(), color: 'indigo' },
+                { label: t('transactions.kpiTotalAmount' as TranslationKey), value: formatCurrency(kpis.totalAmount), color: 'emerald' },
+                { label: t('transactions.kpiCashPayments' as TranslationKey), value: formatCurrency(kpis.cashAmount), color: 'blue' },
+                { label: t('transactions.kpiBankCheck' as TranslationKey), value: formatCurrency(kpis.bankCheckAmount), color: 'violet' },
               ].map((kpi, i) => {
                 const c = colorMap[kpi.color];
                 return (
                   <div key={i} className={`group relative p-5 ${c.hover} ${c.hoverDark} transition-colors duration-200`}>
                     <div className={`absolute top-0 inset-x-0 h-[3px] ${c.bar} scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b`} />
                     <div className="text-center">
-                      <div className={`inline-flex items-center justify-center w-9 h-9 rounded-xl ${c.iconBg} ${c.iconText} mb-2.5`}>{kpi.icon}</div>
                       <div className={`text-xl font-black ${c.valueText} tabular-nums leading-none`}>
                         {isLoading ? <div className="w-16 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mx-auto" /> : kpi.value}
                       </div>

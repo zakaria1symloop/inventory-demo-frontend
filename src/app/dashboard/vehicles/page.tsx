@@ -185,18 +185,13 @@ export default function VehiclesPage() {
 
       {/* ─── Header ─── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div data-tour="vehicles-header" className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-teal-500/20">
-            <TruckIcon className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">
-              {t('vehicles.title')}
-            </h1>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1.5">
-              {t('vehicles.subtitle')}
-            </p>
-          </div>
+        <div data-tour="vehicles-header">
+          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">
+            {t('vehicles.title')}
+          </h1>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1.5">
+            {t('vehicles.subtitle')}
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {/* Tour button - text only */}
@@ -212,7 +207,7 @@ export default function VehiclesPage() {
           {/* Add vehicle button */}
           <button
             onClick={() => { setEditingVehicle(null); resetForm(); setShowModal(true); }}
-            className="group inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-teal-600 hover:bg-teal-700 shadow-md shadow-teal-600/20 hover:shadow-lg hover:shadow-teal-600/30 active:scale-[0.98] transition-all duration-200"
+            className="group inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-teal-600 hover:bg-teal-700 active:scale-[0.98] transition-all duration-200"
             data-tour="vehicles-add"
           >
             <PlusIcon className="w-5 h-5 group-hover:rotate-90 transition-transform duration-200" />
@@ -238,9 +233,6 @@ export default function VehiclesPage() {
           <div className="group relative p-5 hover:bg-teal-50/40 dark:hover:bg-teal-900/10 transition-colors duration-200">
             <div className="absolute top-0 inset-x-0 h-[3px] bg-teal-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 mb-2.5">
-                <TruckIcon className="w-4 h-4" />
-              </div>
               <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{totalCount}</div>
               <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('vehicles.totalVehicles')}</div>
             </div>
@@ -249,9 +241,6 @@ export default function VehiclesPage() {
           <div className="group relative p-5 hover:bg-green-50/40 dark:hover:bg-green-900/10 transition-colors duration-200">
             <div className="absolute top-0 inset-x-0 h-[3px] bg-green-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 mb-2.5">
-                <CheckCircleIcon className="w-4 h-4" />
-              </div>
               <div className="text-3xl font-black text-green-600 dark:text-green-400 tabular-nums leading-none">{activeCount}</div>
               <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('vehicles.activeVehicles')}</div>
             </div>
@@ -260,9 +249,6 @@ export default function VehiclesPage() {
           <div className="group relative p-5 hover:bg-red-50/40 dark:hover:bg-red-900/10 transition-colors duration-200">
             <div className="absolute top-0 inset-x-0 h-[3px] bg-red-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 mb-2.5">
-                <XCircleIcon className="w-4 h-4" />
-              </div>
               <div className="text-3xl font-black text-red-500 dark:text-red-400 tabular-nums leading-none">{inactiveCount}</div>
               <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('vehicles.inactiveVehicles')}</div>
             </div>
@@ -480,7 +466,7 @@ export default function VehiclesPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-teal-600/20 hover:shadow-lg hover:shadow-teal-600/30 active:scale-[0.98] transition-all duration-200"
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all duration-200"
                 >
                   {isSubmitting ? t('vehicles.saving') : t('vehicles.save')}
                 </button>

@@ -67,6 +67,7 @@ interface PurchaseItem {
   pieces_per_package: number; // Pieces per package
   total_pieces: number; // Total pieces = quantity * pieces_per_package + extra_pieces
   unit_price: number; // Price per 1 PIECE (not per package)
+  price_mode?: 'piece' | 'carton'; // How user wants to enter price (display only; unit_price always per piece)
   original_price: number; // Original price per piece
   selling_price?: number; // Selling price per piece - updates product price
   unit_name: string; // Unit name
@@ -137,13 +138,18 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [purchaseDataLoaded, setPurchaseDataLoaded] = useState(false);
+  // In edit mode, the supplier balance already includes this purchase's unpaid amount.
+  // Track the original due_amount so we can subtract it when computing "previous debt".
+  const [originalDueAmount, setOriginalDueAmount] = useState<number>(0);
 
   // Form state
   const [supplierId, setSupplierId] = useState<string>('');
   const [warehouseId, setWarehouseId] = useState<string>('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [discount, setDiscount] = useState<number>(0);
+  const [discountMode, setDiscountMode] = useState<'amount' | 'percent'>('amount');
   const [tax, setTax] = useState<number>(0);
+  const [taxMode, setTaxMode] = useState<'amount' | 'percent'>('amount');
   const [shipping, setShipping] = useState<number>(0);
   const [timbre, setTimbre] = useState<number>(0);
   const [note, setNote] = useState('');
@@ -430,6 +436,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
       setTimbre(purchase.timbre_percentage || 0);
       setNote(purchase.note || '');
       setPaidAmount(purchase.paid_amount || 0);
+      setOriginalDueAmount(Number(purchase.due_amount) || 0);
 
       // Set read-only fields
       if (purchase.supplier_id) {
@@ -692,16 +699,16 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
     }
   };
 
-  const updateItem = (index: number, field: 'quantity' | 'extra_pieces' | 'unit_price' | 'discount', value: number) => {
+  const updateItem = (index: number, field: 'quantity' | 'extra_pieces' | 'unit_price' | 'discount' | 'price_mode', value: number | 'piece' | 'carton') => {
     const updated = [...items];
     const piecesPerPkg = updated[index].pieces_per_package || 1;
 
     // Clamp extra_pieces to 0..ppp-1
-    if (field === 'extra_pieces') {
+    if (field === 'extra_pieces' && typeof value === 'number') {
       value = Math.max(0, Math.min(value, piecesPerPkg - 1));
     }
 
-    updated[index] = { ...updated[index], [field]: value };
+    updated[index] = { ...updated[index], [field]: value } as typeof updated[number];
 
     // Recalculate: price × total_pieces - discount + tax
     const quantity = updated[index].quantity || 0;
@@ -746,13 +753,24 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
   };
 
   const totalAmount = items.reduce((sum, item) => sum + (Number(item.subtotal) || 0), 0);
-  const afterDiscount = totalAmount - (Number(discount) || 0);
+  const discountAmount = discountMode === 'percent'
+    ? (totalAmount * (Number(discount) || 0)) / 100
+    : (Number(discount) || 0);
+  const afterDiscount = totalAmount - discountAmount;
+  const taxAmount = taxMode === 'percent'
+    ? (afterDiscount * (Number(tax) || 0)) / 100
+    : (Number(tax) || 0);
   const timbreAmount = afterDiscount * ((Number(timbre) || 0) / 100);
-  const grandTotal = Math.max(0, afterDiscount + (Number(tax) || 0) + (Number(shipping) || 0) + timbreAmount);
+  const grandTotal = Math.max(0, afterDiscount + taxAmount + (Number(shipping) || 0) + timbreAmount);
 
   // Calculate how payment is applied
-  // previousDebt = what we already owe the supplier BEFORE this purchase
-  const previousDebt = Number(supplierDebt?.balance) || 0;
+  // previousDebt = what we already owe the supplier BEFORE this purchase.
+  // In edit mode, the supplier balance already includes this purchase's
+  // due_amount — subtract it to avoid double-counting.
+  const rawSupplierBalance = Number(supplierDebt?.balance) || 0;
+  const previousDebt = isEditMode
+    ? Math.max(0, rawSupplierBalance - originalDueAmount)
+    : rawSupplierBalance;
   const currentPaidAmount = Number(paidAmount) || 0;
 
   // If paid more than current purchase, extra goes to previous debt
@@ -788,12 +806,13 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
           supplier_id: supplierId ? parseInt(supplierId) : null,
           warehouse_id: parseInt(warehouseId),
           date,
-          discount,
-          tax,
+          discount: discountAmount,
+          tax: taxAmount,
           shipping,
           timbre: timbreAmount,
           timbre_percentage: timbre,
           note,
+          paid_amount: paidAmount,
           items: items.map((item) => ({
             product_id: item.product_id,
             quantity: item.total_pieces,
@@ -846,8 +865,8 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
         supplier_id: supplierId ? parseInt(supplierId) : null,
         warehouse_id: parseInt(warehouseId),
         date,
-        discount,
-        tax,
+        discount: discountAmount,
+        tax: taxAmount,
         shipping,
         timbre: timbreAmount,
         timbre_percentage: timbre,
@@ -891,8 +910,8 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
         supplier_id: supplierId ? parseInt(supplierId) : null,
         warehouse_id: parseInt(warehouseId),
         date,
-        discount,
-        tax,
+        discount: discountAmount,
+        tax: taxAmount,
         shipping,
         timbre: timbreAmount,
         timbre_percentage: timbre,
@@ -936,10 +955,17 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
     return new Intl.NumberFormat(locale === 'ar' ? 'ar-DZ' : 'fr-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(safeValue);
   };
 
-  const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (p.barcode && p.barcode.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // When a supplier is selected, filter to that supplier's products plus
+  // products with no supplier set (so unassigned legacy inventory still shows).
+  const supplierIdNum = supplierId ? parseInt(supplierId) : null;
+  const filteredProducts = products.filter((p) => {
+    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.barcode && p.barcode.toLowerCase().includes(searchTerm.toLowerCase()));
+    if (!matchesSearch) return false;
+    if (!supplierIdNum) return true;
+    const ps = (p as any).supplier_id;
+    return ps == null || Number(ps) === supplierIdNum;
+  });
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
@@ -1074,7 +1100,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                 <button
                   type="button"
                   onClick={confirmQuickEntry}
-                  className="flex-1 px-4 py-2.5 text-sm font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-600/20 active:scale-[0.98] transition-all duration-200"
+                  className="flex-1 px-4 py-2.5 text-sm font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-all duration-200"
                 >
                   {t('purchases.pfAddBtn')} <kbd className={`bg-white/20 px-1.5 py-0.5 rounded-md text-[10px] font-mono ${dir === 'rtl' ? 'mr-1' : 'ml-1'}`}>Enter</kbd>
                 </button>
@@ -1600,7 +1626,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                                   value={item.quantity}
                                   onChange={(e) => updateItem(index, 'quantity', Math.max(0, parseInt(e.target.value) || 0))}
                                   onKeyDown={(e) => handleKeyDown(e, index, 'quantity')}
-                                  className="input w-12 text-center text-sm py-0.5 border-blue-300"
+                                  className="input w-16 text-center text-sm py-1 border-blue-300 font-semibold"
                                   min="0"
                                 />
                                 <button
@@ -1623,7 +1649,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                                     value={item.extra_pieces}
                                     onChange={(e) => updateItem(index, 'extra_pieces', parseInt(e.target.value) || 0)}
                                     onKeyDown={(e) => handleKeyDown(e, index, 'extra_pieces')}
-                                    className="input w-12 text-center text-sm py-0.5 border-orange-300"
+                                    className="input w-16 text-center text-sm py-1 border-orange-300 font-semibold"
                                     min="0"
                                     max={item.pieces_per_package - 1}
                                   />
@@ -1654,16 +1680,35 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                                   nextRef?.select();
                                 }
                               }}
-                              className="input w-16 text-center text-sm py-0.5 font-medium"
+                              className="input w-20 text-center text-sm py-1 font-semibold"
                               min="0"
                             />
                           </td>
                           <td className="px-2 py-2">
+                            {item.pieces_per_package > 1 && (
+                              <div className="flex items-center justify-center gap-0.5 mb-1">
+                                <button
+                                  type="button"
+                                  onClick={() => updateItem(index, 'price_mode', 'piece')}
+                                  className={`text-[9px] px-1.5 py-0.5 rounded ${(item.price_mode ?? 'piece') === 'piece' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}
+                                >قطعة</button>
+                                <button
+                                  type="button"
+                                  onClick={() => updateItem(index, 'price_mode', 'carton')}
+                                  className={`text-[9px] px-1.5 py-0.5 rounded ${item.price_mode === 'carton' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}
+                                >كرتون</button>
+                              </div>
+                            )}
                             <input
                               ref={(el) => { inputRefs.current[`${index}-unit_price`] = el; }}
                               type="number"
-                              value={item.unit_price}
-                              onChange={(e) => updateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
+                              value={item.price_mode === 'carton' ? +(item.unit_price * item.pieces_per_package).toFixed(2) : item.unit_price}
+                              onChange={(e) => {
+                                const v = parseFloat(e.target.value) || 0;
+                                const ppp = Math.max(1, item.pieces_per_package || 1);
+                                const perPiece = item.price_mode === 'carton' ? v / ppp : v;
+                                updateItem(index, 'unit_price', perPiece);
+                              }}
                               onKeyDown={(e) => handleKeyDown(e, index, 'unit_price')}
                               className="input w-full text-center"
                               min="0"
@@ -1671,7 +1716,9 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                             />
                             {item.pieces_per_package > 1 && (
                               <div className="text-[10px] text-blue-500 dark:text-blue-400 text-center mt-0.5">
-                                {formatCurrency(item.unit_price * item.pieces_per_package)}/{t('purchases.pfPerCarton')}
+                                {item.price_mode === 'carton'
+                                  ? `${formatCurrency(item.unit_price)}/${t('purchases.pfPerPiece') || 'قطعة'}`
+                                  : `${formatCurrency(item.unit_price * item.pieces_per_package)}/${t('purchases.pfPerCarton')}`}
                               </div>
                             )}
                           </td>
@@ -1749,7 +1796,13 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div>
-                    <label className="block text-[11px] font-semibold text-gray-400 mb-1">{t('purchases.pfDiscountLabel')}</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[11px] font-semibold text-gray-400">{t('purchases.pfDiscountLabel')}</label>
+                      <div className="flex gap-0.5">
+                        <button type="button" onClick={() => setDiscountMode('amount')} className={`text-[9px] px-1.5 py-0.5 rounded ${discountMode === 'amount' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-600'}`}>د.ج</button>
+                        <button type="button" onClick={() => setDiscountMode('percent')} className={`text-[9px] px-1.5 py-0.5 rounded ${discountMode === 'percent' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-600'}`}>%</button>
+                      </div>
+                    </div>
                     <input
                       type="number"
                       value={discount}
@@ -1758,9 +1811,18 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                       min="0"
                       step="0.01"
                     />
+                    {discountMode === 'percent' && discount > 0 && (
+                      <div className="text-[10px] text-gray-400 mt-0.5 text-center">= {formatCurrency(discountAmount)}</div>
+                    )}
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-gray-400 mb-1">{t('purchases.pfTaxLabel')}</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[11px] font-semibold text-gray-400">{t('purchases.pfTaxLabel')}</label>
+                      <div className="flex gap-0.5">
+                        <button type="button" onClick={() => setTaxMode('amount')} className={`text-[9px] px-1.5 py-0.5 rounded ${taxMode === 'amount' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-600'}`}>د.ج</button>
+                        <button type="button" onClick={() => setTaxMode('percent')} className={`text-[9px] px-1.5 py-0.5 rounded ${taxMode === 'percent' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-600'}`}>%</button>
+                      </div>
+                    </div>
                     <input
                       type="number"
                       value={tax}
@@ -1769,6 +1831,9 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                       min="0"
                       step="0.01"
                     />
+                    {taxMode === 'percent' && tax > 0 && (
+                      <div className="text-[10px] text-gray-400 mt-0.5 text-center">= {formatCurrency(taxAmount)}</div>
+                    )}
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-400 mb-1">{t('purchases.pfShippingLabel')}</label>
@@ -1904,7 +1969,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                     ref={submitBtnRef}
                     type="submit"
                     disabled={isSaving || items.length === 0}
-                    className="w-full px-5 py-3 text-sm font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                    className="w-full px-5 py-3 text-sm font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSaving ? t('purchases.saving') : t('purchases.saveInvoice')}
                     {!isSaving && <kbd className={`bg-white/20 px-1.5 py-0.5 rounded-md text-[10px] font-mono ${dir === 'rtl' ? 'mr-2' : 'ml-2'}`}>F4</kbd>}

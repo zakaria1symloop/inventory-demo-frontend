@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
+import { cookies, headers } from 'next/headers';
 import { Toaster } from 'react-hot-toast';
 import Providers from '@/components/Providers';
 import WhatsAppButton from '@/components/WhatsAppButton';
 import { SITE_URL } from '@/lib/site';
+import type { Locale } from '@/lib/i18n/locales';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -13,17 +15,30 @@ export const metadata: Metadata = {
   },
   description: 'برنامج متكامل لإدارة المنتجات، نقاط البيع (الكاشير) والتوزيع في الجزائر. كاتالوج المنتجات، المخزون والمستودعات، الكاشير POS، الطلبات والتوصيل، البيع المتنقل (Cashvan)، تتبع السائقين، الفوترة والتقارير — كل شيء في منصة واحدة.',
   keywords: [
-    // Product management
+    // Product & stock management — what Algerians actually type
     'برنامج إدارة المنتجات',
     'برنامج مخزون الجزائر',
+    'برنامج مخزون',
+    'برنامج محل',
+    'تطبيق إدارة محل',
+    'برنامج تجارة',
     'gestion de produits algerie',
     'gestion de stock algerie',
+    'programme gestion stock',
+    'programme stock magasin',
+    'logiciel commerce algerie',
     // POS / Caisse
     'برنامج كاشير الجزائر',
+    'برنامج كاشير',
+    'برنامج نقطة البيع',
     'نقطة بيع POS الجزائر',
     'logiciel caisse algerie',
     'logiciel point de vente algerie',
     'logiciel POS algerie',
+    // Facturation
+    'برنامج فاتورة',
+    'برنامج فوترة الجزائر',
+    'logiciel facturation algerie',
     // Distribution
     'برنامج إدارة التوزيع',
     'برنامج توزيع الجزائر',
@@ -33,14 +48,13 @@ export const metadata: Metadata = {
     'البيع المتنقل',
     'cashvan algerie',
     'تتبع السائقين',
-    // General
-    'برنامج إدارة المبيعات',
-    'برنامج فوترة الجزائر',
-    'gestion commerciale algerie',
-    'logiciel ERP algerie',
-    'ERP PME algerie',
-    'application gestion commerce algerie',
+    // Wholesale / retail
     'برنامج الجملة والتجزئة',
+    'برنامج بيع وشراء',
+    'برنامج محاسبة الجزائر',
+    'logiciel grossiste algerie',
+    'gestion commerciale algerie',
+    'application gestion commerce algerie',
   ],
   alternates: {
     canonical: '/',
@@ -85,13 +99,26 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Middleware sets x-locale on the request (and a follow-up cookie).
+  // On a first hit the cookie isn't readable yet, so prefer the header.
+  const hdrs = await headers();
+  const cookieStore = await cookies();
+  const headerLocale = hdrs.get('x-locale');
+  const cookieLocale = cookieStore.get('locale')?.value;
+  const candidate = headerLocale || cookieLocale;
+  const initialLocale: Locale =
+    candidate === 'ar' || candidate === 'fr' || candidate === 'en'
+      ? candidate
+      : 'en';
+  const htmlDir = initialLocale === 'ar' ? 'rtl' : 'ltr';
+
   return (
-    <html lang="ar" dir="rtl">
+    <html lang={initialLocale} dir={htmlDir}>
       <head>
         <link
           href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap"
@@ -134,7 +161,7 @@ export default function RootLayout({
                   },
                   telephone: '+213549575512',
                   email: 'contact@tracksera.com',
-                  priceRange: '0 DZD - 12900 DZD',
+                  priceRange: '$0 - $99',
                   openingHoursSpecification: {
                     '@type': 'OpeningHoursSpecification',
                     dayOfWeek: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'],
@@ -180,7 +207,7 @@ export default function RootLayout({
                   name: 'TrackSera',
                   alternateName: 'تراكسيرا',
                   description:
-                    'Plateforme SaaS algérienne pour la gestion de produits, caisse POS et distribution.',
+                    'Logiciel algérien en ligne pour la gestion commerciale, le stock, la facturation, la caisse POS et la distribution.',
                   publisher: { '@id': `${SITE_URL}/#organization` },
                   inLanguage: ['ar-DZ', 'fr-DZ'],
                   potentialAction: {
@@ -209,32 +236,32 @@ export default function RootLayout({
                       '@type': 'Offer',
                       name: 'Free',
                       price: '0',
-                      priceCurrency: 'DZD',
-                      description: 'Plan gratuit — 25 produits',
+                      priceCurrency: 'USD',
+                      description: 'Free plan — 25 products, 14-day trial of paid features',
                       availability: 'https://schema.org/InStock',
                     },
                     {
                       '@type': 'Offer',
                       name: 'Starter',
-                      price: '2900',
-                      priceCurrency: 'DZD',
-                      description: 'Plan starter — 100 produits',
+                      price: '19',
+                      priceCurrency: 'USD',
+                      description: 'Starter plan — 100 products',
                       availability: 'https://schema.org/InStock',
                     },
                     {
                       '@type': 'Offer',
                       name: 'Pro',
-                      price: '6900',
-                      priceCurrency: 'DZD',
-                      description: 'Plan pro — 500 produits',
+                      price: '49',
+                      priceCurrency: 'USD',
+                      description: 'Pro plan — 500 products, multi-warehouse, POS, GPS',
                       availability: 'https://schema.org/InStock',
                     },
                     {
                       '@type': 'Offer',
                       name: 'Business',
-                      price: '12900',
-                      priceCurrency: 'DZD',
-                      description: 'Plan business — 2000 produits',
+                      price: '99',
+                      priceCurrency: 'USD',
+                      description: 'Business plan — 2000 products, CashVan, full mobile apps',
                       availability: 'https://schema.org/InStock',
                     },
                   ],
@@ -246,7 +273,7 @@ export default function RootLayout({
                     worstRating: '1',
                   },
                   description:
-                    'Plateforme SaaS tout-en-un pour l\'Algérie : catalogue produits, caisse (POS), stock multi-dépôts, commandes, livraisons, CashVan, suivi GPS, facturation conforme.',
+                    'Logiciel tout-en-un pour l\'Algérie : gestion commerciale, catalogue produits, caisse (POS), stock multi-dépôts, commandes, livraisons, CashVan, suivi GPS, facturation conforme.',
                   featureList: [
                     'Catalogue produits et gestion de stock multi-dépôts',
                     'Caisse (POS) et ventes en magasin',
@@ -258,83 +285,13 @@ export default function RootLayout({
                     'Tableau de bord temps réel et rapports',
                   ],
                 },
-                {
-                  '@type': 'FAQPage',
-                  '@id': `${SITE_URL}/#faq`,
-                  mainEntity: [
-                    {
-                      '@type': 'Question',
-                      name: 'Qu\'est-ce que TrackSera ? — ما هو تراكسيرا؟',
-                      acceptedAnswer: {
-                        '@type': 'Answer',
-                        text: 'TrackSera est une plateforme SaaS algérienne tout-en-un pour gérer vos produits, caisse (POS), stock multi-dépôts, commandes, livraisons, vente mobile CashVan, suivi GPS des livreurs, et facturation conforme à la législation algérienne (TVA, timbre fiscal, mentions obligatoires). تراكسيرا هو منصة سحابية جزائرية متكاملة لإدارة المنتجات، الكاشير، المخزون متعدد المستودعات، الطلبات، التوصيل، البيع المتنقل وتتبع السائقين بالـ GPS.',
-                      },
-                    },
-                    {
-                      '@type': 'Question',
-                      name: 'Quel est le prix de TrackSera ? — كم سعر تراكسيرا؟',
-                      acceptedAnswer: {
-                        '@type': 'Answer',
-                        text: 'TrackSera commence gratuitement (25 produits). Plans payants : Starter 2 900 DZD/mois (100 produits), Pro 6 900 DZD/mois (500 produits), Business 12 900 DZD/mois (2 000 produits). Essai gratuit 14 jours. Paiement en dinars via CCP, BaridiMob, ou virement bancaire.',
-                      },
-                    },
-                    {
-                      '@type': 'Question',
-                      name: 'TrackSera fonctionne-t-il hors ligne ? — هل يعمل بدون انترنت؟',
-                      acceptedAnswer: {
-                        '@type': 'Answer',
-                        text: 'Oui. Les applications mobiles TrackSera (Vendeur, Livreur, CashVan) fonctionnent entièrement hors ligne avec synchronisation automatique dès que la connexion revient. Idéal pour les zones avec couverture faible en Algérie.',
-                      },
-                    },
-                    {
-                      '@type': 'Question',
-                      name: 'La facturation est-elle conforme à la législation algérienne ? — هل الفوترة متوافقة مع القانون الجزائري؟',
-                      acceptedAnswer: {
-                        '@type': 'Answer',
-                        text: 'Oui. TrackSera génère des factures conformes : TVA, timbre fiscal (en pourcentage), RC, NIF, NIS, AI, RIB, mentions obligatoires, numérotation séquentielle, et impression A4 ou ticket caisse 80mm.',
-                      },
-                    },
-                    {
-                      '@type': 'Question',
-                      name: 'Qu\'est-ce que CashVan ? — ما هو الكاشفان؟',
-                      acceptedAnswer: {
-                        '@type': 'Answer',
-                        text: 'CashVan est le système de vente mobile où le vendeur charge un véhicule avec des produits et vend directement aux clients sur la route. TrackSera fournit une application CashVan complète : chargement du stock, vente, facturation instantanée, impression Bluetooth, gestion des retours, et rapport de fin de tournée — fonctionne hors ligne.',
-                      },
-                    },
-                    {
-                      '@type': 'Question',
-                      name: 'Quels secteurs utilisent TrackSera ? — أي قطاعات تستخدم تراكسيرا؟',
-                      acceptedAnswer: {
-                        '@type': 'Answer',
-                        text: 'Distributeurs en gros, magasins de détail, supérettes, alimentation et boissons, matériaux de construction, produits de nettoyage, pharmacies, parapharmacies, cosmétiques, fournitures de bureau, tabac, et délégués médicaux et commerciaux dans les 58 wilayas d\'Algérie.',
-                      },
-                    },
-                    {
-                      '@type': 'Question',
-                      name: 'TrackSera supporte-t-il l\'arabe et le français ? — هل يدعم العربية والفرنسية؟',
-                      acceptedAnswer: {
-                        '@type': 'Answer',
-                        text: 'Oui, interface complète en arabe (RTL) et français. Toutes les applications, factures et rapports sont disponibles dans les deux langues. Support technique également bilingue.',
-                      },
-                    },
-                    {
-                      '@type': 'Question',
-                      name: 'Comment commencer avec TrackSera ? — كيف أبدأ؟',
-                      acceptedAnswer: {
-                        '@type': 'Answer',
-                        text: 'Inscrivez-vous gratuitement en 5 minutes et bénéficiez de 14 jours d\'essai complet sans carte bancaire. Ajoutez vos produits et clients, puis utilisez tous les modules : caisse, commandes, livraisons, CashVan, stock, facturation et rapports.',
-                      },
-                    },
-                  ],
-                },
               ],
             }),
           }}
         />
       </head>
       <body className="font-sans antialiased">
-        <Providers>
+        <Providers initialLocale={initialLocale}>
           {children}
           <WhatsAppButton />
           <Toaster

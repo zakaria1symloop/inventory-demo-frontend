@@ -156,18 +156,13 @@ export default function ProductReportPage() {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
-            <CubeIcon className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-gray-100 tracking-tight leading-none">
-              {locale === 'ar' ? 'تقرير المنتجات' : 'Rapport Produits'}
-            </h1>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-              {locale === 'ar' ? 'تحليل المبيعات والأرباح حسب المنتج' : 'Analyse des ventes et marges par produit'}
-            </p>
-          </div>
+        <div>
+          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-gray-100 tracking-tight leading-none">
+            {locale === 'ar' ? 'تقرير المنتجات' : 'Rapport Produits'}
+          </h1>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+            {locale === 'ar' ? 'تحليل المبيعات والأرباح حسب المنتج' : 'Analyse des ventes et marges par produit'}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => refetch()} className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors">

@@ -3,41 +3,40 @@ import { SITE_URL } from '@/lib/site';
 import TarifsClient from './TarifsClient';
 
 export const metadata: Metadata = {
-  title: 'Tarifs TrackSera — Prix gestion produits, caisse & distribution en Algérie',
+  title: 'Tarifs TrackSera — Logiciel de gestion, caisse & distribution',
   description:
-    'Tarifs simples et transparents pour TrackSera : gestion de produits, caisse (POS), stock, livraison, Cashvan et facturation. Essai gratuit 14 jours sans carte bancaire. À partir de 2 900 DA/mois.',
+    'Tarifs simples et transparents pour TrackSera : gestion de produits, caisse (POS), stock, livraison, Cashvan et facturation. Essai gratuit 14 jours sans carte bancaire. À partir de $19/mois.',
   keywords: [
-    'prix logiciel gestion algerie',
-    'tarif logiciel caisse algerie',
-    'prix logiciel distribution algerie',
-    'tarif POS algerie',
-    'prix logiciel facturation algerie',
-    'tarif cashvan',
-    'prix erp algerie',
-    'أسعار برنامج كاشير الجزائر',
-    'أسعار برنامج توزيع الجزائر',
-    'أسعار برنامج فوترة الجزائر',
+    'tracksera pricing',
+    'tarif logiciel gestion',
+    'tarif POS',
+    'distribution management software pricing',
+    'business management software pricing',
+    'logiciel cashvan tarif',
+    'أسعار برنامج كاشير',
+    'أسعار برنامج توزيع',
   ],
   alternates: {
     canonical: '/tarifs',
     languages: {
       'ar-DZ': '/tarifs',
       'fr-DZ': '/tarifs',
+      'en': '/tarifs',
       'x-default': '/tarifs',
     },
   },
   openGraph: {
     type: 'website',
     url: `${SITE_URL}/tarifs`,
-    title: 'Tarifs TrackSera — Gestion produits, caisse & distribution en Algérie',
+    title: 'Tarifs TrackSera — Logiciel de gestion, caisse & distribution',
     description:
-      'Essai gratuit 14 jours. Tarifs à partir de 2 900 DA/mois. Gestion de produits, caisse (POS), stock, livraison et Cashvan dans une seule plateforme.',
+      'Essai gratuit 14 jours. Tarifs à partir de $19/mois. Gestion de produits, caisse (POS), stock, livraison et Cashvan dans une seule plateforme.',
     siteName: 'TrackSera',
     locale: 'fr_DZ',
-    alternateLocale: ['ar_DZ'],
+    alternateLocale: ['ar_DZ', 'en'],
     images: [
       {
-        url: '/api/og?title=Tarifs+TrackSera&subtitle=Essai+gratuit+14+jours+%E2%80%93+%C3%A0+partir+de+2+900+DA%2Fmois&category=Tarifs&theme=blue',
+        url: '/api/og?title=Tarifs+TrackSera&subtitle=Essai+gratuit+14+jours+%E2%80%93+%C3%A0+partir+de+%2419%2Fmois&category=Tarifs&theme=blue',
         width: 1200,
         height: 630,
         alt: 'Tarifs TrackSera',
@@ -47,7 +46,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Tarifs TrackSera',
-    description: 'Gestion produits, caisse & distribution en Algérie — à partir de 2 900 DA/mois.',
+    description: 'Gestion produits, caisse & distribution — à partir de $19/mois.',
     images: [
       '/api/og?title=Tarifs+TrackSera&subtitle=Essai+gratuit+14+jours&category=Tarifs&theme=blue',
     ],
@@ -58,10 +57,10 @@ export default function TarifsPage() {
   const canonical = `${SITE_URL}/tarifs`;
 
   const offers = [
-    { name: 'Gratuit', price: '0', description: 'Essai 14 jours complet, sans carte bancaire.' },
-    { name: 'Starter', price: '2900', description: 'Petites entreprises — 1 utilisateur, 100 produits.' },
-    { name: 'Pro', price: '6900', description: 'Entreprises moyennes — 5 utilisateurs, 500 produits, GPS, POS.' },
-    { name: 'Business', price: '12900', description: 'Grandes entreprises — 10 utilisateurs, Cashvan, apps mobiles.' },
+    { name: 'Free', price: '0', description: '14-day free trial, no credit card required.' },
+    { name: 'Starter', price: '19', description: 'Small businesses — 1 user, 100 products.' },
+    { name: 'Pro', price: '49', description: 'Medium businesses — 5 users, 500 products, GPS, POS.' },
+    { name: 'Business', price: '99', description: 'Large businesses — 10 users, Cashvan, mobile apps.' },
   ];
 
   const faqs = [
@@ -71,11 +70,11 @@ export default function TarifsPage() {
     },
     {
       q: 'Comment puis-je payer ?',
-      a: 'Virement bancaire, CCP et CIB Edahabia. Les factures sont émises mensuellement. Remise disponible pour paiement annuel.',
+      a: "Paiement par carte bancaire via notre partenaire Paddle. La facturation est mensuelle ou annuelle, et vous pouvez changer de moyen de paiement à tout moment.",
     },
     {
       q: 'Les prix incluent-ils les taxes ?',
-      a: 'Les prix affichés sont hors taxes (HT). La TVA 19% et le droit de timbre sont ajoutés selon la législation algérienne.',
+      a: "Les prix affichés sont en USD. Les taxes locales (TVA / Sales Tax) peuvent être ajoutées au paiement selon votre pays, calculées et collectées par Paddle en tant que Merchant of Record.",
     },
     {
       q: 'Puis-je changer de formule plus tard ?',
@@ -95,7 +94,7 @@ export default function TarifsPage() {
     },
     {
       q: 'Y a-t-il un support en arabe ?',
-      a: 'Oui, notre équipe répond en arabe et en français par email, téléphone et WhatsApp.',
+      a: 'Oui, notre équipe répond en arabe, français et anglais par email, téléphone et WhatsApp.',
     },
   ];
 
@@ -107,20 +106,20 @@ export default function TarifsPage() {
         '@id': `${canonical}#product`,
         name: 'TrackSera',
         description:
-          'Plateforme SaaS algérienne pour la gestion des produits, la caisse (POS), le stock, la distribution, la vente mobile Cashvan et la facturation.',
+          'Cloud business management software for retailers, wholesalers, and distributors. Inventory, POS, orders, delivery, mobile sales (CashVan), and invoicing.',
         brand: { '@type': 'Brand', name: 'TrackSera' },
         offers: offers.map((o) => ({
           '@type': 'Offer',
           name: o.name,
           description: o.description,
           price: o.price,
-          priceCurrency: 'DZD',
+          priceCurrency: 'USD',
           url: canonical,
           availability: 'https://schema.org/InStock',
           priceSpecification: {
             '@type': 'UnitPriceSpecification',
             price: o.price,
-            priceCurrency: 'DZD',
+            priceCurrency: 'USD',
             unitText: 'MONTH',
           },
         })),

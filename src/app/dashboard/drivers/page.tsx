@@ -17,7 +17,6 @@ import {
   ShoppingCartIcon,
   DevicePhoneMobileIcon,
   QuestionMarkCircleIcon,
-  UserIcon,
   EnvelopeIcon,
   PhoneIcon,
   CalendarDaysIcon,
@@ -325,14 +324,9 @@ export default function DriversPage() {
 
       {/* ─── Header ─── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-3">
-        <div data-tour="drivers-title" className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-600 to-cyan-600 flex items-center justify-center shadow-lg shadow-slate-500/20">
-            <UsersIcon className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('drivers.pageTitle')}</h1>
-            <p className="text-sm text-gray-400 mt-1.5">{t('drivers.pageSubtitle')}</p>
-          </div>
+        <div data-tour="drivers-title">
+          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('drivers.pageTitle')}</h1>
+          <p className="text-sm text-gray-400 mt-1.5">{t('drivers.pageSubtitle')}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button
@@ -345,7 +339,7 @@ export default function DriversPage() {
           </button>
           <button
             onClick={() => openModal()}
-            className="group inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-cyan-600 hover:bg-cyan-700 shadow-md shadow-cyan-600/20 hover:shadow-lg hover:shadow-cyan-600/30 active:scale-[0.98] transition-all duration-200"
+            className="group inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-cyan-600 hover:bg-cyan-700 active:scale-[0.98] transition-all duration-200"
             data-tour="drivers-add"
           >
             <PlusIcon className="w-5 h-5 group-hover:rotate-90 transition-transform duration-200" />
@@ -363,9 +357,6 @@ export default function DriversPage() {
           <div className="group relative p-5 hover:bg-slate-50/40 dark:hover:bg-slate-900/10 transition-colors duration-200">
             <div className="absolute top-0 inset-x-0 h-[3px] bg-slate-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-900/30 text-slate-600 dark:text-slate-400 mb-2.5">
-                <span className="text-sm font-black">#</span>
-              </div>
               <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{pagination?.total || drivers.length}</div>
               <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('drivers.kpiTotal')}</div>
             </div>
@@ -375,9 +366,6 @@ export default function DriversPage() {
           <div className="group relative p-5 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors duration-200 cursor-pointer" onClick={() => { setRoleFilter(roleFilter === 'livreur' ? 'all' : 'livreur'); setPage(1); }}>
             <div className="absolute top-0 inset-x-0 h-[3px] bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mb-2.5">
-                <TruckIcon className="w-4 h-4" />
-              </div>
               <div className="text-3xl font-black text-blue-600 dark:text-blue-400 tabular-nums leading-none">{livreurCount}</div>
               <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('drivers.kpiLivreurs')}</div>
             </div>
@@ -387,9 +375,6 @@ export default function DriversPage() {
           <div className="group relative p-5 hover:bg-purple-50/40 dark:hover:bg-purple-900/10 transition-colors duration-200 cursor-pointer" onClick={() => { setRoleFilter(roleFilter === 'seller' ? 'all' : 'seller'); setPage(1); }}>
             <div className="absolute top-0 inset-x-0 h-[3px] bg-purple-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 mb-2.5">
-                <ShoppingCartIcon className="w-4 h-4" />
-              </div>
               <div className="text-3xl font-black text-purple-600 dark:text-purple-400 tabular-nums leading-none">{sellerCount}</div>
               <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('drivers.kpiSellers')}</div>
             </div>
@@ -399,9 +384,6 @@ export default function DriversPage() {
           <div className="group relative p-5 hover:bg-orange-50/40 dark:hover:bg-orange-900/10 transition-colors duration-200 cursor-pointer" onClick={() => { setRoleFilter(roleFilter === 'cashvan' ? 'all' : 'cashvan'); setPage(1); }}>
             <div className="absolute top-0 inset-x-0 h-[3px] bg-orange-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 mb-2.5">
-                <DevicePhoneMobileIcon className="w-4 h-4" />
-              </div>
               <div className="text-3xl font-black text-orange-600 dark:text-orange-400 tabular-nums leading-none">{cashvanCount}</div>
               <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('drivers.kpiCashvan')}</div>
             </div>
@@ -411,9 +393,6 @@ export default function DriversPage() {
           <div className="group relative p-5 hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10 transition-colors duration-200">
             <div className="absolute top-0 inset-x-0 h-[3px] bg-emerald-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 mb-2.5">
-                <CheckCircleIcon className="w-4 h-4" />
-              </div>
               <div className="text-2xl font-black tabular-nums leading-none">
                 <span className="text-emerald-600 dark:text-emerald-400">{activeCount}</span>
                 <span className="text-gray-300 dark:text-gray-600 mx-1">/</span>
@@ -447,7 +426,7 @@ export default function DriversPage() {
             onClick={() => { setRoleFilter('all'); setPage(1); }}
             className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all duration-200 ${
               roleFilter === 'all'
-                ? 'bg-slate-700 text-white shadow-sm'
+                ? 'bg-slate-700 text-white'
                 : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
             }`}
           >
@@ -457,7 +436,7 @@ export default function DriversPage() {
             onClick={() => { setRoleFilter(roleFilter === 'livreur' ? 'all' : 'livreur'); setPage(1); }}
             className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-full transition-all duration-200 ${
               roleFilter === 'livreur'
-                ? 'bg-blue-500 text-white shadow-sm'
+                ? 'bg-blue-500 text-white'
                 : 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30'
             }`}
           >
@@ -468,7 +447,7 @@ export default function DriversPage() {
             onClick={() => { setRoleFilter(roleFilter === 'seller' ? 'all' : 'seller'); setPage(1); }}
             className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-full transition-all duration-200 ${
               roleFilter === 'seller'
-                ? 'bg-purple-500 text-white shadow-sm'
+                ? 'bg-purple-500 text-white'
                 : 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/30'
             }`}
           >
@@ -479,7 +458,7 @@ export default function DriversPage() {
             onClick={() => { setRoleFilter(roleFilter === 'cashvan' ? 'all' : 'cashvan'); setPage(1); }}
             className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-full transition-all duration-200 ${
               roleFilter === 'cashvan'
-                ? 'bg-orange-500 text-white shadow-sm'
+                ? 'bg-orange-500 text-white'
                 : 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/30'
             }`}
           >
@@ -671,7 +650,7 @@ export default function DriversPage() {
                     onClick={() => setPage(pg)}
                     className={`w-9 h-9 text-sm font-bold rounded-lg transition-all ${
                       pg === page
-                        ? 'bg-cyan-600 text-white shadow-sm'
+                        ? 'bg-cyan-600 text-white'
                         : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
                   >

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usersApi, warehousesApi } from '@/lib/api';
-import { PlusIcon, PencilIcon, TrashIcon, KeyIcon, UsersIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PencilIcon, TrashIcon, KeyIcon } from '@heroicons/react/24/outline';
 import DataTable from '@/components/ui/DataTable';
 import Modal from '@/components/ui/Modal';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
@@ -331,19 +331,14 @@ export default function UsersPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center">
-            <UsersIcon className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('users.pageTitle')}</h1>
-            <p className="text-sm text-gray-400 mt-1">{t('users.pageSubtitle')}</p>
-          </div>
+        <div>
+          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('users.pageTitle')}</h1>
+          <p className="text-sm text-gray-400 mt-1">{t('users.pageSubtitle')}</p>
         </div>
         <button onClick={handleOpenCreate} className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition-colors">
           <PlusIcon className="w-4 h-4" />
           {t('users.addUser')}
-          <kbd className="bg-white/20 px-1.5 py-0.5 rounded text-[10px] font-medium">Insert</kbd>
+          <kbd className="hidden md:inline bg-white/20 px-1.5 py-0.5 rounded text-[10px] font-medium">Insert</kbd>
         </button>
       </div>
 

@@ -151,6 +151,9 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saleDataLoaded, setSaleDataLoaded] = useState(false);
+  // In edit mode, the client balance already includes this sale's unpaid amount.
+  // Track the original due_amount so we can subtract it when computing "previous debt".
+  const [originalDueAmount, setOriginalDueAmount] = useState<number>(0);
 
   // Form state
   const [clientId, setClientId] = useState<string>('');
@@ -338,6 +341,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
       setTimbre(sale.timbre_percentage || 0);
       setNote(sale.note || '');
       setPaidAmount(sale.paid_amount || 0);
+      setOriginalDueAmount(Number(sale.due_amount) || 0);
 
       // Set read-only fields
       if (sale.client_id) {
@@ -404,6 +408,13 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
     if (!product.stock || !warehouseId) return 0;
     const warehouseStock = product.stock.find(s => s.warehouse_id === parseInt(warehouseId));
     return Number(warehouseStock?.quantity) || 0;
+  };
+
+  // Total stock across all warehouses (used to surface items that are
+  // out of stock in the selected warehouse but available elsewhere).
+  const getProductTotalStock = (product: Product): number => {
+    if (!product.stock) return 0;
+    return product.stock.reduce((sum, s) => sum + (Number(s.quantity) || 0), 0);
   };
 
   // Keyboard navigation handler
@@ -752,8 +763,13 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
   const grandTotal = Math.max(0, afterDiscount + taxAmount + timbreAmount + (Number(shipping) || 0));
 
   // Calculate how payment is applied
-  // previousDebt = what the client already owes us BEFORE this sale
-  const previousDebt = Number(clientDebt?.balance) || 0;
+  // previousDebt = what the client already owes us BEFORE this sale.
+  // In edit mode, the client balance already includes this sale's
+  // due_amount — subtract it to avoid double-counting.
+  const rawClientBalance = Number(clientDebt?.balance) || 0;
+  const previousDebt = isEditMode
+    ? Math.max(0, rawClientBalance - originalDueAmount)
+    : rawClientBalance;
   const currentPaidAmount = Number(paidAmount) || 0;
 
   // If paid more than current sale, extra goes to previous debt
@@ -929,13 +945,12 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
     return `${cartons} ${t('saleForm.carton')} + ${pieces} ${t('saleForm.pieceSuffix')}`;
   };
 
-  // Only show products with available stock > 0
+  // Show all products that match the search — out-of-stock items in the selected
+  // warehouse may still be in stock elsewhere; the user should see them so they
+  // can switch warehouse or transfer stock.
   const filteredProducts = products.filter((p) => {
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    return p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (p.barcode && p.barcode.toLowerCase().includes(searchTerm.toLowerCase()));
-    if (!matchesSearch) return false;
-    const stock = getProductStock(p);
-    return stock > 0;
   });
 
   if (isLoading) {
@@ -1044,7 +1059,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                     type="button"
                     onClick={confirmQuickEntry}
                     disabled={isBelowCost}
-                    className={`flex-1 px-4 py-2.5 text-sm font-bold rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20 active:scale-[0.98] transition-all ${isBelowCost ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`flex-1 px-4 py-2.5 text-sm font-bold rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] transition-all ${isBelowCost ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     {t('saleForm.addEnter')}
                   </button>
@@ -1208,10 +1223,10 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                             className={`flex-1 text-[11px] font-semibold py-1 rounded-lg transition-all ${
                               clientStatusFilter === tab.key
                                 ? tab.key === 'inactive'
-                                  ? 'bg-red-500 text-white shadow-sm'
+                                  ? 'bg-red-500 text-white'
                                   : tab.key === 'active'
-                                    ? 'bg-emerald-500 text-white shadow-sm'
-                                    : 'bg-white text-gray-700 shadow-sm'
+                                    ? 'bg-emerald-500 text-white'
+                                    : 'bg-white text-gray-700'
                                 : 'text-gray-400 hover:text-gray-600 hover:bg-white/60'
                             }`}
                           >
@@ -1498,9 +1513,12 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                         ) : (
                           filteredProducts.slice(0, 10).map((product, index) => {
                             const stock = getProductStock(product);
+                            const totalStock = getProductTotalStock(product);
+                            const otherStock = Math.max(0, totalStock - stock);
                             const ppp = product.pieces_per_package || 1;
                             const price = getDefaultPrice(product);
                             const isHighlighted = productHighlightIndex === index;
+                            const stockColor = stock > 0 ? 'text-green-600' : (otherStock > 0 ? 'text-amber-600' : 'text-red-500');
                             return (
                               <button
                                 key={product.id}
@@ -1511,8 +1529,11 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                               >
                                 <div className="flex justify-between items-center">
                                   <span className="font-medium">{product.name}</span>
-                                  <span className="text-sm font-bold text-green-600">
+                                  <span className={`text-sm font-bold ${stockColor}`}>
                                     {formatStockQty(stock, ppp)}
+                                    {otherStock > 0 && (
+                                      <span className="text-xs text-gray-400 ms-1">(+{formatStockQty(otherStock, ppp)})</span>
+                                    )}
                                   </span>
                                 </div>
                                 <div className="text-sm text-gray-500 dark:text-gray-400 flex justify-between">
@@ -1923,7 +1944,7 @@ export default function SaleForm({ saleId = null, onSuccess, onCancel }: SaleFor
                     ref={submitBtnRef}
                     type="submit"
                     disabled={isSaving || items.length === 0}
-                    className="w-full px-4 py-2.5 text-sm font-bold rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-2.5 text-sm font-bold rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSaving ? t('saleForm.saving') : (
                       <span className="flex items-center justify-center gap-2">

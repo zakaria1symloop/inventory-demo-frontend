@@ -257,14 +257,14 @@ export default function GuidedTour({ steps, onComplete, saveOnComplete = false, 
                 {currentStep + 1}
               </span>
               <span className="text-xs text-slate-400">
-                {locale === 'fr' ? `sur ${total}` : `من ${total}`}
+                {locale === 'ar' ? `من ${total}` : locale === 'en' ? `of ${total}` : `sur ${total}`}
               </span>
             </div>
             <button
               onClick={(e) => { e.stopPropagation(); handleComplete(); }}
               className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
             >
-              {locale === 'fr' ? 'Passer la visite' : 'تخطي الجولة'}
+              {locale === 'ar' ? 'تخطي الجولة' : locale === 'en' ? 'Skip tour' : 'Passer la visite'}
             </button>
           </div>
 
@@ -286,21 +286,23 @@ export default function GuidedTour({ steps, onComplete, saveOnComplete = false, 
                 onClick={(e) => { e.stopPropagation(); handleBack(); }}
                 className="px-3 py-1.5 text-sm font-medium text-slate-400 hover:text-white border border-slate-600 rounded-lg hover:bg-slate-800 transition-colors"
               >
-                {locale === 'fr' ? 'Précédent' : 'السابق'}
+                {locale === 'ar' ? 'السابق' : locale === 'en' ? 'Previous' : 'Précédent'}
               </button>
             ) : (
               <div />
             )}
             {step.requireClick ? (
               <span className="px-4 py-1.5 text-sm font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg animate-pulse">
-                {locale === 'fr' ? 'Cliquez sur l\'élément' : 'اضغط على العنصر'}
+                {locale === 'ar' ? 'اضغط على العنصر' : locale === 'en' ? 'Click the element' : 'Cliquez sur l\'élément'}
               </span>
             ) : (
               <button
                 onClick={(e) => { e.stopPropagation(); handleNext(); }}
                 className="px-4 py-1.5 text-sm font-bold text-slate-900 bg-teal-400 hover:bg-teal-300 rounded-lg transition-colors"
               >
-                {currentStep < total - 1 ? (locale === 'fr' ? 'Suivant' : 'التالي') : (locale === 'fr' ? 'Terminé' : 'تم')}
+                {currentStep < total - 1
+                  ? (locale === 'ar' ? 'التالي' : locale === 'en' ? 'Next' : 'Suivant')
+                  : (locale === 'ar' ? 'تم' : locale === 'en' ? 'Done' : 'Terminé')}
               </button>
             )}
           </div>

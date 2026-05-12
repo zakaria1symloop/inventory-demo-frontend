@@ -9,17 +9,14 @@ import DateInput from '@/components/ui/DateInput';
 import toast from 'react-hot-toast';
 import { useLocale } from '@/lib/i18n/context';
 import {
-  TruckIcon,
   MagnifyingGlassIcon,
   FunnelIcon,
   XMarkIcon,
   ArrowPathIcon,
   CubeIcon,
-  ClipboardDocumentListIcon,
   ExclamationTriangleIcon,
   ChevronDownIcon,
   QuestionMarkCircleIcon,
-  DevicePhoneMobileIcon,
   CheckCircleIcon,
   ClockIcon,
   XCircleIcon,
@@ -479,7 +476,6 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
     setDateTo('');
   };
 
-  const HeaderIcon = requestType === 'cashvan' ? DevicePhoneMobileIcon : requestType === 'livreur' ? TruckIcon : ClipboardDocumentListIcon;
   const storageKey = requestType ? `${requestType}_pr_tour_step` : 'pr_tour_step';
 
   if (isLoading) {
@@ -490,14 +486,9 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" data-tour="pr-title">
-        <div className="flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${theme.from} ${theme.to} flex items-center justify-center shadow-lg ${theme.shadow}`}>
-            <HeaderIcon className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-gray-100 tracking-tight leading-none">{resolvedTitle}</h1>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{resolvedSubtitle}</p>
-          </div>
+        <div>
+          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-gray-100 tracking-tight leading-none">{resolvedTitle}</h1>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{resolvedSubtitle}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -526,60 +517,25 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
 
       {/* KPI Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3" data-tour="pr-kpis">
-        <button onClick={() => setStatusFilter('')} className={`bg-white dark:bg-gray-800 rounded-2xl border p-4 shadow-sm text-start transition-all ${statusFilter === '' ? 'border-indigo-300 dark:border-indigo-600 ring-1 ring-indigo-200 dark:ring-indigo-700' : 'border-gray-200/80 dark:border-gray-700'}`}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
-              <ClipboardDocumentListIcon className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-            </div>
-            <div>
-              <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">{t('productRequests.all')}</p>
-              <p className="text-lg font-black text-indigo-600 dark:text-indigo-400 tabular-nums">{requests.length}</p>
-            </div>
-          </div>
+        <button onClick={() => setStatusFilter('')} className={`bg-white dark:bg-gray-800 rounded-2xl border p-4 text-start transition-all ${statusFilter === '' ? 'border-indigo-300 dark:border-indigo-600 ring-1 ring-indigo-200 dark:ring-indigo-700' : 'border-gray-200/80 dark:border-gray-700'}`}>
+          <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">{t('productRequests.all')}</p>
+          <p className="text-lg font-black text-indigo-600 dark:text-indigo-400 tabular-nums">{requests.length}</p>
         </button>
-        <button onClick={() => setStatusFilter('pending')} className={`bg-white dark:bg-gray-800 rounded-2xl border p-4 shadow-sm text-start transition-all ${statusFilter === 'pending' ? 'border-amber-300 dark:border-amber-600 ring-1 ring-amber-200 dark:ring-amber-700' : 'border-gray-200/80 dark:border-gray-700'}`}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center">
-              <ClockIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-            </div>
-            <div>
-              <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">{t('productRequests.statusPending')}</p>
-              <p className="text-lg font-black text-amber-600 dark:text-amber-400 tabular-nums">{pendingCount}</p>
-            </div>
-          </div>
+        <button onClick={() => setStatusFilter('pending')} className={`bg-white dark:bg-gray-800 rounded-2xl border p-4 text-start transition-all ${statusFilter === 'pending' ? 'border-amber-300 dark:border-amber-600 ring-1 ring-amber-200 dark:ring-amber-700' : 'border-gray-200/80 dark:border-gray-700'}`}>
+          <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">{t('productRequests.statusPending')}</p>
+          <p className="text-lg font-black text-amber-600 dark:text-amber-400 tabular-nums">{pendingCount}</p>
         </button>
-        <button onClick={() => setStatusFilter('approved')} className={`bg-white dark:bg-gray-800 rounded-2xl border p-4 shadow-sm text-start transition-all ${statusFilter === 'approved' ? 'border-blue-300 dark:border-blue-600 ring-1 ring-blue-200 dark:ring-blue-700' : 'border-gray-200/80 dark:border-gray-700'}`}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
-              <CheckCircleIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
-              <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">{t('productRequests.statusApproved')}</p>
-              <p className="text-lg font-black text-blue-600 dark:text-blue-400 tabular-nums">{approvedCount}</p>
-            </div>
-          </div>
+        <button onClick={() => setStatusFilter('approved')} className={`bg-white dark:bg-gray-800 rounded-2xl border p-4 text-start transition-all ${statusFilter === 'approved' ? 'border-blue-300 dark:border-blue-600 ring-1 ring-blue-200 dark:ring-blue-700' : 'border-gray-200/80 dark:border-gray-700'}`}>
+          <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">{t('productRequests.statusApproved')}</p>
+          <p className="text-lg font-black text-blue-600 dark:text-blue-400 tabular-nums">{approvedCount}</p>
         </button>
-        <button onClick={() => setStatusFilter('fulfilled')} className={`bg-white dark:bg-gray-800 rounded-2xl border p-4 shadow-sm text-start transition-all ${statusFilter === 'fulfilled' ? 'border-emerald-300 dark:border-emerald-600 ring-1 ring-emerald-200 dark:ring-emerald-700' : 'border-gray-200/80 dark:border-gray-700'}`}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center">
-              <CheckBadgeIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-            </div>
-            <div>
-              <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">{t('productRequests.statusFulfilled')}</p>
-              <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 tabular-nums">{fulfilledCount}</p>
-            </div>
-          </div>
+        <button onClick={() => setStatusFilter('fulfilled')} className={`bg-white dark:bg-gray-800 rounded-2xl border p-4 text-start transition-all ${statusFilter === 'fulfilled' ? 'border-emerald-300 dark:border-emerald-600 ring-1 ring-emerald-200 dark:ring-emerald-700' : 'border-gray-200/80 dark:border-gray-700'}`}>
+          <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">{t('productRequests.statusFulfilled')}</p>
+          <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 tabular-nums">{fulfilledCount}</p>
         </button>
-        <button onClick={() => setStatusFilter('rejected')} className={`bg-white dark:bg-gray-800 rounded-2xl border p-4 shadow-sm text-start transition-all ${statusFilter === 'rejected' ? 'border-red-300 dark:border-red-600 ring-1 ring-red-200 dark:ring-red-700' : 'border-gray-200/80 dark:border-gray-700'}`}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-900/30 flex items-center justify-center">
-              <XCircleIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
-            </div>
-            <div>
-              <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">{t('productRequests.statusRejected')}</p>
-              <p className="text-lg font-black text-red-600 dark:text-red-400 tabular-nums">{rejectedCount}</p>
-            </div>
-          </div>
+        <button onClick={() => setStatusFilter('rejected')} className={`bg-white dark:bg-gray-800 rounded-2xl border p-4 text-start transition-all ${statusFilter === 'rejected' ? 'border-red-300 dark:border-red-600 ring-1 ring-red-200 dark:ring-red-700' : 'border-gray-200/80 dark:border-gray-700'}`}>
+          <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">{t('productRequests.statusRejected')}</p>
+          <p className="text-lg font-black text-red-600 dark:text-red-400 tabular-nums">{rejectedCount}</p>
         </button>
       </div>
 
@@ -679,7 +635,7 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
               onClick={() => setStatusFilter(opt.value)}
               className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
                 statusFilter === opt.value
-                  ? `${theme.chip} text-white shadow-sm`
+                  ? `${theme.chip} text-white`
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >

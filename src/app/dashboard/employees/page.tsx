@@ -171,14 +171,9 @@ export default function EmployeesPage() {
     <div className="space-y-5">
       {/* ─── Header ─── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-teal-600 flex items-center justify-center">
-            <UsersIcon className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('employeesPage.pageTitle')}</h1>
-            <p className="text-sm text-gray-400 mt-1">{t('employeesPage.addEmployee')}</p>
-          </div>
+        <div>
+          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('employeesPage.pageTitle')}</h1>
+          <p className="text-sm text-gray-400 mt-1">{t('employeesPage.addEmployee')}</p>
         </div>
         <button
           onClick={() => {
@@ -299,9 +294,12 @@ export default function EmployeesPage() {
                     <input
                       type="tel"
                       value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/[^\d+\s-]/g, '') })}
                       className="input"
                       dir="ltr"
+                      inputMode="tel"
+                      pattern="[\d+\s-]*"
+                      maxLength={20}
                     />
                   </div>
                   <div>

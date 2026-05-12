@@ -668,8 +668,8 @@ export default function ClientsPage() {
 
   return (
     <div className="space-y-5">
-      {/* Shortcuts Bar */}
-      <div className={`bg-gradient-to-l from-slate-800 to-slate-900 dark:from-slate-700 dark:to-slate-800 text-slate-300 px-4 py-2 rounded-xl flex items-center gap-6 text-sm shadow-sm ${isRTL ? '' : 'flex-row-reverse'}`} data-tour="clients-shortcuts">
+      {/* Shortcuts Bar — hidden on mobile (no physical keyboard) */}
+      <div className={`hidden md:flex bg-gradient-to-l from-slate-800 to-slate-900 dark:from-slate-700 dark:to-slate-800 text-slate-300 px-4 py-2 rounded-xl items-center gap-6 text-sm shadow-sm ${isRTL ? '' : 'flex-row-reverse'}`} data-tour="clients-shortcuts">
         <span className="font-bold text-white text-xs tracking-wide">{t('clients.shortcuts')}</span>
         <div className="w-px h-4 bg-slate-700" />
         <span><kbd className="bg-blue-600/30 text-blue-300 px-2 py-0.5 rounded-md text-[10px] font-mono">Insert</kbd> {t('clients.addNewClient')}</span>
@@ -678,17 +678,19 @@ export default function ClientsPage() {
           <span className="text-slate-400">{t('clients.guidedTour')}</span>
         </button>
       </div>
+      {/* Mobile-only tour trigger (replaces the hidden shortcut bar) */}
+      <div className="md:hidden flex justify-end">
+        <button onClick={() => setShowTour(true)} className="flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 transition-colors">
+          <QuestionMarkCircleIcon className="w-5 h-5" />
+          <span>{t('clients.guidedTour')}</span>
+        </button>
+      </div>
 
       {/* Header */}
       <div className="flex items-center justify-between" data-tour="clients-header">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-            <UserGroupIcon className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{t('clients.title')}</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{t('clients.subtitle')}</p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{t('clients.title')}</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{t('clients.subtitle')}</p>
         </div>
         <div className="flex gap-2 items-center flex-wrap">
           {/* View toggle */}
@@ -696,7 +698,7 @@ export default function ClientsPage() {
             <button
               onClick={() => setViewMode('table')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-sm font-medium transition-all ${
-                viewMode === 'table' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                viewMode === 'table' ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }`}
             >
               <TableCellsIcon className="w-4 h-4" />
@@ -705,7 +707,7 @@ export default function ClientsPage() {
             <button
               onClick={() => setViewMode('map')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-sm font-medium transition-all ${
-                viewMode === 'map' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                viewMode === 'map' ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }`}
             >
               <MapIcon className="w-4 h-4" />
@@ -714,7 +716,7 @@ export default function ClientsPage() {
           </div>
           <Link
             href="/dashboard/sales/debtors"
-            className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-xl bg-amber-500 text-white hover:bg-amber-600 transition-colors shadow-sm"
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-xl bg-amber-500 text-white hover:bg-amber-600 transition-colors"
           >
             <BanknotesIcon className="w-4 h-4" />
             {t('clients.outstandingDebts')}
@@ -723,22 +725,22 @@ export default function ClientsPage() {
             <>
               <button
                 onClick={() => setShowTransferModal(true)}
-                className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-xl bg-amber-600 text-white hover:bg-amber-700 transition-colors shadow-sm"
+                className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-xl bg-amber-600 text-white hover:bg-amber-700 transition-colors"
               >
                 {t('clients.transferClients', { count: selectedClientIds.size })}
               </button>
               <button
                 onClick={() => setShowCopyModal(true)}
-                className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-sm"
+                className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
               >
                 {t('clients.copyClients', { count: selectedClientIds.size })}
               </button>
             </>
           )}
-          <button onClick={handleOpenCreate} className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm shadow-blue-500/20">
+          <button onClick={handleOpenCreate} className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors">
             <PlusIcon className="w-4 h-4" />
             {t('clients.addClient')}
-            <kbd className={`bg-blue-700/50 px-1.5 py-0.5 rounded text-[10px] font-mono ${isRTL ? 'mr-1' : 'ml-1'}`}>Insert</kbd>
+            <kbd className={`hidden md:inline bg-blue-700/50 px-1.5 py-0.5 rounded text-[10px] font-mono ${isRTL ? 'mr-1' : 'ml-1'}`}>Insert</kbd>
           </button>
         </div>
       </div>
@@ -791,8 +793,8 @@ export default function ClientsPage() {
           onClick={() => { setStatusFilter('all'); setBalanceFilter('all'); }}
           className={`p-3 rounded-xl border-2 transition-all ${isRTL ? 'text-right' : 'text-left'} ${
             statusFilter === 'all' && balanceFilter === 'all'
-              ? 'border-blue-500 bg-blue-50/80 dark:bg-blue-900/30 shadow-sm shadow-blue-500/10'
-              : 'border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 hover:shadow-sm'
+              ? 'border-blue-500 bg-blue-50/80 dark:bg-blue-900/30'
+              : 'border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300'
           }`}
         >
           <div className="flex items-center justify-between">
@@ -808,8 +810,8 @@ export default function ClientsPage() {
           onClick={() => { setStatusFilter('active'); setBalanceFilter('all'); }}
           className={`p-3 rounded-xl border-2 transition-all ${isRTL ? 'text-right' : 'text-left'} ${
             statusFilter === 'active' && balanceFilter === 'all'
-              ? 'border-emerald-500 bg-emerald-50/80 dark:bg-emerald-900/30 shadow-sm shadow-emerald-500/10'
-              : 'border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 hover:shadow-sm'
+              ? 'border-emerald-500 bg-emerald-50/80 dark:bg-emerald-900/30'
+              : 'border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300'
           }`}
         >
           <div className="flex items-center justify-between">
@@ -825,8 +827,8 @@ export default function ClientsPage() {
           onClick={() => { setStatusFilter('inactive'); setBalanceFilter('all'); }}
           className={`p-3 rounded-xl border-2 transition-all ${isRTL ? 'text-right' : 'text-left'} ${
             statusFilter === 'inactive'
-              ? 'border-gray-500 bg-gray-50/80 dark:bg-gray-700/50 shadow-sm'
-              : 'border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 hover:shadow-sm'
+              ? 'border-gray-500 bg-gray-50/80 dark:bg-gray-700/50'
+              : 'border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300'
           }`}
         >
           <div className="flex items-center justify-between">
@@ -842,8 +844,8 @@ export default function ClientsPage() {
           onClick={() => { setStatusFilter('all'); setBalanceFilter('has_debt'); }}
           className={`p-3 rounded-xl border-2 transition-all ${isRTL ? 'text-right' : 'text-left'} ${
             balanceFilter === 'has_debt'
-              ? 'border-red-500 bg-red-50/80 dark:bg-red-900/30 shadow-sm shadow-red-500/10'
-              : 'border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 hover:shadow-sm'
+              ? 'border-red-500 bg-red-50/80 dark:bg-red-900/30'
+              : 'border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300'
           }`}
         >
           <div className="flex items-center justify-between">
@@ -859,8 +861,8 @@ export default function ClientsPage() {
           onClick={() => { setStatusFilter('all'); setBalanceFilter('no_debt'); }}
           className={`p-3 rounded-xl border-2 transition-all ${isRTL ? 'text-right' : 'text-left'} ${
             balanceFilter === 'no_debt'
-              ? 'border-teal-500 bg-teal-50/80 dark:bg-teal-900/30 shadow-sm shadow-teal-500/10'
-              : 'border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 hover:shadow-sm'
+              ? 'border-teal-500 bg-teal-50/80 dark:bg-teal-900/30'
+              : 'border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300'
           }`}
         >
           <div className="flex items-center justify-between">
@@ -1316,10 +1318,13 @@ export default function ClientsPage() {
                           <input
                             type="tel"
                             value={formData.phone}
-                            onChange={(e) => handleFieldChange('phone', e.target.value)}
+                            onChange={(e) => handleFieldChange('phone', e.target.value.replace(/[^\d+\s-]/g, ''))}
                             className={`input w-full pr-9 ${formErrors.phone ? 'border-red-400 ring-1 ring-red-200' : ''}`}
                             placeholder="0xxx xxx xxx"
                             dir="ltr"
+                            inputMode="tel"
+                            pattern="[\d+\s-]*"
+                            maxLength={20}
                           />
                         </div>
                         {formErrors.phone && (
@@ -1482,30 +1487,30 @@ export default function ClientsPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1.5">{t('clients.rcLabel')}</label>
-                        <input type="text" value={formData.rc} onChange={(e) => handleFieldChange('rc', e.target.value)} className={`input w-full ${formErrors.rc ? 'border-red-400 ring-1 ring-red-200' : ''}`} dir="ltr" placeholder="00/00-0000000B00" />
+                        <input type="text" value={formData.rc} onChange={(e) => handleFieldChange('rc', e.target.value.replace(/[^\dA-Za-z/-]/g, ''))} className={`input w-full ${formErrors.rc ? 'border-red-400 ring-1 ring-red-200' : ''}`} dir="ltr" placeholder="00/00-0000000B00" maxLength={30} />
                         {formErrors.rc && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><ExclamationTriangleIcon className="w-3 h-3 flex-shrink-0" />{formErrors.rc[0]}</p>}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1.5">{t('clients.nifLabel')}</label>
-                        <input type="text" value={formData.nif} onChange={(e) => handleFieldChange('nif', e.target.value)} className={`input w-full ${formErrors.nif ? 'border-red-400 ring-1 ring-red-200' : ''}`} dir="ltr" placeholder="000000000000000" />
+                        <input type="text" value={formData.nif} onChange={(e) => handleFieldChange('nif', e.target.value.replace(/[^\d]/g, ''))} className={`input w-full ${formErrors.nif ? 'border-red-400 ring-1 ring-red-200' : ''}`} dir="ltr" placeholder="000000000000000" inputMode="numeric" pattern="\d*" maxLength={20} />
                         {formErrors.nif && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><ExclamationTriangleIcon className="w-3 h-3 flex-shrink-0" />{formErrors.nif[0]}</p>}
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1.5">{t('clients.aiLabel')}</label>
-                        <input type="text" value={formData.ai} onChange={(e) => handleFieldChange('ai', e.target.value)} className={`input w-full ${formErrors.ai ? 'border-red-400 ring-1 ring-red-200' : ''}`} dir="ltr" placeholder="00000000000" />
+                        <input type="text" value={formData.ai} onChange={(e) => handleFieldChange('ai', e.target.value.replace(/[^\d]/g, ''))} className={`input w-full ${formErrors.ai ? 'border-red-400 ring-1 ring-red-200' : ''}`} dir="ltr" placeholder="00000000000" inputMode="numeric" pattern="\d*" maxLength={20} />
                         {formErrors.ai && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><ExclamationTriangleIcon className="w-3 h-3 flex-shrink-0" />{formErrors.ai[0]}</p>}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1.5">{t('clients.nisLabel')}</label>
-                        <input type="text" value={formData.nis} onChange={(e) => handleFieldChange('nis', e.target.value)} className={`input w-full ${formErrors.nis ? 'border-red-400 ring-1 ring-red-200' : ''}`} dir="ltr" placeholder="000000000000000" />
+                        <input type="text" value={formData.nis} onChange={(e) => handleFieldChange('nis', e.target.value.replace(/[^\d]/g, ''))} className={`input w-full ${formErrors.nis ? 'border-red-400 ring-1 ring-red-200' : ''}`} dir="ltr" placeholder="000000000000000" inputMode="numeric" pattern="\d*" maxLength={20} />
                         {formErrors.nis && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><ExclamationTriangleIcon className="w-3 h-3 flex-shrink-0" />{formErrors.nis[0]}</p>}
                       </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1.5">{t('clients.ribLabel')}</label>
-                      <input type="text" value={formData.rib} onChange={(e) => handleFieldChange('rib', e.target.value)} className={`input w-full ${formErrors.rib ? 'border-red-400 ring-1 ring-red-200' : ''}`} dir="ltr" placeholder="00000 00000 00000000000 00" />
+                      <input type="text" value={formData.rib} onChange={(e) => handleFieldChange('rib', e.target.value.replace(/[^\d\s]/g, ''))} className={`input w-full ${formErrors.rib ? 'border-red-400 ring-1 ring-red-200' : ''}`} dir="ltr" placeholder="00000 00000 00000000000 00" inputMode="numeric" maxLength={30} />
                       {formErrors.rib && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><ExclamationTriangleIcon className="w-3 h-3 flex-shrink-0" />{formErrors.rib[0]}</p>}
                     </div>
                   </div>
@@ -1541,7 +1546,7 @@ export default function ClientsPage() {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm disabled:opacity-50"
+                  className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors disabled:opacity-50"
                   data-tour="modal-submit"
                 >
                   {isSaving ? (

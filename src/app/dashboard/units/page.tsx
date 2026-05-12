@@ -155,27 +155,27 @@ export default function UnitsPage() {
 
   return (
     <div>
-      {/* Shortcuts hint */}
-      <div className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg mb-4 flex items-center gap-6 text-sm">
+      {/* Shortcuts hint — desktop only */}
+      <div className="hidden md:flex bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg mb-4 items-center gap-6 text-sm">
         <span className="font-medium">{t('common.shortcuts') + ':'}</span>
         <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Insert</kbd> {t('common.addNew')}</span>
       </div>
 
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">{t('stock.unitsTitle')}</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold">{t('stock.unitsTitle')}</h1>
         <button
           onClick={() => {
             setEditingUnit(null);
             resetForm();
             setShowModal(true);
           }}
-          className="btn btn-primary"
+          className="btn btn-primary inline-flex items-center justify-center gap-2"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
           {t('stock.addUnit')}
-          <kbd className="bg-blue-700 px-1.5 py-0.5 rounded text-xs me-2">Insert</kbd>
+          <kbd className="hidden md:inline bg-blue-700 px-1.5 py-0.5 rounded text-xs ms-1">Insert</kbd>
         </button>
       </div>
 
@@ -186,11 +186,12 @@ export default function UnitsPage() {
             placeholder={t('common.search')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="input max-w-xs"
+            className="input w-full sm:max-w-xs"
           />
         </div>
 
-        <table>
+        <div className="overflow-x-auto -mx-4 sm:mx-0">
+        <table className="min-w-[640px] sm:min-w-0 w-full">
           <thead>
             <tr>
               <th>#</th>
@@ -251,6 +252,7 @@ export default function UnitsPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Modal */}

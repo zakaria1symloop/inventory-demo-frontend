@@ -845,10 +845,13 @@ export default function SuppliersPage() {
                     <input
                       type="tel"
                       value={formData.phone}
-                      onChange={(e) => setFormData(p => ({ ...p, phone: e.target.value }))}
+                      onChange={(e) => setFormData(p => ({ ...p, phone: e.target.value.replace(/[^\d+\s-]/g, '') }))}
                       className={`input w-full ${dir === 'rtl' ? 'pr-10' : 'pl-10'}`}
                       placeholder="0xxx xxx xxx"
                       dir="ltr"
+                      inputMode="tel"
+                      pattern="[\d+\s-]*"
+                      maxLength={20}
                     />
                   </div>
                 </div>
@@ -875,10 +878,13 @@ export default function SuppliersPage() {
                   <input
                     type="text"
                     value={formData.tax_number}
-                    onChange={(e) => setFormData(p => ({ ...p, tax_number: e.target.value }))}
+                    onChange={(e) => setFormData(p => ({ ...p, tax_number: e.target.value.replace(/[^\d]/g, '') }))}
                     className={`input w-full ${dir === 'rtl' ? 'pr-10' : 'pl-10'}`}
                     placeholder={t('purchases.taxNumber')}
                     dir="ltr"
+                    inputMode="numeric"
+                    pattern="\d*"
+                    maxLength={20}
                   />
                 </div>
               </div>

@@ -8,13 +8,9 @@ import DateInput from '@/components/ui/DateInput';
 import toast from 'react-hot-toast';
 import type { Sale } from '@/lib/types';
 import {
-  UsersIcon,
   ArrowDownTrayIcon,
   ArrowPathIcon,
   ClipboardDocumentListIcon,
-  CurrencyDollarIcon,
-  CheckCircleIcon,
-  ExclamationCircleIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   FunnelIcon,
@@ -148,7 +144,8 @@ export default function SellersReportPage() {
       }
       const stat = map.get(userId)!;
       stat.salesCount++;
-      stat.totalAmount += parseFloat(String(s.grand_total)) || 0;
+      const returnsTotal = parseFloat(String((s as Sale & { returns_total?: number }).returns_total || 0)) || 0;
+      stat.totalAmount += (parseFloat(String(s.grand_total)) || 0) - returnsTotal;
       stat.paidAmount += parseFloat(String(s.paid_amount)) || 0;
       stat.dueAmount += parseFloat(String(s.due_amount)) || 0;
     });
@@ -196,8 +193,11 @@ export default function SellersReportPage() {
   // ─── Export ───
   const exportExcel = async () => {
     if (!sellerStats.length) { toast.error(t('sellers.noExportData' as TranslationKey)); return; }
+    const loadingToast = toast.loading(t('sellers.exporting' as TranslationKey) || 'Generating Excel…');
     try {
-      const ExcelJS = (await import('exceljs')).default;
+      await new Promise(r => setTimeout(r, 0));
+      const exceljsMod: any = await import('exceljs');
+      const ExcelJS = exceljsMod.default || exceljsMod;
       const { saveAs } = await import('file-saver');
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet(t('sellers.title' as TranslationKey));
@@ -209,7 +209,7 @@ export default function SellersReportPage() {
         { header: t('sellers.colDue' as TranslationKey), key: 'due', width: 18 },
         { header: t('sellers.colCollectionRate' as TranslationKey), key: 'rate', width: 16 },
       ];
-      ws.getRow(1).eachCell((cell) => {
+      ws.getRow(1).eachCell((cell: any) => {
         cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF59E0B' } };
         cell.alignment = { horizontal: 'center' };
@@ -224,30 +224,24 @@ export default function SellersReportPage() {
       }));
       const buf = await wb.xlsx.writeBuffer();
       saveAs(new Blob([buf]), `sellers_${dateFrom}_${dateTo}.xlsx`);
-      toast.success(t('sellers.exportSuccess' as TranslationKey));
-    } catch { toast.error(t('sellers.exportError' as TranslationKey)); }
+      toast.success(t('sellers.exportSuccess' as TranslationKey), { id: loadingToast });
+    } catch (err) { console.error('Excel export failed:', err); toast.error((err instanceof Error ? err.message : '') || t('sellers.exportError' as TranslationKey), { id: loadingToast }); }
   };
 
   const exportPDF = async () => {
     if (!sellerStats.length) { toast.error(t('sellers.noExportData' as TranslationKey)); return; }
     try {
-      const { default: jsPDF } = await import('jspdf');
-      const autoTable = (await import('jspdf-autotable')).default;
-      const doc = new jsPDF({ orientation: 'landscape' });
-      doc.setFontSize(16);
-      doc.text(t('sellers.title' as TranslationKey), 14, 20);
-      doc.setFontSize(10);
-      doc.text(`${dateFrom} → ${dateTo}`, 14, 28);
-      autoTable(doc, {
-        startY: 35,
-        head: [[t('sellers.colSeller' as TranslationKey), t('sellers.colSalesCount' as TranslationKey), t('sellers.colTotal' as TranslationKey), t('sellers.colPaid' as TranslationKey), t('sellers.colDue' as TranslationKey), t('sellers.colCollectionRate' as TranslationKey)]],
-        body: sellerStats.map(s => [s.name, s.salesCount, s.totalAmount.toLocaleString(), s.paidAmount.toLocaleString(), s.dueAmount.toLocaleString(), `${s.collectionRate}%`]),
-        styles: { fontSize: 8, cellPadding: 3 },
-        headStyles: { fillColor: [245, 158, 11] },
+      const { printReport } = await import('@/lib/print-report');
+      printReport({
+        title: t('sellers.title' as TranslationKey),
+        subtitle: `${dateFrom} → ${dateTo}`,
+        columns: [t('sellers.colSeller' as TranslationKey), t('sellers.colSalesCount' as TranslationKey), t('sellers.colTotal' as TranslationKey), t('sellers.colPaid' as TranslationKey), t('sellers.colDue' as TranslationKey), t('sellers.colCollectionRate' as TranslationKey)],
+        rows: sellerStats.map(s => [s.name, s.salesCount, s.totalAmount.toLocaleString(), s.paidAmount.toLocaleString(), s.dueAmount.toLocaleString(), `${s.collectionRate}%`]),
+        orientation: 'landscape',
+        dir: isRTL ? 'rtl' : 'ltr',
       });
-      doc.save(`sellers_${dateFrom}_${dateTo}.pdf`);
       toast.success(t('sellers.exportSuccess' as TranslationKey));
-    } catch { toast.error(t('sellers.exportError' as TranslationKey)); }
+    } catch (err) { console.error('Excel export failed:', err); toast.error((err instanceof Error ? err.message : '') || t('sellers.exportError' as TranslationKey)); }
   };
 
   const activeFilterCount = [filterSeller, filterWarehouse].filter(Boolean).length;
@@ -259,14 +253,9 @@ export default function SellersReportPage() {
   return (
     <div className="space-y-5">
       {/* ─── Header ─── */}
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-2xl bg-amber-500 flex items-center justify-center">
-          <UsersIcon className="w-6 h-6 text-white" />
-        </div>
-        <div>
-          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('sellers.title' as TranslationKey)}</h1>
-          <p className="text-sm text-gray-400 mt-1">{t('sellers.subtitle' as TranslationKey)}</p>
-        </div>
+      <div>
+        <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('sellers.title' as TranslationKey)}</h1>
+        <p className="text-sm text-gray-400 mt-1">{t('sellers.subtitle' as TranslationKey)}</p>
       </div>
 
       <div className="flex gap-5">
@@ -308,17 +297,16 @@ export default function SellersReportPage() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
             <div className={`grid grid-cols-2 md:grid-cols-4 md:divide-x ${isRTL ? 'md:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
               {[
-                { label: t('sellers.kpiActiveSellers' as TranslationKey), value: kpis.activeSellers.toString(), color: 'indigo', icon: <UsersIcon className="w-5 h-5" /> },
-                { label: t('sellers.kpiTotalSales' as TranslationKey), value: kpis.totalSales.toString(), color: 'emerald', icon: <ClipboardDocumentListIcon className="w-5 h-5" /> },
-                { label: t('sellers.kpiTotalPaid' as TranslationKey), value: formatCurrency(kpis.totalPaid), color: 'blue', icon: <CheckCircleIcon className="w-5 h-5" /> },
-                { label: t('sellers.kpiTotalDue' as TranslationKey), value: formatCurrency(kpis.totalDue), color: 'red', icon: <ExclamationCircleIcon className="w-5 h-5" /> },
+                { label: t('sellers.kpiActiveSellers' as TranslationKey), value: kpis.activeSellers.toString(), color: 'indigo' },
+                { label: t('sellers.kpiTotalSales' as TranslationKey), value: kpis.totalSales.toString(), color: 'emerald' },
+                { label: t('sellers.kpiTotalPaid' as TranslationKey), value: formatCurrency(kpis.totalPaid), color: 'blue' },
+                { label: t('sellers.kpiTotalDue' as TranslationKey), value: formatCurrency(kpis.totalDue), color: 'red' },
               ].map((kpi, i) => {
                 const c = colorMap[kpi.color];
                 return (
                   <div key={i} className={`group relative p-5 ${c.hover} ${c.hoverDark} transition-colors duration-200`}>
                     <div className={`absolute top-0 inset-x-0 h-[3px] ${c.bar} scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b`} />
                     <div className="text-center">
-                      <div className={`inline-flex items-center justify-center w-9 h-9 rounded-xl ${c.iconBg} ${c.iconText} mb-2.5`}>{kpi.icon}</div>
                       <div className={`text-xl font-black ${c.valueText} tabular-nums leading-none`}>
                         {isLoading ? <div className="w-16 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mx-auto" /> : kpi.value}
                       </div>

@@ -12,10 +12,8 @@ import {
   FunnelIcon,
   XMarkIcon,
   ArrowPathIcon,
-  UsersIcon,
   CubeIcon,
   ArchiveBoxIcon,
-  ExclamationTriangleIcon,
   ChevronDownIcon,
   QuestionMarkCircleIcon,
   DevicePhoneMobileIcon,
@@ -508,14 +506,9 @@ export default function LivreurStockPage() {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" data-tour="stock-title">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-            <TruckIcon className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-gray-100 tracking-tight leading-none">{t('livreurStock.title')}</h1>
-            <p className="text-sm text-gray-400 dark:text-gray-400 mt-1">{t('livreurStock.subtitle')}</p>
-          </div>
+        <div>
+          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-gray-100 tracking-tight leading-none">{t('livreurStock.title')}</h1>
+          <p className="text-sm text-gray-400 dark:text-gray-400 mt-1">{t('livreurStock.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -540,59 +533,24 @@ export default function LivreurStockPage() {
       {data && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3" data-tour="stock-kpis">
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
-                <UsersIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <p className="text-[11px] text-gray-400 dark:text-gray-400 font-medium">{t('livreurStock.activeDrivers')}</p>
-                <p className="text-lg font-black text-blue-600 dark:text-blue-400 tabular-nums">{data.summary.total_active_livreurs}</p>
-              </div>
-            </div>
+            <p className="text-[11px] text-gray-400 dark:text-gray-400 font-medium">{t('livreurStock.activeDrivers')}</p>
+            <p className="text-lg font-black text-blue-600 dark:text-blue-400 tabular-nums">{data.summary.total_active_livreurs}</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-900/30 flex items-center justify-center">
-                <TruckIcon className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
-              </div>
-              <div>
-                <p className="text-[11px] text-gray-400 dark:text-gray-400 font-medium">{t('livreurStock.activeDeliveries')}</p>
-                <p className="text-lg font-black text-cyan-600 dark:text-cyan-400 tabular-nums">{data.summary.total_active_deliveries}</p>
-              </div>
-            </div>
+            <p className="text-[11px] text-gray-400 dark:text-gray-400 font-medium">{t('livreurStock.activeDeliveries')}</p>
+            <p className="text-lg font-black text-cyan-600 dark:text-cyan-400 tabular-nums">{data.summary.total_active_deliveries}</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-violet-50 dark:bg-violet-900/30 flex items-center justify-center">
-                <DevicePhoneMobileIcon className="w-5 h-5 text-violet-600 dark:text-violet-400" />
-              </div>
-              <div>
-                <p className="text-[11px] text-gray-400 dark:text-gray-400 font-medium">{t('livreurStock.activeVanSessions')}</p>
-                <p className="text-lg font-black text-violet-600 dark:text-violet-400 tabular-nums">{data.summary.total_active_van_sessions}</p>
-              </div>
-            </div>
+            <p className="text-[11px] text-gray-400 dark:text-gray-400 font-medium">{t('livreurStock.activeVanSessions')}</p>
+            <p className="text-lg font-black text-violet-600 dark:text-violet-400 tabular-nums">{data.summary.total_active_van_sessions}</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center">
-                <CubeIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <div>
-                <p className="text-[11px] text-gray-400 dark:text-gray-400 font-medium">{t('livreurStock.totalLoaded')}</p>
-                <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 tabular-nums">{(() => { const all = data!.livreurs.flatMap(l => collectItems(l).loaded); return formatItemsList(all); })()}</p>
-              </div>
-            </div>
+            <p className="text-[11px] text-gray-400 dark:text-gray-400 font-medium">{t('livreurStock.totalLoaded')}</p>
+            <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 tabular-nums">{(() => { const all = data!.livreurs.flatMap(l => collectItems(l).loaded); return formatItemsList(all); })()}</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center">
-                <ExclamationTriangleIcon className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-              </div>
-              <div>
-                <p className="text-[11px] text-gray-400 dark:text-gray-400 font-medium">{t('livreurStock.remainingInTrucks')}</p>
-                <p className="text-lg font-black text-orange-600 dark:text-orange-400 tabular-nums">{(() => { const all = data!.livreurs.flatMap(l => collectItems(l).remaining); return formatItemsList(all); })()}</p>
-              </div>
-            </div>
+            <p className="text-[11px] text-gray-400 dark:text-gray-400 font-medium">{t('livreurStock.remainingInTrucks')}</p>
+            <p className="text-lg font-black text-orange-600 dark:text-orange-400 tabular-nums">{(() => { const all = data!.livreurs.flatMap(l => collectItems(l).remaining); return formatItemsList(all); })()}</p>
           </div>
         </div>
       )}

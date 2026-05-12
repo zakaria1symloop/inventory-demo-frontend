@@ -368,10 +368,6 @@ export default function DeliveryDetail() {
             <BackArrowIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
           </Link>
 
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <TruckIcon className="w-6 h-6 text-white" />
-          </div>
-
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">{delivery.reference}</h1>
@@ -393,7 +389,7 @@ export default function DeliveryDetail() {
             <button
               onClick={handleStartDelivery}
               disabled={isStarting}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 shadow-sm disabled:opacity-50 transition-all active:scale-[0.98]"
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 transition-all active:scale-[0.98]"
             >
               {isStarting ? <div className="spinner w-4 h-4 border-white"></div> : <PlayIcon className="w-4 h-4" />}
               {isStarting ? t('deliveryDetail.starting') : t('deliveryDetail.startDelivery')}
@@ -697,7 +693,7 @@ export default function DeliveryDetail() {
             {delivery.returns.some(r => !r.processed) && (
               <button
                 onClick={() => openProcessModal()}
-                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-sm transition-all active:scale-[0.98]"
+                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 transition-all active:scale-[0.98]"
               >
                 <ArrowPathIcon className="w-3.5 h-3.5" />
                 {t('deliveryDetail.processAllReturns')}
@@ -902,7 +898,7 @@ export default function DeliveryDetail() {
                   <button
                     type="submit"
                     disabled={isSubmittingPayment}
-                    className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-sm disabled:opacity-50 transition-all active:scale-[0.98]"
+                    className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 transition-all active:scale-[0.98]"
                   >
                     <CheckCircleIcon className="w-5 h-5" />
                     {isSubmittingPayment ? t('deliveryDetail.saving') : t('deliveryDetail.confirmCollection')}
@@ -982,7 +978,7 @@ export default function DeliveryDetail() {
                 <button
                   onClick={handleProcessReturns}
                   disabled={isProcessing || !selectedWarehouse}
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 shadow-sm disabled:opacity-50 transition-all active:scale-[0.98]"
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 transition-all active:scale-[0.98]"
                 >
                   <CheckCircleIcon className="w-5 h-5" />
                   {isProcessing ? t('deliveryDetail.processing') : t('deliveryDetail.confirmProcess')}

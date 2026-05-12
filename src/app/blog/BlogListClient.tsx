@@ -10,8 +10,8 @@ const UI = {
     badge: 'المدونة',
     title: 'رؤى عملية لموزعي الجزائر',
     subtitle: 'أدلة، تحديثات منتج، وأخبار قطاع التوزيع. كل ما تحتاج معرفته لإدارة عملياتك بذكاء.',
-    all: 'الكل',
-    readMore: 'اقرأ المقال',
+    all: 'كل المقالات',
+    readMore: 'قراءة المزيد',
     minRead: 'دقيقة قراءة',
     empty: 'لا توجد مقالات في هذه الفئة بعد.',
     backHome: 'العودة للرئيسية',
@@ -20,12 +20,32 @@ const UI = {
     badge: 'Blog',
     title: 'Des insights concrets pour les distributeurs algériens',
     subtitle: 'Guides, mises à jour produit, et actualités du secteur. Tout ce qu\'il faut savoir pour piloter vos opérations intelligemment.',
-    all: 'Tous',
-    readMore: 'Lire l\'article',
+    all: 'Tous les articles',
+    readMore: 'Lire la suite',
     minRead: 'min de lecture',
     empty: 'Aucun article dans cette catégorie pour le moment.',
     backHome: 'Retour à l\'accueil',
   },
+  en: {
+    badge: 'Blog',
+    title: 'Latest articles',
+    subtitle: 'Guides, product updates, and industry news. Everything you need to run your operations smarter.',
+    all: 'All articles',
+    readMore: 'Read more',
+    minRead: 'min read',
+    empty: 'No articles in this category yet.',
+    backHome: 'Back to home',
+  },
+};
+
+// Safely resolve a localized field — falls back to French if the requested locale is missing.
+const pick = (
+  field: { ar: string; fr: string; en?: string } | undefined,
+  locale: 'ar' | 'fr' | 'en',
+): string => {
+  if (!field) return '';
+  if (locale === 'en') return field.en ?? field.fr;
+  return field[locale];
 };
 
 export default function BlogListClient() {
@@ -40,7 +60,8 @@ export default function BlogListClient() {
 
   const formatDate = (iso: string) => {
     const d = new Date(iso);
-    return d.toLocaleDateString(locale === 'ar' ? 'ar-DZ' : 'fr-FR', {
+    const localeTag = locale === 'ar' ? 'ar-DZ' : locale === 'en' ? 'en-US' : 'fr-FR';
+    return d.toLocaleDateString(localeTag, {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -60,19 +81,19 @@ export default function BlogListClient() {
 
             <div className="hidden md:flex items-center gap-7">
               <Link href="/#how-it-works" className="text-[13px] text-gray-500 hover:text-gray-900 transition-colors">
-                {locale === 'ar' ? 'كيف يعمل' : 'Comment ça marche'}
+                {locale === 'ar' ? 'كيف يعمل' : locale === 'en' ? 'How it works' : 'Comment ça marche'}
               </Link>
               <Link href="/#modules" className="text-[13px] text-gray-500 hover:text-gray-900 transition-colors">
-                {locale === 'ar' ? 'الوحدات' : 'Modules'}
+                {locale === 'ar' ? 'الوحدات' : locale === 'en' ? 'Modules' : 'Modules'}
               </Link>
               <Link href="/#pricing" className="text-[13px] text-gray-500 hover:text-gray-900 transition-colors">
-                {locale === 'ar' ? 'الأسعار' : 'Tarifs'}
+                {locale === 'ar' ? 'الأسعار' : locale === 'en' ? 'Pricing' : 'Tarifs'}
               </Link>
               <Link href="/blog" className="text-[13px] text-gray-900 font-semibold">
-                {locale === 'ar' ? 'المدونة' : 'Blog'}
+                {locale === 'ar' ? 'المدونة' : locale === 'en' ? 'Blog' : 'Blog'}
               </Link>
               <Link href="/#contact" className="text-[13px] text-gray-500 hover:text-gray-900 transition-colors">
-                {locale === 'ar' ? 'تواصل معنا' : 'Contact'}
+                {locale === 'ar' ? 'تواصل معنا' : locale === 'en' ? 'Contact' : 'Contact'}
               </Link>
             </div>
 
@@ -94,15 +115,23 @@ export default function BlogListClient() {
                 >
                   FR
                 </button>
+                <button
+                  onClick={() => setLocale('en')}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all ${
+                    locale === 'en' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+                  }`}
+                >
+                  EN
+                </button>
               </div>
               <Link href="/login" className="text-[13px] text-gray-500 hover:text-gray-900 transition-colors">
-                {locale === 'ar' ? 'الدخول' : 'Connexion'}
+                {locale === 'ar' ? 'الدخول' : locale === 'en' ? 'Log in' : 'Connexion'}
               </Link>
               <Link
                 href="/register"
                 className="px-4 py-2 text-[13px] font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-full transition-colors"
               >
-                {locale === 'ar' ? 'ابدأ مجاناً' : 'Commencer'}
+                {locale === 'ar' ? 'ابدأ مجاناً' : locale === 'en' ? 'Get started' : 'Commencer'}
               </Link>
             </div>
           </div>
@@ -175,10 +204,10 @@ export default function BlogListClient() {
                     <span className="text-gray-400">{post.readTime} {ui.minRead}</span>
                   </div>
                   <h3 className="text-[22px] sm:text-[24px] font-bold text-gray-900 leading-snug tracking-[-0.02em] group-hover:text-blue-600 transition-colors">
-                    {post.title[locale]}
+                    {pick(post.title, locale)}
                   </h3>
                   <p className="mt-3 text-[15px] text-gray-500 leading-relaxed line-clamp-2">
-                    {post.excerpt[locale]}
+                    {pick(post.excerpt, locale)}
                   </p>
                   <span className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
                     {ui.readMore}

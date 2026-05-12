@@ -352,14 +352,9 @@ export default function StockTransfersPage() {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" data-tour="st-title">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-teal-500/20">
-            <ArrowsRightLeftIcon className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-gray-100 tracking-tight leading-none">{t('stockTransfersList.title')}</h1>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('stockTransfersList.subtitle')}</p>
-          </div>
+        <div>
+          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-gray-100 tracking-tight leading-none">{t('stockTransfersList.title')}</h1>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('stockTransfersList.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -377,7 +372,7 @@ export default function StockTransfersPage() {
           </button>
           <button
             onClick={() => router.push('/dashboard/stock-transfers/new')}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-l from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 rounded-xl shadow-sm transition-all"
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-l from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 rounded-xl transition-all"
           >
             <PlusIcon className="w-4 h-4" />
             {t('stockTransfersList.newTransfer')}
@@ -392,7 +387,7 @@ export default function StockTransfersPage() {
           onClick={() => { setViewMode('active'); setStatusFilter(''); setCurrentPage(1); }}
           className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl border text-sm font-bold transition-all ${
             viewMode === 'active'
-              ? 'bg-white dark:bg-gray-800 border-teal-300 dark:border-teal-600 ring-1 ring-teal-200 dark:ring-teal-700 text-teal-700 dark:text-teal-400 shadow-sm'
+              ? 'bg-white dark:bg-gray-800 border-teal-300 dark:border-teal-600 ring-1 ring-teal-200 dark:ring-teal-700 text-teal-700 dark:text-teal-400'
               : 'bg-white dark:bg-gray-800 border-gray-200/80 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
           }`}
         >
@@ -408,7 +403,7 @@ export default function StockTransfersPage() {
           onClick={() => { setStatusFilter('pending'); setViewMode('active'); setCurrentPage(1); }}
           className={`hidden sm:inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl border text-sm font-bold transition-all ${
             statusFilter === 'pending'
-              ? 'bg-white dark:bg-gray-800 border-amber-300 dark:border-amber-600 ring-1 ring-amber-200 dark:ring-amber-700 text-amber-700 dark:text-amber-400 shadow-sm'
+              ? 'bg-white dark:bg-gray-800 border-amber-300 dark:border-amber-600 ring-1 ring-amber-200 dark:ring-amber-700 text-amber-700 dark:text-amber-400'
               : 'bg-white dark:bg-gray-800 border-gray-200/80 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
           }`}
         >
@@ -424,7 +419,7 @@ export default function StockTransfersPage() {
           onClick={() => { setStatusFilter('loading'); setViewMode('active'); setCurrentPage(1); }}
           className={`hidden sm:inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl border text-sm font-bold transition-all ${
             statusFilter === 'loading'
-              ? 'bg-white dark:bg-gray-800 border-blue-300 dark:border-blue-600 ring-1 ring-blue-200 dark:ring-blue-700 text-blue-700 dark:text-blue-400 shadow-sm'
+              ? 'bg-white dark:bg-gray-800 border-blue-300 dark:border-blue-600 ring-1 ring-blue-200 dark:ring-blue-700 text-blue-700 dark:text-blue-400'
               : 'bg-white dark:bg-gray-800 border-gray-200/80 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
           }`}
         >
@@ -440,7 +435,7 @@ export default function StockTransfersPage() {
           onClick={() => { setViewMode('archive'); setStatusFilter(''); setCurrentPage(1); }}
           className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl border text-sm font-bold transition-all ${
             viewMode === 'archive'
-              ? 'bg-white dark:bg-gray-800 border-gray-400 dark:border-gray-500 ring-1 ring-gray-300 dark:ring-gray-600 text-gray-700 dark:text-gray-300 shadow-sm'
+              ? 'bg-white dark:bg-gray-800 border-gray-400 dark:border-gray-500 ring-1 ring-gray-300 dark:ring-gray-600 text-gray-700 dark:text-gray-300'
               : 'bg-white dark:bg-gray-800 border-gray-200/80 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
           }`}
         >
@@ -574,7 +569,7 @@ export default function StockTransfersPage() {
                   onClick={() => { setStatusFilter(opt.value); setCurrentPage(1); }}
                   className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
                     statusFilter === opt.value
-                      ? 'bg-teal-600 text-white shadow-sm'
+                      ? 'bg-teal-600 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
                 >
@@ -604,7 +599,7 @@ export default function StockTransfersPage() {
               {viewMode === 'active' && (
                 <button
                   onClick={() => router.push('/dashboard/stock-transfers/new')}
-                  className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-l from-teal-600 to-cyan-600 rounded-xl shadow-sm transition-all hover:from-teal-700 hover:to-cyan-700"
+                  className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-l from-teal-600 to-cyan-600 rounded-xl transition-all hover:from-teal-700 hover:to-cyan-700"
                 >
                   <PlusIcon className="w-4 h-4" />
                   {t('stockTransfersList.createNewTransfer')}

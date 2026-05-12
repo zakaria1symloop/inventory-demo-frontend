@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { LocaleProvider, useLocale } from '@/lib/i18n/context';
+import type { Locale } from '@/lib/i18n/locales';
 
 function ToasterWithLocale() {
   const { dir } = useLocale();
@@ -21,7 +22,13 @@ function ToasterWithLocale() {
   );
 }
 
-export default function Providers({ children }: { children: React.ReactNode }) {
+export default function Providers({
+  children,
+  initialLocale,
+}: {
+  children: React.ReactNode;
+  initialLocale?: Locale;
+}) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -37,7 +44,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <LocaleProvider>
+      <LocaleProvider initialLocale={initialLocale}>
         {children}
         <ToasterWithLocale />
       </LocaleProvider>

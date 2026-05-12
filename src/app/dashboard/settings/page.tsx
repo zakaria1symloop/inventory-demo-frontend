@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { settingsApi } from '@/lib/api';
 import toast from 'react-hot-toast';
-import { SunIcon, MoonIcon, PhotoIcon, TrashIcon, LockClosedIcon, KeyIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
+import { SunIcon, MoonIcon, PhotoIcon, TrashIcon, LockClosedIcon, KeyIcon } from '@heroicons/react/24/outline';
 import { useLocale } from '@/lib/i18n/context';
 
 export default function SettingsPage() {
@@ -441,14 +441,9 @@ export default function SettingsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gray-600 flex items-center justify-center">
-            <Cog6ToothIcon className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('settings.title')}</h1>
-            <p className="text-sm text-gray-400 mt-1">{isRTL ? 'ادارة اعدادات التطبيق والتفضيلات' : 'Gerez les parametres et preferences de votre application'}</p>
-          </div>
+        <div>
+          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('settings.title')}</h1>
+          <p className="text-sm text-gray-400 mt-1">{isRTL ? 'ادارة اعدادات التطبيق والتفضيلات' : 'Gerez les parametres et preferences de votre application'}</p>
         </div>
         <button
           onClick={toggleDarkMode}

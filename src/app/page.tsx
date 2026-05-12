@@ -45,6 +45,20 @@ const modulesData = {
     { title: 'Gestion des utilisateurs', desc: 'Rôles multiples : admin, vendeur, livreur, cashvan avec permissions.' },
     { title: 'Paramètres', desc: 'Personnalisation factures, devise, taxes et infos entreprise.' },
   ],
+  en: [
+    { title: 'Order management', desc: 'Receive, confirm, and assign customer orders with full status tracking.' },
+    { title: 'Delivery & GPS', desc: 'Smart delivery routes with live driver tracking on the map.' },
+    { title: 'Mobile sales (CashVan)', desc: 'Sell directly from the van with on-board stock and on-the-spot recording.' },
+    { title: 'Sales & invoicing', desc: 'Professional PDF invoices with sales records and receivables tracking.' },
+    { title: 'Purchasing', desc: 'Purchase orders, supplier tracking, supplier balances, and returns.' },
+    { title: 'Stock & warehouses', desc: 'Multi-warehouse with transfers, low-stock alerts, and stocktakes.' },
+    { title: 'Customer management', desc: 'Customer database with segments and per-segment custom pricing.' },
+    { title: 'Cash drawer', desc: 'Per-user cash drawer with daily collections and reconciliation.' },
+    { title: 'Reports & analytics', desc: 'Sales, stock, and finance reports with Excel export.' },
+    { title: 'Mobile apps', desc: 'Apps for salespeople, drivers, and CashVan with instant sync.' },
+    { title: 'User management', desc: 'Multiple roles: admin, salesperson, driver, CashVan, with permissions.' },
+    { title: 'Settings', desc: 'Customize invoices, currency, taxes, and company details.' },
+  ],
 };
 
 // Keep old modules array for icon mapping
@@ -137,15 +151,21 @@ const targetAudience = [
 const plansData = {
   ar: [
     { id: 'free', name: 'مجاني', subtitle: 'للتجربة', price: 0, popular: false, features: ['حتى 25 منتج', 'مستخدم واحد', 'إدارة الطلبات والتوصيل', 'فوترة وتقارير أساسية', 'تجربة 14 يوم كاملة'] },
-    { id: 'starter', name: 'المبتدئ', subtitle: 'للشركات الصغيرة', price: 2900, popular: false, features: ['حتى 100 منتج', 'مستخدم واحد', 'إدارة الطلبات والمبيعات', 'إدارة العملاء والموردين', 'تقارير المبيعات والديون'] },
-    { id: 'pro', name: 'المحترف', subtitle: 'للشركات المتوسطة', price: 6900, popular: true, features: ['حتى 500 منتج', 'حتى 5 مستخدمين', '+ 1,500 د.ج لكل مستخدم إضافي', 'التوصيل وتتبع GPS', 'إدارة الصندوق', 'مستودعات متعددة'] },
-    { id: 'business', name: 'الأعمال', subtitle: 'للشركات الكبيرة', price: 12900, popular: false, features: ['حتى 2,000 منتج', 'حتى 10 مستخدمين', '+ 1,000 د.ج لكل مستخدم إضافي', 'البيع المتنقل (Cashvan)', 'تطبيقات الموبايل', 'دعم فني أولوي'] },
+    { id: 'starter', name: 'المبتدئ', subtitle: 'للشركات الصغيرة', price: 19, popular: false, features: ['حتى 100 منتج', 'مستخدم واحد', 'إدارة الطلبات والمبيعات', 'إدارة العملاء والموردين', 'تقارير المبيعات والديون'] },
+    { id: 'pro', name: 'المحترف', subtitle: 'للشركات المتوسطة', price: 49, popular: true, features: ['حتى 500 منتج', 'حتى 5 مستخدمين', 'مستخدمون إضافيون متاحون', 'التوصيل وتتبع GPS', 'إدارة الصندوق', 'مستودعات متعددة'] },
+    { id: 'business', name: 'الأعمال', subtitle: 'للشركات الكبيرة', price: 99, popular: false, features: ['حتى 2,000 منتج', 'حتى 10 مستخدمين', 'مستخدمون إضافيون متاحون', 'البيع المتنقل (Cashvan)', 'تطبيقات الموبايل', 'دعم فني أولوي'] },
   ],
   fr: [
     { id: 'free', name: 'Gratuit', subtitle: 'Pour essayer', price: 0, popular: false, features: ["Jusqu'à 25 produits", '1 utilisateur', 'Commandes & livraison', 'Facturation & rapports de base', 'Essai 14 jours complet'] },
-    { id: 'starter', name: 'Starter', subtitle: 'Petites entreprises', price: 2900, popular: false, features: ["Jusqu'à 100 produits", '1 utilisateur', 'Commandes & ventes', 'Clients & fournisseurs', 'Rapports ventes & dettes'] },
-    { id: 'pro', name: 'Pro', subtitle: 'Entreprises moyennes', price: 6900, popular: true, features: ["Jusqu'à 500 produits", "Jusqu'à 5 utilisateurs", '+ 1 500 DA/utilisateur suppl.', 'Livraison & suivi GPS', 'Caisse', 'Multi-entrepôts'] },
-    { id: 'business', name: 'Business', subtitle: 'Grandes entreprises', price: 12900, popular: false, features: ["Jusqu'à 2 000 produits", "Jusqu'à 10 utilisateurs", '+ 1 000 DA/utilisateur suppl.', 'Vente mobile (Cashvan)', 'Applications mobiles', 'Support prioritaire'] },
+    { id: 'starter', name: 'Starter', subtitle: 'Petites entreprises', price: 19, popular: false, features: ["Jusqu'à 100 produits", '1 utilisateur', 'Commandes & ventes', 'Clients & fournisseurs', 'Rapports ventes & dettes'] },
+    { id: 'pro', name: 'Pro', subtitle: 'Entreprises moyennes', price: 49, popular: true, features: ["Jusqu'à 500 produits", "Jusqu'à 5 utilisateurs", 'Utilisateurs supplémentaires disponibles', 'Livraison & suivi GPS', 'Caisse', 'Multi-entrepôts'] },
+    { id: 'business', name: 'Business', subtitle: 'Grandes entreprises', price: 99, popular: false, features: ["Jusqu'à 2 000 produits", "Jusqu'à 10 utilisateurs", 'Utilisateurs supplémentaires disponibles', 'Vente mobile (Cashvan)', 'Applications mobiles', 'Support prioritaire'] },
+  ],
+  en: [
+    { id: 'free', name: 'Free', subtitle: 'To try it out', price: 0, popular: false, features: ['Up to 25 products', '1 user', 'Orders & delivery', 'Basic invoicing & reports', 'Full 14-day trial'] },
+    { id: 'starter', name: 'Starter', subtitle: 'Small businesses', price: 19, popular: false, features: ['Up to 100 products', '1 user', 'Orders & sales', 'Customers & suppliers', 'Sales & receivables reports'] },
+    { id: 'pro', name: 'Pro', subtitle: 'Mid-sized businesses', price: 49, popular: true, features: ['Up to 500 products', 'Up to 5 users', 'Add-on users available', 'Delivery & GPS tracking', 'Cash drawer', 'Multi-warehouse'] },
+    { id: 'business', name: 'Business', subtitle: 'Larger businesses', price: 99, popular: false, features: ['Up to 2,000 products', 'Up to 10 users', 'Add-on users available', 'Mobile sales (CashVan)', 'Mobile apps', 'Priority support'] },
   ],
 };
 
@@ -162,6 +182,12 @@ const audienceData = {
     { title: 'Vente mobile', desc: 'Équipes de vente terrain avec véhicules chargés vendant directement aux clients' },
     { title: 'Matériaux & entretien', desc: 'Gestion de produits lourds et variés avec multi-entrepôts et livraison' },
   ],
+  en: [
+    { title: 'Distribution & wholesale', desc: 'Distributors supplying products to retail points and stores across regions.' },
+    { title: 'Food & beverage', desc: 'Fast distribution with expiry-date tracking, returns, and batch management.' },
+    { title: 'Mobile sales', desc: 'Field sales teams selling directly to customers from stocked vehicles.' },
+    { title: 'Building materials & cleaning', desc: 'Handle bulky, varied SKUs with multi-warehouse stock and delivery routes.' },
+  ],
 };
 
 const statsData = {
@@ -177,6 +203,13 @@ const statsData = {
     { value: '15+', label: 'wilayas couvertes' },
     { value: '3', label: 'apps mobiles' },
     { value: '10+', label: 'modules intégrés' },
+    { value: '24/7', label: 'cloud' },
+  ],
+  en: [
+    { value: '50+', label: 'businesses' },
+    { value: '15+', label: 'regions covered' },
+    { value: '3', label: 'mobile apps' },
+    { value: '10+', label: 'integrated modules' },
     { value: '24/7', label: 'cloud' },
   ],
 };
@@ -223,7 +256,7 @@ export default function Home() {
             </a>
           </div>
           <div className="hidden sm:flex items-center gap-3 text-gray-400">
-            <span>{locale === 'ar' ? 'الأحد — الخميس: 8:00 - 17:00' : 'Dim — Jeu: 8h00 - 17h00'}</span>
+            <span>{locale === 'ar' ? 'الأحد — الخميس: 8:00 - 17:00' : locale === 'en' ? 'Sun — Thu: 8:00 - 17:00' : 'Dim — Jeu: 8h00 - 17h00'}</span>
           </div>
         </div>
       </div>
@@ -239,11 +272,11 @@ export default function Home() {
 
             <div className="hidden md:flex items-center gap-7">
               {[
-                { label: locale === 'ar' ? 'كيف يعمل' : 'Comment ça marche', href: '/#how-it-works' },
-                { label: locale === 'ar' ? 'الوحدات' : 'Modules', href: '/#modules' },
-                { label: locale === 'ar' ? 'الأسعار' : 'Tarifs', href: '/#pricing' },
-                { label: locale === 'ar' ? 'المدونة' : 'Blog', href: '/blog' },
-                { label: locale === 'ar' ? 'تواصل معنا' : 'Contact', href: '/#contact' },
+                { label: locale === 'ar' ? 'كيف يعمل' : locale === 'en' ? 'How it works' : 'Comment ça marche', href: '/#how-it-works' },
+                { label: locale === 'ar' ? 'الوحدات' : locale === 'en' ? 'Modules' : 'Modules', href: '/#modules' },
+                { label: locale === 'ar' ? 'الأسعار' : locale === 'en' ? 'Pricing' : 'Tarifs', href: '/#pricing' },
+                { label: locale === 'ar' ? 'المدونة' : locale === 'en' ? 'Blog' : 'Blog', href: '/blog' },
+                { label: locale === 'ar' ? 'تواصل معنا' : locale === 'en' ? 'Contact' : 'Contact', href: '/#contact' },
               ].map((item) => (
                 <Link key={item.label} href={item.href} className="text-[13px] text-gray-500 hover:text-gray-900 transition-colors">
                   {item.label}
@@ -255,12 +288,13 @@ export default function Home() {
               <div className="hidden sm:flex items-center gap-0.5 bg-gray-100 rounded-full p-0.5">
                 <button onClick={() => setLocale('ar')} className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all ${locale === 'ar' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>عربي</button>
                 <button onClick={() => setLocale('fr')} className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all ${locale === 'fr' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>FR</button>
+                <button onClick={() => setLocale('en')} className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all ${locale === 'en' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>EN</button>
               </div>
               <Link href="/login" className="text-[13px] text-gray-500 hover:text-gray-900 transition-colors">
-                {locale === 'ar' ? 'الدخول' : 'Connexion'}
+                {locale === 'ar' ? 'الدخول' : locale === 'en' ? 'Sign in' : 'Connexion'}
               </Link>
               <Link href="/register" className="px-4 py-2 text-[13px] font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-full transition-colors">
-                {locale === 'ar' ? 'ابدأ مجاناً' : 'Commencer'}
+                {locale === 'ar' ? 'ابدأ مجاناً' : locale === 'en' ? 'Get started' : 'Commencer'}
               </Link>
             </div>
           </div>
@@ -293,11 +327,13 @@ export default function Home() {
 
             {/* Headline with rotating word */}
             <h1 className="hero-animate hero-animate-1 text-[32px] sm:text-[48px] lg:text-[56px] font-bold leading-[1.1] tracking-[-0.025em] text-gray-900">
-              {locale === 'ar' ? 'وقف ' : 'Stop '}
+              {locale === 'ar' ? 'وقف ' : locale === 'en' ? 'Stop ' : 'Stop '}
               <span className="hero-rotating-wrapper">
                 <span className="hero-rotating-words">
                   {(locale === 'ar'
                     ? ['فوضى الطلبات', 'ضياع المخزون', 'تأخر التوصيل', 'خسارة الأرباح']
+                    : locale === 'en'
+                    ? ['order chaos', 'stock leakage', 'late deliveries', 'lost margin']
                     : ['le chaos des commandes', 'la perte de stock', 'les retards de livraison', 'la perte de profits']
                   ).map((word, i) => (
                     <span key={word} className="hero-rotating-word" style={{ animationDelay: `${i * 2.5}s` }}>{word}</span>
@@ -309,21 +345,29 @@ export default function Home() {
             <p className="hero-animate hero-animate-2 mt-7 text-[16px] sm:text-[18px] leading-[1.7] text-gray-500 max-w-[520px] mx-auto">
               {locale === 'ar'
                 ? 'منصة واحدة لإدارة الطلبات، التوصيل، المخزون، والفوترة. من أول فاتورة إلى آلاف العمليات.'
+                : locale === 'en'
+                ? 'TrackSera is business management software for retailers, wholesalers, and distributors. One platform for inventory, sales recording, customer orders, and deliveries — from your first invoice to thousands of operations.'
                 : 'Une seule plateforme pour les commandes, livraisons, stock et facturation. De votre première facture à des milliers d\'opérations.'
               }
             </p>
+
+            {locale === 'en' && (
+              <p className="hero-animate hero-animate-2 mt-4 text-[12px] leading-[1.6] text-gray-400 max-w-[520px] mx-auto">
+                TrackSera is a software subscription. We do not process or hold payments on behalf of our customers.
+              </p>
+            )}
 
             {/* CTA row */}
             <div className="hero-animate hero-animate-3 mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link href="/register" className="hero-cta-primary group relative w-full sm:w-auto px-7 py-3.5 text-[14px] font-medium text-white bg-gray-900 rounded-full overflow-hidden transition-all hover:shadow-[0_0_30px_rgba(37,99,235,0.3)] hover:-translate-y-[1px] active:translate-y-0">
                 <span className="hero-cta-shine" />
                 <span className="relative flex items-center justify-center gap-2">
-                  {locale === 'ar' ? 'ابدأ مجاناً — 14 يوم' : 'Essai gratuit — 14 jours'}
+                  {locale === 'ar' ? 'ابدأ مجاناً — 14 يوم' : locale === 'en' ? 'Start free — 14 days' : 'Essai gratuit — 14 jours'}
                   <svg className="w-4 h-4 rotate-180 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
                 </span>
               </Link>
               <a href="#modules" className="group w-full sm:w-auto px-7 py-3.5 text-[14px] font-medium text-gray-500 hover:text-gray-900 transition-colors flex items-center justify-center gap-1.5">
-                {locale === 'ar' ? 'اكتشف الوحدات' : 'Découvrir les modules'}
+                {locale === 'ar' ? 'اكتشف الوحدات' : locale === 'en' ? 'Explore modules' : 'Découvrir les modules'}
                 <span className="inline-block transition-transform group-hover:translate-x-1"> →</span>
               </a>
             </div>
@@ -338,7 +382,7 @@ export default function Home() {
                 ))}
               </div>
               <div className="text-[13px] text-gray-400">
-                <span className="font-semibold text-gray-600">50+</span> {locale === 'ar' ? 'شركة تستخدم المنصة' : 'entreprises actives'}
+                <span className="font-semibold text-gray-600">50+</span> {locale === 'ar' ? 'شركة تستخدم المنصة' : locale === 'en' ? 'active businesses' : 'entreprises actives'}
               </div>
             </div>
           </div>
@@ -354,7 +398,7 @@ export default function Home() {
 
           {/* Social proof strip - animated */}
           <div className="mt-16 sm:mt-20 flex flex-wrap items-center justify-center gap-x-10 gap-y-4 text-center">
-            {(locale === 'ar' ? statsData.ar : statsData.fr).map((s) => (
+            {(locale === 'ar' ? statsData.ar : locale === 'en' ? statsData.en : statsData.fr).map((s) => (
               <div key={s.label} className="flex items-baseline gap-2">
                 <span className="text-[28px] font-bold tracking-tight text-gray-900">{s.value}</span>
                 <span className="text-[13px] text-gray-400">{s.label}</span>
@@ -369,10 +413,10 @@ export default function Home() {
         <div className="max-w-[1200px] mx-auto px-5 sm:px-8">
           <div className="text-center mb-16">
             <p className="text-[13px] font-semibold text-blue-600 tracking-wide mb-3">
-              {locale === 'ar' ? 'كيف يعمل' : 'COMMENT ÇA MARCHE'}
+              {locale === 'ar' ? 'كيف يعمل' : locale === 'en' ? 'HOW IT WORKS' : 'COMMENT ÇA MARCHE'}
             </p>
             <h2 className="text-[28px] sm:text-[36px] font-bold tracking-[-0.02em] text-gray-900">
-              {locale === 'ar' ? 'من التسجيل إلى أول عملية بيع في 5 دقائق' : "De l'inscription à la première vente en 5 minutes"}
+              {locale === 'ar' ? 'من التسجيل إلى أول عملية بيع في 5 دقائق' : locale === 'en' ? 'From signup to your first sale in 5 minutes' : "De l'inscription à la première vente en 5 minutes"}
             </h2>
           </div>
 
@@ -385,6 +429,11 @@ export default function Home() {
               { step: '02', title: 'أضف منتجاتك وعملاءك', desc: 'استورد بياناتك من Excel أو أضفها يدوياً بسرعة.' },
               { step: '03', title: 'ابدأ البيع والتوصيل', desc: 'أنشئ فواتير، عيّن التوصيلات، وتابع سائقيك مباشرة.' },
               { step: '04', title: 'تابع تقاريرك', desc: 'اطلع على الأرباح، الديون، والمخزون لحظة بلحظة.' },
+            ] : locale === 'en' ? [
+              { step: '01', title: 'Create your account', desc: 'Free signup in under a minute. No credit card required.' },
+              { step: '02', title: 'Add products & customers', desc: 'Import from Excel or add products and customers manually.' },
+              { step: '03', title: 'Record sales & deliveries', desc: 'Create invoices, assign deliveries, and track drivers live.' },
+              { step: '04', title: 'Monitor your reports', desc: 'See profits, receivables, and stock in real time.' },
             ] : [
               { step: '01', title: 'Créez votre compte', desc: "Inscription gratuite en moins d'une minute. Sans carte bancaire." },
               { step: '02', title: 'Ajoutez vos données', desc: 'Importez depuis Excel ou ajoutez produits et clients manuellement.' },
@@ -407,11 +456,13 @@ export default function Home() {
       <section className="py-14 border-b border-gray-100">
         <div className="max-w-[1200px] mx-auto px-5 sm:px-8 text-center">
           <p className="text-[13px] text-gray-400 mb-8">
-            {locale === 'ar' ? 'تستخدمه شركات التوزيع لإدارة عملياتها اليومية' : 'Utilisé par les entreprises de distribution pour gérer leurs opérations quotidiennes'}
+            {locale === 'ar' ? 'تستخدمه شركات التوزيع لإدارة عملياتها اليومية' : locale === 'en' ? 'Used by distribution businesses to run their daily operations' : 'Utilisé par les entreprises de distribution pour gérer leurs opérations quotidiennes'}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6">
             {(locale === 'ar'
               ? ['المواد الغذائية', 'مواد التنظيف', 'المشروبات', 'مواد البناء', 'مستحضرات التجميل', 'القرطاسية']
+              : locale === 'en'
+              ? ['Food & beverage', 'Cleaning supplies', 'Beverages', 'Building materials', 'Cosmetics', 'Stationery']
               : ['Agroalimentaire', 'Produits d\'entretien', 'Boissons', 'Matériaux de construction', 'Cosmétiques', 'Papeterie']
             ).map((sector) => (
               <span key={sector} className="text-[14px] font-medium text-gray-300">{sector}</span>
@@ -424,19 +475,21 @@ export default function Home() {
       <section className="py-20 sm:py-28 border-b border-gray-100">
         <div className="max-w-[1200px] mx-auto px-5 sm:px-8 text-center">
           <p className="text-[13px] font-semibold text-blue-600 tracking-wide mb-3">
-            {locale === 'ar' ? 'قريباً' : 'BIENTÔT'}
+            {locale === 'ar' ? 'قريباً' : locale === 'en' ? 'COMING SOON' : 'BIENTÔT'}
           </p>
           <h2 className="text-[28px] sm:text-[36px] font-bold tracking-[-0.02em] text-gray-900">
-            {locale === 'ar' ? 'تكاملات مع الأنظمة الخارجية' : 'Intégrations tierces'}
+            {locale === 'ar' ? 'تكاملات مع الأنظمة الخارجية' : locale === 'en' ? 'Third-party integrations' : 'Intégrations tierces'}
           </h2>
           <p className="mt-4 text-[16px] text-gray-500 max-w-md mx-auto">
             {locale === 'ar'
               ? 'ربط مع أنظمة المحاسبة، الدفع الإلكتروني، وخدمات التوصيل.'
+              : locale === 'en'
+              ? 'Connect with accounting systems and delivery services.'
               : 'Connexion avec les systèmes comptables, paiement électronique et services de livraison.'}
           </p>
           <div className="mt-8">
             <Link href="/register" className="inline-flex px-6 py-3 text-[13px] font-medium text-gray-900 bg-white rounded-full border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all">
-              {locale === 'ar' ? 'أعلمني عند الإطلاق →' : 'Me notifier au lancement →'}
+              {locale === 'ar' ? 'أعلمني عند الإطلاق →' : locale === 'en' ? 'Notify me at launch →' : 'Me notifier au lancement →'}
             </Link>
           </div>
         </div>
@@ -448,21 +501,30 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
               <p className="text-[13px] font-semibold text-blue-600 tracking-wide mb-3">
-                {locale === 'ar' ? 'من نحن' : 'À PROPOS'}
+                {locale === 'ar' ? 'من نحن' : locale === 'en' ? 'ABOUT' : 'À PROPOS'}
               </p>
               <h2 className="text-[28px] sm:text-[36px] font-bold tracking-[-0.02em] text-gray-900 leading-[1.2]">
-                {locale === 'ar' ? 'نبني مستقبل إدارة التوزيع' : "Nous construisons l'avenir de la gestion de distribution"}
+                {locale === 'ar' ? 'نبني مستقبل إدارة التوزيع' : locale === 'en' ? 'Business management software for retailers, wholesalers, and distributors' : "Nous construisons l'avenir de la gestion de distribution"}
               </h2>
               <p className="mt-5 text-[15px] text-gray-500 leading-[1.7]">
                 {locale === 'ar'
                   ? 'تراكسيرا منصة متكاملة مصممة لتلبية احتياجات شركات التوزيع والجملة. نفهم تحديات هذا القطاع — من إدارة السائقين والتوصيلات إلى الفوترة وتتبع المخزون بدقة.'
+                  : locale === 'en'
+                  ? 'TrackSera is a complete platform built for distribution and wholesale businesses. We understand the operational challenges — from driver and delivery management to invoicing and accurate stock tracking.'
                   : "TrackSera est une plateforme complète conçue pour les entreprises de distribution et de gros. Nous comprenons les défis du secteur — de la gestion des chauffeurs et livraisons à la facturation et au suivi de stock."}
               </p>
               <p className="mt-4 text-[15px] text-gray-500 leading-[1.7]">
                 {locale === 'ar'
                   ? 'فريقنا من المهندسين والمطورين يعمل يومياً على تحسين المنصة بناءً على ملاحظات عملائنا — لأن نجاحكم هو نجاحنا.'
+                  : locale === 'en'
+                  ? 'Our team of engineers and developers ships improvements every day based on customer feedback — because your success is ours.'
                   : "Notre équipe d'ingénieurs et développeurs améliore la plateforme chaque jour selon les retours de nos clients — car votre succès est le nôtre."}
               </p>
+              {locale === 'en' && (
+                <p className="mt-4 text-[13px] text-gray-400 leading-[1.6]">
+                  Note: TrackSera is a software subscription. We do not process or hold payments on behalf of our customers.
+                </p>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               {(locale === 'ar' ? [
@@ -470,6 +532,11 @@ export default function Home() {
                 { value: '10+', label: 'وحدة متكاملة' },
                 { value: '50+', label: 'شركة تستخدم المنصة' },
                 { value: '24/7', label: 'دعم فني متواصل' },
+              ] : locale === 'en' ? [
+                { value: '100%', label: 'Cloud' },
+                { value: '10+', label: 'Integrated modules' },
+                { value: '50+', label: 'Active businesses' },
+                { value: '24/7', label: 'Technical support' },
               ] : [
                 { value: '100%', label: 'Cloud' },
                 { value: '10+', label: 'Modules intégrés' },
@@ -490,11 +557,11 @@ export default function Home() {
       <section id="audience" className="py-20 sm:py-28 bg-gray-50 border-b border-gray-100">
         <div className="max-w-[1200px] mx-auto px-5 sm:px-8">
           <div className="text-center mb-14">
-            <p className="text-[13px] font-semibold text-blue-600 tracking-wide mb-3">{locale === 'ar' ? 'القطاعات' : 'SECTEURS'}</p>
-            <h2 className="text-[28px] sm:text-[36px] font-bold tracking-[-0.02em] text-gray-900">{locale === 'ar' ? 'مصمم لقطاع التوزيع' : 'Conçu pour la distribution'}</h2>
+            <p className="text-[13px] font-semibold text-blue-600 tracking-wide mb-3">{locale === 'ar' ? 'القطاعات' : locale === 'en' ? 'SECTORS' : 'SECTEURS'}</p>
+            <h2 className="text-[28px] sm:text-[36px] font-bold tracking-[-0.02em] text-gray-900">{locale === 'ar' ? 'مصمم لقطاع التوزيع' : locale === 'en' ? 'Built for retail, wholesale, and distribution' : 'Conçu pour la distribution'}</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {(locale === 'ar' ? audienceData.ar : audienceData.fr).map((item, i) => (
+            {(locale === 'ar' ? audienceData.ar : locale === 'en' ? audienceData.en : audienceData.fr).map((item, i) => (
               <div key={item.title} className="bg-white rounded-xl p-6 border border-gray-200/80 hover:border-gray-300 hover:shadow-sm transition-all">
                 <div className="w-10 h-10 rounded-lg bg-gray-100 text-gray-600 flex items-center justify-center mb-4">{targetAudience[i]?.icon}</div>
                 <h3 className="text-[14px] font-semibold text-gray-900 mb-1">{item.title}</h3>
@@ -509,13 +576,13 @@ export default function Home() {
       <section id="modules" className="py-20 sm:py-28 border-b border-gray-100">
         <div className="max-w-[1200px] mx-auto px-5 sm:px-8">
           <div className="text-center mb-14">
-            <p className="text-[13px] font-semibold text-blue-600 tracking-wide mb-3">{locale === 'ar' ? 'الوحدات' : 'MODULES'}</p>
-            <h2 className="text-[28px] sm:text-[36px] font-bold tracking-[-0.02em] text-gray-900">{locale === 'ar' ? 'كل ما تحتاجه في منصة واحدة' : 'Tout ce dont vous avez besoin'}</h2>
-            <p className="mt-4 text-[16px] text-gray-500 max-w-lg mx-auto">{locale === 'ar' ? '12 وحدة تغطي دورة العمل بالكامل' : '12 modules couvrant tout le cycle de travail'}</p>
+            <p className="text-[13px] font-semibold text-blue-600 tracking-wide mb-3">{locale === 'ar' ? 'الوحدات' : locale === 'en' ? 'MODULES' : 'MODULES'}</p>
+            <h2 className="text-[28px] sm:text-[36px] font-bold tracking-[-0.02em] text-gray-900">{locale === 'ar' ? 'كل ما تحتاجه في منصة واحدة' : locale === 'en' ? 'Everything you need in one platform' : 'Tout ce dont vous avez besoin'}</h2>
+            <p className="mt-4 text-[16px] text-gray-500 max-w-lg mx-auto">{locale === 'ar' ? '12 وحدة تغطي دورة العمل بالكامل' : locale === 'en' ? '12 modules covering the full operational cycle' : '12 modules couvrant tout le cycle de travail'}</p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-px bg-gray-100 rounded-xl overflow-hidden border border-gray-100">
-            {(locale === 'ar' ? modulesData.ar : modulesData.fr).map((mod, i) => (
+            {(locale === 'ar' ? modulesData.ar : locale === 'en' ? modulesData.en : modulesData.fr).map((mod, i) => (
               <div key={mod.title} className="bg-white p-6 hover:bg-gray-50/50 transition-colors">
                 <div className="w-8 h-8 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center mb-4 text-[14px] font-bold">
                   {String(i + 1).padStart(2, '0')}
@@ -534,12 +601,12 @@ export default function Home() {
       <section id="pricing" className="py-20 sm:py-28 border-b border-gray-100">
         <div className="max-w-[1200px] mx-auto px-5 sm:px-8">
           <div className="text-center mb-14">
-            <p className="text-[13px] font-semibold text-blue-600 tracking-wide mb-3">{locale === 'ar' ? 'الأسعار' : 'TARIFS'}</p>
-            <h2 className="text-[28px] sm:text-[36px] font-bold tracking-[-0.02em] text-gray-900">{locale === 'ar' ? 'أسعار بسيطة وشفافة' : 'Des tarifs simples et transparents'}</h2>
-            <p className="mt-4 text-[16px] text-gray-500">{locale === 'ar' ? 'ابدأ مجاناً. بدون بطاقة ائتمان.' : 'Commencez gratuitement. Sans carte bancaire.'}</p>
+            <p className="text-[13px] font-semibold text-blue-600 tracking-wide mb-3">{locale === 'ar' ? 'الأسعار' : locale === 'en' ? 'PRICING' : 'TARIFS'}</p>
+            <h2 className="text-[28px] sm:text-[36px] font-bold tracking-[-0.02em] text-gray-900">{locale === 'ar' ? 'أسعار بسيطة وشفافة' : locale === 'en' ? 'Simple, transparent pricing' : 'Des tarifs simples et transparents'}</h2>
+            <p className="mt-4 text-[16px] text-gray-500">{locale === 'ar' ? 'ابدأ مجاناً. بدون بطاقة ائتمان.' : locale === 'en' ? 'Start free. No credit card required.' : 'Commencez gratuitement. Sans carte bancaire.'}</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px bg-gray-100 rounded-xl overflow-hidden border border-gray-100">
-            {(locale === 'ar' ? plansData.ar : plansData.fr).map((plan) => (
+            {(locale === 'ar' ? plansData.ar : locale === 'en' ? plansData.en : plansData.fr).map((plan) => (
               <div key={plan.id} className={`flex flex-col p-6 ${plan.popular ? 'bg-gray-900 text-white' : 'bg-white'}`}>
                 <div className="flex items-center justify-between mb-4">
                   <div>
@@ -548,18 +615,21 @@ export default function Home() {
                   </div>
                   {plan.popular && (
                     <span className="px-2 py-0.5 text-[10px] font-semibold bg-white/10 text-white rounded-full border border-white/20">
-                      {locale === 'ar' ? 'شائع' : 'Populaire'}
+                      {locale === 'ar' ? 'شائع' : locale === 'en' ? 'Popular' : 'Populaire'}
                     </span>
                   )}
                 </div>
 
                 <div className="flex items-baseline gap-1 mb-6">
-                  <span className={`text-[32px] font-bold tracking-tight ${plan.popular ? 'text-white' : 'text-gray-900'}`}>
-                    {plan.price === 0 ? (locale === 'ar' ? 'مجاناً' : 'Gratuit') : plan.price.toLocaleString()}
+                  <span
+                    className={`text-[32px] font-bold tracking-tight ${plan.popular ? 'text-white' : 'text-gray-900'}`}
+                    dir="ltr"
+                  >
+                    {plan.price === 0 ? (locale === 'ar' ? 'مجاناً' : locale === 'en' ? 'Free' : 'Gratuit') : `$${plan.price}`}
                   </span>
                   {plan.price > 0 && (
                     <span className={`text-[13px] ${plan.popular ? 'text-gray-400' : 'text-gray-400'}`}>
-                      {locale === 'ar' ? 'د.ج/شهر' : 'DA/mois'}
+                      {locale === 'ar' ? '/شهر' : locale === 'en' ? '/month' : '/mois'}
                     </span>
                   )}
                 </div>
@@ -584,8 +654,8 @@ export default function Home() {
                   }`}
                 >
                   {plan.price === 0
-                    ? (locale === 'ar' ? 'ابدأ مجاناً' : 'Commencer')
-                    : (locale === 'ar' ? 'اشترك الآن' : "S'abonner")}
+                    ? (locale === 'ar' ? 'ابدأ مجاناً' : locale === 'en' ? 'Get started' : 'Commencer')
+                    : (locale === 'ar' ? 'اشترك الآن' : locale === 'en' ? 'Subscribe' : "S'abonner")}
                 </Link>
               </div>
             ))}
@@ -599,11 +669,13 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 mb-14">
             <div>
               <p className="text-[13px] font-semibold text-blue-600 tracking-wide mb-3">
-                {locale === 'ar' ? 'المدونة' : 'BLOG'}
+                {locale === 'ar' ? 'المدونة' : locale === 'en' ? 'BLOG' : 'BLOG'}
               </p>
               <h2 className="text-[28px] sm:text-[36px] font-bold tracking-[-0.02em] text-gray-900 max-w-[520px] leading-tight">
                 {locale === 'ar'
                   ? 'رؤى عملية لإدارة أفضل لعملك'
+                  : locale === 'en'
+                  ? 'Practical insights to run your business better'
                   : 'Des insights concrets pour mieux piloter votre activité'}
               </h2>
             </div>
@@ -611,7 +683,7 @@ export default function Home() {
               href="/blog"
               className="group inline-flex items-center gap-1.5 text-[13px] font-semibold text-gray-900 hover:text-blue-600 transition-colors self-start sm:self-auto"
             >
-              {locale === 'ar' ? 'كل المقالات' : 'Tous les articles'}
+              {locale === 'ar' ? 'كل المقالات' : locale === 'en' ? 'All articles' : 'Tous les articles'}
               <svg
                 width="14"
                 height="14"
@@ -631,8 +703,10 @@ export default function Home() {
               .sort((a, b) => b.date.localeCompare(a.date))
               .slice(0, 3)
               .map((post) => {
+                // Blog content is only AR/FR — fall back to FR for EN locale
+                const blogLocale = locale === 'ar' ? 'ar' : 'fr';
                 const dateStr = new Date(post.date).toLocaleDateString(
-                  locale === 'ar' ? 'ar-DZ' : 'fr-FR',
+                  locale === 'ar' ? 'ar-DZ' : locale === 'en' ? 'en-US' : 'fr-FR',
                   { year: 'numeric', month: 'long', day: 'numeric' }
                 );
                 return (
@@ -655,7 +729,7 @@ export default function Home() {
                       />
                       <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/25" />
                       <div className="absolute bottom-4 left-4 rtl:left-auto rtl:right-4 px-2.5 py-1 bg-white/20 backdrop-blur-sm rounded-full text-[10px] font-semibold uppercase tracking-wider text-white">
-                        {categoryLabels[post.category][locale]}
+                        {categoryLabels[post.category][blogLocale]}
                       </div>
                     </div>
 
@@ -663,17 +737,17 @@ export default function Home() {
                       <span>{dateStr}</span>
                       <span className="text-gray-300">•</span>
                       <span>
-                        {post.readTime} {locale === 'ar' ? 'دقيقة قراءة' : 'min de lecture'}
+                        {post.readTime} {locale === 'ar' ? 'دقيقة قراءة' : locale === 'en' ? 'min read' : 'min de lecture'}
                       </span>
                     </div>
                     <h3 className="text-[18px] sm:text-[20px] font-bold text-gray-900 leading-snug tracking-[-0.01em] group-hover:text-blue-600 transition-colors line-clamp-2">
-                      {post.title[locale]}
+                      {post.title[blogLocale]}
                     </h3>
                     <p className="mt-3 text-[14px] text-gray-500 leading-relaxed line-clamp-2">
-                      {post.excerpt[locale]}
+                      {post.excerpt[blogLocale]}
                     </p>
                     <span className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                      {locale === 'ar' ? 'اقرأ المقال' : "Lire l'article"}
+                      {locale === 'ar' ? 'اقرأ المقال' : locale === 'en' ? 'Read article' : "Lire l'article"}
                       <svg
                         width="12"
                         height="12"
@@ -697,14 +771,14 @@ export default function Home() {
       <section className="py-20 sm:py-28">
         <div className="max-w-[600px] mx-auto px-5 sm:px-8 text-center">
           <h2 className="text-[28px] sm:text-[36px] font-bold tracking-[-0.02em] text-gray-900">
-            {locale === 'ar' ? 'جاهز للبدء؟' : 'Prêt à commencer ?'}
+            {locale === 'ar' ? 'جاهز للبدء؟' : locale === 'en' ? 'Ready to get started?' : 'Prêt à commencer ?'}
           </h2>
           <p className="mt-4 text-[16px] text-gray-500">
-            {locale === 'ar' ? '14 يوم تجربة مجانية. بدون بطاقة ائتمان.' : '14 jours d\'essai gratuit. Sans carte bancaire.'}
+            {locale === 'ar' ? '14 يوم تجربة مجانية. بدون بطاقة ائتمان.' : locale === 'en' ? '14-day free trial. No credit card required.' : '14 jours d\'essai gratuit. Sans carte bancaire.'}
           </p>
           <div className="mt-8">
             <Link href="/register" className="inline-flex px-8 py-3.5 text-[14px] font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-full transition-colors">
-              {locale === 'ar' ? 'ابدأ مجاناً' : 'Commencer gratuitement'}
+              {locale === 'ar' ? 'ابدأ مجاناً' : locale === 'en' ? 'Start free' : 'Commencer gratuitement'}
             </Link>
           </div>
         </div>
@@ -722,11 +796,11 @@ export default function Home() {
               <span className="text-[14px] font-semibold text-gray-900">TrackSera</span>
             </div>
             <div className="flex items-center gap-6 text-[13px] text-gray-400">
-              <a href="#modules" className="hover:text-gray-600 transition-colors">{locale === 'ar' ? 'الوحدات' : 'Modules'}</a>
-              <a href="#pricing" className="hover:text-gray-600 transition-colors">{locale === 'ar' ? 'الأسعار' : 'Tarifs'}</a>
-              <Link href="/blog" className="hover:text-gray-600 transition-colors">{locale === 'ar' ? 'المدونة' : 'Blog'}</Link>
-              <a href="#about" className="hover:text-gray-600 transition-colors">{locale === 'ar' ? 'من نحن' : 'À propos'}</a>
-              <a href="#contact" className="hover:text-gray-600 transition-colors">{locale === 'ar' ? 'تواصل' : 'Contact'}</a>
+              <a href="#modules" className="hover:text-gray-600 transition-colors">{locale === 'ar' ? 'الوحدات' : locale === 'en' ? 'Modules' : 'Modules'}</a>
+              <a href="#pricing" className="hover:text-gray-600 transition-colors">{locale === 'ar' ? 'الأسعار' : locale === 'en' ? 'Pricing' : 'Tarifs'}</a>
+              <Link href="/blog" className="hover:text-gray-600 transition-colors">{locale === 'ar' ? 'المدونة' : locale === 'en' ? 'Blog' : 'Blog'}</Link>
+              <a href="#about" className="hover:text-gray-600 transition-colors">{locale === 'ar' ? 'من نحن' : locale === 'en' ? 'About' : 'À propos'}</a>
+              <a href="#contact" className="hover:text-gray-600 transition-colors">{locale === 'ar' ? 'تواصل' : locale === 'en' ? 'Contact' : 'Contact'}</a>
             </div>
             <div className="text-[12px] text-gray-300 text-center">
               <p>&copy; {new Date().getFullYear()} TrackSera</p>
@@ -770,17 +844,17 @@ function ContactSection() {
         <div className="text-center mb-10">
           <p className="text-[13px] font-semibold text-blue-600 tracking-wide mb-3">CONTACT</p>
           <h2 className="text-[28px] sm:text-[36px] font-bold tracking-[-0.02em] text-gray-900">
-            {locale === 'ar' ? 'تواصل معنا' : 'Contactez-nous'}
+            {locale === 'ar' ? 'تواصل معنا' : locale === 'en' ? 'Contact us' : 'Contactez-nous'}
           </h2>
           <p className="mt-3 text-[15px] text-gray-500">
-            {locale === 'ar' ? 'أرسل لنا رسالة وسنرد عليك في أقرب وقت' : 'Envoyez-nous un message et nous vous répondrons rapidement'}
+            {locale === 'ar' ? 'أرسل لنا رسالة وسنرد عليك في أقرب وقت' : locale === 'en' ? 'Send us a message and we will get back to you shortly.' : 'Envoyez-nous un message et nous vous répondrons rapidement'}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {success && (
             <div className="p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg text-[13px]">
-              {locale === 'ar' ? 'تم إرسال رسالتك بنجاح! سنتواصل معك قريباً.' : 'Message envoyé avec succès ! Nous vous contacterons bientôt.'}
+              {locale === 'ar' ? 'تم إرسال رسالتك بنجاح! سنتواصل معك قريباً.' : locale === 'en' ? 'Message sent successfully! We will contact you soon.' : 'Message envoyé avec succès ! Nous vous contacterons bientôt.'}
             </div>
           )}
           {error && (
@@ -789,43 +863,43 @@ function ContactSection() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-[13px] font-medium text-gray-700 mb-1.5">{locale === 'ar' ? 'الاسم' : 'Nom'} *</label>
+              <label className="block text-[13px] font-medium text-gray-700 mb-1.5">{locale === 'ar' ? 'الاسم' : locale === 'en' ? 'Name' : 'Nom'} *</label>
               <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-[13px]"
-                placeholder={locale === 'ar' ? 'اسمك الكامل' : 'Votre nom complet'} required />
+                placeholder={locale === 'ar' ? 'اسمك الكامل' : locale === 'en' ? 'Your full name' : 'Votre nom complet'} required />
             </div>
             <div>
-              <label className="block text-[13px] font-medium text-gray-700 mb-1.5">{locale === 'ar' ? 'البريد الإلكتروني' : 'Email'} *</label>
+              <label className="block text-[13px] font-medium text-gray-700 mb-1.5">{locale === 'ar' ? 'البريد الإلكتروني' : locale === 'en' ? 'Email' : 'Email'} *</label>
               <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-[13px]"
                 placeholder="email@example.com" required />
             </div>
             <div>
-              <label className="block text-[13px] font-medium text-gray-700 mb-1.5">{locale === 'ar' ? 'رقم الهاتف' : 'Téléphone'}</label>
+              <label className="block text-[13px] font-medium text-gray-700 mb-1.5">{locale === 'ar' ? 'رقم الهاتف' : locale === 'en' ? 'Phone' : 'Téléphone'}</label>
               <input type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-[13px]"
                 placeholder="+213 555 00 00 00" />
             </div>
             <div>
-              <label className="block text-[13px] font-medium text-gray-700 mb-1.5">{locale === 'ar' ? 'الشركة' : 'Entreprise'}</label>
+              <label className="block text-[13px] font-medium text-gray-700 mb-1.5">{locale === 'ar' ? 'الشركة' : locale === 'en' ? 'Company' : 'Entreprise'}</label>
               <input type="text" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-[13px]"
-                placeholder={locale === 'ar' ? 'اسم الشركة' : "Nom de l'entreprise"} />
+                placeholder={locale === 'ar' ? 'اسم الشركة' : locale === 'en' ? 'Company name' : "Nom de l'entreprise"} />
             </div>
           </div>
 
           <div>
-            <label className="block text-[13px] font-medium text-gray-700 mb-1.5">{locale === 'ar' ? 'الرسالة' : 'Message'} *</label>
+            <label className="block text-[13px] font-medium text-gray-700 mb-1.5">{locale === 'ar' ? 'الرسالة' : locale === 'en' ? 'Message' : 'Message'} *</label>
             <textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} rows={4}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-[13px] resize-none"
-              placeholder={locale === 'ar' ? 'اكتب رسالتك هنا...' : 'Votre message...'} required />
+              placeholder={locale === 'ar' ? 'اكتب رسالتك هنا...' : locale === 'en' ? 'Write your message here...' : 'Votre message...'} required />
           </div>
 
           <button type="submit" disabled={submitting}
             className="w-full py-3 bg-gray-900 hover:bg-gray-800 text-white text-[13px] font-medium rounded-lg transition-colors disabled:opacity-50">
             {submitting
-              ? (locale === 'ar' ? 'جاري الإرسال...' : 'Envoi en cours...')
-              : (locale === 'ar' ? 'إرسال الرسالة' : 'Envoyer le message')}
+              ? (locale === 'ar' ? 'جاري الإرسال...' : locale === 'en' ? 'Sending...' : 'Envoi en cours...')
+              : (locale === 'ar' ? 'إرسال الرسالة' : locale === 'en' ? 'Send message' : 'Envoyer le message')}
           </button>
         </form>
       </div>

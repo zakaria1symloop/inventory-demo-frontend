@@ -8,7 +8,6 @@ import GuidedTour from '@/components/GuidedTour';
 import type { TourStep } from '@/components/GuidedTour';
 import toast from 'react-hot-toast';
 import {
-  ArrowsRightLeftIcon,
   ArrowLeftIcon,
   MagnifyingGlassIcon,
   PlusIcon,
@@ -441,14 +440,9 @@ export default function NewStockTransferPage() {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" data-tour="nst-title">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-teal-500/20">
-            <ArrowsRightLeftIcon className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('stockTransfersNew.pageTitle')}</h1>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('stockTransfersNew.pageSubtitle')}</p>
-          </div>
+        <div>
+          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('stockTransfersNew.pageTitle')}</h1>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('stockTransfersNew.pageSubtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -971,7 +965,7 @@ export default function NewStockTransferPage() {
               <button
                 onClick={handleSubmit}
                 disabled={isSaving || items.length === 0 || hasStockErrors() || (!!toWarehouseId && !isDestCashvan)}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold text-white bg-gradient-to-l from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 rounded-xl shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold text-white bg-gradient-to-l from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSaving ? (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

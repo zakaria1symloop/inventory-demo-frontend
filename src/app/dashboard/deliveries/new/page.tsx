@@ -211,57 +211,57 @@ export default function NewDeliveryPage() {
     }
   };
 
-  // ── Download PDF (receipt-style, Arabic-only) ──
+  // ── Print order via HTML (renders Arabic correctly via system fonts) ──
   const downloadOrderPDF = (order: Order, e: React.MouseEvent) => {
     e.stopPropagation();
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [80, 200] });
-
-    let yPos = 10;
-    const pageWidth = 80;
-    const margin = 5;
-
-    doc.setFontSize(14);
-    doc.text(order.reference, pageWidth / 2, yPos, { align: 'center' });
-    yPos += 8;
-    doc.setLineWidth(0.5);
-    doc.line(margin, yPos, pageWidth - margin, yPos);
-    yPos += 5;
-
-    doc.setFontSize(10);
-    doc.text(`Client: ${order.client?.name || '-'}`, pageWidth - margin, yPos, { align: 'right' });
-    yPos += 5;
-    doc.text(`Tel: ${order.client?.phone || '-'}`, pageWidth - margin, yPos, { align: 'right' });
-    yPos += 5;
-    doc.text(`Date: ${new Date(order.date).toLocaleDateString('fr-FR')}`, pageWidth - margin, yPos, { align: 'right' });
-    yPos += 8;
-
-    doc.setFontSize(9);
-    doc.text('Qte', margin + 5, yPos);
-    doc.text('Produit', margin + 20, yPos);
-    doc.text('Total', pageWidth - margin, yPos, { align: 'right' });
-    yPos += 3;
-    doc.line(margin, yPos, pageWidth - margin, yPos);
-    yPos += 4;
-
-    doc.setFontSize(8);
-    order.items?.forEach((item) => {
+    const escape = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] || c));
+    const itemsHtml = (order.items || []).map((item) => {
       const qty = formatQtyLong(item.quantity_confirmed, item.product?.pieces_per_package);
-      const name = (item.product?.name || '-').substring(0, 15);
+      const name = item.product?.name || '-';
       const total = (Number(item.quantity_confirmed) * Number(item.unit_price)).toFixed(0);
-      doc.text(qty, margin + 5, yPos);
-      doc.text(name, margin + 15, yPos);
-      doc.text(total, pageWidth - margin, yPos, { align: 'right' });
-      yPos += 5;
-    });
+      return `<tr><td>${escape(qty)}</td><td>${escape(name)}</td><td style="text-align:end">${total} DA</td></tr>`;
+    }).join('');
 
-    yPos += 3;
-    doc.setLineWidth(0.5);
-    doc.line(margin, yPos, pageWidth - margin, yPos);
-    yPos += 5;
-    doc.setFontSize(12);
-    doc.text(`Total: ${Number(order.grand_total).toFixed(0)} DA`, pageWidth - margin, yPos, { align: 'right' });
-
-    doc.save(`commande-${order.reference}.pdf`);
+    const html = `<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <title>${escape(order.reference)}</title>
+  <style>
+    @page { size: 80mm 200mm; margin: 4mm; }
+    body { font-family: 'Tajawal', 'Cairo', 'Noto Sans Arabic', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 11px; color: #000; margin: 0; padding: 0; }
+    h1 { font-size: 14px; text-align: center; margin: 0 0 6px; }
+    hr { border: 0; border-top: 1px solid #000; margin: 4px 0; }
+    table { width: 100%; border-collapse: collapse; }
+    td, th { padding: 2px 0; vertical-align: top; }
+    .total { font-size: 13px; font-weight: bold; margin-top: 6px; text-align: end; }
+    .row { display: flex; justify-content: space-between; margin: 2px 0; }
+  </style>
+</head>
+<body>
+  <h1>${escape(order.reference)}</h1>
+  <hr />
+  <div class="row"><span>Client:</span><span>${escape(order.client?.name || '-')}</span></div>
+  <div class="row"><span>Tel:</span><span dir="ltr">${escape(order.client?.phone || '-')}</span></div>
+  <div class="row"><span>Date:</span><span>${escape(new Date(order.date).toLocaleDateString('fr-FR'))}</span></div>
+  <hr />
+  <table>
+    <thead><tr><th style="text-align:start">Qte</th><th style="text-align:start">Produit</th><th style="text-align:end">Total</th></tr></thead>
+    <tbody>${itemsHtml}</tbody>
+  </table>
+  <hr />
+  <div class="total">Total: ${Number(order.grand_total).toFixed(0)} DA</div>
+  <script>window.onload = () => { window.print(); setTimeout(() => window.close(), 500); };</script>
+</body>
+</html>`;
+    const win = window.open('', '_blank', 'width=400,height=800');
+    if (!win) {
+      toast.error(t('deliveryNew.pdfSuccess'));
+      return;
+    }
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
     toast.success(t('deliveryNew.pdfSuccess'));
   };
 
@@ -649,9 +649,6 @@ export default function NewDeliveryPage() {
             <BackArrowIcon className="w-4 h-4" />
             {t('deliveryNew.back')}
           </Link>
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <TruckIcon className="w-6 h-6 text-white" />
-          </div>
           <div>
             <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">{t('deliveryNew.title')}</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{t('deliveryNew.subtitle')}</p>
@@ -788,10 +785,15 @@ export default function NewDeliveryPage() {
                     type="button"
                     role="switch"
                     aria-checked={autoStart}
+                    aria-label={t('deliveryNew.autoStartLabel')}
                     onClick={() => handleAutoStartToggle(!autoStart)}
+                    dir="ltr"
                     className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${autoStart ? 'bg-green-600' : 'bg-gray-200 dark:bg-gray-600'}`}
                   >
-                    <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${autoStart ? (isRTL ? 'translate-x-0' : '-translate-x-5') : (isRTL ? 'translate-x-5' : 'translate-x-0')}`} />
+                    <span
+                      aria-hidden="true"
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${autoStart ? 'translate-x-5' : 'translate-x-0'}`}
+                    />
                   </button>
                 </div>
               </div>
@@ -1095,7 +1097,7 @@ export default function NewDeliveryPage() {
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting || selectedOrders.length === 0 || !formData.livreur_id}
-                className={`w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl font-bold text-white transition-all disabled:opacity-50 active:scale-[0.98] shadow-sm ${
+                className={`w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl font-bold text-white transition-all disabled:opacity-50 active:scale-[0.98] ${
                   autoStart
                     ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
                     : 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700'

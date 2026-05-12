@@ -21,6 +21,10 @@ const footer = {
     allWilayas: 'جميع 58 ولاية',
     allSectors: 'جميع القطاعات',
     rights: 'جميع الحقوق محفوظة',
+    legalTitle: 'القانوني',
+    terms: 'شروط الاستخدام',
+    privacy: 'سياسة الخصوصية',
+    refund: 'سياسة الاسترداد',
     moduleList: ['إدارة الطلبات', 'التوصيل وتتبع GPS', 'البيع المتنقل - Cashvan', 'المبيعات والفوترة', 'المخزون والمستودعات', 'التقارير والتحليلات'],
   },
   fr: {
@@ -38,7 +42,32 @@ const footer = {
     allWilayas: 'Toutes les 58 wilayas',
     allSectors: 'Tous les secteurs',
     rights: 'Tous droits réservés',
+    legalTitle: 'Légal',
+    terms: "Conditions d'utilisation",
+    privacy: 'Politique de confidentialité',
+    refund: 'Politique de remboursement',
     moduleList: ['Gestion des Commandes', 'Livraison & Suivi GPS', 'Cashvan', 'Ventes & Facturation', 'Stock & Entrepôts', 'Rapports'],
+  },
+  en: {
+    brand: 'TrackSera',
+    brandDesc: 'Business management software for retailers, wholesalers, and distributors. Inventory, sales, deliveries, mobile sales, and reporting.',
+    quickLinks: 'Quick links',
+    home: 'Home',
+    modules: 'Modules',
+    pricing: 'Pricing',
+    contact: 'Contact',
+    blog: 'Blog',
+    modulesTitle: 'Modules',
+    sectorsTitle: 'Sectors',
+    citiesTitle: 'Cities',
+    allWilayas: 'All 58 wilayas',
+    allSectors: 'All sectors',
+    rights: 'All rights reserved',
+    legalTitle: 'Legal',
+    terms: 'Terms of Service',
+    privacy: 'Privacy Policy',
+    refund: 'Refund Policy',
+    moduleList: ['Orders', 'Delivery & GPS', 'CashVan', 'Sales & Invoicing', 'Inventory & Warehouses', 'Reports'],
   },
 };
 
@@ -46,13 +75,14 @@ const footer = {
 const TOP_WILAYAS_SLUGS = ['alger', 'oran', 'constantine', 'setif', 'annaba', 'blida', 'tizi-ouzou', 'batna', 'bejaia', 'tlemcen', 'biskra', 'ghardaia'];
 
 interface Props {
-  lang: 'ar' | 'fr';
+  lang: 'ar' | 'fr' | 'en';
 }
 
 export default function SiteFooter({ lang }: Props) {
   const f = footer[lang];
   const topWilayas = TOP_WILAYAS_SLUGS.map((slug) => WILAYAS.find((w) => w.slug === slug)).filter(Boolean);
   const topSectors = SECTORS.slice(0, 8);
+  const isAr = lang === 'ar';
 
   return (
     <footer className="border-t border-gray-100 bg-gray-50 py-12">
@@ -74,6 +104,9 @@ export default function SiteFooter({ lang }: Props) {
               <li><Link href="/tarifs" className="hover:text-blue-600">{f.pricing}</Link></li>
               <li><Link href="/blog" className="hover:text-blue-600">{f.blog}</Link></li>
               <li><Link href="/faq" className="hover:text-blue-600">FAQ</Link></li>
+              <li><Link href="/terms" className="hover:text-blue-600">{f.terms}</Link></li>
+              <li><Link href="/privacy" className="hover:text-blue-600">{f.privacy}</Link></li>
+              <li><Link href="/refund" className="hover:text-blue-600">{f.refund}</Link></li>
             </ul>
           </div>
 
@@ -83,7 +116,7 @@ export default function SiteFooter({ lang }: Props) {
               {topSectors.map((s) => (
                 <li key={s.slug}>
                   <Link href={`/secteurs/${s.slug}`} className="hover:text-blue-600">
-                    {s.emoji} {lang === 'ar' ? s.name.ar : s.name.fr}
+                    {s.emoji} {isAr ? s.name.ar : s.name.fr}
                   </Link>
                 </li>
               ))}
@@ -101,7 +134,7 @@ export default function SiteFooter({ lang }: Props) {
               {topWilayas.map((w) => w && (
                 <li key={w.slug}>
                   <Link href={`/distribution/${w.slug}`} className="hover:text-blue-600">
-                    {lang === 'ar' ? w.name.ar : w.name.fr}
+                    {isAr ? w.name.ar : w.name.fr}
                   </Link>
                 </li>
               ))}

@@ -43,6 +43,7 @@ interface Purchase {
   supplier?: { id: number; name: string };
   warehouse?: { id: number; name: string };
   returns_count?: number;
+  returns_total?: number;
 }
 
 interface Tab {
@@ -215,7 +216,7 @@ function PurchaseRetourForm({ purchaseId, onSuccess, onCancel }: { purchaseId: n
       <div className="flex justify-end gap-3">
         <button onClick={onCancel} className="btn btn-secondary">{t('purchases.cancel')}</button>
         <button onClick={handleSubmit} disabled={isSubmitting}
-          className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-orange-500 hover:bg-orange-600 shadow-md active:scale-[0.98] transition-all disabled:opacity-50">
+          className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-orange-500 hover:bg-orange-600 active:scale-[0.98] transition-all disabled:opacity-50">
           <ArrowUturnLeftIcon className="w-4 h-4" />
           {isSubmitting ? '...' : t('purchases.prRetourSubmit')}
         </button>
@@ -589,14 +590,9 @@ export default function PurchasesPage() {
           <div className="space-y-5">
             {/* ─── Header ─── */}
             <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-3">
-              <div data-tour="purchases-title" className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                  <ClipboardDocumentListIcon className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('purchases.title')}</h1>
-                  <p className="text-sm text-gray-400 mt-1.5">{t('purchases.subtitle')}</p>
-                </div>
+              <div data-tour="purchases-title">
+                <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('purchases.title')}</h1>
+                <p className="text-sm text-gray-400 mt-1.5">{t('purchases.subtitle')}</p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <Link
@@ -609,7 +605,7 @@ export default function PurchasesPage() {
                 </Link>
                 <button
                   onClick={openNewTab}
-                  className="group inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 active:scale-[0.98] transition-all duration-200"
+                  className="group inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-all duration-200"
                   data-tour="purchases-add"
                 >
                   <PlusIcon className="w-5 h-5 group-hover:rotate-90 transition-transform duration-200" />
@@ -626,9 +622,6 @@ export default function PurchasesPage() {
                 <div className="group relative p-5 hover:bg-blue-50/40 dark:hover:bg-blue-900/20 transition-colors duration-200">
                   <div className="absolute top-0 inset-x-0 h-[3px] bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
                   <div className="text-center">
-                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 mb-2.5">
-                      <span className="text-sm font-black">#</span>
-                    </div>
                     <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.totalCount}</div>
                     <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('purchases.totalInvoices')}</div>
                   </div>
@@ -637,9 +630,6 @@ export default function PurchasesPage() {
                 <div className="group relative p-5 hover:bg-purple-50/40 dark:hover:bg-purple-900/20 transition-colors duration-200">
                   <div className="absolute top-0 inset-x-0 h-[3px] bg-purple-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
                   <div className="text-center">
-                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 mb-2.5">
-                      <BanknotesIcon className="w-4 h-4" />
-                    </div>
                     <div className="text-lg font-black text-gray-900 dark:text-white tabular-nums leading-none">{formatCurrency(kpis.totalAmount)}</div>
                     <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('purchases.totalPurchases')}</div>
                   </div>
@@ -648,9 +638,6 @@ export default function PurchasesPage() {
                 <div className="group relative p-5 hover:bg-emerald-50/40 dark:hover:bg-emerald-900/20 transition-colors duration-200">
                   <div className="absolute top-0 inset-x-0 h-[3px] bg-emerald-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
                   <div className="text-center">
-                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 mb-2.5">
-                      <CheckCircleIcon className="w-4 h-4" />
-                    </div>
                     <div className="text-lg font-black text-emerald-600 tabular-nums leading-none">{formatCurrency(kpis.paidAmount)}</div>
                     <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('purchases.paid')}</div>
                   </div>
@@ -659,9 +646,6 @@ export default function PurchasesPage() {
                 <div className="group relative p-5 hover:bg-red-50/40 dark:hover:bg-red-900/20 transition-colors duration-200">
                   <div className="absolute top-0 inset-x-0 h-[3px] bg-red-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
                   <div className="text-center">
-                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 mb-2.5">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    </div>
                     <div className="text-lg font-black text-red-600 tabular-nums leading-none">{formatCurrency(kpis.dueAmount)}</div>
                     <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('purchases.remainingDebts')}</div>
                   </div>
@@ -670,9 +654,6 @@ export default function PurchasesPage() {
                 <div className="group relative p-5 hover:bg-amber-50/40 dark:hover:bg-amber-900/20 transition-colors duration-200">
                   <div className="absolute top-0 inset-x-0 h-[3px] bg-amber-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
                   <div className="text-center">
-                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 mb-2.5">
-                      <XMarkIcon className="w-4 h-4" />
-                    </div>
                     <div className="text-3xl font-black text-amber-600 tabular-nums leading-none">{kpis.unpaidCount}</div>
                     <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('purchases.unpaid')}</div>
                   </div>
@@ -681,9 +662,6 @@ export default function PurchasesPage() {
                 <div className="group relative p-5 hover:bg-orange-50/40 dark:hover:bg-orange-900/20 transition-colors duration-200">
                   <div className="absolute top-0 inset-x-0 h-[3px] bg-orange-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
                   <div className="text-center">
-                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-500 mb-2.5">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    </div>
                     <div className="text-3xl font-black text-orange-500 tabular-nums leading-none">{kpis.partialCount}</div>
                     <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('purchases.partialPayment')}</div>
                   </div>
@@ -815,7 +793,14 @@ export default function PurchasesPage() {
                             <td className="font-medium text-gray-700 dark:text-gray-300">{purchase.supplier?.name || '-'}</td>
                             <td className="text-gray-500">{purchase.warehouse?.name || '-'}</td>
                             <td className="text-gray-500 tabular-nums">{formatDate(purchase.date)}</td>
-                            <td className="font-bold text-gray-900 dark:text-white tabular-nums">{formatCurrency(purchase.grand_total)}</td>
+                            <td className="font-bold text-gray-900 dark:text-white tabular-nums">
+                              {formatCurrency(purchase.grand_total)}
+                              {purchase.returns_total && purchase.returns_total > 0 ? (
+                                <div className="text-[10px] font-medium text-orange-500 mt-0.5">
+                                  -{formatCurrency(purchase.returns_total)} {locale === 'ar' ? 'مرتجع' : 'retour'}
+                                </div>
+                              ) : null}
+                            </td>
                             <td className="font-semibold text-emerald-600 tabular-nums">{formatCurrency(purchase.paid_amount)}</td>
                             <td className="font-semibold text-red-600 tabular-nums">{formatCurrency(purchase.due_amount)}</td>
                             <td>

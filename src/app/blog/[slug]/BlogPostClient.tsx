@@ -19,6 +19,8 @@ const UI = {
     notFound: 'المقال غير موجود',
     notFoundDesc: 'ربما تم نقله أو حذفه.',
     share: 'مشاركة',
+    faqTitle: 'أسئلة شائعة',
+    faqSubtitle: 'إجابات سريعة عن الأسئلة الأكثر تكرارًا',
   },
   fr: {
     backToBlog: 'Retour au blog',
@@ -32,6 +34,23 @@ const UI = {
     notFound: 'Article introuvable',
     notFoundDesc: 'Il a peut-être été déplacé ou supprimé.',
     share: 'Partager',
+    faqTitle: 'Questions fréquentes',
+    faqSubtitle: 'Réponses rapides aux questions les plus posées',
+  },
+  en: {
+    backToBlog: 'Back to blog',
+    minRead: 'min read',
+    publishedOn: 'Published',
+    by: 'By',
+    relatedTitle: 'Related articles',
+    ctaTitle: 'Ready to try TrackSera?',
+    ctaSubtitle: 'Free 14-day trial, no credit card.',
+    ctaButton: 'Create a free account',
+    notFound: 'Article not found',
+    notFoundDesc: 'It may have been moved or removed.',
+    share: 'Share',
+    faqTitle: 'Frequently asked questions',
+    faqSubtitle: 'Quick answers to the most common questions',
   },
 };
 
@@ -112,8 +131,9 @@ export default function BlogPostClient({ slug }: { slug: string }) {
 
             <div className="flex items-center gap-4">
               <div className="hidden sm:flex items-center gap-0.5 bg-gray-100 rounded-full p-0.5">
-                <button onClick={() => setLocale('ar')} className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all ${locale === 'ar' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>عربي</button>
+                <button onClick={() => setLocale('en')} className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all ${locale === 'en' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>EN</button>
                 <button onClick={() => setLocale('fr')} className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all ${locale === 'fr' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>FR</button>
+                <button onClick={() => setLocale('ar')} className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all ${locale === 'ar' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>عربي</button>
               </div>
               <Link href="/login" className="text-[13px] text-gray-500 hover:text-gray-900 transition-colors">
                 {locale === 'ar' ? 'الدخول' : 'Connexion'}
@@ -160,17 +180,17 @@ export default function BlogPostClient({ slug }: { slug: string }) {
           </Link>
 
           <div className="flex items-center justify-center gap-3 mb-5 text-[12px] font-semibold uppercase tracking-wider opacity-90">
-            <span>{categoryLabels[post.category][locale]}</span>
+            <span>{categoryLabels[post.category][locale] ?? categoryLabels[post.category].fr}</span>
             <span className="opacity-50">•</span>
             <span>{post.readTime} {ui.minRead}</span>
           </div>
 
           <h1 className="text-[30px] sm:text-[42px] font-bold leading-[1.15] tracking-[-0.02em] mb-5">
-            {post.title[locale]}
+            {post.title[locale] ?? post.title.fr}
           </h1>
 
           <p className="text-[16px] opacity-85 leading-relaxed max-w-[600px] mx-auto">
-            {post.excerpt[locale]}
+            {post.excerpt[locale] ?? post.excerpt.fr}
           </p>
 
           <div className="mt-7 inline-flex items-center gap-3 text-[12px] opacity-80">
@@ -186,15 +206,40 @@ export default function BlogPostClient({ slug }: { slug: string }) {
 
       {/* ── Article body ── */}
       <article className="max-w-[760px] mx-auto px-5 sm:px-8 py-16">
+        {/* Pillar callout (skip on the pillar itself) */}
+        {!post.pillar && (
+          <Link
+            href="/blog/guide-complet-distribution-algerie-2026"
+            className="group flex items-center justify-between gap-4 mb-10 px-5 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border border-blue-100 rounded-2xl transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="text-[20px]">📚</div>
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-blue-600 mb-0.5">
+                  {locale === 'ar' ? 'دليل شامل' : 'Guide complet'}
+                </div>
+                <div className="text-[14px] font-semibold text-gray-900">
+                  {locale === 'ar'
+                    ? 'الدليل الشامل للتوزيع في الجزائر 2026'
+                    : 'Guide complet de la distribution en Algérie 2026'}
+                </div>
+              </div>
+            </div>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-blue-600 rtl:rotate-180 group-hover:translate-x-1 rtl:group-hover:-translate-x-1 transition-transform">
+              <path d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+          </Link>
+        )}
+
         <div
           className="blog-content prose-content"
-          dangerouslySetInnerHTML={{ __html: post.content[locale] }}
+          dangerouslySetInnerHTML={{ __html: post.content[locale] ?? post.content.fr }}
         />
 
         {/* Tags */}
         <div className="mt-12 pt-8 border-t border-gray-100">
           <div className="flex flex-wrap gap-2">
-            {post.tags[locale].map((tag) => (
+            {(post.tags[locale] ?? post.tags.fr).map((tag: string) => (
               <span
                 key={tag}
                 className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-full text-[12px] font-medium"
@@ -205,6 +250,46 @@ export default function BlogPostClient({ slug }: { slug: string }) {
           </div>
         </div>
       </article>
+
+      {/* ── FAQ section (rich snippet target) ── */}
+      {post.faqs && post.faqs.length > 0 && (
+        <section className="border-t border-gray-100 py-16">
+          <div className="max-w-[760px] mx-auto px-5 sm:px-8">
+            <div className="text-center mb-10">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-blue-600 mb-3">
+                FAQ
+              </div>
+              <h2 className="text-[28px] sm:text-[34px] font-bold text-gray-900 tracking-[-0.02em] mb-2">
+                {ui.faqTitle}
+              </h2>
+              <p className="text-[14px] text-gray-500">{ui.faqSubtitle}</p>
+            </div>
+            <div className="space-y-3">
+              {post.faqs.map((faq, i) => (
+                <details
+                  key={i}
+                  className="group bg-gray-50 hover:bg-gray-100/70 rounded-2xl border border-gray-100 transition-colors"
+                >
+                  <summary className="flex items-start justify-between gap-4 p-5 cursor-pointer list-none">
+                    <h3 className="text-[15px] font-semibold text-gray-900 leading-snug flex-1">
+                      {faq.question[locale] ?? faq.question.fr}
+                    </h3>
+                    <span className="flex-shrink-0 w-7 h-7 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 group-open:rotate-45 transition-transform">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M12 5v14M5 12h14" />
+                      </svg>
+                    </span>
+                  </summary>
+                  <div
+                    className="px-5 pb-5 text-[14px] text-gray-600 leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: faq.answer[locale] ?? faq.answer.fr }}
+                  />
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── CTA ── */}
       <section className="bg-gray-50 py-16">
@@ -260,7 +345,7 @@ export default function BlogPostClient({ slug }: { slug: string }) {
                   </div>
                   <div className="p-5">
                     <div className="text-[10px] font-semibold uppercase tracking-wider text-blue-600 mb-2">
-                      {categoryLabels[rp.category][locale]}
+                      {categoryLabels[rp.category][locale] ?? categoryLabels[rp.category].fr}
                     </div>
                     <h3 className="text-[15px] font-bold text-gray-900 leading-snug group-hover:text-blue-600 transition-colors line-clamp-2">
                       {rp.title[locale]}

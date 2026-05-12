@@ -40,7 +40,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   )}&category=${encodeURIComponent(categoryLabels[post.category].fr)}&theme=${theme}`;
 
   return {
-    title: `${post.title.fr} — ${post.title.ar}`,
+    title: post.title.fr,
     description: post.excerpt.fr,
     keywords: [...post.tags.fr, ...post.tags.ar],
     authors: [{ name: post.author }],
@@ -93,39 +93,70 @@ export default async function BlogPostPage({ params }: { params: Params }) {
     post.excerpt.fr.slice(0, 160)
   )}&category=${encodeURIComponent(categoryLabels[post.category].fr)}&theme=${theme}`;
 
+  const graph: Record<string, unknown>[] = [
+    {
+      '@type': 'BlogPosting',
+      '@id': `${canonical}#article`,
+      headline: post.title.fr,
+      alternativeHeadline: post.title.ar,
+      description: post.excerpt.fr,
+      image: [ogUrl],
+      datePublished: post.date,
+      dateModified: post.date,
+      author: {
+        '@type': 'Organization',
+        name: post.author,
+        url: SITE_URL,
+      },
+      publisher: { '@id': `${SITE_URL}/#organization` },
+      mainEntityOfPage: { '@type': 'WebPage', '@id': canonical },
+      inLanguage: ['fr-DZ', 'ar-DZ'],
+      keywords: post.tags.fr.join(', '),
+      articleSection: categoryLabels[post.category].fr,
+      wordCount: post.content.fr.replace(/<[^>]+>/g, '').split(/\s+/).length,
+    },
+    {
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Accueil', item: SITE_URL },
+        { '@type': 'ListItem', position: 2, name: 'Blog', item: `${SITE_URL}/blog` },
+        { '@type': 'ListItem', position: 3, name: post.title.fr, item: canonical },
+      ],
+    },
+  ];
+
+  if (post.faqs && post.faqs.length > 0) {
+    graph.push({
+      '@type': 'FAQPage',
+      '@id': `${canonical}#faq`,
+      mainEntity: post.faqs.map((f) => ({
+        '@type': 'Question',
+        name: f.question.fr,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: f.answer.fr,
+        },
+      })),
+    });
+  }
+
+  if (post.howTo && post.howTo.steps.length > 0) {
+    graph.push({
+      '@type': 'HowTo',
+      '@id': `${canonical}#howto`,
+      name: post.howTo.name.fr,
+      step: post.howTo.steps.map((s, i) => ({
+        '@type': 'HowToStep',
+        position: i + 1,
+        name: s.name.fr,
+        text: s.text.fr,
+      })),
+    });
+  }
+
   const articleJsonLd = {
     '@context': 'https://schema.org',
-    '@graph': [
-      {
-        '@type': 'BlogPosting',
-        '@id': `${canonical}#article`,
-        headline: post.title.fr,
-        alternativeHeadline: post.title.ar,
-        description: post.excerpt.fr,
-        image: [ogUrl],
-        datePublished: post.date,
-        dateModified: post.date,
-        author: {
-          '@type': 'Organization',
-          name: post.author,
-          url: SITE_URL,
-        },
-        publisher: { '@id': `${SITE_URL}/#organization` },
-        mainEntityOfPage: { '@type': 'WebPage', '@id': canonical },
-        inLanguage: ['fr-DZ', 'ar-DZ'],
-        keywords: post.tags.fr.join(', '),
-        articleSection: categoryLabels[post.category].fr,
-        wordCount: post.content.fr.replace(/<[^>]+>/g, '').split(/\s+/).length,
-      },
-      {
-        '@type': 'BreadcrumbList',
-        itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Accueil', item: SITE_URL },
-          { '@type': 'ListItem', position: 2, name: 'Blog', item: `${SITE_URL}/blog` },
-          { '@type': 'ListItem', position: 3, name: post.title.fr, item: canonical },
-        ],
-      },
-    ],
+    '@graph': graph,
   };
 
   return (

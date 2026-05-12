@@ -153,7 +153,7 @@ export default function SaleReturnsPage() {
       </div>
 
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">{t('saleReturns.title')}</h1>
+        <h1 className="text-xl sm:text-2xl font-bold">{t('saleReturns.title')}</h1>
       </div>
 
       {/* Filters Card */}
@@ -212,7 +212,8 @@ export default function SaleReturnsPage() {
 
       {/* Table Card */}
       <div className="card">
-        <table>
+        <div className="overflow-x-auto -mx-4 sm:mx-0">
+        <table className="min-w-[800px] sm:min-w-0 w-full">
           <thead>
             <tr>
               <th>{t('saleReturns.reference')}</th>
@@ -246,7 +247,28 @@ export default function SaleReturnsPage() {
                   <td>{formatDate(ret.date)}</td>
                   <td className="text-purple-600 font-medium">{formatCurrency(ret.total_amount)}</td>
                   <td>
-                    <span className="badge bg-green-100 text-green-800">{ret.status}</span>
+                    {(() => {
+                      const statusKey = String(ret.status || '').toLowerCase();
+                      const labels: Record<string, string> = {
+                        pending: t('saleReturns.statusPending') || 'قيد الانتظار',
+                        approved: t('saleReturns.statusApproved') || 'موافق عليه',
+                        rejected: t('saleReturns.statusRejected') || 'مرفوض',
+                        completed: t('saleReturns.statusCompleted') || 'مكتمل',
+                        cancelled: t('saleReturns.statusCancelled') || 'ملغي',
+                      };
+                      const colors: Record<string, string> = {
+                        pending: 'bg-yellow-100 text-yellow-800',
+                        approved: 'bg-green-100 text-green-800',
+                        rejected: 'bg-red-100 text-red-800',
+                        completed: 'bg-blue-100 text-blue-800',
+                        cancelled: 'bg-gray-100 text-gray-800',
+                      };
+                      return (
+                        <span className={`badge ${colors[statusKey] || 'bg-gray-100 text-gray-800'}`}>
+                          {labels[statusKey] || ret.status}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td>
                     <button
@@ -264,6 +286,7 @@ export default function SaleReturnsPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Detail Modal */}

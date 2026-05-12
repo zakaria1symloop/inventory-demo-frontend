@@ -16,12 +16,6 @@ import {
   TrashIcon,
   ArrowTopRightOnSquareIcon,
   MagnifyingGlassIcon,
-  ArrowDownTrayIcon,
-  ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon,
-  UserGroupIcon,
-  CurrencyDollarIcon,
-  DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 
 interface Payment {
@@ -306,14 +300,9 @@ export default function PaymentsPage() {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" data-tour="payments-title">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-            <BanknotesIcon className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('payments.title')}</h1>
-            <p className="text-sm text-gray-400 dark:text-gray-400 mt-1">{t('payments.subtitle')}</p>
-          </div>
+        <div>
+          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('payments.title')}</h1>
+          <p className="text-sm text-gray-400 dark:text-gray-400 mt-1">{t('payments.subtitle')}</p>
         </div>
         <button
           onClick={() => { localStorage.removeItem('payments_tour_step'); setShowTour(true); }}
@@ -330,9 +319,6 @@ export default function PaymentsPage() {
           <div className="group relative p-5 hover:bg-cyan-50/40 dark:hover:bg-cyan-900/10 transition-colors duration-200">
             <div className="absolute top-0 inset-x-0 h-[3px] bg-cyan-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 mb-2.5">
-                <CurrencyDollarIcon className="w-4 h-4" />
-              </div>
               <div className="text-lg font-black text-gray-900 dark:text-white tabular-nums leading-none">{formatCurrency(kpis.totalAmount)}</div>
               <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('payments.totalAmount')}</div>
             </div>
@@ -340,9 +326,6 @@ export default function PaymentsPage() {
           <div className="group relative p-5 hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10 transition-colors duration-200">
             <div className="absolute top-0 inset-x-0 h-[3px] bg-emerald-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 mb-2.5">
-                <ArrowTrendingUpIcon className="w-4 h-4" />
-              </div>
               <div className="text-lg font-black text-emerald-600 dark:text-emerald-400 tabular-nums leading-none">{formatCurrency(kpis.salesTotal)}</div>
               <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('payments.salesCollections')}</div>
             </div>
@@ -350,9 +333,6 @@ export default function PaymentsPage() {
           <div className="group relative p-5 hover:bg-red-50/40 dark:hover:bg-red-900/10 transition-colors duration-200">
             <div className="absolute top-0 inset-x-0 h-[3px] bg-red-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 mb-2.5">
-                <ArrowTrendingDownIcon className="w-4 h-4" />
-              </div>
               <div className="text-lg font-black text-red-600 dark:text-red-400 tabular-nums leading-none">{formatCurrency(kpis.purchasesTotal)}</div>
               <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('payments.purchasePayments')}</div>
             </div>
@@ -360,9 +340,6 @@ export default function PaymentsPage() {
           <div className="group relative p-5 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors duration-200">
             <div className="absolute top-0 inset-x-0 h-[3px] bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mb-2.5">
-                <DocumentTextIcon className="w-4 h-4" />
-              </div>
               <div className="text-3xl font-black text-blue-600 dark:text-blue-400 tabular-nums leading-none">{kpis.count}</div>
               <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('payments.operationsCount')}</div>
             </div>

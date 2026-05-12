@@ -31,3 +31,8 @@ tsconfig.tsbuildinfo
 .idea/
 .vscode/
 *.swp
+
+# Claude / agent tooling
+.agents/
+skills-lock.json
+.claude/

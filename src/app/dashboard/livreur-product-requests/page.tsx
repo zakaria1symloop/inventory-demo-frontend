@@ -22,9 +22,7 @@ import {
   UserIcon,
   CalendarDaysIcon,
   BuildingStorefrontIcon,
-  ShoppingCartIcon,
   ExclamationTriangleIcon,
-  CubeIcon,
 } from '@heroicons/react/24/outline';
 
 interface RequestItem {
@@ -247,14 +245,9 @@ export default function LivreurProductRequestsPage() {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center">
-            <ClipboardDocumentListIcon className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-gray-100 tracking-tight leading-none">{t('productRequests.livreurTitle')}</h1>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('productRequests.livreurSubtitle')}</p>
-          </div>
+        <div>
+          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-gray-100 tracking-tight leading-none">{t('productRequests.livreurTitle')}</h1>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('productRequests.livreurSubtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -273,9 +266,6 @@ export default function LivreurProductRequestsPage() {
           <div className="group relative p-5 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors duration-200">
             <div className="absolute top-0 inset-x-0 h-[3px] bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mb-2.5">
-                <ClipboardDocumentListIcon className="w-4 h-4" />
-              </div>
               <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.total}</div>
               <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('productRequests.lrTotal')}</div>
             </div>
@@ -283,9 +273,6 @@ export default function LivreurProductRequestsPage() {
           <div className="group relative p-5 hover:bg-amber-50/40 dark:hover:bg-amber-900/10 transition-colors duration-200">
             <div className="absolute top-0 inset-x-0 h-[3px] bg-amber-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 mb-2.5">
-                <ClockIcon className="w-4 h-4" />
-              </div>
               <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.pendingCount}</div>
               <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('productRequests.statusPending')}</div>
             </div>
@@ -293,9 +280,6 @@ export default function LivreurProductRequestsPage() {
           <div className="group relative p-5 hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10 transition-colors duration-200">
             <div className="absolute top-0 inset-x-0 h-[3px] bg-emerald-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 mb-2.5">
-                <CheckBadgeIcon className="w-4 h-4" />
-              </div>
               <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.fulfilledCount}</div>
               <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('productRequests.statusFulfilled')}</div>
             </div>
@@ -303,9 +287,6 @@ export default function LivreurProductRequestsPage() {
           <div className="group relative p-5 hover:bg-red-50/40 dark:hover:bg-red-900/10 transition-colors duration-200">
             <div className="absolute top-0 inset-x-0 h-[3px] bg-red-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 mb-2.5">
-                <XCircleIcon className="w-4 h-4" />
-              </div>
               <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.rejectedCount}</div>
               <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('productRequests.statusRejected')}</div>
             </div>

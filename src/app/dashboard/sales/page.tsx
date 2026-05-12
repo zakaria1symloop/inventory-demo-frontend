@@ -46,6 +46,7 @@ interface Sale {
   payment_status: 'unpaid' | 'partial' | 'paid';
   note?: string;
   source?: 'web' | 'app' | 'delivery';
+  returns_count?: number;
   client?: { id: number; name: string };
   warehouse?: { id: number; name: string };
   user?: { id: number; name: string };
@@ -231,7 +232,7 @@ function SaleRetourForm({ saleId, onSuccess, onCancel }: { saleId: number; onSuc
       <div className="flex justify-end gap-3">
         <button onClick={onCancel} className="btn btn-secondary">{t('sales.cancel')}</button>
         <button onClick={handleSubmit} disabled={isSubmitting}
-          className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-orange-500 hover:bg-orange-600 shadow-md active:scale-[0.98] transition-all disabled:opacity-50">
+          className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-orange-500 hover:bg-orange-600 active:scale-[0.98] transition-all disabled:opacity-50">
           <ArrowUturnLeftIcon className="w-4 h-4" />
           {isSubmitting ? '...' : t('sales.retourSubmit')}
         </button>
@@ -638,14 +639,9 @@ export default function SalesPage() {
           <div className="space-y-5">
             {/* --- Header --- */}
             <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-3">
-              <div data-tour="sales-title" className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                  <DocumentTextIcon className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('sales.title')}</h1>
-                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-1.5">{t('sales.subtitle')}</p>
-                </div>
+              <div data-tour="sales-title">
+                <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('sales.title')}</h1>
+                <p className="text-sm text-gray-400 dark:text-gray-500 mt-1.5">{t('sales.subtitle')}</p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <Link
@@ -658,7 +654,7 @@ export default function SalesPage() {
                 </Link>
                 <button
                   onClick={openNewTab}
-                  className="group inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/30 active:scale-[0.98] transition-all duration-200"
+                  className="group inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] transition-all duration-200"
                   data-tour="sales-add"
                 >
                   <PlusIcon className="w-5 h-5 group-hover:rotate-90 transition-transform duration-200" />
@@ -675,9 +671,6 @@ export default function SalesPage() {
                 <div className="group relative p-5 hover:bg-orange-50/40 dark:hover:bg-orange-900/10 transition-colors duration-200">
                   <div className="absolute top-0 inset-x-0 h-[3px] bg-orange-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
                   <div className="text-center">
-                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 mb-2.5">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20 12H4" /></svg>
-                    </div>
                     <div className="text-lg font-black text-gray-900 dark:text-white tabular-nums leading-none">{formatCurrency(kpis.totalCost)}</div>
                     <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.totalCostPrice')}</div>
                   </div>
@@ -685,9 +678,6 @@ export default function SalesPage() {
                 <div className="group relative p-5 hover:bg-green-50/40 dark:hover:bg-green-900/10 transition-colors duration-200">
                   <div className="absolute top-0 inset-x-0 h-[3px] bg-green-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
                   <div className="text-center">
-                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 mb-2.5">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
-                    </div>
                     <div className="text-lg font-black text-gray-900 dark:text-white tabular-nums leading-none">{formatCurrency(kpis.totalAmount)}</div>
                     <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.totalSellingPrice')}</div>
                   </div>
@@ -695,9 +685,6 @@ export default function SalesPage() {
                 <div className="group relative p-5 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors duration-200">
                   <div className="absolute top-0 inset-x-0 h-[3px] bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
                   <div className="text-center">
-                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mb-2.5">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-                    </div>
                     <div className={`text-lg font-black tabular-nums leading-none ${kpis.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(kpis.profit)}</div>
                     <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.profitMargin')}</div>
                   </div>
@@ -711,9 +698,6 @@ export default function SalesPage() {
                 <div className="group relative p-5 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors duration-200">
                   <div className="absolute top-0 inset-x-0 h-[3px] bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
                   <div className="text-center">
-                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mb-2.5">
-                      <span className="text-sm font-black">#</span>
-                    </div>
                     <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.totalSales}</div>
                     <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.totalInvoices')}</div>
                   </div>
@@ -722,9 +706,6 @@ export default function SalesPage() {
                 <div className="group relative p-5 hover:bg-purple-50/40 dark:hover:bg-purple-900/10 transition-colors duration-200">
                   <div className="absolute top-0 inset-x-0 h-[3px] bg-purple-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
                   <div className="text-center">
-                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 mb-2.5">
-                      <BanknotesIcon className="w-4 h-4" />
-                    </div>
                     <div className="text-lg font-black text-gray-900 dark:text-white tabular-nums leading-none">{formatCurrency(kpis.totalAmount)}</div>
                     <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.totalSales')}</div>
                   </div>
@@ -733,9 +714,6 @@ export default function SalesPage() {
                 <div className="group relative p-5 hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10 transition-colors duration-200">
                   <div className="absolute top-0 inset-x-0 h-[3px] bg-emerald-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
                   <div className="text-center">
-                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 mb-2.5">
-                      <CheckCircleIcon className="w-4 h-4" />
-                    </div>
                     <div className="text-lg font-black text-emerald-600 tabular-nums leading-none">{formatCurrency(kpis.paidAmount)}</div>
                     <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.collected')}</div>
                   </div>
@@ -744,9 +722,6 @@ export default function SalesPage() {
                 <div className="group relative p-5 hover:bg-red-50/40 dark:hover:bg-red-900/10 transition-colors duration-200">
                   <div className="absolute top-0 inset-x-0 h-[3px] bg-red-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
                   <div className="text-center">
-                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 mb-2.5">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    </div>
                     <div className="text-lg font-black text-red-600 tabular-nums leading-none">{formatCurrency(kpis.dueAmount)}</div>
                     <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.debts')}</div>
                   </div>
@@ -755,9 +730,6 @@ export default function SalesPage() {
                 <div className="group relative p-5 hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 transition-colors duration-200">
                   <div className="absolute top-0 inset-x-0 h-[3px] bg-indigo-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
                   <div className="text-center">
-                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 mb-2.5">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                    </div>
                     <div className="text-3xl font-black text-indigo-600 tabular-nums leading-none">{kpis.todaySales}</div>
                     <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.todaySales')}</div>
                     <div className="text-[10px] text-indigo-400 mt-0.5">{formatCurrency(kpis.todayAmount)}</div>
@@ -767,9 +739,6 @@ export default function SalesPage() {
                 <div className="group relative p-5 hover:bg-amber-50/40 dark:hover:bg-amber-900/10 transition-colors duration-200">
                   <div className="absolute top-0 inset-x-0 h-[3px] bg-amber-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
                   <div className="text-center">
-                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 mb-2.5">
-                      <XMarkIcon className="w-4 h-4" />
-                    </div>
                     <div className="text-3xl font-black text-amber-600 tabular-nums leading-none">{kpis.unpaidCount}</div>
                     <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.unpaidCount')}</div>
                   </div>
@@ -902,7 +871,20 @@ export default function SalesPage() {
                           const paymentBadge = getPaymentBadge(sale.payment_status);
                           return (
                             <tr key={sale.id} className="group hover:bg-emerald-50/30 dark:hover:bg-emerald-900/10 transition-colors duration-150">
-                              <td className="font-bold text-emerald-600">{sale.reference}</td>
+                              <td className="font-bold text-emerald-600">
+                                <div className="flex items-center gap-1.5">
+                                  <span>{sale.reference}</span>
+                                  {(sale.returns_count ?? 0) > 0 && (
+                                    <span
+                                      title={t('sales.hasReturn')}
+                                      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300"
+                                    >
+                                      <ArrowUturnLeftIcon className="w-3 h-3" />
+                                      {sale.returns_count}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
                               <td className="font-medium text-gray-700 dark:text-gray-200">{sale.client?.name || t('sales.cashClient')}</td>
                               <td>{sale.warehouse?.name || '-'}</td>
                               <td className="tabular-nums">{formatDate(sale.date)}</td>

@@ -7,13 +7,9 @@ import { useLocale, type TranslationKey } from '@/lib/i18n/context';
 import DateInput from '@/components/ui/DateInput';
 import toast from 'react-hot-toast';
 import {
-  BuildingLibraryIcon,
   ArrowDownTrayIcon,
   ArrowPathIcon,
   ClipboardDocumentListIcon,
-  CurrencyDollarIcon,
-  ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
 } from '@heroicons/react/24/outline';
@@ -272,8 +268,11 @@ export default function CashFlowReportPage() {
   // ─── Export ───
   const exportExcel = async () => {
     if (!groupedRows.length) { toast.error(t('cashFlow.noExportData' as TranslationKey)); return; }
+    const loadingToast = toast.loading(t('cashFlow.exporting' as TranslationKey) || 'Generating Excel…');
     try {
-      const ExcelJS = (await import('exceljs')).default;
+      await new Promise(r => setTimeout(r, 0));
+      const exceljsMod: any = await import('exceljs');
+      const ExcelJS = exceljsMod.default || exceljsMod;
       const { saveAs } = await import('file-saver');
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet(t('cashFlow.title' as TranslationKey));
@@ -283,7 +282,7 @@ export default function CashFlowReportPage() {
         { header: t('cashFlow.colOutflow' as TranslationKey), key: 'outflow', width: 20 },
         { header: t('cashFlow.colNet' as TranslationKey), key: 'net', width: 20 },
       ];
-      ws.getRow(1).eachCell((cell) => {
+      ws.getRow(1).eachCell((cell: any) => {
         cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B82F6' } };
         cell.alignment = { horizontal: 'center' };
@@ -292,36 +291,30 @@ export default function CashFlowReportPage() {
       // Totals row
       ws.addRow({ group: t('cashFlow.totalsLabel' as TranslationKey), inflow: kpis.totalIn, outflow: kpis.totalOut, net: kpis.net });
       const lastRow = ws.lastRow!;
-      lastRow.eachCell(cell => { cell.font = { bold: true }; });
+      lastRow.eachCell((cell: any) => { cell.font = { bold: true }; });
       const buf = await wb.xlsx.writeBuffer();
       saveAs(new Blob([buf]), `cash-flow_${dateFrom}_${dateTo}.xlsx`);
-      toast.success(t('cashFlow.exportSuccess' as TranslationKey));
-    } catch { toast.error(t('cashFlow.exportError' as TranslationKey)); }
+      toast.success(t('cashFlow.exportSuccess' as TranslationKey), { id: loadingToast });
+    } catch (err) { console.error('Export failed:', err); toast.error((err instanceof Error ? err.message : '') || t('cashFlow.exportError' as TranslationKey), { id: loadingToast }); }
   };
 
   const exportPDF = async () => {
     if (!groupedRows.length) { toast.error(t('cashFlow.noExportData' as TranslationKey)); return; }
     try {
-      const { default: jsPDF } = await import('jspdf');
-      const autoTable = (await import('jspdf-autotable')).default;
-      const doc = new jsPDF({ orientation: 'landscape' });
-      doc.setFontSize(16);
-      doc.text(t('cashFlow.title' as TranslationKey), 14, 20);
-      doc.setFontSize(10);
-      doc.text(`${dateFrom} → ${dateTo}`, 14, 28);
-      autoTable(doc, {
-        startY: 35,
-        head: [[t('cashFlow.colGroup' as TranslationKey), t('cashFlow.colInflow' as TranslationKey), t('cashFlow.colOutflow' as TranslationKey), t('cashFlow.colNet' as TranslationKey)]],
-        body: [
+      const { printReport } = await import('@/lib/print-report');
+      printReport({
+        title: t('cashFlow.title' as TranslationKey),
+        subtitle: `${dateFrom} → ${dateTo}`,
+        columns: [t('cashFlow.colGroup' as TranslationKey), t('cashFlow.colInflow' as TranslationKey), t('cashFlow.colOutflow' as TranslationKey), t('cashFlow.colNet' as TranslationKey)],
+        rows: [
           ...groupedRows.map(r => [r.name, r.inflow.toLocaleString(), r.outflow.toLocaleString(), r.net.toLocaleString()]),
-          [{ content: t('cashFlow.totalsLabel' as TranslationKey), styles: { fontStyle: 'bold' } }, { content: kpis.totalIn.toLocaleString(), styles: { fontStyle: 'bold' } }, { content: kpis.totalOut.toLocaleString(), styles: { fontStyle: 'bold' } }, { content: kpis.net.toLocaleString(), styles: { fontStyle: 'bold' } }],
+          [t('cashFlow.totalsLabel' as TranslationKey), kpis.totalIn.toLocaleString(), kpis.totalOut.toLocaleString(), kpis.net.toLocaleString()],
         ],
-        styles: { fontSize: 8, cellPadding: 3 },
-        headStyles: { fillColor: [59, 130, 246] },
+        orientation: 'landscape',
+        dir: isRTL ? 'rtl' : 'ltr',
       });
-      doc.save(`cash-flow_${dateFrom}_${dateTo}.pdf`);
       toast.success(t('cashFlow.exportSuccess' as TranslationKey));
-    } catch { toast.error(t('cashFlow.exportError' as TranslationKey)); }
+    } catch (err) { console.error('Export failed:', err); toast.error((err instanceof Error ? err.message : '') || t('cashFlow.exportError' as TranslationKey)); }
   };
 
   const thClass = "text-start text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-5 py-3";
@@ -333,14 +326,9 @@ export default function CashFlowReportPage() {
   return (
     <div className="space-y-5">
       {/* ─── Header ─── */}
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center">
-          <BuildingLibraryIcon className="w-6 h-6 text-white" />
-        </div>
-        <div>
-          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('cashFlow.title' as TranslationKey)}</h1>
-          <p className="text-sm text-gray-400 mt-1">{t('cashFlow.subtitle' as TranslationKey)}</p>
-        </div>
+      <div>
+        <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('cashFlow.title' as TranslationKey)}</h1>
+        <p className="text-sm text-gray-400 mt-1">{t('cashFlow.subtitle' as TranslationKey)}</p>
       </div>
 
       {/* ─── Filter Bar (inline, not side panel) ─── */}
@@ -396,16 +384,15 @@ export default function CashFlowReportPage() {
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
         <div className={`grid grid-cols-1 md:grid-cols-3 md:divide-x ${isRTL ? 'md:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
           {[
-            { label: t('cashFlow.kpiTotalInflow' as TranslationKey), value: formatCurrency(kpis.totalIn), color: 'emerald', icon: <ArrowTrendingUpIcon className="w-5 h-5" /> },
-            { label: t('cashFlow.kpiTotalOutflow' as TranslationKey), value: formatCurrency(kpis.totalOut), color: 'red', icon: <ArrowTrendingDownIcon className="w-5 h-5" /> },
-            { label: t('cashFlow.kpiNetCashFlow' as TranslationKey), value: formatCurrency(kpis.net), color: 'blue', icon: <CurrencyDollarIcon className="w-5 h-5" /> },
+            { label: t('cashFlow.kpiTotalInflow' as TranslationKey), value: formatCurrency(kpis.totalIn), color: 'emerald' },
+            { label: t('cashFlow.kpiTotalOutflow' as TranslationKey), value: formatCurrency(kpis.totalOut), color: 'red' },
+            { label: t('cashFlow.kpiNetCashFlow' as TranslationKey), value: formatCurrency(kpis.net), color: 'blue' },
           ].map((kpi, i) => {
             const c = colorMap[kpi.color];
             return (
               <div key={i} className={`group relative p-5 ${c.hover} ${c.hoverDark} transition-colors duration-200`}>
                 <div className={`absolute top-0 inset-x-0 h-[3px] ${c.bar} scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b`} />
                 <div className="text-center">
-                  <div className={`inline-flex items-center justify-center w-9 h-9 rounded-xl ${c.iconBg} ${c.iconText} mb-2.5`}>{kpi.icon}</div>
                   <div className={`text-xl font-black ${c.valueText} tabular-nums leading-none`}>
                     {(isLoading || flowLoading) ? <div className="w-20 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mx-auto" /> : kpi.value}
                   </div>

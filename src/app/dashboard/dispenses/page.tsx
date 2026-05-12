@@ -16,10 +16,6 @@ import {
   PencilSquareIcon,
   MagnifyingGlassIcon,
   PlusIcon,
-  CurrencyDollarIcon,
-  DocumentTextIcon,
-  TagIcon,
-  ChartBarIcon,
 } from '@heroicons/react/24/outline';
 
 interface Dispense {
@@ -359,14 +355,9 @@ export default function DispensesPage() {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" data-tour="dispenses-title">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-500 to-orange-600 flex items-center justify-center shadow-lg shadow-red-500/20">
-            <BanknotesIcon className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('dispenses.title')}</h1>
-            <p className="text-sm text-gray-400 dark:text-gray-400 mt-1">{t('dispenses.subtitle')}</p>
-          </div>
+        <div>
+          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('dispenses.title')}</h1>
+          <p className="text-sm text-gray-400 dark:text-gray-400 mt-1">{t('dispenses.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -387,7 +378,7 @@ export default function DispensesPage() {
           <button
             data-tour="dispenses-add"
             onClick={() => { setEditingId(null); setFormData(initialFormData); setShowModal(true); }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-l from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 rounded-xl shadow-sm transition-all"
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-l from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 rounded-xl transition-all"
           >
             <PlusIcon className="w-4 h-4" />
             <span className="hidden sm:inline">{t('dispenses.addDispense')}</span>
@@ -402,9 +393,6 @@ export default function DispensesPage() {
           <div className="group relative p-5 hover:bg-red-50/40 dark:hover:bg-red-900/10 transition-colors duration-200">
             <div className="absolute top-0 inset-x-0 h-[3px] bg-red-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 mb-2.5">
-                <CurrencyDollarIcon className="w-4 h-4" />
-              </div>
               <div className="text-lg font-black text-red-600 dark:text-red-400 tabular-nums leading-none">{formatCurrency(kpis.total)}</div>
               <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('dispenses.totalAmount')}</div>
             </div>
@@ -412,9 +400,6 @@ export default function DispensesPage() {
           <div className="group relative p-5 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors duration-200">
             <div className="absolute top-0 inset-x-0 h-[3px] bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mb-2.5">
-                <DocumentTextIcon className="w-4 h-4" />
-              </div>
               <div className="text-3xl font-black text-blue-600 dark:text-blue-400 tabular-nums leading-none">{kpis.count}</div>
               <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('dispenses.operationsCount')}</div>
             </div>
@@ -422,9 +407,6 @@ export default function DispensesPage() {
           <div className="group relative p-5 hover:bg-amber-50/40 dark:hover:bg-amber-900/10 transition-colors duration-200">
             <div className="absolute top-0 inset-x-0 h-[3px] bg-amber-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 mb-2.5">
-                <TagIcon className="w-4 h-4" />
-              </div>
               <div className="text-lg font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.topCategory}</div>
               <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('dispenses.topCategory')}</div>
             </div>
@@ -432,9 +414,6 @@ export default function DispensesPage() {
           <div className="group relative p-5 hover:bg-orange-50/40 dark:hover:bg-orange-900/10 transition-colors duration-200">
             <div className="absolute top-0 inset-x-0 h-[3px] bg-orange-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 mb-2.5">
-                <ChartBarIcon className="w-4 h-4" />
-              </div>
               <div className="text-lg font-black text-orange-600 dark:text-orange-400 tabular-nums leading-none">{formatCurrency(kpis.topCategoryAmount)}</div>
               <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('dispenses.topCategoryAmount')}</div>
             </div>
@@ -529,7 +508,7 @@ export default function DispensesPage() {
           <button
             onClick={() => { setCategoryFilter(''); setPage(1); }}
             className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-              !categoryFilter ? 'bg-orange-600 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              !categoryFilter ? 'bg-orange-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
             }`}
           >
             {t('dispenses.all')}
@@ -539,7 +518,7 @@ export default function DispensesPage() {
               key={key}
               onClick={() => { setCategoryFilter(categoryFilter === key ? '' : key); setPage(1); }}
               className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                categoryFilter === key ? 'bg-orange-600 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                categoryFilter === key ? 'bg-orange-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
               {label}

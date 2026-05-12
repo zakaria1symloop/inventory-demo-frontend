@@ -469,7 +469,7 @@ export default function PurchaseDetail() {
             <>
               <button
                 onClick={handleConfirm}
-                className="btn bg-green-600 text-white hover:bg-green-700 shadow-sm"
+                className="btn bg-green-600 text-white hover:bg-green-700"
                 disabled={isConfirming}
               >
                 <CheckCircleIcon className="w-5 h-5" />

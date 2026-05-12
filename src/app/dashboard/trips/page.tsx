@@ -80,26 +80,26 @@ export default function TripsPage() {
 
   return (
     <div>
-      {/* Shortcuts hint */}
-      <div className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg mb-4 flex items-center gap-6 text-sm">
+      {/* Shortcuts hint — desktop only */}
+      <div className="hidden md:flex bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg mb-4 items-center gap-6 text-sm">
         <span className="font-medium">{t('trips.shortcuts')}</span>
         <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Insert</kbd> {t('trips.addNew')}</span>
       </div>
 
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">{t('trips.title')}</h1>
+        <h1 className="text-xl sm:text-2xl font-bold">{t('trips.title')}</h1>
       </div>
 
       <div className="card">
-        <div className="flex gap-4 mb-4">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-4">
           <input
             type="text"
             placeholder={t('trips.searchBySeller')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="input max-w-xs"
+            className="input w-full sm:max-w-xs"
           />
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select max-w-xs">
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select w-full sm:max-w-xs">
             <option value="">{t('trips.allStatuses')}</option>
             <option value="active">{t('trips.statusActive')}</option>
             <option value="completed">{t('trips.statusCompleted')}</option>
@@ -107,7 +107,8 @@ export default function TripsPage() {
           </select>
         </div>
 
-        <table>
+        <div className="overflow-x-auto -mx-4 sm:mx-0">
+        <table className="min-w-[800px] sm:min-w-0 w-full">
           <thead>
             <tr>
               <th>{t('trips.colId')}</th>
@@ -151,6 +152,7 @@ export default function TripsPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
