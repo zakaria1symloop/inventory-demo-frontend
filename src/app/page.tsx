@@ -301,31 +301,33 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* ── Hero (mono rebrand preview — phase 1) ── */}
-      <section className="relative pt-20 sm:pt-28 pb-24 overflow-hidden bg-white">
-        {/* Subtle backdrop: noise grain + hairline grid */}
-        <div aria-hidden className="absolute inset-0 bg-noise-grain opacity-[0.025]" />
-        <div aria-hidden className="absolute inset-0 bg-hairline-grid opacity-100" />
-
+      {/* ── Hero ── */}
+      <section className="relative pt-20 sm:pt-32 pb-20 overflow-hidden">
+        {/* Hero orbs */}
+        <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+          <div className="hero-orb hero-orb-1" />
+          <div className="hero-orb hero-orb-2" />
+          <div className="hero-orb hero-orb-3" />
+          <div className="hero-orb hero-orb-4" />
+        </div>
         <div className="relative max-w-[1200px] mx-auto px-5 sm:px-8">
-          <div className="max-w-[760px] mx-auto text-center">
-            {/* Status pill — uppercase, pulsing dot */}
-            <div className="mono-fade-up-1 mb-10 flex justify-center">
-              <span className="mono-status-pill">
-                <span className="dot" />
-                {locale === 'ar'
-                  ? 'مباشر · أكثر من 50 شركة'
-                  : locale === 'en'
-                  ? 'Live · 50+ active businesses'
-                  : 'En ligne · plus de 50 entreprises'}
+          <div className="max-w-[720px] mx-auto text-center">
+            {/* Contact bar */}
+            <div className="hero-animate hero-animate-1 mb-8 inline-flex items-center gap-4 px-4 py-2 text-[12px] text-gray-400">
+              <span className="flex items-center gap-1.5" dir="ltr">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                +213 549 575 512
+              </span>
+              <span className="w-px h-3 bg-gray-200" />
+              <span className="flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                contact@tracksera.com
               </span>
             </div>
 
-            {/* Headline with rotating word — mono accent on rotation */}
-            <h1
-              className="mono-fade-up-2 mono-display text-[36px] sm:text-[52px] lg:text-[64px] text-neutral-950"
-            >
-              {locale === 'ar' ? 'أوقف ' : locale === 'en' ? 'Stop ' : 'Stop '}
+            {/* Headline with rotating word */}
+            <h1 className="hero-animate hero-animate-1 text-[32px] sm:text-[48px] lg:text-[56px] font-bold leading-[1.1] tracking-[-0.025em] text-gray-900">
+              {locale === 'ar' ? 'وقف ' : locale === 'en' ? 'Stop ' : 'Stop '}
               <span className="hero-rotating-wrapper">
                 <span className="hero-rotating-words">
                   {(locale === 'ar'
@@ -334,68 +336,61 @@ export default function Home() {
                     ? ['order chaos', 'stock leakage', 'late deliveries', 'lost margin']
                     : ['le chaos des commandes', 'la perte de stock', 'les retards de livraison', 'la perte de profits']
                   ).map((word, i) => (
-                    <span
-                      key={word}
-                      className="hero-rotating-word"
-                      style={{ animationDelay: `${i * 2.5}s`, color: 'rgb(10,10,10)' }}
-                    >
-                      {word}
-                    </span>
+                    <span key={word} className="hero-rotating-word" style={{ animationDelay: `${i * 2.5}s` }}>{word}</span>
                   ))}
                 </span>
               </span>
             </h1>
 
-            <p className="mono-fade-up-3 mt-7 text-[15.5px] sm:text-[17px] leading-[1.65] text-neutral-500 max-w-[560px] mx-auto">
+            <p className="hero-animate hero-animate-2 mt-7 text-[16px] sm:text-[18px] leading-[1.7] text-gray-500 max-w-[520px] mx-auto">
               {locale === 'ar'
                 ? 'منصة واحدة لإدارة الطلبات، التوصيل، المخزون، والفوترة. من أول فاتورة إلى آلاف العمليات.'
                 : locale === 'en'
                 ? 'TrackSera is business management software for retailers, wholesalers, and distributors. One platform for inventory, sales recording, customer orders, and deliveries — from your first invoice to thousands of operations.'
-                : "Une seule plateforme pour les commandes, livraisons, stock et facturation. De votre première facture à des milliers d'opérations."
+                : 'Une seule plateforme pour les commandes, livraisons, stock et facturation. De votre première facture à des milliers d\'opérations.'
               }
             </p>
 
             {locale === 'en' && (
-              <p className="mono-fade-up-3 mt-4 text-[12px] leading-[1.6] text-neutral-400 max-w-[520px] mx-auto">
+              <p className="hero-animate hero-animate-2 mt-4 text-[12px] leading-[1.6] text-gray-400 max-w-[520px] mx-auto">
                 TrackSera is a software subscription. We do not process or hold payments on behalf of our customers.
               </p>
             )}
 
-            {/* CTA row — solid black + hairline ghost */}
-            <div className="mono-fade-up-4 mt-12 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link href="/register" className="mono-btn-primary group w-full sm:w-auto">
-                {locale === 'ar' ? 'ابدأ مجاناً — 14 يوم' : locale === 'en' ? 'Start free — 14 days' : 'Essai gratuit — 14 jours'}
-                <svg className="w-4 h-4 rtl:rotate-180 transition-transform group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+            {/* CTA row */}
+            <div className="hero-animate hero-animate-3 mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link href="/register" className="hero-cta-primary group relative w-full sm:w-auto px-7 py-3.5 text-[14px] font-medium text-white bg-gray-900 rounded-full overflow-hidden transition-all hover:shadow-[0_0_30px_rgba(37,99,235,0.3)] hover:-translate-y-[1px] active:translate-y-0">
+                <span className="hero-cta-shine" />
+                <span className="relative flex items-center justify-center gap-2">
+                  {locale === 'ar' ? 'ابدأ مجاناً — 14 يوم' : locale === 'en' ? 'Start free — 14 days' : 'Essai gratuit — 14 jours'}
+                  <svg className="w-4 h-4 rotate-180 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                </span>
               </Link>
-              <a href="#modules" className="mono-btn-ghost group w-full sm:w-auto">
+              <a href="#modules" className="group w-full sm:w-auto px-7 py-3.5 text-[14px] font-medium text-gray-500 hover:text-gray-900 transition-colors flex items-center justify-center gap-1.5">
                 {locale === 'ar' ? 'اكتشف الوحدات' : locale === 'en' ? 'Explore modules' : 'Découvrir les modules'}
-                <svg className="w-4 h-4 rtl:rotate-180 transition-transform group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+                <span className="inline-block transition-transform group-hover:translate-x-1"> →</span>
               </a>
             </div>
 
-            {/* Social proof — monochrome tiles with hairline borders */}
-            <div className="mono-fade-up-5 mt-12 flex items-center justify-center gap-3">
-              <div className="flex -space-x-1.5 rtl:space-x-reverse">
-                {['R','M','A','B','N'].map((initial, i) => (
-                  <div
-                    key={i}
-                    className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-[10px] font-semibold text-neutral-700 ring-1 ring-neutral-200"
-                    style={{ zIndex: 5 - i }}
-                  >
-                    {initial}
+            {/* Social proof — immediately visible */}
+            <div className="hero-animate hero-animate-4 mt-10 flex items-center justify-center gap-4">
+              <div className="flex -space-x-2 rtl:space-x-reverse">
+                {['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ec4899'].map((c, i) => (
+                  <div key={i} className="w-7 h-7 rounded-full border-2 border-white flex items-center justify-center text-[9px] font-bold text-white" style={{ background: c, zIndex: 5 - i }}>
+                    {['ر','م','ع','ب','ن'][i]}
                   </div>
                 ))}
               </div>
-              <div className="text-[12.5px] text-neutral-400">
-                <span className="font-medium text-neutral-700">50+</span> {locale === 'ar' ? 'شركة تستخدم المنصة' : locale === 'en' ? 'active businesses' : 'entreprises actives'}
+              <div className="text-[13px] text-gray-400">
+                <span className="font-semibold text-gray-600">50+</span> {locale === 'ar' ? 'شركة تستخدم المنصة' : locale === 'en' ? 'active businesses' : 'entreprises actives'}
               </div>
             </div>
           </div>
 
-          {/* Product screenshot — hairline frame, no shadow blur */}
-          <div className="mono-fade-up-5 mt-20 sm:mt-24">
-            <div className="rounded-2xl overflow-hidden ring-1 ring-neutral-200 bg-white">
-              <video autoPlay muted loop playsInline className="w-full block" poster="/t.png">
+          {/* Product screenshot */}
+          <div className="hero-animate hero-animate-4 mt-16 sm:mt-24">
+            <div className="rounded-xl overflow-hidden ring-1 ring-black/[0.04] shadow-[0_20px_80px_-20px_rgba(0,0,0,0.12)]">
+              <video autoPlay muted loop playsInline className="w-full" poster="/t.png">
                 <source src="/TracksEra-Stock-Demo.mp4" type="video/mp4" />
               </video>
             </div>

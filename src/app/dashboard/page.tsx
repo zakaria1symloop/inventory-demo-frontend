@@ -43,19 +43,34 @@ interface StatCardProps {
   title: string;
   value: string | number;
   subValue?: string;
+  /**
+   * Tailwind border-* class kept for API compatibility with existing callsites.
+   * Converted internally to a tiny status dot at the start of the label row —
+   * the 4px coloured left bar was loud and "consumer-y".
+   */
   borderColor: string;
 }
 
+// Map legacy borderColor classes to the dot accent token.
+function dotFromBorder(b: string): string {
+  if (b.includes('blue')) return 'metric-dot-blue';
+  if (b.includes('emerald') || b.includes('green')) return 'metric-dot-green';
+  if (b.includes('orange') || b.includes('amber') || b.includes('yellow')) return 'metric-dot-orange';
+  if (b.includes('violet') || b.includes('purple')) return 'metric-dot-violet';
+  if (b.includes('red') || b.includes('rose') || b.includes('pink')) return 'metric-dot-red';
+  return 'metric-dot-neutral';
+}
+
 function StatCard({ title, value, subValue, borderColor }: StatCardProps) {
+  const dot = dotFromBorder(borderColor);
   return (
-    <div className={`card !p-4 ${borderColor}`} style={{ borderInlineStartWidth: '4px' }}>
-      <div className="min-w-0">
-        <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">{title}</p>
-        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 tabular-nums truncate">{value}</p>
-        {subValue && (
-          <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">{subValue}</p>
-        )}
+    <div className="metric-tile">
+      <div className="flex items-center gap-1.5">
+        <span className={`metric-dot ${dot}`} aria-hidden />
+        <p className="metric-label truncate">{title}</p>
       </div>
+      <p className="metric-value truncate">{value}</p>
+      {subValue && <p className="metric-sub">{subValue}</p>}
     </div>
   );
 }

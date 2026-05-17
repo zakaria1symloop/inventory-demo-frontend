@@ -1,7 +1,13 @@
 import axios from 'axios';
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://rafik.tracksera.com/api';
-console.log('API Base URL configured:', apiBaseUrl);
+// NEXT_PUBLIC_API_URL must be set at build / dev start. No silent fallback —
+// a missing value means a misconfigured environment, not a runtime quirk.
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
+if (!apiBaseUrl) {
+  throw new Error(
+    'NEXT_PUBLIC_API_URL is not set. Configure it in .env.local (dev), or in the deploy platform env (Vercel / Cloud Run).'
+  );
+}
 
 const api = axios.create({
   baseURL: apiBaseUrl,
