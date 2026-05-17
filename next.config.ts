@@ -43,13 +43,9 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
-      // www redirect (canonical)
-      {
-        source: '/:path*',
-        has: [{ type: 'host', value: 'tracksera.com' }],
-        destination: 'https://www.tracksera.com/:path*',
-        permanent: true,
-      },
+      // Canonical host is the apex (tracksera.com). The www → apex redirect
+      // is handled by Vercel's domain config — don't redirect apex → www
+      // here or you'll fight Vercel and loop.
       // Trailing slash cleanup
       {
         source: '/:path+/',
