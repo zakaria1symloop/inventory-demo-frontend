@@ -7,6 +7,7 @@ import { clientsApi, clientCategoriesApi, salesApi, usersApi, warehousesApi } fr
 import DateInput from '@/components/ui/DateInput';
 import GuidedTour, { TourStep } from '@/components/GuidedTour';
 import { useLocale } from '@/lib/i18n/context';
+import { PageHeader, FilterBar } from '@/components/dashboard';
 
 const ClientsMap = lazy(() => import('./ClientsMap'));
 import toast from 'react-hot-toast';
@@ -667,337 +668,225 @@ export default function ClientsPage() {
   }
 
   return (
-    <div className="space-y-5">
-      {/* Shortcuts Bar — hidden on mobile (no physical keyboard) */}
-      <div className={`hidden md:flex bg-gradient-to-l from-slate-800 to-slate-900 dark:from-slate-700 dark:to-slate-800 text-slate-300 px-4 py-2 rounded-xl items-center gap-6 text-sm shadow-sm ${isRTL ? '' : 'flex-row-reverse'}`} data-tour="clients-shortcuts">
-        <span className="font-bold text-white text-xs tracking-wide">{t('clients.shortcuts')}</span>
-        <div className="w-px h-4 bg-slate-700" />
-        <span><kbd className="bg-blue-600/30 text-blue-300 px-2 py-0.5 rounded-md text-[10px] font-mono">Insert</kbd> {t('clients.addNewClient')}</span>
-        <button onClick={() => setShowTour(true)} className={`${isRTL ? 'mr-auto' : 'ml-auto'} flex items-center gap-1.5 text-sm text-blue-400 hover:text-blue-300 transition-colors`}>
-          <QuestionMarkCircleIcon className="w-5 h-5" />
-          <span className="text-slate-400">{t('clients.guidedTour')}</span>
-        </button>
-      </div>
-      {/* Mobile-only tour trigger (replaces the hidden shortcut bar) */}
-      <div className="md:hidden flex justify-end">
-        <button onClick={() => setShowTour(true)} className="flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 transition-colors">
-          <QuestionMarkCircleIcon className="w-5 h-5" />
-          <span>{t('clients.guidedTour')}</span>
-        </button>
-      </div>
-
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between" data-tour="clients-header">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{t('clients.title')}</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{t('clients.subtitle')}</p>
-        </div>
-        <div className="flex gap-2 items-center flex-wrap">
-          {/* View toggle */}
-          <div className="flex bg-gray-100 dark:bg-gray-700 rounded-xl p-0.5">
+      <div data-tour="clients-header">
+        <PageHeader title={t('clients.title')} subtitle={t('clients.subtitle')}>
+          {/* View toggle — neutral segmented control */}
+          <div className="inline-flex bg-gray-100 dark:bg-gray-700 rounded-md p-0.5">
             <button
               onClick={() => setViewMode('table')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-sm font-medium transition-all ${
-                viewMode === 'table' ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[12px] font-medium transition-colors ${
+                viewMode === 'table'
+                  ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }`}
             >
-              <TableCellsIcon className="w-4 h-4" />
+              <TableCellsIcon className="w-3.5 h-3.5" strokeWidth={1.8} />
               {t('clients.tableView')}
             </button>
             <button
               onClick={() => setViewMode('map')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-sm font-medium transition-all ${
-                viewMode === 'map' ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[12px] font-medium transition-colors ${
+                viewMode === 'map'
+                  ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }`}
             >
-              <MapIcon className="w-4 h-4" />
+              <MapIcon className="w-3.5 h-3.5" strokeWidth={1.8} />
               {t('clients.mapView')}
             </button>
           </div>
+          <button
+            onClick={() => setShowTour(true)}
+            className="btn btn-secondary text-[13px] h-8 px-3"
+            title={t('clients.guidedTour')}
+          >
+            <QuestionMarkCircleIcon className="w-4 h-4" strokeWidth={1.8} />
+            <span className="hidden md:inline">{t('clients.guidedTour')}</span>
+          </button>
           <Link
             href="/dashboard/sales/debtors"
-            className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-xl bg-amber-500 text-white hover:bg-amber-600 transition-colors"
+            className="btn btn-secondary text-[13px] h-8 px-3"
           >
-            <BanknotesIcon className="w-4 h-4" />
-            {t('clients.outstandingDebts')}
+            <BanknotesIcon className="w-4 h-4" strokeWidth={1.8} />
+            <span className="hidden md:inline">{t('clients.outstandingDebts')}</span>
           </Link>
           {selectedClientIds.size > 0 && (
             <>
               <button
                 onClick={() => setShowTransferModal(true)}
-                className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-xl bg-amber-600 text-white hover:bg-amber-700 transition-colors"
+                className="btn btn-secondary text-[13px] h-8 px-3"
               >
                 {t('clients.transferClients', { count: selectedClientIds.size })}
               </button>
               <button
                 onClick={() => setShowCopyModal(true)}
-                className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+                className="btn btn-secondary text-[13px] h-8 px-3"
               >
                 {t('clients.copyClients', { count: selectedClientIds.size })}
               </button>
             </>
           )}
-          <button onClick={handleOpenCreate} className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors">
-            <PlusIcon className="w-4 h-4" />
+          <button onClick={handleOpenCreate} className="btn btn-primary text-[13px] h-8 px-3">
+            <PlusIcon className="w-4 h-4" strokeWidth={2} />
             {t('clients.addClient')}
-            <kbd className={`hidden md:inline bg-blue-700/50 px-1.5 py-0.5 rounded text-[10px] font-mono ${isRTL ? 'mr-1' : 'ml-1'}`}>Insert</kbd>
           </button>
-        </div>
+        </PageHeader>
       </div>
 
-      {/* KPI Strip */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden" data-tour="clients-kpis">
-        <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 sm:divide-x ${isRTL ? 'sm:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
-          <div className="group relative px-4 py-4 text-center hover:bg-blue-50/30 dark:hover:bg-blue-900/20 transition-colors">
-            <div className={`absolute top-0 right-0 left-0 h-[3px] ${isRTL ? 'rounded-tr-2xl' : 'rounded-tl-2xl'} bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform ${isRTL ? 'origin-right' : 'origin-left'}`} />
-            <UserGroupIcon className="w-5 h-5 mx-auto mb-1.5 text-blue-500" />
-            <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-0.5">{t('clients.totalClients')}</p>
-            <p className="text-lg font-bold text-blue-600">{stats.totalClients}</p>
+      {/* KPI Strip — restrained metric tiles */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5" data-tour="clients-kpis">
+        {[
+          { label: t('clients.totalClients'),  value: stats.totalClients,                 dot: 'metric-dot-neutral', currency: false },
+          { label: t('clients.activeClients'), value: stats.activeClients,                dot: 'metric-dot-green',   currency: false },
+          { label: t('clients.totalDebts'),    value: formatCurrency(stats.totalDebt),    dot: 'metric-dot-red',     currency: true  },
+          { label: t('clients.withDebts'),     value: stats.clientsWithDebt,              dot: 'metric-dot-orange',  currency: false },
+          { label: t('clients.newThisMonth'),  value: stats.newThisMonth,                 dot: 'metric-dot-violet',  currency: false },
+          { label: t('clients.avgDebt'),       value: formatCurrency(stats.avgDebt),      dot: 'metric-dot-blue',    currency: true  },
+        ].map((s, i) => (
+          <div key={i} className="metric-tile">
+            <div className="flex items-center gap-1.5">
+              <span className={`metric-dot ${s.dot}`} aria-hidden />
+              <p className="metric-label truncate">{s.label}</p>
+            </div>
+            {s.currency ? (
+              <p className="metric-value-currency">{s.value}</p>
+            ) : (
+              <p className="metric-value tnum truncate">{s.value}</p>
+            )}
           </div>
-          <div className="group relative px-4 py-4 text-center hover:bg-emerald-50/30 dark:hover:bg-emerald-900/20 transition-colors">
-            <div className={`absolute top-0 right-0 left-0 h-[3px] bg-emerald-500 scale-x-0 group-hover:scale-x-100 transition-transform ${isRTL ? 'origin-right' : 'origin-left'}`} />
-            <CheckCircleIcon className="w-5 h-5 mx-auto mb-1.5 text-emerald-500" />
-            <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-0.5">{t('clients.activeClients')}</p>
-            <p className="text-lg font-bold text-emerald-600">{stats.activeClients}</p>
-          </div>
-          <div className="group relative px-4 py-4 text-center hover:bg-red-50/30 dark:hover:bg-red-900/20 transition-colors">
-            <div className={`absolute top-0 right-0 left-0 h-[3px] bg-red-500 scale-x-0 group-hover:scale-x-100 transition-transform ${isRTL ? 'origin-right' : 'origin-left'}`} />
-            <BanknotesIcon className="w-5 h-5 mx-auto mb-1.5 text-red-500" />
-            <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-0.5">{t('clients.totalDebts')}</p>
-            <p className="text-lg font-bold text-red-600">{formatCurrency(stats.totalDebt)}</p>
-          </div>
-          <div className="group relative px-4 py-4 text-center hover:bg-orange-50/30 dark:hover:bg-orange-900/20 transition-colors">
-            <div className={`absolute top-0 right-0 left-0 h-[3px] bg-orange-500 scale-x-0 group-hover:scale-x-100 transition-transform ${isRTL ? 'origin-right' : 'origin-left'}`} />
-            <ExclamationTriangleIcon className="w-5 h-5 mx-auto mb-1.5 text-orange-500" />
-            <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-0.5">{t('clients.withDebts')}</p>
-            <p className="text-lg font-bold text-orange-600">{stats.clientsWithDebt}</p>
-          </div>
-          <div className="group relative px-4 py-4 text-center hover:bg-violet-50/30 dark:hover:bg-violet-900/20 transition-colors">
-            <div className={`absolute top-0 right-0 left-0 h-[3px] bg-violet-500 scale-x-0 group-hover:scale-x-100 transition-transform ${isRTL ? 'origin-right' : 'origin-left'}`} />
-            <UserPlusIcon className="w-5 h-5 mx-auto mb-1.5 text-violet-500" />
-            <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-0.5">{t('clients.newThisMonth')}</p>
-            <p className="text-lg font-bold text-violet-600">{stats.newThisMonth}</p>
-          </div>
-          <div className="group relative px-4 py-4 text-center hover:bg-amber-50/30 dark:hover:bg-amber-900/20 transition-colors">
-            <div className={`absolute top-0 right-0 left-0 h-[3px] ${isRTL ? 'rounded-tl-2xl' : 'rounded-tr-2xl'} bg-amber-500 scale-x-0 group-hover:scale-x-100 transition-transform ${isRTL ? 'origin-right' : 'origin-left'}`} />
-            <CurrencyDollarIcon className="w-5 h-5 mx-auto mb-1.5 text-amber-500" />
-            <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-0.5">{t('clients.avgDebt')}</p>
-            <p className="text-lg font-bold text-amber-600">{formatCurrency(stats.avgDebt)}</p>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Status Filter Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2" data-tour="clients-status">
-        <button
-          onClick={() => { setStatusFilter('all'); setBalanceFilter('all'); }}
-          className={`p-3 rounded-xl border-2 transition-all ${isRTL ? 'text-right' : 'text-left'} ${
-            statusFilter === 'all' && balanceFilter === 'all'
-              ? 'border-blue-500 bg-blue-50/80 dark:bg-blue-900/30'
-              : 'border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
-              <UserGroupIcon className="w-4 h-4 text-blue-600" />
-            </div>
-            <span className="text-xl font-bold text-gray-800 dark:text-gray-100">{stats.totalClients}</span>
-          </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 font-medium">{t('clients.all')}</p>
-        </button>
-
-        <button
-          onClick={() => { setStatusFilter('active'); setBalanceFilter('all'); }}
-          className={`p-3 rounded-xl border-2 transition-all ${isRTL ? 'text-right' : 'text-left'} ${
-            statusFilter === 'active' && balanceFilter === 'all'
-              ? 'border-emerald-500 bg-emerald-50/80 dark:bg-emerald-900/30'
-              : 'border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center">
-              <CheckCircleIcon className="w-4 h-4 text-emerald-600" />
-            </div>
-            <span className="text-xl font-bold text-gray-800 dark:text-gray-100">{stats.activeClients}</span>
-          </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 font-medium">{t('clients.activeLabel')}</p>
-        </button>
-
-        <button
-          onClick={() => { setStatusFilter('inactive'); setBalanceFilter('all'); }}
-          className={`p-3 rounded-xl border-2 transition-all ${isRTL ? 'text-right' : 'text-left'} ${
-            statusFilter === 'inactive'
-              ? 'border-gray-500 bg-gray-50/80 dark:bg-gray-700/50'
-              : 'border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-              <UserMinusIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-            </div>
-            <span className="text-xl font-bold text-gray-800 dark:text-gray-100">{stats.inactiveClients}</span>
-          </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 font-medium">{t('clients.disabledLabel')}</p>
-        </button>
-
-        <button
-          onClick={() => { setStatusFilter('all'); setBalanceFilter('has_debt'); }}
-          className={`p-3 rounded-xl border-2 transition-all ${isRTL ? 'text-right' : 'text-left'} ${
-            balanceFilter === 'has_debt'
-              ? 'border-red-500 bg-red-50/80 dark:bg-red-900/30'
-              : 'border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/50 flex items-center justify-center">
-              <ArrowTrendingUpIcon className="w-4 h-4 text-red-600" />
-            </div>
-            <span className="text-xl font-bold text-gray-800 dark:text-gray-100">{stats.clientsWithDebt}</span>
-          </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 font-medium">{t('clients.hasDebt')}</p>
-        </button>
-
-        <button
-          onClick={() => { setStatusFilter('all'); setBalanceFilter('no_debt'); }}
-          className={`p-3 rounded-xl border-2 transition-all ${isRTL ? 'text-right' : 'text-left'} ${
-            balanceFilter === 'no_debt'
-              ? 'border-teal-500 bg-teal-50/80 dark:bg-teal-900/30'
-              : 'border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="w-8 h-8 rounded-lg bg-teal-100 dark:bg-teal-900/50 flex items-center justify-center">
-              <CheckCircleIcon className="w-4 h-4 text-teal-600" />
-            </div>
-            <span className="text-xl font-bold text-gray-800 dark:text-gray-100">{stats.clientsWithoutDebt}</span>
-          </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 font-medium">{t('clients.noDebt')}</p>
-        </button>
+      {/* Status Filter Strip — quiet chip toggles */}
+      <div className="flex flex-wrap items-center gap-2" data-tour="clients-status">
+        {[
+          { label: t('clients.all'),            count: stats.totalClients,       dot: 'metric-dot-neutral', active: statusFilter === 'all' && balanceFilter === 'all',     onClick: () => { setStatusFilter('all'); setBalanceFilter('all'); } },
+          { label: t('clients.activeLabel'),    count: stats.activeClients,      dot: 'metric-dot-green',   active: statusFilter === 'active' && balanceFilter === 'all',  onClick: () => { setStatusFilter('active'); setBalanceFilter('all'); } },
+          { label: t('clients.disabledLabel'),  count: stats.inactiveClients,    dot: 'metric-dot-neutral', active: statusFilter === 'inactive',                            onClick: () => { setStatusFilter('inactive'); setBalanceFilter('all'); } },
+          { label: t('clients.hasDebt'),        count: stats.clientsWithDebt,    dot: 'metric-dot-red',     active: balanceFilter === 'has_debt',                           onClick: () => { setStatusFilter('all'); setBalanceFilter('has_debt'); } },
+          { label: t('clients.noDebt'),         count: stats.clientsWithoutDebt, dot: 'metric-dot-green',   active: balanceFilter === 'no_debt',                            onClick: () => { setStatusFilter('all'); setBalanceFilter('no_debt'); } },
+        ].map((chip, i) => (
+          <button
+            key={i}
+            onClick={chip.onClick}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-[12px] font-medium transition-colors ${
+              chip.active
+                ? 'border-gray-900 dark:border-gray-100 bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
+                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+            }`}
+          >
+            <span className={`metric-dot ${chip.dot}`} aria-hidden />
+            <span>{chip.label}</span>
+            <span className="tnum opacity-70">{chip.count}</span>
+          </button>
+        ))}
       </div>
 
-      {/* Filters Card */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden" data-tour="clients-filters">
-        <div className="px-5 py-3 flex items-center justify-between">
+      {/* Filters — collapsible quiet bar */}
+      <div data-tour="clients-filters">
+        <div className="flex items-center justify-between mb-2">
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2.5 text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white transition-colors"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
           >
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
-              <FunnelIcon className="w-4 h-4 text-indigo-600" />
-            </div>
-            <span className="font-semibold text-sm dark:text-gray-200">{t('clients.filters')}</span>
+            <FunnelIcon className="w-4 h-4 text-gray-500" strokeWidth={1.8} />
+            {t('clients.filters')}
             {hasActiveFilters && (
-              <span className="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-600 dark:text-gray-400">
+                <span className="metric-dot metric-dot-blue" aria-hidden />
                 {t('clients.filtersActive')}
               </span>
             )}
             {showFilters ? (
-              <ChevronUpIcon className="w-4 h-4 text-gray-400" />
+              <ChevronUpIcon className="w-4 h-4 text-gray-400" strokeWidth={1.8} />
             ) : (
-              <ChevronDownIcon className="w-4 h-4 text-gray-400" />
+              <ChevronDownIcon className="w-4 h-4 text-gray-400" strokeWidth={1.8} />
             )}
           </button>
           <div className="flex items-center gap-3">
             {hasActiveFilters && (
               <button
                 onClick={resetFilters}
-                className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 font-medium transition-colors"
+                className="inline-flex items-center gap-1 text-[12px] font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
               >
                 <XCircleIcon className="w-3.5 h-3.5" />
                 {t('clients.resetFilters')}
               </button>
             )}
-            <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2.5 py-1 rounded-full">
+            <span className="text-[12px] text-gray-500 dark:text-gray-400 tnum">
               {t('clients.countOfTotal', { count: filteredClients.length, total: stats.totalClients })}
             </span>
           </div>
         </div>
 
         {showFilters && (
-          <div className="px-5 pb-5 pt-2 border-t border-gray-100 dark:border-gray-700">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
-              <div className="relative">
-                <MagnifyingGlassIcon className={`w-4 h-4 absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 text-gray-400`} />
-                <input
-                  type="text"
-                  placeholder={t('clients.searchPlaceholder')}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`input w-full ${isRTL ? 'pr-9' : 'pl-9'} text-sm`}
-                />
-              </div>
-              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)} className="select text-sm">
-                <option value="all">{t('clients.allStatuses')}</option>
-                <option value="active">{t('clients.activeOnly')}</option>
-                <option value="inactive">{t('clients.disabledOnly')}</option>
-              </select>
-              <select value={balanceFilter} onChange={(e) => setBalanceFilter(e.target.value as typeof balanceFilter)} className="select text-sm">
-                <option value="all">{t('clients.allBalances')}</option>
-                <option value="has_debt">{t('clients.hasDebtFilter')}</option>
-                <option value="no_debt">{t('clients.noDebtFilter')}</option>
-              </select>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
-              <select value={creditLimitFilter} onChange={(e) => setCreditLimitFilter(e.target.value as typeof creditLimitFilter)} className="select text-sm">
-                <option value="all">{t('clients.creditLimit')}</option>
-                <option value="has_limit">{t('clients.hasCreditLimit')}</option>
-                <option value="no_limit">{t('clients.noCreditLimit')}</option>
-                <option value="exceeded">{t('clients.exceededLimit', { count: stats.exceededCreditLimit })}</option>
-              </select>
-              <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value as typeof sourceFilter)} className="select text-sm">
-                <option value="all">{t('clients.allSources')}</option>
-                <option value="web">{t('clients.fromPlatform')}</option>
-                <option value="app">{t('clients.fromApp')}</option>
-              </select>
-              <select value={sellerFilter} onChange={(e) => setSellerFilter(e.target.value)} className="select text-sm">
-                <option value="">{t('clients.allUsers')}</option>
-                {sellers.map((seller) => (
-                  <option key={seller.id} value={seller.id}>{seller.name} ({seller.role === 'admin' ? t('clients.roleAdmin') : seller.role === 'seller' ? t('clients.roleSeller') : seller.role === 'livreur' ? t('clients.roleDriver') : seller.role === 'cashvan' ? t('clients.roleCashvan') : seller.role})</option>
-                ))}
-              </select>
-              <select value={warehouseFilter} onChange={(e) => setWarehouseFilter(e.target.value)} className="select text-sm">
-                <option value="">{t('clients.allWarehouses')}</option>
-                <option value="none">{t('clients.noWarehouse')}</option>
-                {warehousesList.map((w) => (
-                  <option key={w.id} value={w.id}>{w.name}</option>
-                ))}
-              </select>
-              <select value={copyFilter} onChange={(e) => setCopyFilter(e.target.value as typeof copyFilter)} className="select text-sm">
-                <option value="all">{t('clients.allCopyFilter')}</option>
-                <option value="copies">{t('clients.copiesOnly')}</option>
-                <option value="originals">{t('clients.originalsOnly')}</option>
-              </select>
-              <select
-                value={inactivePeriod}
-                onChange={(e) => setInactivePeriod(e.target.value)}
-                className={`select text-sm ${inactivePeriod ? 'border-orange-400 dark:border-orange-500 text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/20' : ''}`}
-              >
-                <option value="">{t('clients.allActivityFilter')}</option>
-                <option value="30">{t('clients.inactiveSince30')}</option>
-                <option value="60">{t('clients.inactiveSince60')}</option>
-                <option value="90">{t('clients.inactiveSince90')}</option>
-                <option value="180">{t('clients.inactiveSince180')}</option>
-                <option value="365">{t('clients.inactiveSince365')}</option>
-              </select>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2">
-                <CalendarIcon className="w-4 h-4 text-gray-400" />
-                <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">{t('clients.creationDate')}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <DateInput value={dateFrom} onChange={(v) => setDateFrom(v)} className="text-sm" placeholder={t('clients.from')} />
-                <span className="text-gray-400">-</span>
-                <DateInput value={dateTo} onChange={(v) => setDateTo(v)} className="text-sm" placeholder={t('clients.to')} />
-              </div>
-            </div>
-          </div>
+          <FilterBar
+            search={searchTerm}
+            onSearchChange={setSearchTerm}
+            searchPlaceholder={t('clients.searchPlaceholder')}
+          >
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)} className="select text-[14px] py-2">
+              <option value="all">{t('clients.allStatuses')}</option>
+              <option value="active">{t('clients.activeOnly')}</option>
+              <option value="inactive">{t('clients.disabledOnly')}</option>
+            </select>
+            <select value={balanceFilter} onChange={(e) => setBalanceFilter(e.target.value as typeof balanceFilter)} className="select text-[14px] py-2">
+              <option value="all">{t('clients.allBalances')}</option>
+              <option value="has_debt">{t('clients.hasDebtFilter')}</option>
+              <option value="no_debt">{t('clients.noDebtFilter')}</option>
+            </select>
+            <select value={creditLimitFilter} onChange={(e) => setCreditLimitFilter(e.target.value as typeof creditLimitFilter)} className="select text-[14px] py-2">
+              <option value="all">{t('clients.creditLimit')}</option>
+              <option value="has_limit">{t('clients.hasCreditLimit')}</option>
+              <option value="no_limit">{t('clients.noCreditLimit')}</option>
+              <option value="exceeded">{t('clients.exceededLimit', { count: stats.exceededCreditLimit })}</option>
+            </select>
+            <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value as typeof sourceFilter)} className="select text-[14px] py-2">
+              <option value="all">{t('clients.allSources')}</option>
+              <option value="web">{t('clients.fromPlatform')}</option>
+              <option value="app">{t('clients.fromApp')}</option>
+            </select>
+            <select value={sellerFilter} onChange={(e) => setSellerFilter(e.target.value)} className="select text-[14px] py-2">
+              <option value="">{t('clients.allUsers')}</option>
+              {sellers.map((seller) => (
+                <option key={seller.id} value={seller.id}>{seller.name} ({seller.role === 'admin' ? t('clients.roleAdmin') : seller.role === 'seller' ? t('clients.roleSeller') : seller.role === 'livreur' ? t('clients.roleDriver') : seller.role === 'cashvan' ? t('clients.roleCashvan') : seller.role})</option>
+              ))}
+            </select>
+            <select value={warehouseFilter} onChange={(e) => setWarehouseFilter(e.target.value)} className="select text-[14px] py-2">
+              <option value="">{t('clients.allWarehouses')}</option>
+              <option value="none">{t('clients.noWarehouse')}</option>
+              {warehousesList.map((w) => (
+                <option key={w.id} value={w.id}>{w.name}</option>
+              ))}
+            </select>
+            <select value={copyFilter} onChange={(e) => setCopyFilter(e.target.value as typeof copyFilter)} className="select text-[14px] py-2">
+              <option value="all">{t('clients.allCopyFilter')}</option>
+              <option value="copies">{t('clients.copiesOnly')}</option>
+              <option value="originals">{t('clients.originalsOnly')}</option>
+            </select>
+            <select
+              value={inactivePeriod}
+              onChange={(e) => setInactivePeriod(e.target.value)}
+              className="select text-[14px] py-2"
+            >
+              <option value="">{t('clients.allActivityFilter')}</option>
+              <option value="30">{t('clients.inactiveSince30')}</option>
+              <option value="60">{t('clients.inactiveSince60')}</option>
+              <option value="90">{t('clients.inactiveSince90')}</option>
+              <option value="180">{t('clients.inactiveSince180')}</option>
+              <option value="365">{t('clients.inactiveSince365')}</option>
+            </select>
+            <DateInput value={dateFrom} onChange={(v) => setDateFrom(v)} placeholder={t('clients.from')} />
+            <DateInput value={dateTo} onChange={(v) => setDateTo(v)} placeholder={t('clients.to')} />
+          </FilterBar>
         )}
       </div>
 
       {/* Map View */}
       {viewMode === 'map' && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div className="surface-pro overflow-hidden">
           <Suspense fallback={<div className="h-[550px] bg-gray-50 dark:bg-gray-900 flex items-center justify-center"><div className="spinner"></div></div>}>
             <ClientsMap
               clients={filteredClients}
@@ -1010,70 +899,81 @@ export default function ClientsPage() {
         </div>
       )}
 
-      {/* Table Card */}
+      {/* Table */}
       {viewMode === 'table' && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden" data-tour="clients-table">
-          <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 rounded-t-2xl flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
-                <TableCellsIcon className="w-4 h-4 text-blue-600" />
-              </div>
-              <span className="font-semibold text-sm text-gray-700 dark:text-gray-200">{t('clients.clientsList')}</span>
-              <span className="text-[10px] font-bold bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">{filteredClients.length}</span>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50/80 dark:bg-gray-700/50">
-                  <th className="px-3 py-3 text-center w-10">
-                    <input type="checkbox" checked={filteredClients.length > 0 && selectedClientIds.size === filteredClients.length} onChange={toggleSelectAll} className="w-4 h-4 text-blue-600 rounded" />
-                  </th>
-                  <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'} text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>{t('clients.clientCol')}</th>
-                  <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'} text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>{t('clients.contactCol')}</th>
-                  <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'} text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>{t('clients.warehouseCol')}</th>
-                  <th className="px-4 py-3 text-center text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('clients.balanceCol')}</th>
-                  <th className="px-4 py-3 text-center text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('clients.creditLimitCol')}</th>
-                  <th className="px-4 py-3 text-center text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('clients.statusCol')}</th>
-                  <th className="px-4 py-3 text-center text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('clients.sourceCol')}</th>
-                  <th className="px-4 py-3 text-center text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('clients.actionsCol')}</th>
+        <div data-tour="clients-table" className="table-pro-wrap">
+          <table className="table-pro compact">
+            <thead>
+              <tr>
+                <th className="text-center" style={{ width: '2.5rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={filteredClients.length > 0 && selectedClientIds.size === filteredClients.length}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 accent-gray-700 rounded"
+                  />
+                </th>
+                <th className="text-start">{t('clients.clientCol')}</th>
+                <th className="text-start">{t('clients.contactCol')}</th>
+                <th className="text-start">{t('clients.warehouseCol')}</th>
+                <th className="text-end">{t('clients.balanceCol')}</th>
+                <th className="text-end">{t('clients.creditLimitCol')}</th>
+                <th className="text-start">{t('clients.statusCol')}</th>
+                <th className="text-start">{t('clients.sourceCol')}</th>
+                <th className="text-end">{t('clients.actionsCol')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredClients.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="t-empty">
+                    <div className="flex flex-col items-center gap-2 py-6">
+                      <UserGroupIcon className="w-8 h-8 text-gray-300 dark:text-gray-600" strokeWidth={1.5} />
+                      <p className="text-[13px] font-medium text-gray-500 dark:text-gray-400">{t('clients.noMatchingClients')}</p>
+                      <p className="text-[12px] text-gray-400 dark:text-gray-500">{t('clients.tryChangingFilters')}</p>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                {filteredClients.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="px-4 py-16 text-center">
-                      <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center mx-auto mb-3">
-                        <UserGroupIcon className="w-8 h-8 text-gray-300 dark:text-gray-500" />
-                      </div>
-                      <p className="text-gray-500 dark:text-gray-400 font-medium">{t('clients.noMatchingClients')}</p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('clients.tryChangingFilters')}</p>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredClients.map((client) => (
-                    <tr key={client.id} className={`group hover:bg-blue-50/30 dark:hover:bg-blue-900/20 transition-colors ${selectedClientIds.has(client.id) ? 'bg-blue-50/50 dark:bg-blue-900/30' : ''}`}>
-                      <td className="px-3 py-3 text-center">
-                        <input type="checkbox" checked={selectedClientIds.has(client.id)} onChange={() => toggleClientSelection(client.id)} className="w-4 h-4 text-blue-600 rounded" />
+              ) : (
+                filteredClients.map((client) => {
+                  const totalDebt = Number(client.combined_debt) || 0;
+                  const salesDebt = Number(client.sales_debt) || 0;
+                  const deliveryDebt = Number(client.delivery_debt) || 0;
+                  const SourceIcon = client.source === 'app' ? DevicePhoneMobileIcon : ComputerDesktopIcon;
+                  const sourceDot = client.source === 'app' ? 'metric-dot-violet' : 'metric-dot-blue';
+                  const sourceText = client.source === 'app' ? t('clients.appSource') : t('clients.platformSource');
+                  return (
+                    <tr key={client.id} className={selectedClientIds.has(client.id) ? 'bg-gray-50 dark:bg-gray-800/60' : ''}>
+                      <td className="text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedClientIds.has(client.id)}
+                          onChange={() => toggleClientSelection(client.id)}
+                          className="w-4 h-4 accent-gray-700 rounded"
+                        />
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/50 dark:to-indigo-900/50 flex items-center justify-center flex-shrink-0">
-                            <span className="text-blue-600 dark:text-blue-400 font-bold text-sm">{client.name.charAt(0)}</span>
+                      <td>
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-md bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                            <span className="text-gray-700 dark:text-gray-200 font-semibold text-[12px]">{client.name.charAt(0)}</span>
                           </div>
-                          <div>
-                            <div className="font-medium text-gray-900 dark:text-gray-100 text-sm">{client.name}</div>
-                            <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                          <div className="min-w-0">
+                            <div className="font-medium text-gray-900 dark:text-gray-100 text-[13px]">{client.name}</div>
+                            <div className="flex items-center gap-1 flex-wrap mt-0.5">
                               {client.code && (
-                                <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-mono bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded">{client.code}</span>
+                                <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">{client.code}</span>
                               )}
                               {client.client_category && (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300">
                                   {client.client_category.name}
                                 </span>
                               )}
                               {client.copied_from && (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300" title={t('clients.copyFrom', { name: client.original_client?.name || `#${client.copied_from}` })}>
+                                <span
+                                  className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-600 dark:text-gray-400"
+                                  title={t('clients.copyFrom', { name: client.original_client?.name || `#${client.copied_from}` })}
+                                >
+                                  <span className="metric-dot metric-dot-orange" aria-hidden />
                                   {t('clients.copy')}
                                 </span>
                               )}
@@ -1081,18 +981,18 @@ export default function ClientsPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="space-y-1">
+                      <td>
+                        <div className="space-y-0.5">
                           {client.phone && (
-                            <div className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300">
-                              <PhoneIcon className="w-3.5 h-3.5 text-gray-400" />
-                              <span dir="ltr" className="text-xs">{client.phone}</span>
+                            <div className="flex items-center gap-1.5 text-[12px] text-gray-700 dark:text-gray-300">
+                              <PhoneIcon className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.7} />
+                              <span dir="ltr">{client.phone}</span>
                             </div>
                           )}
                           {client.email && (
-                            <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
-                              <EnvelopeIcon className="w-3.5 h-3.5 text-gray-400" />
-                              <span className="truncate max-w-[140px] text-xs">{client.email}</span>
+                            <div className="flex items-center gap-1.5 text-[12px] text-gray-500 dark:text-gray-400">
+                              <EnvelopeIcon className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.7} />
+                              <span className="truncate max-w-[140px]">{client.email}</span>
                             </div>
                           )}
                           {!client.phone && !client.email && (
@@ -1100,103 +1000,81 @@ export default function ClientsPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3">
+                      <td>
                         {client.warehouse ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-medium bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800">
-                            {client.warehouse.name}
-                          </span>
+                          <span className="text-[12px] text-gray-700 dark:text-gray-300">{client.warehouse.name}</span>
                         ) : (
                           <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        {(() => {
-                          const totalDebt = Number(client.combined_debt) || 0;
-                          const salesDebt = Number(client.sales_debt) || 0;
-                          const deliveryDebt = Number(client.delivery_debt) || 0;
-                          return (
-                            <>
-                              <div className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold ${
-                                totalDebt > 0
-                                  ? 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-100 dark:border-red-800'
-                                  : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                              }`}>
-                                {totalDebt > 0 && <ArrowTrendingUpIcon className="w-3.5 h-3.5" />}
-                                {formatCurrency(totalDebt)}
+                      <td className="text-end tnum">
+                        {totalDebt > 0 ? (
+                          <div className="inline-flex flex-col items-end">
+                            <span className="inline-flex items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
+                              <span className="metric-dot metric-dot-red" aria-hidden />
+                              {formatCurrency(totalDebt)}
+                            </span>
+                            {(salesDebt > 0 || deliveryDebt > 0) && (
+                              <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                                {salesDebt > 0 && <div>{t('clients.salesDebt', { amount: formatCurrency(salesDebt) })}</div>}
+                                {deliveryDebt > 0 && <div>{t('clients.deliveryDebt', { amount: formatCurrency(deliveryDebt) })}</div>}
                               </div>
-                              {totalDebt > 0 && (
-                                <div className="text-[10px] text-gray-400 mt-1 space-y-0.5">
-                                  {salesDebt > 0 && <div>{t('clients.salesDebt', { amount: formatCurrency(salesDebt) })}</div>}
-                                  {deliveryDebt > 0 && <div>{t('clients.deliveryDebt', { amount: formatCurrency(deliveryDebt) })}</div>}
-                                </div>
-                              )}
-                            </>
-                          );
-                        })()}
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">{formatCurrency(totalDebt)}</span>
+                        )}
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="text-end tnum">
                         {client.credit_limit ? (
-                          <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{formatCurrency(client.credit_limit)}</span>
+                          <span className="text-[12px] font-medium text-gray-700 dark:text-gray-300">{formatCurrency(client.credit_limit)}</span>
                         ) : (
                           <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-medium ${
-                          client.is_active
-                            ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-800'
-                            : 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-100 dark:border-red-800'
-                        }`}>
-                          {client.is_active ? (
-                            <><CheckCircleIcon className="w-3 h-3" /> {t('clients.active')}</>
-                          ) : (
-                            <><XMarkIcon className="w-3 h-3" /> {t('clients.disabled')}</>
-                          )}
+                      <td>
+                        <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                          <span className={`metric-dot ${client.is_active ? 'metric-dot-green' : 'metric-dot-red'}`} aria-hidden />
+                          {client.is_active ? t('clients.active') : t('clients.disabled')}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <div className="flex flex-col items-center gap-1">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-medium ${
-                            client.source === 'app'
-                              ? 'bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border border-violet-100 dark:border-violet-800'
-                              : 'bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300 border border-sky-100 dark:border-sky-800'
-                          }`}>
-                            {client.source === 'app' ? (
-                              <><DevicePhoneMobileIcon className="w-3 h-3" /> {t('clients.appSource')}</>
-                            ) : (
-                              <><ComputerDesktopIcon className="w-3 h-3" /> {t('clients.platformSource')}</>
-                            )}
+                      <td>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                            <span className={`metric-dot ${sourceDot}`} aria-hidden />
+                            <SourceIcon className="w-3.5 h-3.5" strokeWidth={1.7} />
+                            {sourceText}
                           </span>
                           {client.creator && (
-                            <span className="text-[10px] text-gray-400">{client.creator.name}</span>
+                            <span className="text-[10.5px] text-gray-500 dark:text-gray-400 ms-3.5">{client.creator.name}</span>
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <td>
+                        <div className="flex items-center justify-end gap-0.5">
                           <button
                             onClick={() => handleOpenDetails(client)}
-                            className="p-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg transition-colors"
+                            className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                             title={t('clients.viewDetails')}
                           >
-                            <EyeIcon className="w-4 h-4" />
+                            <EyeIcon className="w-4 h-4" strokeWidth={1.7} />
                           </button>
                           <button
                             onClick={() => handleOpenEdit(client)}
-                            className="p-1.5 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-lg transition-colors"
+                            className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                             title={t('clients.edit')}
                           >
-                            <PencilIcon className="w-4 h-4" />
+                            <PencilIcon className="w-4 h-4" strokeWidth={1.7} />
                           </button>
                           <button
                             onClick={() => {
                               setSelectedClient(client);
                               setIsDeleteOpen(true);
                             }}
-                            className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg transition-colors"
+                            className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                             title={t('clients.delete')}
                           >
-                            <TrashIcon className="w-4 h-4" />
+                            <TrashIcon className="w-4 h-4" strokeWidth={1.7} />
                           </button>
                           {client.copied_from && (
                             <>
@@ -1211,10 +1089,10 @@ export default function ClientsPage() {
                                     toast.error(err.response?.data?.message || t('clients.genericError'));
                                   }
                                 }}
-                                className="p-1.5 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-lg transition-colors"
+                                className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                 title={t('clients.cancelCopy')}
                               >
-                                <XCircleIcon className="w-4 h-4" />
+                                <XCircleIcon className="w-4 h-4" strokeWidth={1.7} />
                               </button>
                               <button
                                 onClick={async () => {
@@ -1226,21 +1104,21 @@ export default function ClientsPage() {
                                     toast.error(err.response?.data?.message || t('clients.genericError'));
                                   }
                                 }}
-                                className="p-1.5 hover:bg-teal-100 dark:hover:bg-teal-900/30 text-teal-600 dark:text-teal-400 rounded-lg transition-colors"
+                                className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                 title={t('clients.convertToNormal')}
                               >
-                                <CheckCircleIcon className="w-4 h-4" />
+                                <CheckCircleIcon className="w-4 h-4" strokeWidth={1.7} />
                               </button>
                             </>
                           )}
                         </div>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       )}
 

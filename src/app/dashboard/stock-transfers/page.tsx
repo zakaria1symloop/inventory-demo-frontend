@@ -8,16 +8,13 @@ import GuidedTour from '@/components/GuidedTour';
 import type { TourStep } from '@/components/GuidedTour';
 import DateInput from '@/components/ui/DateInput';
 import toast from 'react-hot-toast';
+import { PageHeader, FilterBar } from '@/components/dashboard';
 import {
   ArrowsRightLeftIcon,
-  MagnifyingGlassIcon,
-  FunnelIcon,
   XMarkIcon,
   ArrowPathIcon,
   PlusIcon,
-  ClockIcon,
   BoltIcon,
-  CheckBadgeIcon,
   EyeIcon,
   PrinterIcon,
   PencilSquareIcon,
@@ -25,11 +22,6 @@ import {
   TrashIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  BuildingStorefrontIcon,
-  TruckIcon,
-  CubeIcon,
-  UserIcon,
-  CalendarDaysIcon,
   ArchiveBoxArrowDownIcon,
 } from '@heroicons/react/24/outline';
 
@@ -90,30 +82,14 @@ export default function StockTransfersPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [viewMode, setViewMode] = useState<'active' | 'archive'>('active');
-  const [showFilters, setShowFilters] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [isActioning, setIsActioning] = useState<number | null>(null);
 
-  const STATUS_CONFIG = useMemo(() => ({
-    pending: {
-      label: t('stockTransfersList.statusPending'),
-      bg: 'bg-amber-50 dark:bg-amber-900/30',
-      text: 'text-amber-700 dark:text-amber-400',
-      border: 'border-amber-200 dark:border-amber-700',
-    },
-    loading: {
-      label: t('stockTransfersList.statusLoading'),
-      bg: 'bg-blue-50 dark:bg-blue-900/30',
-      text: 'text-blue-700 dark:text-blue-400',
-      border: 'border-blue-200 dark:border-blue-700',
-    },
-    collected: {
-      label: t('stockTransfersList.statusCollected'),
-      bg: 'bg-emerald-50 dark:bg-emerald-900/30',
-      text: 'text-emerald-700 dark:text-emerald-400',
-      border: 'border-emerald-200 dark:border-emerald-700',
-    },
-  } as Record<string, { label: string; bg: string; text: string; border: string }>), [t]);
+  const STATUS_INFO: Record<string, { label: string; dot: string }> = useMemo(() => ({
+    pending: { label: t('stockTransfersList.statusPending'), dot: 'metric-dot-orange' },
+    loading: { label: t('stockTransfersList.statusLoading'), dot: 'metric-dot-blue' },
+    collected: { label: t('stockTransfersList.statusCollected'), dot: 'metric-dot-green' },
+  }), [t]);
 
   const tourSteps: TourStep[] = useMemo(() => [
     {
@@ -156,7 +132,6 @@ export default function StockTransfersPage() {
     fetchTransfers();
   }, [currentPage, statusFilter, fromWarehouseFilter, toWarehouseFilter, dateFrom, dateTo, viewMode]);
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) {
@@ -175,9 +150,7 @@ export default function StockTransfersPage() {
     try {
       const response = await warehousesApi.getAll();
       setWarehouses(response.data.data || response.data);
-    } catch {
-      // ignore
-    }
+    } catch {}
   };
 
   const fetchTransfers = async () => {
@@ -275,12 +248,10 @@ export default function StockTransfersPage() {
   };
 
   const getItemsCount = (transfer: StockTransfer) => transfer.items?.length || 0;
-
   const getTotalPieces = (transfer: StockTransfer) =>
     transfer.items?.reduce((sum, item) => sum + Math.round(Number(item.quantity)), 0) || 0;
 
   const handlePrint = (transfer: StockTransfer) => {
-    // NOTE: Print template is Arabic-only for now
     const items = transfer.items || [];
     let totalCartons = 0;
     let totalExtraPieces = 0;
@@ -337,7 +308,6 @@ export default function StockTransfersPage() {
     );
   });
 
-  // Stats
   const pendingCount = transfers.filter(tr => tr.status === 'pending').length;
   const loadingCount = transfers.filter(tr => tr.status === 'loading').length;
   const activeFilterCount = [statusFilter, fromWarehouseFilter, toWarehouseFilter, dateFrom, dateTo, searchTerm].filter(Boolean).length;
@@ -349,451 +319,312 @@ export default function StockTransfersPage() {
   }
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" data-tour="st-title">
-        <div>
-          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-gray-100 tracking-tight leading-none">{t('stockTransfersList.title')}</h1>
-          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('stockTransfersList.subtitle')}</p>
-        </div>
-        <div className="flex items-center gap-2">
+    <div>
+      <div data-tour="st-title">
+        <PageHeader title={t('stockTransfersList.title')} subtitle={t('stockTransfersList.subtitle')}>
           <button
             onClick={() => { localStorage.removeItem(storageKey); setShowTour(true); }}
-            className="text-sm font-medium text-gray-400 hover:text-teal-500 dark:hover:text-teal-400 transition-colors"
+            className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             {t('stockTransfersList.tourBtn')}
           </button>
           <button
             onClick={() => { setIsLoading(true); fetchTransfers(); }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
+            className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
-            <ArrowPathIcon className="w-4 h-4" />
+            <ArrowPathIcon className="w-4 h-4" strokeWidth={1.8} />
             <span className="hidden sm:inline">{t('stockTransfersList.refresh')}</span>
           </button>
           <button
             onClick={() => router.push('/dashboard/stock-transfers/new')}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-l from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 rounded-xl transition-all"
+            className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors"
           >
-            <PlusIcon className="w-4 h-4" />
+            <PlusIcon className="w-4 h-4" strokeWidth={2} />
             {t('stockTransfersList.newTransfer')}
-            <kbd className={`bg-white/20 px-1.5 py-0.5 rounded text-[10px] font-medium ${isRTL ? 'mr-1' : 'ml-1'}`}>Insert</kbd>
           </button>
-        </div>
+        </PageHeader>
       </div>
 
-      {/* View Mode Toggle: Active vs Archive */}
-      <div className="flex items-center gap-2" data-tour="st-kpis">
+      {/* Metric tiles (also used as view-mode toggles) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-4" data-tour="st-kpis">
         <button
+          type="button"
           onClick={() => { setViewMode('active'); setStatusFilter(''); setCurrentPage(1); }}
-          className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl border text-sm font-bold transition-all ${
-            viewMode === 'active'
-              ? 'bg-white dark:bg-gray-800 border-teal-300 dark:border-teal-600 ring-1 ring-teal-200 dark:ring-teal-700 text-teal-700 dark:text-teal-400'
-              : 'bg-white dark:bg-gray-800 border-gray-200/80 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
-          }`}
+          className={`metric-tile text-left ${viewMode === 'active' && !statusFilter ? 'ring-1 ring-gray-400 dark:ring-gray-500' : ''}`}
         >
-          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${viewMode === 'active' ? 'bg-teal-100 dark:bg-teal-900/40' : 'bg-gray-100 dark:bg-gray-700'}`}>
-            <ArrowsRightLeftIcon className={`w-4.5 h-4.5 ${viewMode === 'active' ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400 dark:text-gray-500'}`} />
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-blue" aria-hidden />
+            <p className="metric-label truncate">{t('stockTransfersList.activeTransfers')}</p>
           </div>
-          <div className="text-start">
-            <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium leading-none">{t('stockTransfersList.activeTransfers')}</p>
-            <p className={`text-lg font-black tabular-nums leading-tight ${viewMode === 'active' ? 'text-teal-600 dark:text-teal-400' : 'text-gray-500 dark:text-gray-400'}`}>{viewMode === 'active' && !statusFilter ? totalItems : pendingCount + loadingCount}</p>
-          </div>
+          <p className="metric-value tnum">{viewMode === 'active' && !statusFilter ? totalItems : pendingCount + loadingCount}</p>
         </button>
         <button
+          type="button"
           onClick={() => { setStatusFilter('pending'); setViewMode('active'); setCurrentPage(1); }}
-          className={`hidden sm:inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl border text-sm font-bold transition-all ${
-            statusFilter === 'pending'
-              ? 'bg-white dark:bg-gray-800 border-amber-300 dark:border-amber-600 ring-1 ring-amber-200 dark:ring-amber-700 text-amber-700 dark:text-amber-400'
-              : 'bg-white dark:bg-gray-800 border-gray-200/80 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
-          }`}
+          className={`metric-tile text-left ${statusFilter === 'pending' ? 'ring-1 ring-gray-400 dark:ring-gray-500' : ''}`}
         >
-          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${statusFilter === 'pending' ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-gray-100 dark:bg-gray-700'}`}>
-            <ClockIcon className={`w-4.5 h-4.5 ${statusFilter === 'pending' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500'}`} />
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-orange" aria-hidden />
+            <p className="metric-label truncate">{t('stockTransfersList.statusPending')}</p>
           </div>
-          <div className="text-start">
-            <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium leading-none">{t('stockTransfersList.statusPending')}</p>
-            <p className={`text-lg font-black tabular-nums leading-tight ${statusFilter === 'pending' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'}`}>{pendingCount}</p>
-          </div>
+          <p className="metric-value tnum">{pendingCount}</p>
         </button>
         <button
+          type="button"
           onClick={() => { setStatusFilter('loading'); setViewMode('active'); setCurrentPage(1); }}
-          className={`hidden sm:inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl border text-sm font-bold transition-all ${
-            statusFilter === 'loading'
-              ? 'bg-white dark:bg-gray-800 border-blue-300 dark:border-blue-600 ring-1 ring-blue-200 dark:ring-blue-700 text-blue-700 dark:text-blue-400'
-              : 'bg-white dark:bg-gray-800 border-gray-200/80 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
-          }`}
+          className={`metric-tile text-left ${statusFilter === 'loading' ? 'ring-1 ring-gray-400 dark:ring-gray-500' : ''}`}
         >
-          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${statusFilter === 'loading' ? 'bg-blue-100 dark:bg-blue-900/40' : 'bg-gray-100 dark:bg-gray-700'}`}>
-            <BoltIcon className={`w-4.5 h-4.5 ${statusFilter === 'loading' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`} />
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-blue" aria-hidden />
+            <p className="metric-label truncate">{t('stockTransfersList.statusLoading')}</p>
           </div>
-          <div className="text-start">
-            <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium leading-none">{t('stockTransfersList.statusLoading')}</p>
-            <p className={`text-lg font-black tabular-nums leading-tight ${statusFilter === 'loading' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}>{loadingCount}</p>
-          </div>
+          <p className="metric-value tnum">{loadingCount}</p>
         </button>
         <button
+          type="button"
           onClick={() => { setViewMode('archive'); setStatusFilter(''); setCurrentPage(1); }}
-          className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl border text-sm font-bold transition-all ${
-            viewMode === 'archive'
-              ? 'bg-white dark:bg-gray-800 border-gray-400 dark:border-gray-500 ring-1 ring-gray-300 dark:ring-gray-600 text-gray-700 dark:text-gray-300'
-              : 'bg-white dark:bg-gray-800 border-gray-200/80 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
-          }`}
+          className={`metric-tile text-left ${viewMode === 'archive' ? 'ring-1 ring-gray-400 dark:ring-gray-500' : ''}`}
         >
-          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${viewMode === 'archive' ? 'bg-gray-200 dark:bg-gray-600' : 'bg-gray-100 dark:bg-gray-700'}`}>
-            <ArchiveBoxArrowDownIcon className={`w-4.5 h-4.5 ${viewMode === 'archive' ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'}`} />
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-neutral" aria-hidden />
+            <p className="metric-label truncate">{t('stockTransfersList.archive')}</p>
           </div>
-          <div className="text-start">
-            <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium leading-none">{t('stockTransfersList.archive')}</p>
-            <p className={`text-lg font-black tabular-nums leading-tight ${viewMode === 'archive' ? 'text-gray-700 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>{viewMode === 'archive' ? totalItems : '—'}</p>
-          </div>
+          <p className="metric-value tnum">{viewMode === 'archive' ? totalItems : '—'}</p>
         </button>
       </div>
 
-      {/* Search + Filters + Cards */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm">
-        {/* Search bar */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-700" data-tour="st-search">
-          <div className="relative flex-1">
-            <MagnifyingGlassIcon className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500`} />
-            <input
-              type="text"
-              placeholder={t('stockTransfersList.searchPlaceholder')}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className={`input w-full ${isRTL ? 'pr-9' : 'pl-9'} text-sm`}
-            />
-          </div>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl border transition-all ${
-              showFilters || activeFilterCount > 0
-                ? 'border-teal-300 dark:border-teal-600 bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400'
-                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
-          >
-            <FunnelIcon className="w-4 h-4" />
-            <span className="hidden sm:inline">{t('stockTransfersList.filter')}</span>
-            {activeFilterCount > 0 && (
-              <span className="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center">
-                {activeFilterCount}
-              </span>
-            )}
-          </button>
-          {activeFilterCount > 0 && (
-            <button onClick={clearFilters} className="text-sm text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium flex items-center gap-1">
-              <XMarkIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('stockTransfersList.clear')}</span>
+      {/* Filters */}
+      <div data-tour="st-search">
+        <FilterBar
+          search={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder={t('stockTransfersList.searchPlaceholder')}
+          trailing={activeFilterCount > 0 ? (
+            <button onClick={clearFilters} className="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">
+              <XMarkIcon className="w-3.5 h-3.5" />
+              {t('stockTransfersList.clear')}
             </button>
-          )}
-          <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:inline">
-            {filteredTransfers.length} / {totalItems || transfers.length}
+          ) : undefined}
+        >
+          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}>
+            <option value="">{t('stockTransfersList.allStatuses')}</option>
+            <option value="pending">{t('stockTransfersList.statusPending')}</option>
+            <option value="loading">{t('stockTransfersList.statusLoading')}</option>
+            <option value="collected">{t('stockTransfersList.statusCollected')}</option>
+          </select>
+          <select value={fromWarehouseFilter} onChange={(e) => { setFromWarehouseFilter(e.target.value); setCurrentPage(1); }}>
+            <option value="">{t('stockTransfersList.fromWarehouse')}</option>
+            {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+          </select>
+          <select value={toWarehouseFilter} onChange={(e) => { setToWarehouseFilter(e.target.value); setCurrentPage(1); }}>
+            <option value="">{t('stockTransfersList.toWarehouse')}</option>
+            {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+          </select>
+          <DateInput value={dateFrom} onChange={(v) => { setDateFrom(v); setCurrentPage(1); }} placeholder={t('stockTransfersList.fromDate')} />
+          <DateInput value={dateTo} onChange={(v) => { setDateTo(v); setCurrentPage(1); }} placeholder={t('stockTransfersList.toDate')} />
+        </FilterBar>
+      </div>
+
+      {/* Quick filters */}
+      <div className="flex items-center gap-1.5 mb-3 overflow-x-auto" data-tour="st-quick-filters">
+        {viewMode === 'active' ? (
+          [
+            { value: '', label: t('stockTransfersList.allActive') },
+            { value: 'pending', label: t('stockTransfersList.statusPending') },
+            { value: 'loading', label: t('stockTransfersList.statusLoading') },
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => { setStatusFilter(opt.value); setCurrentPage(1); }}
+              className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium whitespace-nowrap transition-colors ${
+                statusFilter === opt.value
+                  ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                  : 'border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))
+        ) : (
+          <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+            <span className="metric-dot metric-dot-neutral" aria-hidden />
+            {t('stockTransfersList.archiveDelivered')}
           </span>
-        </div>
-
-        {/* Expanded Filters */}
-        {showFilters && (
-          <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-              <div>
-                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('stockTransfersList.filterStatus')}</label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-                  className="select w-full"
-                >
-                  <option value="">{t('stockTransfersList.allStatuses')}</option>
-                  <option value="pending">{t('stockTransfersList.statusPending')}</option>
-                  <option value="loading">{t('stockTransfersList.statusLoading')}</option>
-                  <option value="collected">{t('stockTransfersList.statusCollected')}</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('stockTransfersList.fromWarehouse')}</label>
-                <select
-                  value={fromWarehouseFilter}
-                  onChange={(e) => { setFromWarehouseFilter(e.target.value); setCurrentPage(1); }}
-                  className="select w-full"
-                >
-                  <option value="">{t('stockTransfersList.all')}</option>
-                  {warehouses.map(w => (
-                    <option key={w.id} value={w.id}>{w.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('stockTransfersList.toWarehouse')}</label>
-                <select
-                  value={toWarehouseFilter}
-                  onChange={(e) => { setToWarehouseFilter(e.target.value); setCurrentPage(1); }}
-                  className="select w-full"
-                >
-                  <option value="">{t('stockTransfersList.all')}</option>
-                  {warehouses.map(w => (
-                    <option key={w.id} value={w.id}>{w.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('stockTransfersList.fromDate')}</label>
-                <DateInput
-                  value={dateFrom}
-                  onChange={(v) => { setDateFrom(v); setCurrentPage(1); }}
-                  placeholder={t('stockTransfersList.fromDate')}
-                  className="w-full"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('stockTransfersList.toDate')}</label>
-                <DateInput
-                  value={dateTo}
-                  onChange={(v) => { setDateTo(v); setCurrentPage(1); }}
-                  placeholder={t('stockTransfersList.toDate')}
-                  className="w-full"
-                />
-              </div>
-            </div>
-          </div>
         )}
+        <span className="text-[12px] t-muted ms-auto whitespace-nowrap">
+          {filteredTransfers.length} / {totalItems || transfers.length}
+        </span>
+      </div>
 
-        {/* Quick Filters */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 dark:border-gray-700 overflow-x-auto" data-tour="st-quick-filters">
-          {viewMode === 'active' ? (
-            <>
-              {([
-                { value: '', label: t('stockTransfersList.allActive') },
-                { value: 'pending', label: t('stockTransfersList.statusPending') },
-                { value: 'loading', label: t('stockTransfersList.statusLoading') },
-              ]).map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => { setStatusFilter(opt.value); setCurrentPage(1); }}
-                  className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                    statusFilter === opt.value
-                      ? 'bg-teal-600 text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-              <ArchiveBoxArrowDownIcon className="w-3.5 h-3.5" />
-              {t('stockTransfersList.archiveDelivered')}
-            </span>
-          )}
-        </div>
+      {/* Transfer cards */}
+      <div className="space-y-2.5" data-tour="st-cards">
+        {filteredTransfers.length === 0 ? (
+          <div className="surface-pro flex flex-col items-center justify-center py-16 text-gray-500 dark:text-gray-400">
+            <ArchiveBoxArrowDownIcon className="w-12 h-12 mb-3 text-gray-300 dark:text-gray-600" strokeWidth={1.5} />
+            <p className="text-[14px] font-medium">
+              {viewMode === 'archive' ? t('stockTransfersList.noArchivedTransfers') : t('stockTransfersList.noActiveTransfers')}
+            </p>
+            <p className="text-[12px] mt-1 t-muted">
+              {viewMode === 'archive' ? t('stockTransfersList.noDeliveredYet') : t('stockTransfersList.noProcessingNow')}
+            </p>
+            {viewMode === 'active' && (
+              <button
+                onClick={() => router.push('/dashboard/stock-transfers/new')}
+                className="mt-4 inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors"
+              >
+                <PlusIcon className="w-4 h-4" strokeWidth={2} />
+                {t('stockTransfersList.createNewTransfer')}
+              </button>
+            )}
+          </div>
+        ) : (
+          filteredTransfers.map(transfer => {
+            const statusCfg = STATUS_INFO[transfer.status] || { label: transfer.status, dot: 'metric-dot-neutral' };
+            const itemsCount = getItemsCount(transfer);
+            const totalPcs = getTotalPieces(transfer);
+            const driverName = transfer.to_warehouse?.assigned_user?.name || transfer.from_warehouse?.assigned_user?.name || '';
+            const acting = isActioning === transfer.id;
 
-        {/* Transfer Cards */}
-        <div className="p-4 space-y-3" data-tour="st-cards">
-          {filteredTransfers.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500">
-              <ArchiveBoxArrowDownIcon className="w-12 h-12 mb-3" />
-              <p className="text-lg font-semibold">
-                {viewMode === 'archive' ? t('stockTransfersList.noArchivedTransfers') : t('stockTransfersList.noActiveTransfers')}
-              </p>
-              <p className="text-sm mt-1">
-                {viewMode === 'archive' ? t('stockTransfersList.noDeliveredYet') : t('stockTransfersList.noProcessingNow')}
-              </p>
-              {viewMode === 'active' && (
-                <button
-                  onClick={() => router.push('/dashboard/stock-transfers/new')}
-                  className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-l from-teal-600 to-cyan-600 rounded-xl transition-all hover:from-teal-700 hover:to-cyan-700"
-                >
-                  <PlusIcon className="w-4 h-4" />
-                  {t('stockTransfersList.createNewTransfer')}
-                </button>
-              )}
-            </div>
-          ) : (
-            filteredTransfers.map(transfer => {
-              const statusCfg = STATUS_CONFIG[transfer.status] || { label: transfer.status, bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-600 dark:text-gray-400', border: 'border-gray-200 dark:border-gray-700' };
-              const itemsCount = getItemsCount(transfer);
-              const totalPcs = getTotalPieces(transfer);
-              const driverName = transfer.to_warehouse?.assigned_user?.name || transfer.from_warehouse?.assigned_user?.name || '';
-              const acting = isActioning === transfer.id;
-
-              return (
-                <div
-                  key={transfer.id}
-                  className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden hover:border-gray-300 dark:hover:border-gray-600 transition-all cursor-pointer"
-                  onClick={() => router.push(`/dashboard/stock-transfers/${transfer.id}`)}
-                >
-                  <div className="flex items-center justify-between px-5 py-4">
-                    <div className="flex items-center gap-4 min-w-0 flex-1">
-                      {/* Status icon */}
-                      <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
-                        transfer.status === 'pending' ? 'bg-amber-100 dark:bg-amber-900/30' :
-                        transfer.status === 'loading' ? 'bg-blue-100 dark:bg-blue-900/30' :
-                        'bg-emerald-100 dark:bg-emerald-900/30'
-                      }`}>
-                        {transfer.status === 'pending' && <ClockIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />}
-                        {transfer.status === 'loading' && <BoltIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
-                        {transfer.status === 'collected' && <CheckBadgeIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />}
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        {/* Top row: reference + status + driver */}
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-sm font-bold text-gray-800 dark:text-gray-100">{transfer.reference}</span>
-                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${statusCfg.bg} ${statusCfg.text}`}>
-                            {statusCfg.label}
-                          </span>
-                          {driverName && (
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400">
-                              {driverName}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Bottom row: warehouses + items info */}
-                        <div className="flex items-center gap-2 mt-1.5 flex-wrap text-xs text-gray-400 dark:text-gray-500">
-                          <span className="flex items-center gap-1">
-                            <BuildingStorefrontIcon className="w-3.5 h-3.5" />
-                            {transfer.from_warehouse?.name || '-'}
-                          </span>
-                          <span className="text-gray-300 dark:text-gray-600">{isRTL ? '\u2190' : '\u2192'}</span>
-                          <span className="flex items-center gap-1">
-                            <TruckIcon className="w-3.5 h-3.5" />
-                            {transfer.to_warehouse?.name || '-'}
-                          </span>
-                          <span className="text-gray-300 dark:text-gray-600">&middot;</span>
-                          <span className="flex items-center gap-1">
-                            <CubeIcon className="w-3.5 h-3.5" />
-                            {itemsCount} {t('stockTransfersList.product')}
-                          </span>
-                          <span className="text-gray-300 dark:text-gray-600">&middot;</span>
-                          <span>{totalPcs} {t('stockTransfersList.piece')}</span>
-                          {transfer.creator && (
-                            <>
-                              <span className="text-gray-300 dark:text-gray-600">&middot;</span>
-                              <span className="flex items-center gap-1">
-                                <UserIcon className="w-3.5 h-3.5" />
-                                {transfer.creator.name}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      </div>
+            return (
+              <div
+                key={transfer.id}
+                className="surface-pro overflow-hidden cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                onClick={() => router.push(`/dashboard/stock-transfers/${transfer.id}`)}
+              >
+                <div className="flex items-center justify-between px-3 py-3 gap-3">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="w-10 h-10 rounded-md bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                      <ArrowsRightLeftIcon className="w-4.5 h-4.5 text-gray-600 dark:text-gray-300" strokeWidth={1.8} />
                     </div>
-
-                    {/* Right/End side: date + actions */}
-                    <div className={`flex items-center gap-3 shrink-0 ${isRTL ? 'mr-4' : 'ml-4'}`}>
-                      <div className="hidden sm:flex flex-col items-end text-xs text-gray-400 dark:text-gray-500">
-                        <span className="flex items-center gap-1">
-                          <CalendarDaysIcon className="w-3.5 h-3.5" />
-                          {formatDate(transfer.created_at)}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-[13.5px] font-semibold text-gray-900 dark:text-gray-100">{transfer.reference}</span>
+                        <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                          <span className={`metric-dot ${statusCfg.dot}`} aria-hidden />
+                          {statusCfg.label}
                         </span>
+                        {driverName && (
+                          <span className="text-[11px] t-muted">· {driverName}</span>
+                        )}
                       </div>
-
-                      {/* Action buttons */}
-                      <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                        <button
-                          onClick={() => router.push(`/dashboard/stock-transfers/${transfer.id}`)}
-                          className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/30 transition-colors"
-                          title={t('stockTransfersList.viewDetails')}
-                        >
-                          <EyeIcon className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handlePrint(transfer)}
-                          className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                          title={t('stockTransfersList.print')}
-                        >
-                          <PrinterIcon className="w-4 h-4" />
-                        </button>
-
-                        {transfer.status === 'pending' && (
-                          <>
-                            <button
-                              onClick={() => router.push(`/dashboard/stock-transfers/${transfer.id}/edit`)}
-                              className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
-                              title={t('stockTransfersList.edit')}
-                            >
-                              <PencilSquareIcon className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleApprove(transfer.id)}
-                              disabled={acting}
-                              className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors disabled:opacity-50"
-                              title={t('stockTransfersList.approve')}
-                            >
-                              {acting ? <div className="w-4 h-4 border-2 border-emerald-300 border-t-emerald-600 rounded-full animate-spin" /> : <CheckCircleIcon className="w-4 h-4" />}
-                            </button>
-                            <button
-                              onClick={() => handleDelete(transfer.id)}
-                              disabled={acting}
-                              className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
-                              title={t('stockTransfersList.delete')}
-                            >
-                              <TrashIcon className="w-4 h-4" />
-                            </button>
-                          </>
-                        )}
-
-                        {transfer.status === 'loading' && (
-                          <>
-                            <button
-                              onClick={() => handleCollect(transfer.id)}
-                              disabled={acting}
-                              className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors disabled:opacity-50"
-                              title={t('stockTransfersList.collect')}
-                            >
-                              {acting ? <div className="w-4 h-4 border-2 border-emerald-300 border-t-emerald-600 rounded-full animate-spin" /> : <BoltIcon className="w-4 h-4" />}
-                            </button>
-                            <button
-                              onClick={() => handleDelete(transfer.id)}
-                              disabled={acting}
-                              className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
-                              title={t('stockTransfersList.cancel')}
-                            >
-                              <XMarkIcon className="w-4 h-4" />
-                            </button>
-                          </>
-                        )}
-
-                        {transfer.status === 'collected' && (
-                          isRTL
-                            ? <ChevronLeftIcon className="w-4 h-4 text-gray-300 dark:text-gray-600" />
-                            : <ChevronRightIcon className="w-4 h-4 text-gray-300 dark:text-gray-600" />
-                        )}
+                      <div className="flex items-center gap-2 mt-1 flex-wrap text-[11px] t-muted">
+                        <span>{transfer.from_warehouse?.name || '-'}</span>
+                        <span>{isRTL ? '←' : '→'}</span>
+                        <span>{transfer.to_warehouse?.name || '-'}</span>
+                        <span>·</span>
+                        <span>{itemsCount} {t('stockTransfersList.product')}</span>
+                        <span>·</span>
+                        <span>{totalPcs} {t('stockTransfersList.piece')}</span>
+                        {transfer.creator && (<><span>·</span><span>{transfer.creator.name}</span></>)}
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })
-          )}
-        </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100 dark:border-gray-700">
-            <span className="text-xs text-gray-400 dark:text-gray-500">
-              {t('stockTransfersList.totalTransfers', { total: String(totalItems) })} &middot; {t('stockTransfersList.pageOf', { current: String(currentPage), total: String(totalPages) })}
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {isRTL ? <ChevronRightIcon className="w-3.5 h-3.5" /> : <ChevronLeftIcon className="w-3.5 h-3.5" />}
-                {t('stockTransfersList.previous')}
-              </button>
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {t('stockTransfersList.next')}
-                {isRTL ? <ChevronLeftIcon className="w-3.5 h-3.5" /> : <ChevronRightIcon className="w-3.5 h-3.5" />}
-              </button>
-            </div>
-          </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <span className="hidden sm:inline text-[11px] tnum t-muted">{formatDate(transfer.created_at)}</span>
+                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                      <button
+                        onClick={() => router.push(`/dashboard/stock-transfers/${transfer.id}`)}
+                        className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+                        title={t('stockTransfersList.viewDetails')}
+                      >
+                        <EyeIcon className="w-4 h-4" strokeWidth={1.8} />
+                      </button>
+                      <button
+                        onClick={() => handlePrint(transfer)}
+                        className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+                        title={t('stockTransfersList.print')}
+                      >
+                        <PrinterIcon className="w-4 h-4" strokeWidth={1.8} />
+                      </button>
+
+                      {transfer.status === 'pending' && (
+                        <>
+                          <button
+                            onClick={() => router.push(`/dashboard/stock-transfers/${transfer.id}/edit`)}
+                            className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+                            title={t('stockTransfersList.edit')}
+                          >
+                            <PencilSquareIcon className="w-4 h-4" strokeWidth={1.8} />
+                          </button>
+                          <button
+                            onClick={() => handleApprove(transfer.id)}
+                            disabled={acting}
+                            className="p-1.5 text-gray-500 hover:text-green-600 dark:text-gray-400 dark:hover:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors disabled:opacity-50"
+                            title={t('stockTransfersList.approve')}
+                          >
+                            {acting ? <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" /> : <CheckCircleIcon className="w-4 h-4" strokeWidth={1.8} />}
+                          </button>
+                          <button
+                            onClick={() => handleDelete(transfer.id)}
+                            disabled={acting}
+                            className="p-1.5 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors disabled:opacity-50"
+                            title={t('stockTransfersList.delete')}
+                          >
+                            <TrashIcon className="w-4 h-4" strokeWidth={1.8} />
+                          </button>
+                        </>
+                      )}
+
+                      {transfer.status === 'loading' && (
+                        <>
+                          <button
+                            onClick={() => handleCollect(transfer.id)}
+                            disabled={acting}
+                            className="p-1.5 text-gray-500 hover:text-green-600 dark:text-gray-400 dark:hover:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors disabled:opacity-50"
+                            title={t('stockTransfersList.collect')}
+                          >
+                            {acting ? <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" /> : <BoltIcon className="w-4 h-4" strokeWidth={1.8} />}
+                          </button>
+                          <button
+                            onClick={() => handleDelete(transfer.id)}
+                            disabled={acting}
+                            className="p-1.5 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors disabled:opacity-50"
+                            title={t('stockTransfersList.cancel')}
+                          >
+                            <XMarkIcon className="w-4 h-4" strokeWidth={1.8} />
+                          </button>
+                        </>
+                      )}
+
+                      {transfer.status === 'collected' && (
+                        isRTL
+                          ? <ChevronLeftIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                          : <ChevronRightIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })
         )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-3">
+          <span className="text-[12px] t-muted">
+            {t('stockTransfersList.totalTransfers', { total: String(totalItems) })} · {t('stockTransfersList.pageOf', { current: String(currentPage), total: String(totalPages) })}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-2.5 py-1 text-[12px] font-medium rounded-md border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:text-gray-300"
+            >
+              {t('stockTransfersList.previous')}
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-2.5 py-1 text-[12px] font-medium rounded-md border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:text-gray-300"
+            >
+              {t('stockTransfersList.next')}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Guided Tour */}
       {showTour && (

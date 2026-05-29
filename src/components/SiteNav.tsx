@@ -6,9 +6,9 @@ import Image from 'next/image';
 import LanguageSwitcher from './LanguageSwitcher';
 
 const nav = {
-  ar: { modules: 'الوحدات', audience: 'لمن هذا البرنامج؟', pricing: 'الأسعار', contact: 'تواصل معنا', blog: 'المدونة', login: 'تسجيل الدخول', cta: 'ابدأ مجاناً' },
-  fr: { modules: 'Modules', audience: 'Pour qui ?', pricing: 'Tarifs', contact: 'Contact', blog: 'Blog', login: 'Connexion', cta: 'Essai gratuit' },
-  en: { modules: 'Modules', audience: 'Who is this for?', pricing: 'Pricing', contact: 'Contact', blog: 'Blog', login: 'Sign in', cta: 'Free trial' },
+  ar: { modules: 'الوحدات', distribution: 'برنامج التوزيع', audience: 'لمن هذا البرنامج؟', pricing: 'الأسعار', contact: 'تواصل معنا', blog: 'المدونة', login: 'تسجيل الدخول', cta: 'ابدأ مجاناً' },
+  fr: { modules: 'Modules', distribution: 'Logiciel de distribution', audience: 'Pour qui ?', pricing: 'Tarifs', contact: 'Contact', blog: 'Blog', login: 'Connexion', cta: 'Essai gratuit' },
+  en: { modules: 'Modules', distribution: 'Distribution software', audience: 'Who is this for?', pricing: 'Pricing', contact: 'Contact', blog: 'Blog', login: 'Sign in', cta: 'Free trial' },
 };
 
 const topBar = {
@@ -63,6 +63,7 @@ export default function SiteNav({ lang, onLangToggle }: Props) {
             {/* Desktop nav links */}
             <div className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
               <Link href="/#modules" className="hover:text-blue-600 transition-colors">{n.modules}</Link>
+              <Link href="/logiciel-de-distribution" className="hover:text-blue-600 transition-colors">{n.distribution}</Link>
               <Link href="/#audience" className="hover:text-blue-600 transition-colors">{n.audience}</Link>
               <Link href="/tarifs" className="hover:text-blue-600 transition-colors">{n.pricing}</Link>
               <Link href="/#contact" className="hover:text-blue-600 transition-colors">{n.contact}</Link>
@@ -95,6 +96,7 @@ export default function SiteNav({ lang, onLangToggle }: Props) {
           <div className="md:hidden border-t border-gray-100 bg-white/95 backdrop-blur-md">
             <div className="px-4 py-4 space-y-1">
               <Link href="/#modules" onClick={() => setOpen(false)} className="block px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">{n.modules}</Link>
+              <Link href="/logiciel-de-distribution" onClick={() => setOpen(false)} className="block px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">{n.distribution}</Link>
               <Link href="/#audience" onClick={() => setOpen(false)} className="block px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">{n.audience}</Link>
               <Link href="/tarifs" onClick={() => setOpen(false)} className="block px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">{n.pricing}</Link>
               <Link href="/#contact" onClick={() => setOpen(false)} className="block px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">{n.contact}</Link>

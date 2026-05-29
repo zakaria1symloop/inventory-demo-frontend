@@ -7,13 +7,15 @@ import { productsApi, categoriesApi, brandsApi, unitsApi, clientCategoriesApi, s
 import { PlusIcon, PencilIcon, TrashIcon, DocumentArrowDownIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import ImportPreviewPanel from '@/components/products/ImportPreviewPanel';
 import type { ImportPreviewResponse, ImportRow } from '@/lib/types';
-import DataTable from '@/components/ui/DataTable';
 import GuidedTour from '@/components/GuidedTour';
 import type { TourStep } from '@/components/GuidedTour';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import toast from 'react-hot-toast';
 import type { Product, Category, Brand, Unit, ClientCategory } from '@/lib/types';
 import { useLocale } from '@/lib/i18n/context';
+import { PageHeader, FilterBar, SelectWithCreate } from '@/components/dashboard';
+import type { SelectWithCreateOption } from '@/components/dashboard';
+import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 
 interface StockItem {
   quantity: number;
@@ -40,6 +42,10 @@ export default function ProductsPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [categoryPricesForm, setCategoryPricesForm] = useState<Record<string, string>>({});
   const [showTour, setShowTour] = useState(false);
+  // Inline create state for client categories (multi-row section, not a single select).
+  const [newClientCategoryName, setNewClientCategoryName] = useState('');
+  const [showAddClientCategory, setShowAddClientCategory] = useState(false);
+  const [creatingClientCategory, setCreatingClientCategory] = useState(false);
   const { t, locale, dir } = useLocale();
   const [formData, setFormData] = useState({
     name: '',
@@ -52,6 +58,7 @@ export default function ProductsPage() {
     cost_price: '',
     stock_alert: '',
     tax_percent: '',
+    tax_included: false,
     pieces_per_package: '1',
     is_active: true,
   });
@@ -175,6 +182,7 @@ export default function ProductsPage() {
       cost_price: '',
       stock_alert: '',
       tax_percent: '',
+      tax_included: false,
       pieces_per_package: '1',
       is_active: true,
     });
@@ -195,6 +203,7 @@ export default function ProductsPage() {
       cost_price: product.cost_price?.toString() || '',
       stock_alert: product.stock_alert?.toString() || '',
       tax_percent: product.tax_percent?.toString() || '',
+      tax_included: Boolean(product.tax_included),
       pieces_per_package: (product.pieces_per_package || 1).toString(),
       is_active: product.is_active,
     });
@@ -214,6 +223,25 @@ export default function ProductsPage() {
     setSelectedProduct(null);
   };
 
+  const handleQuickCreateClientCategory = async () => {
+    const name = newClientCategoryName.trim();
+    if (!name) return;
+    setCreatingClientCategory(true);
+    try {
+      await clientCategoriesApi.create({ name });
+      await queryClient.invalidateQueries({ queryKey: ['client-categories-list'] });
+      setNewClientCategoryName('');
+      setShowAddClientCategory(false);
+    } catch (e: unknown) {
+      const msg =
+        (e as { response?: { data?: { message?: string } } }).response?.data?.message ??
+        t('common.errorAdd');
+      toast.error(msg);
+    } finally {
+      setCreatingClientCategory(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const categoryPrices = Object.entries(categoryPricesForm)
@@ -223,9 +251,9 @@ export default function ProductsPage() {
         price: parseFloat(price),
       }));
 
-    // Block sell price < buy price (per piece basis)
+    // Block sell price < buy price (both are per piece)
     const ppp = parseInt(formData.pieces_per_package) || 1;
-    const costPerPiece = (parseFloat(formData.cost_price) || 0) / ppp;
+    const costPerPiece = parseFloat(formData.cost_price) || 0;
     const tooLow = categoryPrices.find(cp => cp.price < costPerPiece);
     if (tooLow) {
       toast.error(t('stock.sellBelowCost') || 'سعر البيع لا يمكن أن يكون أقل من سعر الشراء');
@@ -244,7 +272,8 @@ export default function ProductsPage() {
       min_selling_price: 0,
       stock_alert: formData.stock_alert ? parseInt(formData.stock_alert) : null,
       tax_percent: formData.tax_percent ? parseFloat(formData.tax_percent) : 0,
-      pieces_per_package: formData.pieces_per_package ? parseInt(formData.pieces_per_package) : 1,
+      tax_included: formData.tax_included ? 1 : 0,
+      pieces_per_package: ppp,
       category_prices: categoryPrices,
     };
 
@@ -494,36 +523,52 @@ export default function ProductsPage() {
     },
   ];
 
-  const columns = [
-    { key: 'name', title: t('common.name') },
+  const columns: Array<{
+    key: string;
+    title: string;
+    align?: 'start' | 'center' | 'end';
+    numeric?: boolean;
+    render: (item: ProductWithStock) => React.ReactNode;
+  }> = [
+    {
+      key: 'name',
+      title: t('common.name'),
+      render: (item) => <span className="font-medium text-gray-900 dark:text-gray-100">{item.name}</span>,
+    },
     {
       key: 'category',
       title: t('stock.category'),
-      render: (item: ProductWithStock) => item.category?.name || '-',
+      render: (item) => item.category?.name || '-',
     },
     {
       key: 'brand',
       title: t('stock.brand'),
-      render: (item: ProductWithStock) => item.brand?.name || '-',
+      render: (item) => item.brand?.name || '-',
     },
     {
       key: 'quantity',
       title: t('stock.quantity'),
-      render: (item: ProductWithStock) => {
+      numeric: true,
+      render: (item) => {
         const qty = getTotalStock(item);
         const isLow = item.stock_alert && qty <= item.stock_alert;
         const displayQty = Number.isInteger(qty) ? qty : Math.round(qty);
-        return (
-          <span className={isLow ? 'text-red-600 font-bold' : ''}>
-            {displayQty}
-          </span>
-        );
+        if (isLow) {
+          return (
+            <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+              <span className="metric-dot metric-dot-red" aria-hidden />
+              {displayQty}
+            </span>
+          );
+        }
+        return <span>{displayQty}</span>;
       },
     },
     {
       key: 'cost_price',
       title: t('stock.costPrice'),
-      render: (item: ProductWithStock) => {
+      numeric: true,
+      render: (item) => {
         const unitName = item.unit_buy?.short_name || t('stock.unitLabel');
         return `${item.cost_price} د.ج/${unitName}`;
       },
@@ -531,17 +576,25 @@ export default function ProductsPage() {
     {
       key: 'retail_price',
       title: t('stock.sellingPrice'),
-      render: (item: ProductWithStock) => {
+      numeric: true,
+      render: (item) => {
         const price = Number(item.retail_price);
-        if (!price) return <span className="text-red-500 font-medium">{t('stock.notDefined')}</span>;
+        if (!price) {
+          return (
+            <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+              <span className="metric-dot metric-dot-red" aria-hidden />
+              {t('stock.notDefined')}
+            </span>
+          );
+        }
         const unitName = item.unit_sale?.short_name || t('stock.unitLabel');
-        return <span className="font-medium text-green-700 dark:text-green-400">{item.retail_price} د.ج/{unitName}</span>;
+        return <span className="font-medium">{item.retail_price} د.ج/{unitName}</span>;
       },
     },
     {
       key: 'category_prices',
       title: t('stock.categoryPrices'),
-      render: (item: ProductWithStock) => {
+      render: (item) => {
         const prices = item.category_prices;
         if (!prices || prices.length === 0) {
           return <span className="text-gray-400">-</span>;
@@ -550,10 +603,15 @@ export default function ProductsPage() {
         return (
           <div className="flex flex-wrap gap-1">
             {prices.map((cp) => (
-              <span key={cp.id} className="inline-block px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded text-xs font-medium">
-                {cp.price} د.ج
+              <span
+                key={cp.id}
+                className="inline-flex items-center px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700 text-[11px] font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800/60"
+              >
+                <span className="tnum">{cp.price} د.ج</span>
                 {ppp > 1 && (
-                  <span className="text-[10px] text-amber-500 dark:text-amber-500 me-1">({(Number(cp.price) * ppp).toFixed(0)} د.ج/كرتون)</span>
+                  <span className="text-[10px] text-gray-500 dark:text-gray-400 me-1 tnum">
+                    ({(Number(cp.price) * ppp).toFixed(0)} د.ج/كرتون)
+                  </span>
                 )}
               </span>
             ))}
@@ -564,107 +622,169 @@ export default function ProductsPage() {
     {
       key: 'actions',
       title: t('common.actions'),
-      render: (item: ProductWithStock) => (
-        <div className="flex items-center gap-2">
+      align: 'end',
+      render: (item) => (
+        <div className="flex items-center justify-end gap-1">
           <button
             onClick={() => handleOpenEdit(item)}
-            className="p-1.5 hover:bg-blue-50 text-blue-600 rounded-lg"
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-md transition-colors"
+            aria-label={t('common.update')}
           >
-            <PencilIcon className="w-4 h-4" />
+            <PencilIcon className="w-4 h-4" strokeWidth={1.7} />
           </button>
           <button
             onClick={() => {
               setSelectedProduct(item);
               setIsDeleteOpen(true);
             }}
-            className="p-1.5 hover:bg-red-50 text-red-600 rounded-lg"
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-md transition-colors"
+            aria-label="Delete"
           >
-            <TrashIcon className="w-4 h-4" />
+            <TrashIcon className="w-4 h-4" strokeWidth={1.7} />
           </button>
         </div>
       ),
     },
   ];
 
+  const products = (data?.data || []) as ProductWithStock[];
+
   return (
-    <div className="space-y-6">
-      {/* Shortcuts hint */}
-      <div className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg mb-4 hidden sm:flex items-center justify-between text-sm">
-        <div className="flex items-center gap-6">
-          <span className="font-medium">{t('common.shortcuts') + ':'}</span>
-          <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Insert</kbd> {t('common.addNew')}</span>
-        </div>
+    <div className="space-y-4">
+      <div data-tour="products-title">
+      <PageHeader
+        title={t('stock.productsTitle')}
+        subtitle={t('stock.productsSubtitle')}
+      >
         <button
           onClick={() => { localStorage.removeItem('products_tour_step'); setShowTour(true); }}
-          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded-lg transition-colors"
+          className="btn btn-secondary text-[13px] h-8 px-3"
         >
-          <QuestionMarkCircleIcon className="w-4 h-4" />
-          {t('common.guidedTour')}
+          <QuestionMarkCircleIcon className="w-4 h-4" strokeWidth={1.8} />
+          <span className="hidden sm:inline">{t('common.guidedTour')}</span>
         </button>
-      </div>
-
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div data-tour="products-title">
-          <h1 className="text-2xl font-bold text-gray-800">{t('stock.productsTitle')}</h1>
-          <p className="text-gray-500 mt-1">{t('stock.productsSubtitle')}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button onClick={handleDownloadTemplate} className="btn btn-secondary" title="تحميل نموذج الاستيراد" data-tour="products-download-template">
-            <ArrowDownTrayIcon className="w-5 h-5" />
-            <span className="hidden sm:inline">{t('stock.downloadTemplate')}</span>
-          </button>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="btn btn-secondary"
-            disabled={importStep !== 'idle'}
-            title="استيراد منتجات من Excel"
-            data-tour="products-import"
-          >
-            <ArrowUpTrayIcon className="w-5 h-5" />
-            <span className="hidden sm:inline">{importStep === 'uploading' ? t('stock.reading') : t('stock.importExcel')}</span>
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls,.csv"
-            onChange={handleImportFile}
-            className="hidden"
-          />
-          <button onClick={exportToPDF} className="btn btn-secondary" data-tour="products-export">
-            <DocumentArrowDownIcon className="w-5 h-5" />
-            PDF
-          </button>
-          <button onClick={exportToExcel} className="btn btn-secondary">
-            <DocumentArrowDownIcon className="w-5 h-5" />
-            Excel
-          </button>
-          <button onClick={handleOpenCreate} className="btn btn-primary" data-tour="products-add">
-            <PlusIcon className="w-5 h-5" />
-            {t('stock.addProduct')}
-            <kbd className="hidden sm:inline bg-blue-700 px-1.5 py-0.5 rounded text-xs">Insert</kbd>
-          </button>
-        </div>
-      </div>
-
-      <div className="card overflow-x-auto" data-tour="products-table">
-        <DataTable
-          columns={columns}
-          data={data?.data || []}
-          isLoading={isLoading}
-          searchable
-          searchPlaceholder={t('stock.searchProduct')}
-          onSearch={setSearch}
-          pagination={
-            data && {
-              currentPage: data.current_page,
-              lastPage: data.last_page,
-              total: data.total,
-              perPage: data.per_page,
-              onPageChange: setPage,
-            }
-          }
-          emptyMessage={t('stock.noProducts')}
+        <button onClick={handleDownloadTemplate} className="btn btn-secondary text-[13px] h-8 px-3" title="تحميل نموذج الاستيراد" data-tour="products-download-template">
+          <ArrowDownTrayIcon className="w-4 h-4" strokeWidth={1.8} />
+          <span className="hidden md:inline">{t('stock.downloadTemplate')}</span>
+        </button>
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="btn btn-secondary text-[13px] h-8 px-3"
+          disabled={importStep !== 'idle'}
+          title="استيراد منتجات من Excel"
+          data-tour="products-import"
+        >
+          <ArrowUpTrayIcon className="w-4 h-4" strokeWidth={1.8} />
+          <span className="hidden md:inline">{importStep === 'uploading' ? t('stock.reading') : t('stock.importExcel')}</span>
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".xlsx,.xls,.csv"
+          onChange={handleImportFile}
+          className="hidden"
         />
+        <button onClick={exportToPDF} className="btn btn-secondary text-[13px] h-8 px-3" data-tour="products-export">
+          <DocumentArrowDownIcon className="w-4 h-4" strokeWidth={1.8} />
+          PDF
+        </button>
+        <button onClick={exportToExcel} className="btn btn-secondary text-[13px] h-8 px-3">
+          <DocumentArrowDownIcon className="w-4 h-4" strokeWidth={1.8} />
+          Excel
+        </button>
+        <button onClick={handleOpenCreate} className="btn btn-primary text-[13px] h-8 px-3" data-tour="products-add">
+          <PlusIcon className="w-4 h-4" strokeWidth={2} />
+          {t('stock.addProduct')}
+        </button>
+      </PageHeader>
+      </div>
+
+      <FilterBar
+        search={search}
+        onSearchChange={(v) => { setSearch(v); setPage(1); }}
+        searchPlaceholder={t('stock.searchProduct')}
+      />
+
+      <div data-tour="products-table">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-32">
+            <div className="spinner" />
+          </div>
+        ) : (
+          <div className="table-pro-wrap">
+            <table className="table-pro">
+              <thead>
+                <tr>
+                  {columns.map((col) => (
+                    <th
+                      key={col.key}
+                      className={col.align === 'end' || col.numeric ? 'text-end' : col.align === 'center' ? 'text-center' : 'text-start'}
+                    >
+                      {col.title}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {products.length === 0 ? (
+                  <tr>
+                    <td colSpan={columns.length} className="t-empty">
+                      {t('stock.noProducts')}
+                    </td>
+                  </tr>
+                ) : (
+                  products.map((item) => (
+                    <tr key={item.id}>
+                      {columns.map((col) => (
+                        <td
+                          key={`${item.id}-${col.key}`}
+                          className={[
+                            col.numeric ? 'tnum' : '',
+                            col.align === 'end' ? 'text-end' : col.align === 'center' ? 'text-center' : '',
+                          ].join(' ').trim()}
+                        >
+                          {col.render(item)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {data && data.last_page > 1 && (
+          <div className="flex items-center justify-between mt-3 px-1">
+            <span className="text-[12px] text-gray-500 dark:text-gray-400">
+              {(data.current_page - 1) * data.per_page + 1}–
+              {Math.min(data.current_page * data.per_page, data.total)} / {data.total}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage(data.current_page - 1)}
+                disabled={data.current_page === 1}
+                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
+                aria-label="prev"
+              >
+                <ChevronRightIcon className="w-4 h-4 rtl:hidden" />
+                <ChevronLeftIcon className="w-4 h-4 ltr:hidden" />
+              </button>
+              <span className="text-[12px] tnum px-2 text-gray-600 dark:text-gray-300">
+                {data.current_page} / {data.last_page}
+              </span>
+              <button
+                onClick={() => setPage(data.current_page + 1)}
+                disabled={data.current_page === data.last_page}
+                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
+                aria-label="next"
+              >
+                <ChevronLeftIcon className="w-4 h-4 rtl:hidden" />
+                <ChevronRightIcon className="w-4 h-4 ltr:hidden" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Floating Side Panel */}
@@ -672,13 +792,17 @@ export default function ProductsPage() {
         <>
           {/* Backdrop */}
           <div className="fixed inset-0 bg-black/40 z-40" onClick={handleCloseModal} />
-          {/* Panel */}
-          <div className={`fixed top-0 bottom-0 z-50 w-full sm:w-[460px] sm:max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in duration-200 ${dir === 'rtl' ? 'left-0 sm:left-4 sm:top-4 sm:bottom-4 slide-in-from-left' : 'right-0 sm:right-4 sm:top-4 sm:bottom-4 slide-in-from-right'}`} data-tour="products-panel">
+          {/* Centered dialog — wider so inline create forms breathe */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 pointer-events-none">
+          <div
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl flex flex-col overflow-hidden w-full max-w-[680px] max-h-[calc(100vh-3rem)] pointer-events-auto"
+            data-tour="products-panel"
+          >
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0">
-              <h2 className="text-lg font-bold dark:text-white">{selectedProduct ? t('stock.editProduct') : t('stock.addNewProduct')}</h2>
-              <button onClick={handleCloseModal} className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg">
-                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200/80 dark:border-gray-700 flex-shrink-0">
+              <h2 className="text-[15px] font-semibold text-gray-900 dark:text-white tracking-tight">{selectedProduct ? t('stock.editProduct') : t('stock.addNewProduct')}</h2>
+              <button onClick={handleCloseModal} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors" aria-label={t('common.close')}>
+                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
             {/* Scrollable Form */}
@@ -697,80 +821,121 @@ export default function ProductsPage() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-tour="products-form-category">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stock.category')} <span className="text-red-500">*</span></label>
-                    <select
-                      value={formData.category_id}
-                      onChange={(e) => setFormData((p) => ({ ...p, category_id: e.target.value }))}
-                      className="select w-full"
-                      required
-                    >
-                      <option value="">{t('stock.selectCategory')}</option>
-                      {(categories as Category[])?.map((cat) => (
-                        <option key={cat.id} value={cat.id}>{cat.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stock.brandFull')}</label>
-                    <select
-                      value={formData.brand_id}
-                      onChange={(e) => setFormData((p) => ({ ...p, brand_id: e.target.value }))}
-                      className="select w-full"
-                    >
-                      <option value="">{t('stock.selectBrand')}</option>
-                      {(brands as Brand[])?.map((brand) => (
-                        <option key={brand.id} value={brand.id}>{brand.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <SelectWithCreate
+                    label={t('stock.category')}
+                    required
+                    value={formData.category_id}
+                    onChange={(v) => setFormData((p) => ({ ...p, category_id: v }))}
+                    options={((categories as Category[]) ?? []).map((c): SelectWithCreateOption => ({ value: String(c.id), label: c.name }))}
+                    placeholder={t('stock.selectCategory')}
+                    createTitle={t('stock.addCategory') !== 'stock.addCategory' ? t('stock.addCategory') : t('stock.category')}
+                    fields={[{ key: 'name', label: t('stock.category'), required: true, placeholder: t('stock.category') }]}
+                    createLabel={t('common.add')}
+                    cancelLabel={t('common.cancel')}
+                    onCreate={async (payload) => {
+                      const res = await categoriesApi.create({ name: payload.name, is_active: true });
+                      const c = res.data;
+                      return { value: String(c.id), label: c.name };
+                    }}
+                    onCreated={() => queryClient.invalidateQueries({ queryKey: ['categories-list'] })}
+                  />
+                  <SelectWithCreate
+                    label={t('stock.brandFull')}
+                    value={formData.brand_id}
+                    onChange={(v) => setFormData((p) => ({ ...p, brand_id: v }))}
+                    options={((brands as Brand[]) ?? []).map((b): SelectWithCreateOption => ({ value: String(b.id), label: b.name }))}
+                    placeholder={t('stock.selectBrand')}
+                    createTitle={t('stock.brandFull')}
+                    fields={[{ key: 'name', label: t('stock.brandFull'), required: true, placeholder: t('stock.brandFull') }]}
+                    createLabel={t('common.add')}
+                    cancelLabel={t('common.cancel')}
+                    onCreate={async (payload) => {
+                      const res = await brandsApi.create({ name: payload.name, is_active: true });
+                      const b = res.data;
+                      return { value: String(b.id), label: b.name };
+                    }}
+                    onCreated={() => queryClient.invalidateQueries({ queryKey: ['brands-list'] })}
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stock.supplier') || 'Supplier'}</label>
-                    <select
-                      value={formData.supplier_id}
-                      onChange={(e) => setFormData((p) => ({ ...p, supplier_id: e.target.value }))}
-                      className="select w-full"
-                    >
-                      <option value="">{t('stock.selectSupplier') || '— Any supplier —'}</option>
-                      {suppliers.map((s) => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <SelectWithCreate
+                    label={t('stock.supplier')}
+                    value={formData.supplier_id}
+                    onChange={(v) => setFormData((p) => ({ ...p, supplier_id: v }))}
+                    options={suppliers.map((s): SelectWithCreateOption => ({ value: String(s.id), label: s.name }))}
+                    placeholder={t('stock.selectSupplier')}
+                    createTitle={t('stock.supplier')}
+                    fields={[
+                      { key: 'name', label: t('stock.supplier'), required: true, placeholder: t('stock.supplier') },
+                      { key: 'phone', label: 'Tel', placeholder: '0500000000' },
+                    ]}
+                    createLabel={t('common.add')}
+                    cancelLabel={t('common.cancel')}
+                    onCreate={async (payload) => {
+                      const res = await suppliersApi.create({
+                        name: payload.name,
+                        ...(payload.phone ? { phone: payload.phone } : {}),
+                        is_active: true,
+                      });
+                      const s = res.data;
+                      return { value: String(s.id), label: s.name };
+                    }}
+                    onCreated={() => queryClient.invalidateQueries({ queryKey: ['suppliers-list-products'] })}
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-tour="products-form-units">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stock.buyUnit')} <span className="text-red-500">*</span></label>
-                    <select
-                      value={formData.unit_buy_id}
-                      onChange={(e) => setFormData((p) => ({ ...p, unit_buy_id: e.target.value }))}
-                      className="select w-full"
-                      required
-                    >
-                      <option value="">{t('stock.selectUnit')}</option>
-                      {(units as Unit[])?.map((unit) => (
-                        <option key={unit.id} value={unit.id}>{unit.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stock.sellUnit')} <span className="text-red-500">*</span></label>
-                    <select
-                      value={formData.unit_sale_id}
-                      onChange={(e) => setFormData((p) => ({ ...p, unit_sale_id: e.target.value }))}
-                      className="select w-full"
-                      required
-                    >
-                      <option value="">{t('stock.selectUnit')}</option>
-                      {(units as Unit[])?.map((unit) => (
-                        <option key={unit.id} value={unit.id}>{unit.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <SelectWithCreate
+                    label={t('stock.buyUnit')}
+                    required
+                    value={formData.unit_buy_id}
+                    onChange={(v) => setFormData((p) => ({ ...p, unit_buy_id: v }))}
+                    options={((units as Unit[]) ?? []).map((u): SelectWithCreateOption => ({ value: String(u.id), label: u.name }))}
+                    placeholder={t('stock.selectUnit')}
+                    createTitle={t('stock.buyUnit')}
+                    fields={[
+                      { key: 'name', label: t('stock.unitLabel'), required: true, placeholder: 'Carton' },
+                      { key: 'short_name', label: t('stock.unitLabel') + ' (short)', required: true, placeholder: 'crt' },
+                    ]}
+                    createLabel={t('common.add')}
+                    cancelLabel={t('common.cancel')}
+                    onCreate={async (payload) => {
+                      const res = await unitsApi.create({
+                        name: payload.name,
+                        short_name: payload.short_name,
+                        is_active: true,
+                      });
+                      const u = res.data;
+                      return { value: String(u.id), label: u.name };
+                    }}
+                    onCreated={() => queryClient.invalidateQueries({ queryKey: ['units-list'] })}
+                  />
+                  <SelectWithCreate
+                    label={t('stock.sellUnit')}
+                    required
+                    value={formData.unit_sale_id}
+                    onChange={(v) => setFormData((p) => ({ ...p, unit_sale_id: v }))}
+                    options={((units as Unit[]) ?? []).map((u): SelectWithCreateOption => ({ value: String(u.id), label: u.name }))}
+                    placeholder={t('stock.selectUnit')}
+                    createTitle={t('stock.sellUnit')}
+                    fields={[
+                      { key: 'name', label: t('stock.unitLabel'), required: true, placeholder: 'Piece' },
+                      { key: 'short_name', label: t('stock.unitLabel') + ' (short)', required: true, placeholder: 'pc' },
+                    ]}
+                    createLabel={t('common.add')}
+                    cancelLabel={t('common.cancel')}
+                    onCreate={async (payload) => {
+                      const res = await unitsApi.create({
+                        name: payload.name,
+                        short_name: payload.short_name,
+                        is_active: true,
+                      });
+                      const u = res.data;
+                      return { value: String(u.id), label: u.name };
+                    }}
+                    onCreated={() => queryClient.invalidateQueries({ queryKey: ['units-list'] })}
+                  />
                 </div>
 
                 <div data-tour="products-form-pieces">
@@ -817,8 +982,8 @@ export default function ProductsPage() {
                       placeholder="0.00"
                     />
                     {(parseInt(formData.pieces_per_package) || 1) > 1 && parseFloat(formData.cost_price) > 0 && (
-                      <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                        {(parseFloat(formData.cost_price) / (parseInt(formData.pieces_per_package) || 1)).toFixed(2)} د.ج/{(units as Unit[])?.find(u => u.id.toString() === formData.unit_sale_id)?.short_name || (units as Unit[])?.find(u => u.id.toString() === formData.unit_sale_id)?.name || t('stock.unitLabel')}
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 tnum">
+                        {(parseFloat(formData.cost_price) * (parseInt(formData.pieces_per_package) || 1)).toFixed(2)} د.ج/{(units as Unit[])?.find(u => u.id.toString() === formData.unit_buy_id)?.short_name || (units as Unit[])?.find(u => u.id.toString() === formData.unit_buy_id)?.name || t('stock.unitLabel')}
                       </div>
                     )}
                   </div>
@@ -834,40 +999,132 @@ export default function ProductsPage() {
                       step="0.01"
                       placeholder="0"
                     />
+                    {/* TVA inclusive / exclusive — drives invoice generation later */}
+                    {parseFloat(formData.tax_percent) > 0 && (
+                      <div className="mt-2 flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setFormData((p) => ({ ...p, tax_included: false }))}
+                          className={`flex-1 px-2 py-1 text-[11px] font-medium rounded transition-colors ${
+                            !formData.tax_included
+                              ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                              : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          }`}
+                          title="TVA added on top of the price"
+                        >
+                          {t('stock.taxExclusive') !== 'stock.taxExclusive' ? t('stock.taxExclusive') : 'HT (excl.)'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormData((p) => ({ ...p, tax_included: true }))}
+                          className={`flex-1 px-2 py-1 text-[11px] font-medium rounded transition-colors ${
+                            formData.tax_included
+                              ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                              : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          }`}
+                          title="TVA already included in the price"
+                        >
+                          {t('stock.taxInclusive') !== 'stock.taxInclusive' ? t('stock.taxInclusive') : 'TTC (incl.)'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Category Prices */}
-                {(clientCategories as ClientCategory[])?.length > 0 && (() => {
-                  const ppp = parseInt(formData.pieces_per_package) || 1;
-                  const costPerPiece = (parseFloat(formData.cost_price) || 0) / ppp;
+                {/* Category Prices — per client category */}
+                {(() => {
+                  const costPerPiece = parseFloat(formData.cost_price) || 0;
+                  const cats = (clientCategories as ClientCategory[]) ?? [];
                   return (
-                    <div className="border dark:border-gray-600 rounded-lg p-3 bg-amber-50 dark:bg-amber-900/20" data-tour="products-form-catprices">
-                      <h4 className="font-semibold text-amber-800 dark:text-amber-400 text-sm mb-2">{t('stock.categoryPricesTitle')}</h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {(clientCategories as ClientCategory[])?.map((cat) => {
-                          const raw = categoryPricesForm[cat.id.toString()] || '';
-                          const numeric = parseFloat(raw);
-                          const isBelowCost = raw !== '' && !isNaN(numeric) && costPerPiece > 0 && numeric < costPerPiece;
-                          return (
-                            <div key={cat.id}>
-                              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">{cat.name}</label>
-                              <input
-                                type="number"
-                                value={raw}
-                                onChange={(e) => setCategoryPricesForm(prev => ({ ...prev, [cat.id.toString()]: e.target.value }))}
-                                className={`input w-full text-sm ${isBelowCost ? 'border-red-400 ring-1 ring-red-200 bg-red-50 dark:bg-red-900/20' : ''}`}
-                                min="0"
-                                step="0.01"
-                                placeholder="0.00"
-                              />
-                              {isBelowCost && (
-                                <p className="text-[11px] text-red-600 dark:text-red-400 mt-0.5">{t('stock.sellBelowCost')}</p>
-                              )}
-                            </div>
-                          );
-                        })}
+                    <div
+                      className="border border-gray-200/80 dark:border-gray-700 rounded-md p-3 bg-gray-50/60 dark:bg-gray-900/40"
+                      data-tour="products-form-catprices"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-[12px] font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+                          {t('stock.categoryPricesTitle')}
+                        </h4>
+                        {!showAddClientCategory && (
+                          <button
+                            type="button"
+                            onClick={() => setShowAddClientCategory(true)}
+                            className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                          >
+                            <PlusIcon className="w-3 h-3" strokeWidth={2.2} />
+                            {t('common.add')}
+                          </button>
+                        )}
                       </div>
+                      {cats.length === 0 && !showAddClientCategory && (
+                        <p className="text-[12px] text-gray-500 dark:text-gray-400 py-1">
+                          —
+                        </p>
+                      )}
+                      {cats.length > 0 && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {cats.map((cat) => {
+                            const raw = categoryPricesForm[cat.id.toString()] || '';
+                            const numeric = parseFloat(raw);
+                            const isBelowCost = raw !== '' && !isNaN(numeric) && costPerPiece > 0 && numeric < costPerPiece;
+                            return (
+                              <div key={cat.id}>
+                                <label className="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-0.5">{cat.name}</label>
+                                <input
+                                  type="number"
+                                  value={raw}
+                                  onChange={(e) => setCategoryPricesForm(prev => ({ ...prev, [cat.id.toString()]: e.target.value }))}
+                                  className={`input w-full text-[13px] py-1.5 ${isBelowCost ? 'border-red-400 ring-1 ring-red-100 bg-red-50/40' : ''}`}
+                                  min="0"
+                                  step="0.01"
+                                  placeholder="0.00"
+                                />
+                                {isBelowCost && (
+                                  <p className="text-[10.5px] text-red-600 dark:text-red-400 mt-0.5">{t('stock.sellBelowCost')}</p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {showAddClientCategory && (
+                        <div className="mt-2 pt-2 border-t border-gray-200/80 dark:border-gray-700 flex items-end gap-2">
+                          <div className="flex-1">
+                            <label className="block text-[10.5px] font-medium text-gray-500 dark:text-gray-400 mb-0.5 uppercase tracking-wide">
+                              {t('stock.categoryPricesTitle')}
+                            </label>
+                            <input
+                              type="text"
+                              value={newClientCategoryName}
+                              onChange={(e) => setNewClientCategoryName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleQuickCreateClientCategory();
+                                }
+                              }}
+                              placeholder={t('common.name') !== 'common.name' ? t('common.name') : 'Name'}
+                              className="input w-full text-[13px] py-1.5"
+                              autoFocus
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            disabled={creatingClientCategory || !newClientCategoryName.trim()}
+                            onClick={handleQuickCreateClientCategory}
+                            className="btn btn-primary text-[12px] py-1.5 px-3"
+                          >
+                            {creatingClientCategory ? '...' : t('common.add')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setShowAddClientCategory(false); setNewClientCategoryName(''); }}
+                            disabled={creatingClientCategory}
+                            className="btn btn-secondary text-[12px] py-1.5 px-3"
+                          >
+                            {t('common.cancel')}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
@@ -899,7 +1156,7 @@ export default function ProductsPage() {
               </div>
 
               {/* Fixed bottom buttons */}
-              <div className="flex gap-3 px-5 py-3 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0">
+              <div className="flex gap-3 px-5 py-3 border-t border-gray-200/80 dark:border-gray-700 flex-shrink-0">
                 <button
                   type="submit"
                   disabled={createMutation.isPending || updateMutation.isPending}
@@ -914,6 +1171,7 @@ export default function ProductsPage() {
                 </button>
               </div>
             </form>
+          </div>
           </div>
         </>
       )}
@@ -948,37 +1206,47 @@ export default function ProductsPage() {
       )}
 
       {importResult && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[80vh] overflow-hidden">
-            <div className="p-6 border-b dark:border-gray-700">
-              <h3 className="text-lg font-bold dark:text-white">{t('stock.importResult')}</h3>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[80vh] overflow-hidden border border-gray-200/80 dark:border-gray-700">
+            <div className="p-5 border-b border-gray-200/80 dark:border-gray-700">
+              <h3 className="text-[15px] font-semibold text-gray-900 dark:text-white tracking-tight">{t('stock.importResult')}</h3>
             </div>
-            <div className="p-6 overflow-y-auto max-h-[60vh]">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="bg-green-100 text-green-800 px-4 py-2 rounded-lg text-center">
-                  <div className="text-2xl font-bold">{importResult.created}</div>
-                  <div className="text-xs">{t('stock.imported')}</div>
+            <div className="p-5 overflow-y-auto max-h-[60vh]">
+              <div className="grid grid-cols-2 gap-2.5 mb-4">
+                <div className="metric-tile">
+                  <div className="flex items-center gap-1.5">
+                    <span className="metric-dot metric-dot-green" aria-hidden />
+                    <p className="metric-label truncate">{t('stock.imported')}</p>
+                  </div>
+                  <p className="metric-value tnum">{importResult.created}</p>
                 </div>
                 {importResult.errors.length > 0 && (
-                  <div className="bg-red-100 text-red-800 px-4 py-2 rounded-lg text-center">
-                    <div className="text-2xl font-bold">{importResult.errors.length}</div>
-                    <div className="text-xs">{t('stock.errorsCount')}</div>
+                  <div className="metric-tile">
+                    <div className="flex items-center gap-1.5">
+                      <span className="metric-dot metric-dot-red" aria-hidden />
+                      <p className="metric-label truncate">{t('stock.errorsCount')}</p>
+                    </div>
+                    <p className="metric-value tnum">{importResult.errors.length}</p>
                   </div>
                 )}
               </div>
               {importResult.errors.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm text-red-600">{t('stock.errorDetails')}</h4>
+                <div className="space-y-1.5">
+                  <h4 className="text-[12px] font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">{t('stock.errorDetails')}</h4>
                   {importResult.errors.map((err, i) => (
-                    <div key={i} className="bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm p-2 rounded">
-                      <span className="font-medium">{t('stock.row')} {err.row}:</span> {err.message}
+                    <div key={i} className="text-[13px] text-gray-700 dark:text-gray-300 p-2 rounded border border-gray-200/80 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/40">
+                      <span className="inline-flex items-center gap-1.5 font-medium me-1.5">
+                        <span className="metric-dot metric-dot-red" aria-hidden />
+                        {t('stock.row')} {err.row}:
+                      </span>
+                      {err.message}
                     </div>
                   ))}
                 </div>
               )}
             </div>
-            <div className="p-4 border-t dark:border-gray-700 flex justify-end">
-              <button onClick={() => setImportResult(null)} className="btn btn-primary">
+            <div className="p-4 border-t border-gray-200/80 dark:border-gray-700 flex justify-end">
+              <button onClick={() => setImportResult(null)} className="btn btn-primary text-[13px] h-8 px-3">
                 {t('common.close')}
               </button>
             </div>

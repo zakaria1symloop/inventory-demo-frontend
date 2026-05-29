@@ -15,6 +15,7 @@ import {
   FunnelIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
+import { PageHeader, FilterBar } from '@/components/dashboard';
 import {
   BarChart, Bar, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip,
@@ -47,12 +48,11 @@ function ChartTooltip({ active, payload, label, formatter }: { active?: boolean;
   );
 }
 
-// ─── KPI color map ───
-const colorMap: Record<string, { hover: string; hoverDark: string; bar: string; iconBg: string; iconText: string; valueText: string }> = {
-  indigo: { hover: 'hover:bg-indigo-50/40', hoverDark: 'dark:hover:bg-indigo-900/10', bar: 'bg-indigo-500', iconBg: 'bg-indigo-100 dark:bg-indigo-900/30', iconText: 'text-indigo-600 dark:text-indigo-400', valueText: 'text-indigo-600 dark:text-indigo-400' },
-  emerald: { hover: 'hover:bg-emerald-50/40', hoverDark: 'dark:hover:bg-emerald-900/10', bar: 'bg-emerald-500', iconBg: 'bg-emerald-100 dark:bg-emerald-900/30', iconText: 'text-emerald-600 dark:text-emerald-400', valueText: 'text-emerald-600 dark:text-emerald-400' },
-  blue: { hover: 'hover:bg-blue-50/40', hoverDark: 'dark:hover:bg-blue-900/10', bar: 'bg-blue-500', iconBg: 'bg-blue-100 dark:bg-blue-900/30', iconText: 'text-blue-600 dark:text-blue-400', valueText: 'text-blue-600 dark:text-blue-400' },
-  violet: { hover: 'hover:bg-violet-50/40', hoverDark: 'dark:hover:bg-violet-900/10', bar: 'bg-violet-500', iconBg: 'bg-violet-100 dark:bg-violet-900/30', iconText: 'text-violet-600 dark:text-violet-400', valueText: 'text-violet-600 dark:text-violet-400' },
+const colorToDot: Record<string, string> = {
+  indigo: 'metric-dot-violet',
+  emerald: 'metric-dot-green',
+  blue: 'metric-dot-blue',
+  violet: 'metric-dot-violet',
 };
 
 const PER_PAGE = 15;
@@ -155,14 +155,19 @@ export default function TransactionsReportPage() {
 
   // ─── Method badge ───
   const methodLabel = (m: string) => {
-    const map: Record<string, { key: TranslationKey; bg: string; text: string }> = {
-      cash: { key: 'transactions.methodCash', bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-300' },
-      bank: { key: 'transactions.methodBank', bg: 'bg-blue-50 dark:bg-blue-900/20', text: 'text-blue-700 dark:text-blue-300' },
-      check: { key: 'transactions.methodCheck', bg: 'bg-violet-50 dark:bg-violet-900/20', text: 'text-violet-700 dark:text-violet-300' },
-      other: { key: 'transactions.methodOther', bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-600 dark:text-gray-300' },
+    const map: Record<string, { key: TranslationKey; dot: string }> = {
+      cash:  { key: 'transactions.methodCash',  dot: 'metric-dot-green' },
+      bank:  { key: 'transactions.methodBank',  dot: 'metric-dot-blue' },
+      check: { key: 'transactions.methodCheck', dot: 'metric-dot-violet' },
+      other: { key: 'transactions.methodOther', dot: 'metric-dot-neutral' },
     };
     const c = map[m] || map.other;
-    return <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold ${c.bg} ${c.text}`}>{t(c.key)}</span>;
+    return (
+      <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+        <span className={`metric-dot ${c.dot}`} aria-hidden />
+        {t(c.key)}
+      </span>
+    );
   };
 
   const payableTypeLabel = (p: Payment) => {
@@ -243,84 +248,82 @@ export default function TransactionsReportPage() {
 
   const activeFilterCount = [filterRef, filterMethod, filterType].filter(Boolean).length;
 
-  const thClass = "text-start text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-5 py-3";
-  const thEndClass = "text-end text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-5 py-3";
-  const thCenterClass = "text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-5 py-3";
-  const tdClass = "px-5 py-3";
+  const thClass = "text-start text-[10.5px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-4 py-2.5 bg-gray-50/60 dark:bg-gray-800/60";
+  const thEndClass = "text-end text-[10.5px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-4 py-2.5 bg-gray-50/60 dark:bg-gray-800/60";
+  const thCenterClass = "text-center text-[10.5px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-4 py-2.5 bg-gray-50/60 dark:bg-gray-800/60";
+  const tdClass = "px-4 py-2 text-[13px]";
+
+  const kpiItems: { label: string; value: string; color: string; currency?: boolean }[] = [
+    { label: t('transactions.kpiTotalTransactions' as TranslationKey), value: kpis.count.toString(), color: 'indigo' },
+    { label: t('transactions.kpiTotalAmount' as TranslationKey), value: formatCurrency(kpis.totalAmount), color: 'emerald', currency: true },
+    { label: t('transactions.kpiCashPayments' as TranslationKey), value: formatCurrency(kpis.cashAmount), color: 'blue', currency: true },
+    { label: t('transactions.kpiBankCheck' as TranslationKey), value: formatCurrency(kpis.bankCheckAmount), color: 'violet', currency: true },
+  ];
 
   return (
-    <div className="space-y-5">
-      {/* ─── Header ─── */}
-      <div>
-        <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('transactions.title' as TranslationKey)}</h1>
-        <p className="text-sm text-gray-400 mt-1">{t('transactions.subtitle' as TranslationKey)}</p>
-      </div>
+    <div className="space-y-4">
+      <PageHeader title={t('transactions.title' as TranslationKey)} subtitle={t('transactions.subtitle' as TranslationKey)} tight />
 
-      <div className="flex gap-5">
+      <div className="flex gap-4">
         {/* Main content */}
-        <div className="flex-1 min-w-0 space-y-5">
+        <div className="flex-1 min-w-0 space-y-4">
           {/* ─── Filter Bar ─── */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 px-5 py-3.5">
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('transactions.from' as TranslationKey)}</span>
-                <DateInput value={dateFrom} onChange={setDateFrom} className="w-36" />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('transactions.to' as TranslationKey)}</span>
-                <DateInput value={dateTo} onChange={setDateTo} className="w-36" />
-              </div>
-              <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                <ArrowPathIcon className="w-4 h-4" />
-              </button>
-              <button onClick={() => setShowFilters(!showFilters)} className={`relative inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium rounded-xl transition-colors ${showFilters ? 'bg-emerald-600 text-white' : 'border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
-                <FunnelIcon className="w-4 h-4" />
-                {t('transactions.filters' as TranslationKey)}
-                {activeFilterCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{activeFilterCount}</span>
-                )}
-              </button>
-              <div className={`flex items-center gap-2 ${isRTL ? 'mr-auto' : 'ml-auto'}`}>
-                <button onClick={exportExcel} className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 transition-colors">
+          <FilterBar
+            trailing={
+              <>
+                <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-2.5 h-[38px] text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" title="Refresh">
+                  <ArrowPathIcon className="w-4 h-4" />
+                </button>
+                <button onClick={() => setShowFilters(!showFilters)} className={`relative inline-flex items-center gap-1.5 px-3 h-[38px] text-[12px] font-semibold rounded-md transition-colors ${showFilters ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' : 'border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                  <FunnelIcon className="w-4 h-4" />
+                  {t('transactions.filters' as TranslationKey)}
+                  {activeFilterCount > 0 && (
+                    <span className="ms-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-[10px] font-bold tnum">{activeFilterCount}</span>
+                  )}
+                </button>
+                <button onClick={exportExcel} className="inline-flex items-center gap-1.5 px-3 h-[38px] text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                   <ArrowDownTrayIcon className="w-4 h-4" /> Excel
                 </button>
-                <button onClick={exportPDF} className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium rounded-xl text-white bg-red-600 hover:bg-red-700 transition-colors">
+                <button onClick={exportPDF} className="inline-flex items-center gap-1.5 px-3 h-[38px] text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                   <ArrowDownTrayIcon className="w-4 h-4" /> PDF
                 </button>
-              </div>
+              </>
+            }
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="text-[12px] font-medium text-gray-500 dark:text-gray-400">{t('transactions.from' as TranslationKey)}</span>
+              <DateInput value={dateFrom} onChange={setDateFrom} />
             </div>
-          </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[12px] font-medium text-gray-500 dark:text-gray-400">{t('transactions.to' as TranslationKey)}</span>
+              <DateInput value={dateTo} onChange={setDateTo} />
+            </div>
+          </FilterBar>
 
           {/* ─── KPIs ─── */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
-            <div className={`grid grid-cols-2 md:grid-cols-4 md:divide-x ${isRTL ? 'md:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
-              {[
-                { label: t('transactions.kpiTotalTransactions' as TranslationKey), value: kpis.count.toString(), color: 'indigo' },
-                { label: t('transactions.kpiTotalAmount' as TranslationKey), value: formatCurrency(kpis.totalAmount), color: 'emerald' },
-                { label: t('transactions.kpiCashPayments' as TranslationKey), value: formatCurrency(kpis.cashAmount), color: 'blue' },
-                { label: t('transactions.kpiBankCheck' as TranslationKey), value: formatCurrency(kpis.bankCheckAmount), color: 'violet' },
-              ].map((kpi, i) => {
-                const c = colorMap[kpi.color];
-                return (
-                  <div key={i} className={`group relative p-5 ${c.hover} ${c.hoverDark} transition-colors duration-200`}>
-                    <div className={`absolute top-0 inset-x-0 h-[3px] ${c.bar} scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b`} />
-                    <div className="text-center">
-                      <div className={`text-xl font-black ${c.valueText} tabular-nums leading-none`}>
-                        {isLoading ? <div className="w-16 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mx-auto" /> : kpi.value}
-                      </div>
-                      <div className="text-[11px] font-semibold text-gray-400 mt-2">{kpi.label}</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+            {kpiItems.map((kpi, i) => (
+              <div key={i} className="metric-tile">
+                <div className="flex items-center gap-1.5">
+                  <span className={`metric-dot ${colorToDot[kpi.color] || 'metric-dot-neutral'}`} aria-hidden />
+                  <p className="metric-label truncate">{kpi.label}</p>
+                </div>
+                {isLoading ? (
+                  <div className="w-20 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                ) : kpi.currency ? (
+                  <p className="metric-value-currency">{kpi.value}</p>
+                ) : (
+                  <p className="metric-value truncate">{kpi.value}</p>
+                )}
+              </div>
+            ))}
           </div>
 
           {/* ─── Charts ─── */}
           {!isLoading && (entityData.length > 0 || dailyData.length > 0) && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5">
-                <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-4">{t('transactions.chartTopEntities' as TranslationKey)}</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <div className="surface-pro">
+                <h3 className="surface-heading mb-3">{t('transactions.chartTopEntities' as TranslationKey)}</h3>
                 {entityData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={entityData} layout="vertical" margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
@@ -337,8 +340,8 @@ export default function TransactionsReportPage() {
                   <div className="flex items-center justify-center h-[300px] text-gray-400 text-sm">{t('transactions.noData' as TranslationKey)}</div>
                 )}
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5">
-                <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-4">{t('transactions.chartDailyTrend' as TranslationKey)}</h3>
+              <div className="surface-pro">
+                <h3 className="surface-heading mb-3">{t('transactions.chartDailyTrend' as TranslationKey)}</h3>
                 {dailyData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={300}>
                     <AreaChart data={dailyData} margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
@@ -365,14 +368,14 @@ export default function TransactionsReportPage() {
           )}
 
           {/* ─── Table ─── */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('transactions.tableTitle' as TranslationKey)}</h3>
-              <span className="text-xs text-gray-400 tabular-nums">{filtered.length} {t('transactions.entries' as TranslationKey)}</span>
+          <div className="bg-white dark:bg-gray-900 rounded-[10px] border border-gray-200/80 dark:border-gray-700/60 overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-gray-200/80 dark:border-gray-700/60 flex items-center justify-between">
+              <h3 className="surface-heading">{t('transactions.tableTitle' as TranslationKey)}</h3>
+              <span className="text-[12px] text-gray-500 dark:text-gray-400 tnum">{filtered.length} {t('transactions.entries' as TranslationKey)}</span>
             </div>
             {isLoading ? (
               <div className="flex items-center justify-center py-20">
-                <div className="w-8 h-8 border-[3px] border-emerald-200 dark:border-emerald-800 border-t-emerald-600 rounded-full animate-spin" />
+                <div className="spinner" />
               </div>
             ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-gray-400">
@@ -397,30 +400,30 @@ export default function TransactionsReportPage() {
                     <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
                       {paginated.map((p) => (
                         <tr key={p.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
-                          <td className={tdClass}><span className="text-sm font-mono font-bold text-emerald-600 dark:text-emerald-400">{p.reference || '-'}</span></td>
-                          <td className={tdClass}><span className="text-sm text-gray-600 dark:text-gray-400">{payableTypeLabel(p)}</span></td>
-                          <td className={tdClass}><span className="text-sm text-gray-700 dark:text-gray-300">{entityName(p)}</span></td>
-                          <td className={`${tdClass} text-end`}><span className="text-sm font-bold text-gray-800 dark:text-gray-100 tabular-nums">{formatCurrency(parseFloat(String(p.amount)) || 0)}</span></td>
+                          <td className={tdClass}><span className="font-mono font-semibold text-gray-800 dark:text-gray-100">{p.reference || '-'}</span></td>
+                          <td className={tdClass}><span className="text-gray-600 dark:text-gray-400">{payableTypeLabel(p)}</span></td>
+                          <td className={tdClass}><span className="text-gray-700 dark:text-gray-300">{entityName(p)}</span></td>
+                          <td className={`${tdClass} text-end`}><span className="font-semibold text-gray-800 dark:text-gray-100 tnum">{formatCurrency(parseFloat(String(p.amount)) || 0)}</span></td>
                           <td className={`${tdClass} text-center`}>{methodLabel(p.payment_method)}</td>
-                          <td className={tdClass}><span className="text-sm text-gray-500 dark:text-gray-400">{formatDate(p.date)}</span></td>
-                          <td className={tdClass}><span className="text-sm text-gray-600 dark:text-gray-400">{p.user?.name || '-'}</span></td>
+                          <td className={tdClass}><span className="text-gray-500 dark:text-gray-400 tnum">{formatDate(p.date)}</span></td>
+                          <td className={tdClass}><span className="text-gray-600 dark:text-gray-400">{p.user?.name || '-'}</span></td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
                 {totalPages > 1 && (
-                  <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100 dark:border-gray-700">
-                    <span className="text-xs text-gray-400 tabular-nums">
+                  <div className="flex items-center justify-between px-4 py-2.5 border-t border-gray-200/80 dark:border-gray-700/60">
+                    <span className="text-[12px] text-gray-500 dark:text-gray-400 tnum">
                       {t('transactions.pageInfo' as TranslationKey, { current: String(page), total: String(totalPages), count: String(filtered.length) })}
                     </span>
                     <div className="flex items-center gap-1">
                       <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40">
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40">
                         <PrevChevron className="w-3.5 h-3.5" /> {t('transactions.prev' as TranslationKey)}
                       </button>
                       <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40">
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40">
                         {t('transactions.next' as TranslationKey)} <NextChevron className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -433,26 +436,26 @@ export default function TransactionsReportPage() {
 
         {/* ─── Filter Panel ─── */}
         {showFilters && (
-          <div className="w-72 shrink-0">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5 sticky top-4 space-y-4">
+          <div className="w-64 shrink-0">
+            <div className="surface-pro sticky top-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                <h3 className="surface-heading flex items-center gap-2">
                   <FunnelIcon className="w-4 h-4" />
                   {t('transactions.filters' as TranslationKey)}
                 </h3>
-                <button onClick={() => setShowFilters(false)} className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                <button onClick={() => setShowFilters(false)} className="w-7 h-7 rounded-md flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                   <XMarkIcon className="w-4 h-4" />
                 </button>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{t('transactions.colReference' as TranslationKey)}</label>
-                <input type="text" value={filterRef} onChange={(e) => { setFilterRef(e.target.value); setPage(1); }} placeholder={t('transactions.filterSearchRef' as TranslationKey)} className="input w-full text-sm" />
+                <label className="block text-[12px] font-medium text-gray-600 dark:text-gray-400 mb-1">{t('transactions.colReference' as TranslationKey)}</label>
+                <input type="text" value={filterRef} onChange={(e) => { setFilterRef(e.target.value); setPage(1); }} placeholder={t('transactions.filterSearchRef' as TranslationKey)} className="input w-full text-[13px]" />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{t('transactions.filterMethod' as TranslationKey)}</label>
-                <select value={filterMethod} onChange={(e) => { setFilterMethod(e.target.value); setPage(1); }} className="input w-full text-sm">
+                <label className="block text-[12px] font-medium text-gray-600 dark:text-gray-400 mb-1">{t('transactions.filterMethod' as TranslationKey)}</label>
+                <select value={filterMethod} onChange={(e) => { setFilterMethod(e.target.value); setPage(1); }} className="input w-full text-[13px]">
                   <option value="">{t('transactions.filterAll' as TranslationKey)}</option>
                   <option value="cash">{t('transactions.methodCash' as TranslationKey)}</option>
                   <option value="bank">{t('transactions.methodBank' as TranslationKey)}</option>
@@ -462,8 +465,8 @@ export default function TransactionsReportPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{t('transactions.filterType' as TranslationKey)}</label>
-                <select value={filterType} onChange={(e) => { setFilterType(e.target.value); setPage(1); }} className="input w-full text-sm">
+                <label className="block text-[12px] font-medium text-gray-600 dark:text-gray-400 mb-1">{t('transactions.filterType' as TranslationKey)}</label>
+                <select value={filterType} onChange={(e) => { setFilterType(e.target.value); setPage(1); }} className="input w-full text-[13px]">
                   <option value="">{t('transactions.filterAll' as TranslationKey)}</option>
                   <option value="sale">{t('transactions.typeSale' as TranslationKey)}</option>
                   <option value="purchase">{t('transactions.typePurchase' as TranslationKey)}</option>
@@ -471,7 +474,7 @@ export default function TransactionsReportPage() {
               </div>
 
               {activeFilterCount > 0 && (
-                <button onClick={() => { setFilterRef(''); setFilterMethod(''); setFilterType(''); setPage(1); }} className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                <button onClick={() => { setFilterRef(''); setFilterMethod(''); setFilterType(''); setPage(1); }} className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                   <XMarkIcon className="w-3.5 h-3.5" />
                   {t('transactions.clearFilters' as TranslationKey)}
                 </button>

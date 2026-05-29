@@ -6,10 +6,9 @@ import GuidedTour from '@/components/GuidedTour';
 import type { TourStep } from '@/components/GuidedTour';
 import { useLocale } from '@/lib/i18n/context';
 import toast from 'react-hot-toast';
+import { PageHeader, FilterBar } from '@/components/dashboard';
 import {
   TruckIcon,
-  MagnifyingGlassIcon,
-  FunnelIcon,
   XMarkIcon,
   ArrowPathIcon,
   CubeIcon,
@@ -123,21 +122,16 @@ interface ReturnItem {
   pieces: string;
 }
 
-const statusColors: Record<string, string> = {
-  preparing: 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
-  in_progress: 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
-  active: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
+const statusDot: Record<string, 'orange' | 'blue' | 'green' | 'neutral'> = {
+  preparing: 'orange',
+  in_progress: 'blue',
+  active: 'green',
 };
 
-const sourceTypeColors: Record<string, string> = {
-  delivery: 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
-  van_session: 'bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300',
-  warehouse_stock: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
-};
-
-const ROLE_BADGE: Record<string, string> = {
-  livreur: 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
-  cashvan: 'bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300',
+const sourceTypeDot: Record<string, 'blue' | 'violet' | 'green'> = {
+  delivery: 'blue',
+  van_session: 'violet',
+  warehouse_stock: 'green',
 };
 
 export default function LivreurStockPage() {
@@ -503,170 +497,98 @@ export default function LivreurStockPage() {
   }
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" data-tour="stock-title">
-        <div>
-          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-gray-100 tracking-tight leading-none">{t('livreurStock.title')}</h1>
-          <p className="text-sm text-gray-400 dark:text-gray-400 mt-1">{t('livreurStock.subtitle')}</p>
-        </div>
-        <div className="flex items-center gap-2">
+    <div>
+      <div data-tour="stock-title">
+        <PageHeader title={t('livreurStock.title')} subtitle={t('livreurStock.subtitle')}>
           <button
             onClick={() => { localStorage.removeItem('livreur_stock_tour_step'); setShowTour(true); }}
-            className="flex items-center gap-1.5 text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 text-[13px] text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white font-medium transition-colors"
             title={t('livreurStock.guidedTour')}
           >
-            <QuestionMarkCircleIcon className="w-5 h-5" />
+            <QuestionMarkCircleIcon className="w-4 h-4" />
             <span className="hidden sm:inline">{t('livreurStock.guidedTour')}</span>
           </button>
           <button
             onClick={() => { setIsLoading(true); fetchData(); }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 h-[34px] text-[13px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors"
           >
             <ArrowPathIcon className="w-4 h-4" />
             <span className="hidden sm:inline">{t('livreurStock.refresh')}</span>
           </button>
-        </div>
+        </PageHeader>
       </div>
 
       {/* KPI Strip */}
       {data && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3" data-tour="stock-kpis">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-4 shadow-sm">
-            <p className="text-[11px] text-gray-400 dark:text-gray-400 font-medium">{t('livreurStock.activeDrivers')}</p>
-            <p className="text-lg font-black text-blue-600 dark:text-blue-400 tabular-nums">{data.summary.total_active_livreurs}</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4" data-tour="stock-kpis">
+          <div className="metric-tile">
+            <div className="metric-label flex items-center gap-1.5"><span className="metric-dot metric-dot-blue" aria-hidden />{t('livreurStock.activeDrivers')}</div>
+            <div className="metric-value tnum">{data.summary.total_active_livreurs}</div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-4 shadow-sm">
-            <p className="text-[11px] text-gray-400 dark:text-gray-400 font-medium">{t('livreurStock.activeDeliveries')}</p>
-            <p className="text-lg font-black text-cyan-600 dark:text-cyan-400 tabular-nums">{data.summary.total_active_deliveries}</p>
+          <div className="metric-tile">
+            <div className="metric-label flex items-center gap-1.5"><span className="metric-dot metric-dot-blue" aria-hidden />{t('livreurStock.activeDeliveries')}</div>
+            <div className="metric-value tnum">{data.summary.total_active_deliveries}</div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-4 shadow-sm">
-            <p className="text-[11px] text-gray-400 dark:text-gray-400 font-medium">{t('livreurStock.activeVanSessions')}</p>
-            <p className="text-lg font-black text-violet-600 dark:text-violet-400 tabular-nums">{data.summary.total_active_van_sessions}</p>
+          <div className="metric-tile">
+            <div className="metric-label flex items-center gap-1.5"><span className="metric-dot metric-dot-violet" aria-hidden />{t('livreurStock.activeVanSessions')}</div>
+            <div className="metric-value tnum">{data.summary.total_active_van_sessions}</div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-4 shadow-sm">
-            <p className="text-[11px] text-gray-400 dark:text-gray-400 font-medium">{t('livreurStock.totalLoaded')}</p>
-            <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 tabular-nums">{(() => { const all = data!.livreurs.flatMap(l => collectItems(l).loaded); return formatItemsList(all); })()}</p>
+          <div className="metric-tile">
+            <div className="metric-label flex items-center gap-1.5"><span className="metric-dot metric-dot-green" aria-hidden />{t('livreurStock.totalLoaded')}</div>
+            <div className="metric-value tnum">{(() => { const all = data!.livreurs.flatMap(l => collectItems(l).loaded); return formatItemsList(all); })()}</div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-4 shadow-sm">
-            <p className="text-[11px] text-gray-400 dark:text-gray-400 font-medium">{t('livreurStock.remainingInTrucks')}</p>
-            <p className="text-lg font-black text-orange-600 dark:text-orange-400 tabular-nums">{(() => { const all = data!.livreurs.flatMap(l => collectItems(l).remaining); return formatItemsList(all); })()}</p>
+          <div className="metric-tile">
+            <div className="metric-label flex items-center gap-1.5"><span className="metric-dot metric-dot-orange" aria-hidden />{t('livreurStock.remainingInTrucks')}</div>
+            <div className="metric-value tnum">{(() => { const all = data!.livreurs.flatMap(l => collectItems(l).remaining); return formatItemsList(all); })()}</div>
           </div>
         </div>
       )}
 
-      {/* Search + Filters + Cards */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm">
-        {/* Search bar */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-700" data-tour="stock-search">
-          <div className="relative flex-1">
-            <MagnifyingGlassIcon className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
-            <input
-              type="text"
-              placeholder={t('livreurStock.searchByName')}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="input w-full ps-9 text-sm"
-            />
-          </div>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl border transition-all ${
-              showFilters || activeFilterCount > 0
-                ? 'border-indigo-300 dark:border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
-                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
-          >
-            <FunnelIcon className="w-4 h-4" />
-            <span className="hidden sm:inline">{t('livreurStock.filter')}</span>
-            {activeFilterCount > 0 && (
-              <span className="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center">
-                {activeFilterCount}
+      <div data-tour="stock-search">
+        <FilterBar
+          search={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder={t('livreurStock.searchByName')}
+          trailing={
+            (searchTerm || activeFilterCount > 0) ? (
+              <button onClick={clearAllFilters} className="text-[13px] text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white font-medium">
+                {t('livreurStock.clear')}
+              </button>
+            ) : (
+              <span className="text-[12px] text-gray-400 dark:text-gray-500 hidden sm:inline tnum">
+                {filteredLivreurs.length} / {data?.livreurs.length || 0}
               </span>
-            )}
-          </button>
-          {(searchTerm || activeFilterCount > 0) && (
-            <button onClick={clearAllFilters} className="text-sm text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium flex items-center gap-1">
-              <XMarkIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('livreurStock.clear')}</span>
-            </button>
-          )}
-          <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:inline">
-            {filteredLivreurs.length} / {data?.livreurs.length || 0}
-          </span>
-        </div>
+            )
+          }
+        >
+          <select value={filterType} onChange={(e) => setFilterType(e.target.value as typeof filterType)}>
+            <option value="all">{t('livreurStock.all')}</option>
+            <option value="delivery">{t('livreurStock.delivery')}</option>
+            <option value="warehouse_stock">{t('livreurStock.warehouseStock')}</option>
+          </select>
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+            <option value="">{t('livreurStock.allStatuses')}</option>
+            <option value="preparing">{t('livreurStock.statusPreparing')}</option>
+            <option value="in_progress">{t('livreurStock.statusInProgress')}</option>
+          </select>
+          <select value={filterVehicle} onChange={(e) => setFilterVehicle(e.target.value)}>
+            <option value="">{t('livreurStock.allVehicles')}</option>
+            {vehicleOptions.map((v) => (
+              <option key={v.id} value={v.id}>{v.label}</option>
+            ))}
+          </select>
+          <select value={filterProgress} onChange={(e) => setFilterProgress(e.target.value as typeof filterProgress)}>
+            <option value="all">{t('livreurStock.all')}</option>
+            <option value="low">{t('livreurStock.lessThan50')}</option>
+            <option value="mid">{t('livreurStock.between50And80')}</option>
+            <option value="high">{t('livreurStock.moreThan80')}</option>
+          </select>
+        </FilterBar>
+      </div>
 
-        {/* Expanded Filters */}
-        {showFilters && (
-          <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div>
-                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('livreurStock.activityType')}</label>
-                <select
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value as typeof filterType)}
-                  className="select w-full"
-                >
-                  <option value="all">{t('livreurStock.all')}</option>
-                  <option value="delivery">{t('livreurStock.delivery')}</option>
-                  <option value="warehouse_stock">{t('livreurStock.warehouseStock')}</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('livreurStock.status')}</label>
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="select w-full"
-                >
-                  <option value="">{t('livreurStock.allStatuses')}</option>
-                  <option value="preparing">{t('livreurStock.statusPreparing')}</option>
-                  <option value="in_progress">{t('livreurStock.statusInProgress')}</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('livreurStock.vehicle')}</label>
-                <select
-                  value={filterVehicle}
-                  onChange={(e) => setFilterVehicle(e.target.value)}
-                  className="select w-full"
-                >
-                  <option value="">{t('livreurStock.allVehicles')}</option>
-                  {vehicleOptions.map((v) => (
-                    <option key={v.id} value={v.id}>{v.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('livreurStock.progressRate')}</label>
-                <select
-                  value={filterProgress}
-                  onChange={(e) => setFilterProgress(e.target.value as typeof filterProgress)}
-                  className="select w-full"
-                >
-                  <option value="all">{t('livreurStock.all')}</option>
-                  <option value="low">{t('livreurStock.lessThan50')}</option>
-                  <option value="mid">{t('livreurStock.between50And80')}</option>
-                  <option value="high">{t('livreurStock.moreThan80')}</option>
-                </select>
-              </div>
-            </div>
-            <div className="mt-3">
-              <label className="inline-flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={filterHasRemaining}
-                  onChange={(e) => setFilterHasRemaining(e.target.checked)}
-                  className="rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300">{t('livreurStock.onlyWithRemaining')}</span>
-              </label>
-            </div>
-          </div>
-        )}
-
+      <div className="surface-pro">
         {/* Quick Filters */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 dark:border-gray-700 overflow-x-auto" data-tour="stock-quick-filters">
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100 dark:border-gray-700 overflow-x-auto" data-tour="stock-quick-filters">
           {([
             { value: 'all', label: t('livreurStock.all') },
             { value: 'delivery', label: t('livreurStock.delivery') },
@@ -675,28 +597,28 @@ export default function LivreurStockPage() {
             <button
               key={opt.value}
               onClick={() => setFilterType(opt.value)}
-              className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+              className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium whitespace-nowrap transition-colors ${
                 filterType === opt.value
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
               }`}
             >
               {opt.label}
             </button>
           ))}
-          <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
+          <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1" />
           <button
             onClick={() => setFilterHasRemaining(!filterHasRemaining)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium whitespace-nowrap transition-colors ${
               filterHasRemaining
-                ? 'bg-orange-600 text-white shadow-sm'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
             }`}
           >
             <ArchiveBoxIcon className="w-3.5 h-3.5" />
             {t('livreurStock.hasRemaining')}
           </button>
-          <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
+          <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1" />
           {([
             { value: 'preparing', label: t('livreurStock.statusPreparing') },
             { value: 'in_progress', label: t('livreurStock.statusInProgress') },
@@ -704,10 +626,10 @@ export default function LivreurStockPage() {
             <button
               key={opt.value}
               onClick={() => setFilterStatus(filterStatus === opt.value ? '' : opt.value)}
-              className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+              className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium whitespace-nowrap transition-colors ${
                 filterStatus === opt.value
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
               }`}
             >
               {opt.label}
@@ -716,12 +638,12 @@ export default function LivreurStockPage() {
         </div>
 
         {/* Driver Cards */}
-        <div className="p-4 space-y-3" data-tour="stock-cards">
+        <div className="p-3 space-y-2" data-tour="stock-cards">
           {filteredLivreurs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500">
-              <TruckIcon className="w-12 h-12 mb-3" />
-              <p className="text-lg font-semibold">{t('livreurStock.noActiveDrivers')}</p>
-              <p className="text-sm mt-1">{t('livreurStock.noActiveDriversDesc')}</p>
+            <div className="flex flex-col items-center justify-center py-16 t-empty">
+              <TruckIcon className="w-10 h-10 mb-3" />
+              <p className="text-[14px] font-medium">{t('livreurStock.noActiveDrivers')}</p>
+              <p className="text-[13px] mt-1">{t('livreurStock.noActiveDriversDesc')}</p>
             </div>
           ) : (
             filteredLivreurs.map((livreur) => {
@@ -731,40 +653,40 @@ export default function LivreurStockPage() {
                 : 0;
               const items = collectItems(livreur);
               return (
-                <div key={livreur.user.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
+                <div key={livreur.user.id} className="bg-white dark:bg-gray-800 rounded-md border border-gray-200/80 dark:border-gray-700 overflow-hidden">
                   {/* Driver Header */}
                   <div
-                    className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors"
+                    className="flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors"
                     onClick={() => setExpandedLivreur(isExpanded ? null : livreur.user.id)}
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-blue-100 dark:bg-blue-900/40">
-                        <span className="font-bold text-lg text-blue-600 dark:text-blue-400">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-md flex items-center justify-center bg-gray-100 dark:bg-gray-700">
+                        <span className="font-medium text-[14px] text-gray-700 dark:text-gray-200">
                           {livreur.user.name.charAt(0)}
                         </span>
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <h3 className="font-bold text-gray-900 dark:text-gray-100">{livreur.user.name}</h3>
+                          <h3 className="text-[13px] font-medium text-gray-900 dark:text-gray-100">{livreur.user.name}</h3>
                         </div>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
                           {livreur.user.phone && (
-                            <span className="text-xs text-gray-400 dark:text-gray-500">{livreur.user.phone}</span>
+                            <span className="text-[11px] text-gray-500 dark:text-gray-400">{livreur.user.phone}</span>
                           )}
                           {livreur.deliveries.length > 0 && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300">
+                            <span className="inline-flex items-center gap-1 text-[11px] text-gray-600 dark:text-gray-300">
                               <TruckIcon className="w-3 h-3" />
                               {t('livreurStock.deliveryCount').replace('{count}', String(livreur.deliveries.length))}
                             </span>
                           )}
                           {livreur.van_sessions.length > 0 && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-300">
+                            <span className="inline-flex items-center gap-1 text-[11px] text-gray-600 dark:text-gray-300">
                               <DevicePhoneMobileIcon className="w-3 h-3" />
                               {t('livreurStock.vanSessionCount').replace('{count}', String(livreur.van_sessions.length))}
                             </span>
                           )}
                           {livreur.warehouse_stock && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300">
+                            <span className="inline-flex items-center gap-1 text-[11px] text-gray-600 dark:text-gray-300">
                               <ArchiveBoxIcon className="w-3 h-3" />
                               {livreur.warehouse_stock.warehouse.name}
                             </span>
@@ -779,7 +701,7 @@ export default function LivreurStockPage() {
                         <button
                           data-tour="stock-return-btn"
                           onClick={(e) => { e.stopPropagation(); openReturnModal(livreur); }}
-                          className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/50 border border-orange-200 dark:border-orange-700 transition-colors"
+                          className="hidden md:inline-flex items-center gap-1.5 px-2.5 h-[30px] rounded-md text-[12px] font-medium bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                         >
                           <ArrowPathIcon className="w-3.5 h-3.5" />
                           {t('livreurStock.returnBtn')}
@@ -790,48 +712,48 @@ export default function LivreurStockPage() {
                       <div className="hidden md:flex items-center gap-5">
                         <div className="text-center">
                           <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">{t('livreurStock.loaded')}</p>
-                          <p className="text-sm font-black text-gray-800 dark:text-gray-200">{formatItemsList(items.loaded)}</p>
+                          <p className="text-[13px] font-medium text-gray-800 dark:text-gray-200 tnum">{formatItemsList(items.loaded)}</p>
                         </div>
                         <div className="text-center">
                           <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">{t('livreurStock.remaining')}</p>
-                          <p className="text-sm font-black text-orange-600 dark:text-orange-400">{formatItemsList(items.remaining)}</p>
+                          <p className="text-[13px] font-medium text-gray-800 dark:text-gray-200 tnum">{formatItemsList(items.remaining)}</p>
                         </div>
                         <div className="w-20">
                           <div className="flex items-center justify-between text-[10px] mb-1">
                             <span className="text-gray-400 dark:text-gray-500">{t('livreurStock.progress')}</span>
-                            <span className="font-bold text-gray-600 dark:text-gray-300">{progressPercent}%</span>
+                            <span className="font-medium text-gray-600 dark:text-gray-300 tnum">{progressPercent}%</span>
                           </div>
                           <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
                             <div
-                              className={`h-1.5 rounded-full transition-all ${progressPercent >= 80 ? 'bg-emerald-500' : progressPercent >= 50 ? 'bg-blue-500' : 'bg-orange-500'}`}
+                              className="h-1.5 rounded-full transition-all bg-gray-700 dark:bg-gray-300"
                               style={{ width: `${progressPercent}%` }}
                             />
                           </div>
                         </div>
                       </div>
 
-                      <ChevronDownIcon className={`w-5 h-5 text-gray-400 dark:text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                      <ChevronDownIcon className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                     </div>
                   </div>
 
                   {/* Mobile summary */}
-                  <div className="flex md:hidden items-center gap-3 px-5 pb-3 -mt-1">
+                  <div className="flex md:hidden items-center gap-3 px-4 pb-3 -mt-1">
                     <div className="flex-1 text-center">
                       <p className="text-[10px] text-gray-400 dark:text-gray-500">{t('livreurStock.loaded')}</p>
-                      <p className="text-sm font-black text-gray-800 dark:text-gray-200">{formatItemsList(items.loaded)}</p>
+                      <p className="text-[13px] font-medium text-gray-800 dark:text-gray-200 tnum">{formatItemsList(items.loaded)}</p>
                     </div>
                     <div className="flex-1 text-center">
                       <p className="text-[10px] text-gray-400 dark:text-gray-500">{t('livreurStock.remaining')}</p>
-                      <p className="text-sm font-black text-orange-600 dark:text-orange-400">{formatItemsList(items.remaining)}</p>
+                      <p className="text-[13px] font-medium text-gray-800 dark:text-gray-200 tnum">{formatItemsList(items.remaining)}</p>
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between text-[10px] mb-1">
                         <span className="text-gray-400 dark:text-gray-500">{t('livreurStock.progress')}</span>
-                        <span className="font-bold text-gray-600 dark:text-gray-300">{progressPercent}%</span>
+                        <span className="font-medium text-gray-600 dark:text-gray-300 tnum">{progressPercent}%</span>
                       </div>
                       <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
                         <div
-                          className={`h-1.5 rounded-full ${progressPercent >= 80 ? 'bg-emerald-500' : progressPercent >= 50 ? 'bg-blue-500' : 'bg-orange-500'}`}
+                          className="h-1.5 rounded-full bg-gray-700 dark:bg-gray-300"
                           style={{ width: `${progressPercent}%` }}
                         />
                       </div>
@@ -839,7 +761,7 @@ export default function LivreurStockPage() {
                     {livreur.totals.total_remaining > 0 && (
                       <button
                         onClick={(e) => { e.stopPropagation(); openReturnModal(livreur); }}
-                        className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-700"
+                        className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 h-[30px] rounded-md text-[12px] font-medium bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700"
                       >
                         <ArrowPathIcon className="w-3.5 h-3.5" />
                         {t('livreurStock.returnBtn')}
@@ -849,60 +771,62 @@ export default function LivreurStockPage() {
 
                   {/* Expanded Detail */}
                   {isExpanded && (
-                    <div className="border-t border-gray-100 dark:border-gray-700 px-5 py-4 space-y-4 bg-gray-50/30 dark:bg-gray-900/20">
+                    <div className="border-t border-gray-100 dark:border-gray-700 px-4 py-3 space-y-3">
                       {/* Deliveries */}
                       {livreur.deliveries.map((delivery) => (
-                        <div key={`del-${delivery.id}`} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200/80 dark:border-gray-700 p-4">
-                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-3">
+                        <div key={`del-${delivery.id}`} className="surface-pro p-3">
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-mono text-sm font-bold text-gray-800 dark:text-gray-200">{delivery.reference}</span>
-                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${statusColors[delivery.status] || 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
+                              <span className="font-mono text-[13px] font-medium text-gray-900 dark:text-gray-100">{delivery.reference}</span>
+                              <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                                <span className={`metric-dot metric-dot-${statusDot[delivery.status] || 'neutral'}`} aria-hidden />
                                 {statusLabels[delivery.status] || delivery.status}
                               </span>
                               {delivery.vehicle && (
-                                <span className="text-xs text-gray-400 dark:text-gray-500">
+                                <span className="text-[11px] text-gray-500 dark:text-gray-400">
                                   {delivery.vehicle.name} {delivery.vehicle.plate_number ? `(${delivery.vehicle.plate_number})` : ''}
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-4 text-xs">
+                            <div className="flex items-center gap-4 text-[12px]">
                               <span className="text-gray-500 dark:text-gray-400">
-                                {t('livreurStock.orders')}: <span className="font-bold text-gray-800 dark:text-gray-200">{delivery.delivered_count}/{delivery.total_orders}</span>
+                                {t('livreurStock.orders')}: <span className="t-strong tnum">{delivery.delivered_count}/{delivery.total_orders}</span>
                               </span>
                               <span className="text-gray-500 dark:text-gray-400">
-                                {t('livreurStock.collected')}: <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(delivery.collected_amount)}</span>
+                                {t('livreurStock.collected')}: <span className="t-strong tnum">{formatCurrency(delivery.collected_amount)}</span>
                               </span>
                             </div>
                           </div>
 
                           {delivery.stock.length > 0 && (
-                            <div className="overflow-x-auto">
-                              <table className="w-full">
+                            <div className="table-pro-wrap">
+                              <table className="table-pro compact">
                                 <thead>
-                                  <tr className="border-b border-gray-100 dark:border-gray-700">
-                                    <th className="text-start text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('livreurStock.productCol')}</th>
-                                    <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('livreurStock.loadedCol')}</th>
-                                    <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('livreurStock.deliveredCol')}</th>
-                                    <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('livreurStock.returnedCol')}</th>
-                                    <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('livreurStock.remainingCol')}</th>
-                                    <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('livreurStock.percentCol')}</th>
+                                  <tr>
+                                    <th>{t('livreurStock.productCol')}</th>
+                                    <th className="tnum">{t('livreurStock.loadedCol')}</th>
+                                    <th className="tnum">{t('livreurStock.deliveredCol')}</th>
+                                    <th className="tnum">{t('livreurStock.returnedCol')}</th>
+                                    <th className="tnum">{t('livreurStock.remainingCol')}</th>
+                                    <th className="text-center">{t('livreurStock.percentCol')}</th>
                                   </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
+                                <tbody>
                                   {delivery.stock.map((s) => {
                                     const pct = getProgressPercent(s.quantity_delivered, s.quantity_loaded);
                                     const ppp = s.product?.pieces_per_package;
                                     return (
                                       <tr key={s.product_id}>
-                                        <td className="py-2">
-                                          <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{s.product?.name}</span>
-                                          {s.product?.barcode && <span className="text-[10px] text-gray-400 dark:text-gray-500 me-1">({s.product.barcode})</span>}
+                                        <td>
+                                          <span className="text-[13px] font-medium text-gray-800 dark:text-gray-200">{s.product?.name}</span>
+                                          {s.product?.barcode && <span className="text-[11px] text-gray-400 dark:text-gray-500 me-1">({s.product.barcode})</span>}
                                         </td>
-                                        <td className="text-center text-sm text-gray-600 dark:text-gray-300">{formatQty(s.quantity_loaded, ppp)}</td>
-                                        <td className="text-center text-sm text-emerald-600 dark:text-emerald-400 font-semibold">{formatQty(s.quantity_delivered, ppp)}</td>
-                                        <td className="text-center text-sm text-red-500 dark:text-red-400">{formatQty(s.quantity_returned, ppp)}</td>
-                                        <td className="text-center">
-                                          <span className={`text-sm font-bold ${s.remaining > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                        <td className="tnum">{formatQty(s.quantity_loaded, ppp)}</td>
+                                        <td className="tnum t-strong">{formatQty(s.quantity_delivered, ppp)}</td>
+                                        <td className="tnum">{formatQty(s.quantity_returned, ppp)}</td>
+                                        <td className="tnum">
+                                          <span className="inline-flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
+                                            <span className={`metric-dot ${s.remaining > 0 ? 'metric-dot-orange' : 'metric-dot-green'}`} aria-hidden />
                                             {formatQty(s.remaining, ppp)}
                                           </span>
                                         </td>
@@ -910,11 +834,11 @@ export default function LivreurStockPage() {
                                           <div className="inline-flex items-center gap-1">
                                             <div className="w-10 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
                                               <div
-                                                className={`h-1.5 rounded-full ${pct >= 80 ? 'bg-emerald-500' : pct >= 50 ? 'bg-blue-500' : 'bg-orange-500'}`}
+                                                className="h-1.5 rounded-full bg-gray-700 dark:bg-gray-300"
                                                 style={{ width: `${pct}%` }}
                                               />
                                             </div>
-                                            <span className="text-[10px] text-gray-400 dark:text-gray-500 w-7">{pct}%</span>
+                                            <span className="text-[11px] text-gray-500 dark:text-gray-400 w-7 tnum">{pct}%</span>
                                           </div>
                                         </td>
                                       </tr>
@@ -929,58 +853,63 @@ export default function LivreurStockPage() {
 
                       {/* Van Sessions */}
                       {livreur.van_sessions.map((session) => (
-                        <div key={`van-${session.id}`} className="bg-white dark:bg-gray-800 rounded-xl border border-violet-200/60 dark:border-violet-800/40 p-4">
-                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-3">
+                        <div key={`van-${session.id}`} className="surface-pro p-3">
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-mono text-sm font-bold text-gray-800 dark:text-gray-200">{session.reference}</span>
-                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${statusColors[session.status] || 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
+                              <span className="font-mono text-[13px] font-medium text-gray-900 dark:text-gray-100">{session.reference}</span>
+                              <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                                <span className={`metric-dot metric-dot-${statusDot[session.status] || 'neutral'}`} aria-hidden />
                                 {statusLabels[session.status] || session.status}
                               </span>
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300">{t('livreurStock.vanSaleLabel')}</span>
+                              <span className="inline-flex items-center gap-1.5 text-[12px] text-gray-600 dark:text-gray-400">
+                                <span className="metric-dot metric-dot-violet" aria-hidden />
+                                {t('livreurStock.vanSaleLabel')}
+                              </span>
                               {session.vehicle && (
-                                <span className="text-xs text-gray-400 dark:text-gray-500">
+                                <span className="text-[11px] text-gray-500 dark:text-gray-400">
                                   {session.vehicle.name} {session.vehicle.plate_number ? `(${session.vehicle.plate_number})` : ''}
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-4 text-xs">
+                            <div className="flex items-center gap-4 text-[12px]">
                               <span className="text-gray-500 dark:text-gray-400">
-                                {t('livreurStock.sales')}: <span className="font-bold text-gray-800 dark:text-gray-200">{session.sales_count}</span>
+                                {t('livreurStock.sales')}: <span className="t-strong tnum">{session.sales_count}</span>
                               </span>
                               <span className="text-gray-500 dark:text-gray-400">
-                                {t('livreurStock.collected')}: <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(session.total_collected)}</span>
+                                {t('livreurStock.collected')}: <span className="t-strong tnum">{formatCurrency(session.total_collected)}</span>
                               </span>
                             </div>
                           </div>
 
                           {session.items.length > 0 && (
-                            <div className="overflow-x-auto">
-                              <table className="w-full">
+                            <div className="table-pro-wrap">
+                              <table className="table-pro compact">
                                 <thead>
-                                  <tr className="border-b border-gray-100 dark:border-gray-700">
-                                    <th className="text-start text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('livreurStock.productCol')}</th>
-                                    <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('livreurStock.loadedCol')}</th>
-                                    <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('livreurStock.soldCol')}</th>
-                                    <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('livreurStock.returnedCol')}</th>
-                                    <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('livreurStock.availableCol')}</th>
-                                    <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('livreurStock.percentCol')}</th>
+                                  <tr>
+                                    <th>{t('livreurStock.productCol')}</th>
+                                    <th className="tnum">{t('livreurStock.loadedCol')}</th>
+                                    <th className="tnum">{t('livreurStock.soldCol')}</th>
+                                    <th className="tnum">{t('livreurStock.returnedCol')}</th>
+                                    <th className="tnum">{t('livreurStock.availableCol')}</th>
+                                    <th className="text-center">{t('livreurStock.percentCol')}</th>
                                   </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
+                                <tbody>
                                   {session.items.map((item) => {
                                     const pct = getProgressPercent(item.quantity_sold, item.quantity_loaded);
                                     const ppp = item.product?.pieces_per_package;
                                     return (
                                       <tr key={item.product_id}>
-                                        <td className="py-2">
-                                          <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{item.product?.name}</span>
-                                          {item.product?.barcode && <span className="text-[10px] text-gray-400 dark:text-gray-500 me-1">({item.product.barcode})</span>}
+                                        <td>
+                                          <span className="text-[13px] font-medium text-gray-800 dark:text-gray-200">{item.product?.name}</span>
+                                          {item.product?.barcode && <span className="text-[11px] text-gray-400 dark:text-gray-500 me-1">({item.product.barcode})</span>}
                                         </td>
-                                        <td className="text-center text-sm text-gray-600 dark:text-gray-300">{formatQty(item.quantity_loaded, ppp)}</td>
-                                        <td className="text-center text-sm text-emerald-600 dark:text-emerald-400 font-semibold">{formatQty(item.quantity_sold, ppp)}</td>
-                                        <td className="text-center text-sm text-red-500 dark:text-red-400">{formatQty(item.quantity_returned, ppp)}</td>
-                                        <td className="text-center">
-                                          <span className={`text-sm font-bold ${item.available > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                        <td className="tnum">{formatQty(item.quantity_loaded, ppp)}</td>
+                                        <td className="tnum t-strong">{formatQty(item.quantity_sold, ppp)}</td>
+                                        <td className="tnum">{formatQty(item.quantity_returned, ppp)}</td>
+                                        <td className="tnum">
+                                          <span className="inline-flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
+                                            <span className={`metric-dot ${item.available > 0 ? 'metric-dot-orange' : 'metric-dot-green'}`} aria-hidden />
                                             {formatQty(item.available, ppp)}
                                           </span>
                                         </td>
@@ -988,11 +917,11 @@ export default function LivreurStockPage() {
                                           <div className="inline-flex items-center gap-1">
                                             <div className="w-10 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
                                               <div
-                                                className={`h-1.5 rounded-full ${pct >= 80 ? 'bg-emerald-500' : pct >= 50 ? 'bg-blue-500' : 'bg-orange-500'}`}
+                                                className="h-1.5 rounded-full bg-gray-700 dark:bg-gray-300"
                                                 style={{ width: `${pct}%` }}
                                               />
                                             </div>
-                                            <span className="text-[10px] text-gray-400 dark:text-gray-500 w-7">{pct}%</span>
+                                            <span className="text-[11px] text-gray-500 dark:text-gray-400 w-7 tnum">{pct}%</span>
                                           </div>
                                         </td>
                                       </tr>
@@ -1007,51 +936,55 @@ export default function LivreurStockPage() {
 
                       {/* Warehouse Stock */}
                       {livreur.warehouse_stock && (
-                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-emerald-200/60 dark:border-emerald-800/40 p-4">
-                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-3">
+                        <div className="surface-pro p-3">
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-bold text-gray-800 dark:text-gray-200">{livreur.warehouse_stock.warehouse.name}</span>
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">{t('livreurStock.warehouseStockLabel')}</span>
+                              <span className="text-[13px] font-medium text-gray-900 dark:text-gray-100">{livreur.warehouse_stock.warehouse.name}</span>
+                              <span className="inline-flex items-center gap-1.5 text-[12px] text-gray-600 dark:text-gray-400">
+                                <span className="metric-dot metric-dot-green" aria-hidden />
+                                {t('livreurStock.warehouseStockLabel')}
+                              </span>
                             </div>
-                            <div className="flex items-center gap-4 text-xs">
+                            <div className="flex items-center gap-4 text-[12px]">
                               <span className="text-gray-500 dark:text-gray-400">
-                                {t('livreurStock.todaySales')}: <span className="font-bold text-gray-800 dark:text-gray-200">{livreur.warehouse_stock.sales_count}</span>
+                                {t('livreurStock.todaySales')}: <span className="t-strong tnum">{livreur.warehouse_stock.sales_count}</span>
                               </span>
                               <span className="text-gray-500 dark:text-gray-400">
-                                {t('livreurStock.total')}: <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(livreur.warehouse_stock.total_sales)}</span>
+                                {t('livreurStock.total')}: <span className="t-strong tnum">{formatCurrency(livreur.warehouse_stock.total_sales)}</span>
                               </span>
                               <span className="text-gray-500 dark:text-gray-400">
-                                {t('livreurStock.collected')}: <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(livreur.warehouse_stock.total_collected)}</span>
+                                {t('livreurStock.collected')}: <span className="t-strong tnum">{formatCurrency(livreur.warehouse_stock.total_collected)}</span>
                               </span>
                             </div>
                           </div>
 
                           {livreur.warehouse_stock.items.length > 0 && (
-                            <div className="overflow-x-auto">
-                              <table className="w-full">
+                            <div className="table-pro-wrap">
+                              <table className="table-pro compact">
                                 <thead>
-                                  <tr className="border-b border-gray-100 dark:border-gray-700">
-                                    <th className="text-start text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('livreurStock.productCol')}</th>
-                                    <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('livreurStock.loadedColAlt')}</th>
-                                    <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('livreurStock.soldCol')}</th>
-                                    <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('livreurStock.availableCol')}</th>
-                                    <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('livreurStock.percentCol')}</th>
+                                  <tr>
+                                    <th>{t('livreurStock.productCol')}</th>
+                                    <th className="tnum">{t('livreurStock.loadedColAlt')}</th>
+                                    <th className="tnum">{t('livreurStock.soldCol')}</th>
+                                    <th className="tnum">{t('livreurStock.availableCol')}</th>
+                                    <th className="text-center">{t('livreurStock.percentCol')}</th>
                                   </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
+                                <tbody>
                                   {livreur.warehouse_stock.items.map((item) => {
                                     const ppp = item.product?.pieces_per_package;
                                     const pct = getProgressPercent(item.quantity_sold, item.quantity_loaded);
                                     return (
                                       <tr key={item.product_id}>
-                                        <td className="py-2">
-                                          <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{item.product?.name}</span>
-                                          {item.product?.barcode && <span className="text-[10px] text-gray-400 dark:text-gray-500 me-1">({item.product.barcode})</span>}
+                                        <td>
+                                          <span className="text-[13px] font-medium text-gray-800 dark:text-gray-200">{item.product?.name}</span>
+                                          {item.product?.barcode && <span className="text-[11px] text-gray-400 dark:text-gray-500 me-1">({item.product.barcode})</span>}
                                         </td>
-                                        <td className="text-center text-sm text-gray-600 dark:text-gray-300">{formatQty(item.quantity_loaded, ppp)}</td>
-                                        <td className="text-center text-sm text-emerald-600 dark:text-emerald-400 font-semibold">{formatQty(item.quantity_sold, ppp)}</td>
-                                        <td className="text-center">
-                                          <span className={`text-sm font-bold ${item.available > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                        <td className="tnum">{formatQty(item.quantity_loaded, ppp)}</td>
+                                        <td className="tnum t-strong">{formatQty(item.quantity_sold, ppp)}</td>
+                                        <td className="tnum">
+                                          <span className="inline-flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
+                                            <span className={`metric-dot ${item.available > 0 ? 'metric-dot-orange' : 'metric-dot-green'}`} aria-hidden />
                                             {formatQty(item.available, ppp)}
                                           </span>
                                         </td>
@@ -1059,11 +992,11 @@ export default function LivreurStockPage() {
                                           <div className="inline-flex items-center gap-1">
                                             <div className="w-10 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
                                               <div
-                                                className={`h-1.5 rounded-full ${pct >= 80 ? 'bg-emerald-500' : pct >= 50 ? 'bg-blue-500' : 'bg-orange-500'}`}
+                                                className="h-1.5 rounded-full bg-gray-700 dark:bg-gray-300"
                                                 style={{ width: `${pct}%` }}
                                               />
                                             </div>
-                                            <span className="text-[10px] text-gray-400 dark:text-gray-500 w-7">{pct}%</span>
+                                            <span className="text-[11px] text-gray-500 dark:text-gray-400 w-7 tnum">{pct}%</span>
                                           </div>
                                         </td>
                                       </tr>
@@ -1086,32 +1019,27 @@ export default function LivreurStockPage() {
 
       {/* Return Modal */}
       {showReturnModal && returnLivreur && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={closeReturnModal}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={closeReturnModal}>
           <div
-            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col border border-gray-200 dark:border-gray-700"
+            className="bg-white dark:bg-gray-800 rounded-md shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-gray-200/80 dark:border-gray-700"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center">
-                  <ArrowPathIcon className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('livreurStock.returnProducts')}</h2>
-                  <p className="text-sm text-gray-400 dark:text-gray-500">{returnLivreur.user.name}</p>
-                </div>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 dark:border-gray-700">
+              <div>
+                <h2 className="text-[15px] font-semibold text-gray-900 dark:text-gray-100">{t('livreurStock.returnProducts')}</h2>
+                <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-0.5">{returnLivreur.user.name}</p>
               </div>
-              <button onClick={closeReturnModal} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+              <button onClick={closeReturnModal} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
                 <XMarkIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
               </button>
             </div>
 
             {/* Modal Body */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
               {/* Warehouse selector */}
               <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{t('livreurStock.receivingWarehouse')}</label>
+                <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">{t('livreurStock.receivingWarehouse')}</label>
                 <select
                   value={selectedWarehouse}
                   onChange={(e) => setSelectedWarehouse(e.target.value ? parseInt(e.target.value) : '')}
@@ -1126,42 +1054,44 @@ export default function LivreurStockPage() {
 
               {/* Products table */}
               {returnItems.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500">
-                  <CubeIcon className="w-10 h-10 mb-2" />
-                  <p className="text-sm">{t('livreurStock.noProductsAvailable')}</p>
+                <div className="flex flex-col items-center justify-center py-12 t-empty">
+                  <CubeIcon className="w-9 h-9 mb-2" />
+                  <p className="text-[13px]">{t('livreurStock.noProductsAvailable')}</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
+                <div className="table-pro-wrap">
+                  <table className="table-pro compact">
                     <thead>
-                      <tr className="border-b border-gray-100 dark:border-gray-700">
-                        <th className="text-start text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2.5">{t('livreurStock.productCol')}</th>
-                        <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2.5">{t('livreurStock.source')}</th>
-                        <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2.5">{t('livreurStock.available')}</th>
-                        <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2.5">{t('livreurStock.returnQty')}</th>
+                      <tr>
+                        <th>{t('livreurStock.productCol')}</th>
+                        <th className="text-center">{t('livreurStock.source')}</th>
+                        <th className="tnum">{t('livreurStock.available')}</th>
+                        <th className="text-center">{t('livreurStock.returnQty')}</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
+                    <tbody>
                       {returnItems.map((item, index) => {
                         const ppp = item.pieces_per_package || 1;
                         const hasPackaging = ppp > 1;
                         return (
                           <tr key={`${item.source_type}-${item.source_id}-${item.product_id}`}>
-                            <td className="py-2.5">
-                              <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{item.product_name}</span>
+                            <td>
+                              <span className="text-[13px] font-medium text-gray-800 dark:text-gray-200">{item.product_name}</span>
                             </td>
-                            <td className="text-center py-2.5">
-                              <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${sourceTypeColors[item.source_type]}`}>
+                            <td className="text-center">
+                              <span className="inline-flex items-center gap-1.5 text-[12px] text-gray-700 dark:text-gray-300">
+                                <span className={`metric-dot metric-dot-${sourceTypeDot[item.source_type] || 'neutral'}`} aria-hidden />
                                 {sourceTypeLabels[item.source_type]}
                               </span>
-                              <span className="block text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{item.source_label}</span>
+                              <span className="block text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{item.source_label}</span>
                             </td>
-                            <td className="text-center py-2.5">
-                              <span className="text-sm font-bold text-orange-600 dark:text-orange-400">
+                            <td className="tnum">
+                              <span className="inline-flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
+                                <span className="metric-dot metric-dot-orange" aria-hidden />
                                 {formatQty(item.available, ppp)}
                               </span>
                             </td>
-                            <td className="text-center py-2.5">
+                            <td className="text-center">
                               <div className="flex items-center justify-center gap-2">
                                 <div className="flex items-center gap-1">
                                   <input
@@ -1173,7 +1103,7 @@ export default function LivreurStockPage() {
                                     placeholder="0"
                                     className="input w-16 text-center text-sm py-1"
                                   />
-                                  <span className="text-[10px] text-gray-400 dark:text-gray-500">{hasPackaging ? t('livreurStock.carton') : t('livreurStock.unit')}</span>
+                                  <span className="text-[10px] text-gray-500 dark:text-gray-400">{hasPackaging ? t('livreurStock.carton') : t('livreurStock.unit')}</span>
                                 </div>
                                 {hasPackaging && (
                                   <div className="flex items-center gap-1">
@@ -1187,7 +1117,7 @@ export default function LivreurStockPage() {
                                       placeholder="0"
                                       className="input w-16 text-center text-sm py-1"
                                     />
-                                    <span className="text-[10px] text-gray-400 dark:text-gray-500">{t('livreurStock.piece')}</span>
+                                    <span className="text-[10px] text-gray-500 dark:text-gray-400">{t('livreurStock.piece')}</span>
                                   </div>
                                 )}
                               </div>
@@ -1202,14 +1132,14 @@ export default function LivreurStockPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 rounded-b-2xl">
-              <button onClick={closeReturnModal} className="px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors">
+            <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 dark:border-gray-700">
+              <button onClick={closeReturnModal} className="px-4 h-[34px] text-[13px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors">
                 {t('livreurStock.cancel')}
               </button>
               <button
                 onClick={handleReturnSubmit}
                 disabled={isReturning || !selectedWarehouse || returnItems.length === 0}
-                className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-gradient-to-l from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1.5 px-5 h-[34px] text-[13px] font-medium text-white bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isReturning ? (
                   <>

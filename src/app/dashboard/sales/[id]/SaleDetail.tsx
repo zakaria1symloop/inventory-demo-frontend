@@ -9,22 +9,15 @@ import { useLocale } from '@/lib/i18n/context';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import {
-  ArrowRightIcon,
-  ArrowLeftIcon,
   PrinterIcon,
   TrashIcon,
   CheckCircleIcon,
-  ClockIcon,
-  XCircleIcon,
-  BanknotesIcon,
-  TruckIcon,
-  UserIcon,
-  CalendarIcon,
   CreditCardIcon,
-  BuildingStorefrontIcon
+  BanknotesIcon,
 } from '@heroicons/react/24/outline';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import Modal from '@/components/ui/Modal';
+import { PageHeader } from '@/components/dashboard';
 
 interface SaleItem {
   id: number;
@@ -85,7 +78,7 @@ interface Sale {
 export default function SaleDetail() {
   const params = useParams();
   const router = useRouter();
-  const { t, locale, dir } = useLocale();
+  const { t, locale } = useLocale();
   const [id, setId] = useState<string | null>(null);
   const [sale, setSale] = useState<Sale | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -102,8 +95,6 @@ export default function SaleDetail() {
     notes: '',
     date: new Date().toISOString().split('T')[0],
   });
-
-  const BackArrowIcon = dir === 'rtl' ? ArrowRightIcon : ArrowLeftIcon;
 
   // Extract ID from URL for static export compatibility
   useEffect(() => {
@@ -165,33 +156,31 @@ export default function SaleDetail() {
   };
 
   const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { bg: string; darkBg: string; text: string; darkText: string; icon: any; label: string }> = {
-      draft: { bg: 'bg-blue-100', darkBg: 'dark:bg-blue-900/30', text: 'text-blue-800', darkText: 'dark:text-blue-300', icon: ClockIcon, label: t('saleDetail.draft') },
-      pending: { bg: 'bg-yellow-100', darkBg: 'dark:bg-yellow-900/30', text: 'text-yellow-800', darkText: 'dark:text-yellow-300', icon: ClockIcon, label: t('saleDetail.pending') },
-      completed: { bg: 'bg-green-100', darkBg: 'dark:bg-green-900/30', text: 'text-green-800', darkText: 'dark:text-green-300', icon: CheckCircleIcon, label: t('saleDetail.completed') },
-      cancelled: { bg: 'bg-red-100', darkBg: 'dark:bg-red-900/30', text: 'text-red-800', darkText: 'dark:text-red-300', icon: XCircleIcon, label: t('saleDetail.cancelled') },
+    const statusConfig: Record<string, { dot: string; label: string }> = {
+      draft: { dot: 'metric-dot-blue', label: t('saleDetail.draft') },
+      pending: { dot: 'metric-dot-orange', label: t('saleDetail.pending') },
+      completed: { dot: 'metric-dot-green', label: t('saleDetail.completed') },
+      cancelled: { dot: 'metric-dot-red', label: t('saleDetail.cancelled') },
     };
     const config = statusConfig[status] || statusConfig.pending;
-    const Icon = config.icon;
     return (
-      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${config.bg} ${config.darkBg} ${config.text} ${config.darkText}`}>
-        <Icon className="w-4 h-4" />
+      <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+        <span className={`metric-dot ${config.dot}`} aria-hidden />
         {config.label}
       </span>
     );
   };
 
   const getPaymentStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { bg: string; darkBg: string; text: string; darkText: string; icon: any; label: string }> = {
-      unpaid: { bg: 'bg-red-100', darkBg: 'dark:bg-red-900/30', text: 'text-red-800', darkText: 'dark:text-red-300', icon: XCircleIcon, label: t('saleDetail.unpaid') },
-      partial: { bg: 'bg-orange-100', darkBg: 'dark:bg-orange-900/30', text: 'text-orange-800', darkText: 'dark:text-orange-300', icon: BanknotesIcon, label: t('saleDetail.partial') },
-      paid: { bg: 'bg-green-100', darkBg: 'dark:bg-green-900/30', text: 'text-green-800', darkText: 'dark:text-green-300', icon: CheckCircleIcon, label: t('saleDetail.paid') },
+    const statusConfig: Record<string, { dot: string; label: string }> = {
+      unpaid: { dot: 'metric-dot-red', label: t('saleDetail.unpaid') },
+      partial: { dot: 'metric-dot-orange', label: t('saleDetail.partial') },
+      paid: { dot: 'metric-dot-green', label: t('saleDetail.paid') },
     };
     const config = statusConfig[status] || statusConfig.unpaid;
-    const Icon = config.icon;
     return (
-      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${config.bg} ${config.darkBg} ${config.text} ${config.darkText}`}>
-        <Icon className="w-4 h-4" />
+      <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+        <span className={`metric-dot ${config.dot}`} aria-hidden />
         {config.label}
       </span>
     );
@@ -205,6 +194,16 @@ export default function SaleDetail() {
       other: t('saleDetail.other'),
     };
     return methods[method] || method;
+  };
+
+  const getPaymentMethodDot = (method: string) => {
+    const dots: Record<string, string> = {
+      cash: 'metric-dot-green',
+      bank: 'metric-dot-blue',
+      check: 'metric-dot-orange',
+      other: 'metric-dot-neutral',
+    };
+    return dots[method] || 'metric-dot-neutral';
   };
 
   const handlePrint = () => {
@@ -432,163 +431,162 @@ export default function SaleDetail() {
 
   if (!sale) {
     return (
-      <div className="text-center py-16">
-        <div className="text-gray-400 dark:text-gray-500 mb-4">
-          <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
+      <div>
+        <PageHeader
+          title={t('saleDetail.notFound')}
+          breadcrumb={[
+            { label: t('sidebar.saleInvoices'), href: '/dashboard/sales' },
+            { label: t('saleDetail.notFound') },
+          ]}
+        />
+        <div className="text-center py-12 text-gray-500 dark:text-gray-400 text-[14px]">
+          <Link href="/dashboard/sales" className="hover:text-gray-700 dark:hover:text-gray-200 underline-offset-2 hover:underline">
+            {t('saleDetail.backToSales')}
+          </Link>
         </div>
-        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">{t('saleDetail.notFound')}</h3>
-        <Link href="/dashboard/sales" className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-          {t('saleDetail.backToSales')}
-        </Link>
       </div>
     );
   }
 
+  // Profit calc
+  const totalCost = sale.items?.reduce((sum, item) => {
+    const totalPieces = Math.round(item.quantity);
+    const costPrice = Number(item.product?.cost_price) || 0;
+    return sum + (costPrice * totalPieces);
+  }, 0) || 0;
+  const totalSell = sale.items?.reduce((sum, item) => sum + (Number(item.subtotal) || 0), 0) || 0;
+  const profit = totalSell - totalCost;
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Link
-            href="/dashboard/sales"
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-          >
-            <BackArrowIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{sale.reference}</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {t('saleDetail.createdAt', { date: formatDate(sale.created_at) })}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {sale.due_amount > 0 && (
-            <>
-              <button
-                onClick={openPaymentModal}
-                className="btn btn-primary"
-                disabled={isProcessingPayment}
-              >
-                <CreditCardIcon className="w-5 h-5" />
-                {t('saleDetail.addPayment')}
-              </button>
-              <button
-                onClick={handlePayFull}
-                className="btn bg-green-600 text-white hover:bg-green-700"
-                disabled={isProcessingPayment}
-              >
-                <CheckCircleIcon className="w-5 h-5" />
-                {t('saleDetail.payAll')}
-              </button>
-            </>
-          )}
-          {sale.status === 'draft' && (
+    <div>
+      <PageHeader
+        title={sale.reference}
+        subtitle={t('saleDetail.createdAt', { date: formatDate(sale.created_at) })}
+        breadcrumb={[
+          { label: t('sidebar.saleInvoices'), href: '/dashboard/sales' },
+          { label: sale.reference },
+        ]}
+      >
+        {sale.due_amount > 0 && (
+          <>
             <button
-              onClick={handleConfirmDraft}
-              disabled={isConfirming}
-              className="btn bg-green-600 text-white hover:bg-green-700"
+              onClick={openPaymentModal}
+              disabled={isProcessingPayment}
+              className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors disabled:opacity-50"
             >
-              <CheckCircleIcon className="w-5 h-5" />
-              {isConfirming ? t('saleDetail.confirming') : t('saleDetail.confirmInvoice')}
+              <CreditCardIcon className="w-4 h-4" />
+              {t('saleDetail.addPayment')}
             </button>
-          )}
+            <button
+              onClick={handlePayFull}
+              disabled={isProcessingPayment}
+              className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-50"
+            >
+              <BanknotesIcon className="w-4 h-4" />
+              {t('saleDetail.payAll')}
+            </button>
+          </>
+        )}
+        {sale.status === 'draft' && (
           <button
-            onClick={handlePrint}
-            className="btn btn-secondary"
+            onClick={handleConfirmDraft}
+            disabled={isConfirming}
+            className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-50"
           >
-            <PrinterIcon className="w-5 h-5" />
-            {t('saleDetail.print')}
+            <CheckCircleIcon className="w-4 h-4" />
+            {isConfirming ? t('saleDetail.confirming') : t('saleDetail.confirmInvoice')}
           </button>
-          <button
-            onClick={() => setIsDeleteOpen(true)}
-            className="btn bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"
-          >
-            <TrashIcon className="w-5 h-5" />
-            {t('saleDetail.delete')}
-          </button>
+        )}
+        <button
+          onClick={handlePrint}
+          className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+        >
+          <PrinterIcon className="w-4 h-4" />
+          {t('saleDetail.print')}
+        </button>
+        <button
+          onClick={() => setIsDeleteOpen(true)}
+          className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-red-600 dark:text-red-400 bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+        >
+          <TrashIcon className="w-4 h-4" />
+          {t('saleDetail.delete')}
+        </button>
+      </PageHeader>
+
+      {/* ─── Metric tiles ─── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-4">
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-neutral" aria-hidden />
+            <p className="metric-label truncate">{t('saleDetail.client')}</p>
+          </div>
+          <p className="metric-value truncate">{sale.client?.name || t('saleDetail.cashClient')}</p>
+        </div>
+
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-neutral" aria-hidden />
+            <p className="metric-label truncate">{t('saleDetail.date')}</p>
+          </div>
+          <p className="metric-value truncate">{formatDate(sale.date)}</p>
+        </div>
+
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-neutral" aria-hidden />
+            <p className="metric-label truncate">{t('saleDetail.saleStatus')}</p>
+          </div>
+          <div className="mt-1">{getStatusBadge(sale.status)}</div>
+        </div>
+
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-neutral" aria-hidden />
+            <p className="metric-label truncate">{t('saleDetail.paymentStatus')}</p>
+          </div>
+          <div className="mt-1">{getPaymentStatusBadge(sale.payment_status)}</div>
         </div>
       </div>
 
-      {/* Status Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="card">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-              <UserIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{t('saleDetail.client')}</p>
-              <p className="font-semibold dark:text-gray-100">{sale.client?.name || t('saleDetail.cashClient')}</p>
-              {sale.client?.code && (
-                <p className="text-[11px] text-indigo-600 dark:text-indigo-400 font-mono">{sale.client.code}</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-              <CalendarIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{t('saleDetail.date')}</p>
-              <p className="font-semibold dark:text-gray-100">{formatDate(sale.date)}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{t('saleDetail.saleStatus')}</p>
-          {getStatusBadge(sale.status)}
-        </div>
-
-        <div className="card">
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{t('saleDetail.paymentStatus')}</p>
-          {getPaymentStatusBadge(sale.payment_status)}
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Items Table */}
-        <div className="lg:col-span-2">
-          <div className="card">
-            {/* Summary totals at top */}
-            {(() => {
-              const totalCost = sale.items?.reduce((sum, item) => {
-                const ppp = item.product?.pieces_per_package || 1;
-                const totalPieces = Math.round(item.quantity);
-                const costPrice = Number(item.product?.cost_price) || 0;
-                return sum + (costPrice * totalPieces);
-              }, 0) || 0;
-              const totalSell = sale.items?.reduce((sum, item) => sum + (Number(item.subtotal) || 0), 0) || 0;
-              const profit = totalSell - totalCost;
-              return (
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-3 text-center">
-                    <p className="text-xs text-orange-600 dark:text-orange-400">{t('saleDetail.totalPurchasePrice')}</p>
-                    <p className="text-lg font-bold text-orange-700 dark:text-orange-300">{formatCurrency(totalCost)}</p>
-                  </div>
-                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 text-center">
-                    <p className="text-xs text-green-600 dark:text-green-400">{t('saleDetail.totalSalePrice')}</p>
-                    <p className="text-lg font-bold text-green-700 dark:text-green-300">{formatCurrency(totalSell)}</p>
-                  </div>
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-center">
-                    <p className="text-xs text-blue-600 dark:text-blue-400">{t('saleDetail.profitMargin')}</p>
-                    <p className={`text-lg font-bold ${profit >= 0 ? 'text-blue-700 dark:text-blue-300' : 'text-red-700 dark:text-red-300'}`}>{formatCurrency(profit)}</p>
-                  </div>
+      {/* ─── Main grid ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Items + payments column */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Profit summary */}
+          <div className="surface-pro p-4">
+            <h3 className="surface-heading mb-3">{t('saleDetail.invoiceSummary')}</h3>
+            <div className="grid grid-cols-3 gap-2.5">
+              <div className="metric-tile">
+                <div className="flex items-center gap-1.5">
+                  <span className="metric-dot metric-dot-orange" aria-hidden />
+                  <p className="metric-label truncate">{t('saleDetail.totalPurchasePrice')}</p>
                 </div>
-              );
-            })()}
+                <p className="metric-value metric-value-currency">{formatCurrency(totalCost)}</p>
+              </div>
+              <div className="metric-tile">
+                <div className="flex items-center gap-1.5">
+                  <span className="metric-dot metric-dot-green" aria-hidden />
+                  <p className="metric-label truncate">{t('saleDetail.totalSalePrice')}</p>
+                </div>
+                <p className="metric-value metric-value-currency">{formatCurrency(totalSell)}</p>
+              </div>
+              <div className="metric-tile">
+                <div className="flex items-center gap-1.5">
+                  <span className={`metric-dot ${profit >= 0 ? 'metric-dot-blue' : 'metric-dot-red'}`} aria-hidden />
+                  <p className="metric-label truncate">{t('saleDetail.profitMargin')}</p>
+                </div>
+                <p className="metric-value metric-value-currency">{formatCurrency(profit)}</p>
+              </div>
+            </div>
+          </div>
 
-            <h3 className="text-lg font-semibold mb-4 dark:text-gray-100">{t('saleDetail.products', { count: String(sale.items?.length || 0) })}</h3>
-            <div className="overflow-x-auto">
-              <table>
+          {/* Items Table */}
+          <div className="surface-pro p-4">
+            <h3 className="surface-heading mb-3">
+              {t('saleDetail.products', { count: String(sale.items?.length || 0) })}
+            </h3>
+            <div className="table-pro-wrap">
+              <table className="table-pro compact">
                 <thead>
                   <tr>
                     <th>{t('saleDetail.product')}</th>
@@ -601,7 +599,7 @@ export default function SaleDetail() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sale.items?.map((item, index) => {
+                  {sale.items?.map((item) => {
                     const piecesPerPkg = item.product?.pieces_per_package || 1;
                     const totalPieces = Math.round(item.quantity);
                     const cartons = piecesPerPkg > 1 ? Math.floor(totalPieces / piecesPerPkg) : 0;
@@ -609,25 +607,17 @@ export default function SaleDetail() {
                     return (
                       <tr key={item.id}>
                         <td>
-                          <div className="font-medium dark:text-gray-100">{item.product?.name || '-'}</div>
+                          <div className="t-strong">{item.product?.name || '-'}</div>
                           {item.product?.barcode && (
-                            <div className="text-xs text-gray-400 dark:text-gray-500">{item.product.barcode}</div>
+                            <div className="text-[11px] text-gray-400">{item.product.barcode}</div>
                           )}
                         </td>
-                        <td className="text-center">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                            {piecesPerPkg > 1 ? piecesPerPkg : '-'}
-                          </span>
-                        </td>
-                        <td className="text-center font-bold dark:text-gray-100">{piecesPerPkg > 1 ? cartons : '-'}</td>
-                        <td className="text-center text-gray-600 dark:text-gray-400">{piecesPerPkg > 1 ? remainPcs : '-'}</td>
-                        <td className="text-center">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-sm font-bold bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300">
-                            {totalPieces}
-                          </span>
-                        </td>
-                        <td className="text-center dark:text-gray-300">{formatCurrency(item.unit_price)}</td>
-                        <td className="text-center font-semibold dark:text-gray-100">{formatCurrency(item.subtotal)}</td>
+                        <td className="text-center tnum t-muted">{piecesPerPkg > 1 ? piecesPerPkg : '-'}</td>
+                        <td className="text-center tnum t-strong">{piecesPerPkg > 1 ? cartons : '-'}</td>
+                        <td className="text-center tnum t-muted">{piecesPerPkg > 1 ? remainPcs : '-'}</td>
+                        <td className="text-center tnum t-strong">{totalPieces}</td>
+                        <td className="text-center tnum">{formatCurrency(item.unit_price)}</td>
+                        <td className="text-center tnum t-strong">{formatCurrency(item.subtotal)}</td>
                       </tr>
                     );
                   })}
@@ -638,15 +628,18 @@ export default function SaleDetail() {
 
           {/* Payments History */}
           {sale.payments && sale.payments.length > 0 && (
-            <div className="card mt-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold dark:text-gray-100">{t('saleDetail.paymentHistory', { count: String(sale.payments.length) })}</h3>
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {t('saleDetail.totalPaid')}: <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(sale.paid_amount)}</span>
+            <div className="surface-pro p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="surface-heading">
+                  {t('saleDetail.paymentHistory', { count: String(sale.payments.length) })}
+                </h3>
+                <span className="text-[12px] text-gray-500 dark:text-gray-400">
+                  {t('saleDetail.totalPaid')}:{' '}
+                  <span className="t-strong tnum">{formatCurrency(sale.paid_amount)}</span>
                 </span>
               </div>
-              <div className="overflow-x-auto">
-                <table>
+              <div className="table-pro-wrap">
+                <table className="table-pro compact">
                   <thead>
                     <tr>
                       <th className="text-center w-12">#</th>
@@ -661,22 +654,18 @@ export default function SaleDetail() {
                   <tbody>
                     {sale.payments.map((payment, index) => (
                       <tr key={payment.id}>
-                        <td className="text-center text-gray-500 dark:text-gray-400">{index + 1}</td>
-                        <td className="text-center font-mono text-sm dark:text-gray-300">{payment.reference}</td>
-                        <td className="text-center dark:text-gray-300">{formatDate(payment.date)}</td>
+                        <td className="text-center text-gray-500 tnum">{index + 1}</td>
+                        <td className="text-center font-mono text-[12px] tnum">{payment.reference}</td>
+                        <td className="text-center tnum">{formatDate(payment.date)}</td>
                         <td className="text-center">
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            payment.payment_method === 'cash' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                            payment.payment_method === 'bank' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
-                            payment.payment_method === 'check' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
-                            'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                          }`}>
+                          <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                            <span className={`metric-dot ${getPaymentMethodDot(payment.payment_method)}`} aria-hidden />
                             {getPaymentMethodLabel(payment.payment_method)}
                           </span>
                         </td>
-                        <td className="text-center font-semibold text-green-600 dark:text-green-400">{formatCurrency(payment.amount)}</td>
-                        <td className="text-center text-gray-600 dark:text-gray-400">{payment.user?.name || '-'}</td>
-                        <td className="text-gray-500 dark:text-gray-400 text-sm">{payment.notes || '-'}</td>
+                        <td className="text-center tnum t-strong">{formatCurrency(payment.amount)}</td>
+                        <td className="text-center t-muted">{payment.user?.name || '-'}</td>
+                        <td className="t-muted text-[12px]">{payment.notes || '-'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -687,91 +676,78 @@ export default function SaleDetail() {
         </div>
 
         {/* Summary Sidebar */}
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Totals */}
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-4 dark:text-gray-100">{t('saleDetail.invoiceSummary')}</h3>
-            <div className="space-y-3">
+          <div className="surface-pro p-4">
+            <h3 className="surface-heading mb-3">{t('saleDetail.invoiceSummary')}</h3>
+            <div className="space-y-2 text-[13px]">
               <div className="flex justify-between text-gray-600 dark:text-gray-400">
                 <span>{t('saleDetail.subtotal')}</span>
-                <span>{formatCurrency(sale.total_amount)}</span>
+                <span className="tnum">{formatCurrency(sale.total_amount)}</span>
               </div>
               {sale.discount > 0 && (
-                <div className="flex justify-between text-red-600 dark:text-red-400">
+                <div className="flex justify-between text-gray-600 dark:text-gray-400">
                   <span>{t('saleDetail.discount')}</span>
-                  <span>-{formatCurrency(sale.discount)}</span>
+                  <span className="tnum">-{formatCurrency(sale.discount)}</span>
                 </div>
               )}
               {sale.tax > 0 && (
-                <div className="flex justify-between text-blue-600 dark:text-blue-400">
+                <div className="flex justify-between text-gray-600 dark:text-gray-400">
                   <span>{t('saleDetail.tax')}</span>
-                  <span>+{formatCurrency(sale.tax)}</span>
+                  <span className="tnum">+{formatCurrency(sale.tax)}</span>
                 </div>
               )}
               {sale.shipping > 0 && (
                 <div className="flex justify-between text-gray-600 dark:text-gray-400">
                   <span>{t('saleDetail.shipping')}</span>
-                  <span>+{formatCurrency(sale.shipping)}</span>
+                  <span className="tnum">+{formatCurrency(sale.shipping)}</span>
                 </div>
               )}
               {sale.timbre > 0 && (
                 <div className="flex justify-between text-gray-600 dark:text-gray-400">
                   <span>{locale === 'ar' ? 'الطابع' : 'Timbre'}</span>
-                  <span>+{formatCurrency(sale.timbre)}</span>
+                  <span className="tnum">+{formatCurrency(sale.timbre)}</span>
                 </div>
               )}
-              <hr className="dark:border-gray-700" />
-              <div className="flex justify-between text-lg font-bold dark:text-gray-100">
+              <hr className="border-gray-200 dark:border-gray-700" />
+              <div className="flex justify-between text-[14px] font-semibold text-gray-900 dark:text-white">
                 <span>{t('saleDetail.grandTotal')}</span>
-                <span className="text-green-600 dark:text-green-400">{formatCurrency(sale.grand_total)}</span>
+                <span className="tnum">{formatCurrency(sale.grand_total)}</span>
               </div>
-              <hr className="dark:border-gray-700" />
+              <hr className="border-gray-200 dark:border-gray-700" />
               <div className="flex justify-between text-gray-600 dark:text-gray-400">
                 <span>{t('saleDetail.paidAmount')}</span>
-                <span className="text-green-600 dark:text-green-400">{formatCurrency(sale.paid_amount)}</span>
+                <span className="tnum">{formatCurrency(sale.paid_amount)}</span>
               </div>
-              <div className="flex justify-between font-semibold dark:text-gray-100">
+              <div className="flex justify-between font-semibold text-gray-900 dark:text-white">
                 <span>{t('saleDetail.remaining')}</span>
-                <span className={sale.due_amount > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}>
-                  {formatCurrency(sale.due_amount)}
-                </span>
+                <span className="tnum">{formatCurrency(sale.due_amount)}</span>
               </div>
             </div>
           </div>
 
           {/* Additional Info */}
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-4 dark:text-gray-100">{t('saleDetail.additionalInfo')}</h3>
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                  <BuildingStorefrontIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('saleDetail.warehouse')}</p>
-                  <p className="font-medium dark:text-gray-100">{sale.warehouse?.name || '-'}</p>
-                </div>
+          <div className="surface-pro p-4">
+            <h3 className="surface-heading mb-3">{t('saleDetail.additionalInfo')}</h3>
+            <div className="space-y-3 text-[13px]">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500 dark:text-gray-400">{t('saleDetail.warehouse')}</span>
+                <span className="text-gray-700 dark:text-gray-200 font-medium">{sale.warehouse?.name || '-'}</span>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                  <UserIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('saleDetail.seller')}</p>
-                  <p className="font-medium dark:text-gray-100">{sale.user?.name || '-'}</p>
-                </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500 dark:text-gray-400">{t('saleDetail.seller')}</span>
+                <span className="text-gray-700 dark:text-gray-200 font-medium">{sale.user?.name || '-'}</span>
               </div>
+              {sale.client?.code && (
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">{t('saleDetail.client')}</span>
+                  <span className="text-gray-700 dark:text-gray-200 font-mono text-[12px]">{sale.client.code}</span>
+                </div>
+              )}
               {sale.client?.phone && (
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                    <svg className="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('saleDetail.clientPhone')}</p>
-                    <p className="font-medium dark:text-gray-100">{sale.client.phone}</p>
-                  </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">{t('saleDetail.clientPhone')}</span>
+                  <span className="text-gray-700 dark:text-gray-200 font-medium tnum">{sale.client.phone}</span>
                 </div>
               )}
             </div>
@@ -779,9 +755,9 @@ export default function SaleDetail() {
 
           {/* Notes */}
           {sale.note && (
-            <div className="card">
-              <h3 className="text-lg font-semibold mb-3 dark:text-gray-100">{t('saleDetail.notes')}</h3>
-              <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{sale.note}</p>
+            <div className="surface-pro p-4">
+              <h3 className="surface-heading mb-2">{t('saleDetail.notes')}</h3>
+              <p className="text-[13px] text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{sale.note}</p>
             </div>
           )}
         </div>
@@ -804,28 +780,28 @@ export default function SaleDetail() {
         title={t('saleDetail.addPaymentTitle')}
       >
         <form onSubmit={handlePayment} className="space-y-4">
-          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-4">
-            <div className="flex justify-between mb-2">
+          <div className="surface-pro p-3 text-[13px]">
+            <div className="flex justify-between mb-1.5">
               <span className="text-gray-600 dark:text-gray-400">{t('saleDetail.totalAmountLabel')}</span>
-              <span className="font-semibold dark:text-gray-100">{formatCurrency(sale.grand_total)}</span>
+              <span className="tnum t-strong">{formatCurrency(sale.grand_total)}</span>
             </div>
-            <div className="flex justify-between mb-2">
+            <div className="flex justify-between mb-1.5">
               <span className="text-gray-600 dark:text-gray-400">{t('saleDetail.paidLabel')}</span>
-              <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(sale.paid_amount)}</span>
+              <span className="tnum t-strong">{formatCurrency(sale.paid_amount)}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">{t('saleDetail.remainingLabel')}</span>
-              <span className="font-bold text-red-600 dark:text-red-400">{formatCurrency(sale.due_amount)}</span>
+            <div className="flex justify-between font-semibold">
+              <span className="text-gray-700 dark:text-gray-200">{t('saleDetail.remainingLabel')}</span>
+              <span className="tnum">{formatCurrency(sale.due_amount)}</span>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('saleDetail.amountField')}</label>
+            <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('saleDetail.amountField')}</label>
             <input
               type="number"
               value={paymentData.amount}
               onChange={(e) => setPaymentData(prev => ({ ...prev, amount: e.target.value }))}
-              className="input w-full"
+              className="input w-full text-[14px] py-2"
               placeholder="0.00"
               min="0"
               max={sale.due_amount}
@@ -836,14 +812,14 @@ export default function SaleDetail() {
               <button
                 type="button"
                 onClick={() => setPaymentData(prev => ({ ...prev, amount: sale.due_amount.toString() }))}
-                className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-1 rounded hover:bg-blue-200 dark:hover:bg-blue-900/50"
+                className="text-[11px] font-medium px-2 py-1 rounded border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 {t('saleDetail.fullAmount')}
               </button>
               <button
                 type="button"
                 onClick={() => setPaymentData(prev => ({ ...prev, amount: (sale.due_amount / 2).toFixed(2) }))}
-                className="text-xs bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
+                className="text-[11px] font-medium px-2 py-1 rounded border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 {t('saleDetail.halfAmount')}
               </button>
@@ -851,11 +827,11 @@ export default function SaleDetail() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('saleDetail.paymentMethodField')}</label>
+            <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('saleDetail.paymentMethodField')}</label>
             <select
               value={paymentData.payment_method}
               onChange={(e) => setPaymentData(prev => ({ ...prev, payment_method: e.target.value as any }))}
-              className="select w-full"
+              className="select w-full text-[14px] py-2"
               required
             >
               <option value="cash">{t('saleDetail.cash')}</option>
@@ -866,7 +842,7 @@ export default function SaleDetail() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('saleDetail.dateField')}</label>
+            <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('saleDetail.dateField')}</label>
             <DateInput
               value={paymentData.date}
               onChange={(v) => setPaymentData(prev => ({ ...prev, date: v }))}
@@ -876,34 +852,34 @@ export default function SaleDetail() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('saleDetail.notesField')}</label>
+            <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('saleDetail.notesField')}</label>
             <textarea
               value={paymentData.notes}
               onChange={(e) => setPaymentData(prev => ({ ...prev, notes: e.target.value }))}
-              className="input w-full"
+              className="input w-full text-[14px] py-2"
               rows={2}
               placeholder={t('saleDetail.optionalNotes')}
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
+          <div className="flex justify-end gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
             <button
               type="button"
               onClick={() => setIsPaymentOpen(false)}
-              className="btn btn-secondary"
+              className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
               {t('saleDetail.cancel')}
             </button>
             <button
               type="submit"
               disabled={isProcessingPayment}
-              className="btn btn-primary"
+              className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors disabled:opacity-50"
             >
               {isProcessingPayment ? (
-                <span className="spinner w-5 h-5"></span>
+                <span className="spinner w-4 h-4"></span>
               ) : (
                 <>
-                  <CheckCircleIcon className="w-5 h-5" />
+                  <CheckCircleIcon className="w-4 h-4" />
                   {t('saleDetail.confirmPayment')}
                 </>
               )}

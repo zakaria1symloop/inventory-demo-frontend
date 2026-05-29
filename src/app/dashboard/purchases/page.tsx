@@ -24,6 +24,7 @@ import {
 import GuidedTour from '@/components/GuidedTour';
 import type { TourStep } from '@/components/GuidedTour';
 import { useLocale } from '@/lib/i18n/context';
+import { PageHeader, FilterBar } from '@/components/dashboard';
 
 interface Purchase {
   id: number;
@@ -512,21 +513,21 @@ export default function PurchasesPage() {
   };
 
   const getStatusBadge = (status: string) => {
-    const badges: Record<string, { class: string; text: string }> = {
-      pending: { class: 'badge-warning', text: t('purchases.pending') },
-      received: { class: 'badge-success', text: t('purchases.received') },
-      partial: { class: 'badge-info', text: t('purchases.partial') },
+    const badges: Record<string, { dot: string; text: string }> = {
+      pending: { dot: 'metric-dot-orange', text: t('purchases.pending') },
+      received: { dot: 'metric-dot-green', text: t('purchases.received') },
+      partial: { dot: 'metric-dot-blue', text: t('purchases.partial') },
     };
-    return badges[status] || { class: 'badge-secondary', text: status };
+    return badges[status] || { dot: 'metric-dot-neutral', text: status };
   };
 
   const getPaymentBadge = (status: string) => {
-    const badges: Record<string, { class: string; text: string }> = {
-      unpaid: { class: 'badge-danger', text: t('purchases.unpaidStatus') },
-      partial: { class: 'badge-warning', text: t('purchases.partialStatus') },
-      paid: { class: 'badge-success', text: t('purchases.paidStatus') },
+    const badges: Record<string, { dot: string; text: string }> = {
+      unpaid: { dot: 'metric-dot-red', text: t('purchases.unpaidStatus') },
+      partial: { dot: 'metric-dot-orange', text: t('purchases.partialStatus') },
+      paid: { dot: 'metric-dot-green', text: t('purchases.paidStatus') },
     };
-    return badges[status] || { class: 'badge-secondary', text: status };
+    return badges[status] || { dot: 'metric-dot-neutral', text: status };
   };
 
   const filteredPurchases = useMemo(() => {
@@ -587,269 +588,213 @@ export default function PurchasesPage() {
     switch (tab.type) {
       case 'list':
         return (
-          <div className="space-y-5">
+          <div className="space-y-4">
             {/* ─── Header ─── */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-3">
-              <div data-tour="purchases-title">
-                <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('purchases.title')}</h1>
-                <p className="text-sm text-gray-400 mt-1.5">{t('purchases.subtitle')}</p>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
+            <div data-tour="purchases-title">
+              <PageHeader title={t('purchases.title')} subtitle={t('purchases.subtitle')}>
                 <Link
                   href="/dashboard/purchases/creditors"
-                  className="group inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold rounded-xl border-2 border-red-200 text-red-600 bg-red-50/50 hover:bg-red-100 hover:border-red-300 dark:border-red-800 dark:bg-red-900/20 dark:hover:bg-red-900/40 transition-all duration-200"
+                  className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                   data-tour="purchases-creditors"
                 >
-                  <BanknotesIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  <BanknotesIcon className="w-4 h-4" strokeWidth={1.8} />
                   {t('purchases.supplierDebts')}
                 </Link>
                 <button
                   onClick={openNewTab}
-                  className="group inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-all duration-200"
+                  className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-bold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors"
                   data-tour="purchases-add"
                 >
-                  <PlusIcon className="w-5 h-5 group-hover:rotate-90 transition-transform duration-200" />
+                  <PlusIcon className="w-4 h-4" />
                   <span className="hidden sm:inline">{t('purchases.addPurchaseInvoice')}</span>
                   <span className="sm:hidden">{t('purchases.add')}</span>
                   <kbd className="hidden sm:inline bg-white/20 px-1.5 py-0.5 rounded-md text-[10px] font-mono">Insert</kbd>
                 </button>
-              </div>
+              </PageHeader>
             </div>
 
             {/* ─── KPI Strip ─── */}
-            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 sm:divide-x sm:divide-x-reverse divide-gray-100 dark:divide-gray-700">
-                <div className="group relative p-5 hover:bg-blue-50/40 dark:hover:bg-blue-900/20 transition-colors duration-200">
-                  <div className="absolute top-0 inset-x-0 h-[3px] bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-                  <div className="text-center">
-                    <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.totalCount}</div>
-                    <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('purchases.totalInvoices')}</div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
+              {[
+                { label: t('purchases.totalInvoices'),  value: kpis.totalCount,                  dot: 'metric-dot-neutral', currency: false },
+                { label: t('purchases.totalPurchases'), value: formatCurrency(kpis.totalAmount), dot: 'metric-dot-violet',  currency: true },
+                { label: t('purchases.paid'),           value: formatCurrency(kpis.paidAmount),  dot: 'metric-dot-green',   currency: true },
+                { label: t('purchases.remainingDebts'), value: formatCurrency(kpis.dueAmount),   dot: 'metric-dot-red',     currency: true },
+                { label: t('purchases.unpaid'),         value: kpis.unpaidCount,                 dot: 'metric-dot-orange',  currency: false },
+                { label: t('purchases.partialPayment'), value: kpis.partialCount,                dot: 'metric-dot-blue',    currency: false },
+              ].map((s, i) => (
+                <div key={i} className="metric-tile">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`metric-dot ${s.dot}`} aria-hidden />
+                    <p className="metric-label truncate">{s.label}</p>
                   </div>
+                  {s.currency ? (
+                    <p className="metric-value-currency">{s.value}</p>
+                  ) : (
+                    <p className="metric-value truncate">{s.value}</p>
+                  )}
                 </div>
-
-                <div className="group relative p-5 hover:bg-purple-50/40 dark:hover:bg-purple-900/20 transition-colors duration-200">
-                  <div className="absolute top-0 inset-x-0 h-[3px] bg-purple-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-                  <div className="text-center">
-                    <div className="text-lg font-black text-gray-900 dark:text-white tabular-nums leading-none">{formatCurrency(kpis.totalAmount)}</div>
-                    <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('purchases.totalPurchases')}</div>
-                  </div>
-                </div>
-
-                <div className="group relative p-5 hover:bg-emerald-50/40 dark:hover:bg-emerald-900/20 transition-colors duration-200">
-                  <div className="absolute top-0 inset-x-0 h-[3px] bg-emerald-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-                  <div className="text-center">
-                    <div className="text-lg font-black text-emerald-600 tabular-nums leading-none">{formatCurrency(kpis.paidAmount)}</div>
-                    <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('purchases.paid')}</div>
-                  </div>
-                </div>
-
-                <div className="group relative p-5 hover:bg-red-50/40 dark:hover:bg-red-900/20 transition-colors duration-200">
-                  <div className="absolute top-0 inset-x-0 h-[3px] bg-red-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-                  <div className="text-center">
-                    <div className="text-lg font-black text-red-600 tabular-nums leading-none">{formatCurrency(kpis.dueAmount)}</div>
-                    <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('purchases.remainingDebts')}</div>
-                  </div>
-                </div>
-
-                <div className="group relative p-5 hover:bg-amber-50/40 dark:hover:bg-amber-900/20 transition-colors duration-200">
-                  <div className="absolute top-0 inset-x-0 h-[3px] bg-amber-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-                  <div className="text-center">
-                    <div className="text-3xl font-black text-amber-600 tabular-nums leading-none">{kpis.unpaidCount}</div>
-                    <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('purchases.unpaid')}</div>
-                  </div>
-                </div>
-
-                <div className="group relative p-5 hover:bg-orange-50/40 dark:hover:bg-orange-900/20 transition-colors duration-200">
-                  <div className="absolute top-0 inset-x-0 h-[3px] bg-orange-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-                  <div className="text-center">
-                    <div className="text-3xl font-black text-orange-500 tabular-nums leading-none">{kpis.partialCount}</div>
-                    <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('purchases.partialPayment')}</div>
-                  </div>
-                </div>
-              </div>
+              ))}
             </div>
 
             {/* ─── Filters ─── */}
-            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden" data-tour="purchases-filters">
-              <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-gray-200/70 dark:bg-gray-700 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                    </svg>
-                  </div>
-                  <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('purchases.filters')}</span>
-                  {hasActiveFilters && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">{t('purchases.active')}</span>
-                  )}
-                </div>
-                {hasActiveFilters && (
-                  <button onClick={clearFilters} className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 px-2.5 py-1.5 rounded-lg transition-colors">
+            <div data-tour="purchases-filters">
+              <FilterBar
+                search={searchTerm}
+                onSearchChange={setSearchTerm}
+                searchPlaceholder={t('purchases.refOrSupplier')}
+                trailing={hasActiveFilters ? (
+                  <button onClick={clearFilters} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 px-2.5 py-1.5 rounded-md transition-colors">
                     <XMarkIcon className="w-3.5 h-3.5" />
                     {t('purchases.clearAll')}
                   </button>
-                )}
-              </div>
-
-              <div className="p-5 space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder={t('purchases.refOrSupplier')}
-                    className="input"
-                  />
-                  <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select">
-                    <option value="">{t('purchases.allStatuses')}</option>
-                    <option value="pending">{t('purchases.pending')}</option>
-                    <option value="received">{t('purchases.received')}</option>
-                    <option value="partial">{t('purchases.partial')}</option>
-                  </select>
-                  <select value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value)} className="select">
-                    <option value="">{t('purchases.paymentStatus')}</option>
-                    <option value="unpaid">{t('purchases.unpaidStatus')}</option>
-                    <option value="partial">{t('purchases.partialStatus')}</option>
-                    <option value="paid">{t('purchases.paidStatus')}</option>
-                  </select>
-                  <select value={supplierFilter} onChange={(e) => setSupplierFilter(e.target.value)} className="select">
-                    <option value="">{t('purchases.allSuppliers')}</option>
-                    {suppliers.map(s => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <select value={warehouseFilter} onChange={(e) => setWarehouseFilter(e.target.value)} className="select">
-                    <option value="">{t('purchases.allWarehouses')}</option>
-                    {warehouses.map(w => (
-                      <option key={w.id} value={w.id}>{w.name}</option>
-                    ))}
-                  </select>
-                  <DateInput value={dateFrom} onChange={(v) => setDateFrom(v)} placeholder={t('purchases.fromDate')} />
-                  <DateInput value={dateTo} onChange={(v) => setDateTo(v)} placeholder={t('purchases.toDate')} />
-                  <select value={hasReturnFilter} onChange={(e) => setHasReturnFilter(e.target.value as '' | 'yes' | 'no')} className="select">
-                    <option value="">{t('purchases.allReturns')}</option>
-                    <option value="yes">{t('purchases.hasReturn')}</option>
-                    <option value="no">{t('purchases.noReturn')}</option>
-                  </select>
-                </div>
-              </div>
+                ) : undefined}
+              >
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select text-[14px] py-2">
+                  <option value="">{t('purchases.allStatuses')}</option>
+                  <option value="pending">{t('purchases.pending')}</option>
+                  <option value="received">{t('purchases.received')}</option>
+                  <option value="partial">{t('purchases.partial')}</option>
+                </select>
+                <select value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value)} className="select text-[14px] py-2">
+                  <option value="">{t('purchases.paymentStatus')}</option>
+                  <option value="unpaid">{t('purchases.unpaidStatus')}</option>
+                  <option value="partial">{t('purchases.partialStatus')}</option>
+                  <option value="paid">{t('purchases.paidStatus')}</option>
+                </select>
+                <select value={supplierFilter} onChange={(e) => setSupplierFilter(e.target.value)} className="select text-[14px] py-2">
+                  <option value="">{t('purchases.allSuppliers')}</option>
+                  {suppliers.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+                <select value={warehouseFilter} onChange={(e) => setWarehouseFilter(e.target.value)} className="select text-[14px] py-2">
+                  <option value="">{t('purchases.allWarehouses')}</option>
+                  {warehouses.map(w => (
+                    <option key={w.id} value={w.id}>{w.name}</option>
+                  ))}
+                </select>
+                <DateInput value={dateFrom} onChange={(v) => setDateFrom(v)} placeholder={t('purchases.fromDate')} />
+                <DateInput value={dateTo} onChange={(v) => setDateTo(v)} placeholder={t('purchases.toDate')} />
+                <select value={hasReturnFilter} onChange={(e) => setHasReturnFilter(e.target.value as '' | 'yes' | 'no')} className="select text-[14px] py-2">
+                  <option value="">{t('purchases.allReturns')}</option>
+                  <option value="yes">{t('purchases.hasReturn')}</option>
+                  <option value="no">{t('purchases.noReturn')}</option>
+                </select>
+              </FilterBar>
             </div>
 
             {/* ─── Table ─── */}
-            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden" data-tour="purchases-table">
-              <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('purchases.invoicesList')}</h3>
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 tabular-nums">
-                    {filteredPurchases.length}
-                  </span>
-                </div>
-              </div>
-
+            <div data-tour="purchases-table">
               {isLoading ? (
                 <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>
               ) : (
-                <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr>
-                      <th>{t('purchases.reference')}</th>
-                      <th>{t('purchases.supplier')}</th>
-                      <th>{t('purchases.warehouse')}</th>
-                      <th>{t('purchases.date')}</th>
-                      <th>{t('purchases.total')}</th>
-                      <th>{t('purchases.paidCol')}</th>
-                      <th>{t('purchases.remaining')}</th>
-                      <th>{t('purchases.status')}</th>
-                      <th>{t('purchases.payment')}</th>
-                      <th>{t('purchases.actions')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredPurchases.length === 0 ? (
+                <div className="table-pro-wrap">
+                  <table className="table-pro">
+                    <thead>
                       <tr>
-                        <td colSpan={10} className="text-center py-16">
-                          <div className="flex flex-col items-center gap-3">
-                            <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                              <ClipboardDocumentListIcon className="w-8 h-8 text-gray-300 dark:text-gray-500" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold text-gray-400">{t('purchases.noPurchaseInvoices')}</p>
-                              <p className="text-xs text-gray-300 dark:text-gray-500 mt-1">{t('purchases.tryChangeFilters')}</p>
-                            </div>
-                          </div>
-                        </td>
+                        <th>{t('purchases.reference')}</th>
+                        <th>{t('purchases.supplier')}</th>
+                        <th>{t('purchases.warehouse')}</th>
+                        <th className="text-end">{t('purchases.date')}</th>
+                        <th className="text-end">{t('purchases.total')}</th>
+                        <th className="text-end">{t('purchases.paidCol')}</th>
+                        <th className="text-end">{t('purchases.remaining')}</th>
+                        <th>{t('purchases.status')}</th>
+                        <th>{t('purchases.payment')}</th>
+                        <th>{t('purchases.actions')}</th>
                       </tr>
-                    ) : (
-                      filteredPurchases.map((purchase) => {
-                        const statusBadge = getStatusBadge(purchase.status);
-                        const paymentBadge = getPaymentBadge(purchase.payment_status);
-                        return (
-                          <tr key={purchase.id} className="group hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors duration-150">
-                            <td className="font-bold text-blue-600">{purchase.reference}</td>
-                            <td className="font-medium text-gray-700 dark:text-gray-300">{purchase.supplier?.name || '-'}</td>
-                            <td className="text-gray-500">{purchase.warehouse?.name || '-'}</td>
-                            <td className="text-gray-500 tabular-nums">{formatDate(purchase.date)}</td>
-                            <td className="font-bold text-gray-900 dark:text-white tabular-nums">
-                              {formatCurrency(purchase.grand_total)}
-                              {purchase.returns_total && purchase.returns_total > 0 ? (
-                                <div className="text-[10px] font-medium text-orange-500 mt-0.5">
-                                  -{formatCurrency(purchase.returns_total)} {locale === 'ar' ? 'مرتجع' : 'retour'}
-                                </div>
-                              ) : null}
-                            </td>
-                            <td className="font-semibold text-emerald-600 tabular-nums">{formatCurrency(purchase.paid_amount)}</td>
-                            <td className="font-semibold text-red-600 tabular-nums">{formatCurrency(purchase.due_amount)}</td>
-                            <td>
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className={`badge ${statusBadge.class}`}>{statusBadge.text}</span>
-                                {purchase.returns_count && purchase.returns_count > 0 ? (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">
-                                    <ArrowUturnLeftIcon className="w-3 h-3" />
-                                    {purchase.returns_count}
-                                  </span>
+                    </thead>
+                    <tbody>
+                      {filteredPurchases.length === 0 ? (
+                        <tr>
+                          <td colSpan={10} className="text-center py-16">
+                            <div className="flex flex-col items-center gap-3">
+                              <div className="w-12 h-12 rounded-md bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                                <ClipboardDocumentListIcon className="w-6 h-6 text-gray-300 dark:text-gray-500" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">{t('purchases.noPurchaseInvoices')}</p>
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('purchases.tryChangeFilters')}</p>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredPurchases.map((purchase) => {
+                          const statusBadge = getStatusBadge(purchase.status);
+                          const paymentBadge = getPaymentBadge(purchase.payment_status);
+                          return (
+                            <tr key={purchase.id} className="group">
+                              <td className="font-mono font-semibold text-gray-800 dark:text-gray-100">{purchase.reference}</td>
+                              <td className="font-medium text-gray-700 dark:text-gray-300">{purchase.supplier?.name || '-'}</td>
+                              <td className="text-gray-500">{purchase.warehouse?.name || '-'}</td>
+                              <td className="text-gray-500 tnum">{formatDate(purchase.date)}</td>
+                              <td className="font-semibold text-gray-800 dark:text-gray-100 tnum">
+                                {formatCurrency(purchase.grand_total)}
+                                {purchase.returns_total && purchase.returns_total > 0 ? (
+                                  <div className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mt-0.5">
+                                    -{formatCurrency(purchase.returns_total)} {locale === 'ar' ? 'مرتجع' : 'retour'}
+                                  </div>
                                 ) : null}
-                              </div>
-                            </td>
-                            <td><span className={`badge ${paymentBadge.class}`}>{paymentBadge.text}</span></td>
-                            <td>
-                              <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                                {purchase.status === 'received' && (
-                                  <button onClick={() => openRetourTab(purchase.id, purchase.reference)} className="p-1.5 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-500 transition-colors" title={t('purchases.prRetourButton')}>
-                                    <ArrowUturnLeftIcon className="w-5 h-5" />
+                              </td>
+                              <td className="font-medium text-gray-700 dark:text-gray-200 tnum">{formatCurrency(purchase.paid_amount)}</td>
+                              <td className="font-medium text-gray-700 dark:text-gray-200 tnum">{formatCurrency(purchase.due_amount)}</td>
+                              <td>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                                    <span className={`metric-dot ${statusBadge.dot}`} aria-hidden />
+                                    {statusBadge.text}
+                                  </span>
+                                  {purchase.returns_count && purchase.returns_count > 0 ? (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                                      <ArrowUturnLeftIcon className="w-3 h-3" />
+                                      {purchase.returns_count}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </td>
+                              <td>
+                                <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                                  <span className={`metric-dot ${paymentBadge.dot}`} aria-hidden />
+                                  {paymentBadge.text}
+                                </span>
+                              </td>
+                              <td>
+                                <div className="flex items-center gap-1">
+                                  {purchase.status === 'received' && (
+                                    <button onClick={() => openRetourTab(purchase.id, purchase.reference)} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors" title={t('purchases.prRetourButton')}>
+                                      <ArrowUturnLeftIcon className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {purchase.status === 'pending' && (
+                                    <button onClick={() => handleConfirmPurchase(purchase.id)} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors" title={t('purchases.confirmReceipt')}>
+                                      <CheckCircleIcon className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  <button onClick={() => openEditTab(purchase.id, purchase.reference)} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors" title={t('purchases.edit')}>
+                                    <PencilSquareIcon className="w-4 h-4" />
                                   </button>
-                                )}
-                                {purchase.status === 'pending' && (
-                                  <button onClick={() => handleConfirmPurchase(purchase.id)} className="p-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 transition-colors" title={t('purchases.confirmReceipt')}>
-                                    <CheckCircleIcon className="w-5 h-5" />
+                                  <button onClick={() => handleDelete(purchase.id)} className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors" title={t('purchases.delete')}>
+                                    <TrashIcon className="w-4 h-4" />
                                   </button>
-                                )}
-                                <button onClick={() => openEditTab(purchase.id, purchase.reference)} className="p-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/30 text-amber-600 transition-colors" title={t('purchases.edit')}>
-                                  <PencilSquareIcon className="w-5 h-5" />
-                                </button>
-                                <button onClick={() => handleDelete(purchase.id)} className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 transition-colors" title={t('purchases.delete')}>
-                                  <TrashIcon className="w-5 h-5" />
-                                </button>
-                                <Link href={`/dashboard/purchases/${purchase.id}`} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 transition-colors" title={t('purchases.view')}>
-                                  <EyeIcon className="w-5 h-5" />
-                                </Link>
-                                <button onClick={() => handleDownloadFacture(purchase.id, purchase.reference)} className="p-1.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 transition-colors" title={t('purchases.purchaseBon')}>
-                                  <DocumentTextIcon className="w-5 h-5" />
-                                </button>
-                                <button onClick={() => handleDownloadBonCommande(purchase.id, purchase.reference)} className="p-1.5 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 text-green-600 transition-colors" title={t('purchases.orderBon')}>
-                                  <ClipboardDocumentListIcon className="w-5 h-5" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
+                                  <Link href={`/dashboard/purchases/${purchase.id}`} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors" title={t('purchases.view')}>
+                                    <EyeIcon className="w-4 h-4" />
+                                  </Link>
+                                  <button onClick={() => handleDownloadFacture(purchase.id, purchase.reference)} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors" title={t('purchases.purchaseBon')}>
+                                    <DocumentTextIcon className="w-4 h-4" />
+                                  </button>
+                                  <button onClick={() => handleDownloadBonCommande(purchase.id, purchase.reference)} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors" title={t('purchases.orderBon')}>
+                                    <ClipboardDocumentListIcon className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>

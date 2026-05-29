@@ -349,7 +349,7 @@ export default function DateInput({
   ) : null;
 
   return (
-    <div ref={containerRef} className={`relative ${className}`}>
+    <div ref={containerRef} className={`relative inline-block w-full sm:w-auto sm:min-w-[150px] ${className}`}>
       <div className="relative">
         <input
           ref={inputRef}
@@ -365,7 +365,7 @@ export default function DateInput({
           placeholder={placeholder}
           required={required}
           disabled={disabled}
-          className="input pl-9"
+          className="input pl-9 text-[13.5px] !py-0 h-[38px] w-full min-w-[150px] !rounded-md !bg-gray-50/60 hover:!bg-white focus:!bg-white dark:!bg-gray-900/40 dark:hover:!bg-gray-800 dark:focus:!bg-gray-800 transition-colors"
           style={{ direction: 'ltr', textAlign: 'left' }}
           autoComplete="off"
         />

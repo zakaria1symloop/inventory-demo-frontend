@@ -8,6 +8,14 @@ const securityHeaders = [
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self)' },
 ];
 
+// RFC 8288 Link headers for agent/LLM discovery: advertise the API catalog
+// (RFC 9727) and the markdown LLM guide. Comma separates the two link values.
+const agentDiscoveryLink = {
+  key: 'Link',
+  value:
+    '</.well-known/api-catalog>; rel="api-catalog", </llms.txt>; rel="alternate"; type="text/markdown"; title="LLM guide"',
+};
+
 const nextConfig: NextConfig = {
   output: 'standalone',
   images: {
@@ -24,7 +32,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/(.*)',
-        headers: securityHeaders,
+        headers: [...securityHeaders, agentDiscoveryLink],
       },
       {
         source: '/blog/:slug*',

@@ -7,18 +7,14 @@ import DateInput from '@/components/ui/DateInput';
 import { formatQty, formatQtyLong } from '@/lib/utils';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
-import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { useLocale } from '@/lib/i18n/context';
 import GuidedTour, { TourStep } from '@/components/GuidedTour';
+import { PageHeader } from '@/components/dashboard';
 import {
   ArrowsUpDownIcon,
-  ArrowRightIcon,
-  ArrowLeftIcon,
   MapPinIcon,
   TruckIcon,
-  UserIcon,
-  CalendarIcon,
   CheckCircleIcon,
   XMarkIcon,
   ChevronDownIcon,
@@ -29,7 +25,6 @@ import {
   DocumentArrowDownIcon,
   BuildingStorefrontIcon,
   PlayIcon,
-  CubeIcon,
 } from '@heroicons/react/24/outline';
 
 interface Client {
@@ -81,7 +76,6 @@ interface Vehicle {
 export default function NewDeliveryPage() {
   const { t, locale, dir } = useLocale();
   const isRTL = dir === 'rtl';
-  const BackArrowIcon = isRTL ? ArrowRightIcon : ArrowLeftIcon;
 
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -132,7 +126,7 @@ export default function NewDeliveryPage() {
     );
   };
 
-  // ── Print single order (receipt-style, Arabic-only) ──
+  // ── Print single order (receipt-style) ──
   const printOrder = (order: Order, e: React.MouseEvent) => {
     e.stopPropagation();
     const iframe = document.createElement('iframe');
@@ -211,7 +205,7 @@ export default function NewDeliveryPage() {
     }
   };
 
-  // ── Print order via HTML (renders Arabic correctly via system fonts) ──
+  // ── Print order via HTML ──
   const downloadOrderPDF = (order: Order, e: React.MouseEvent) => {
     e.stopPropagation();
     const escape = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] || c));
@@ -418,7 +412,7 @@ export default function NewDeliveryPage() {
     return Object.values(merged).sort((a, b) => a.name.localeCompare(b.name));
   };
 
-  // ── Print merged loading list (professional invoice style) ──
+  // ── Print merged loading list ──
   const printMergedProducts = () => {
     const products = getMergedProducts();
     const livreur = livreurs.find((l) => l.id === Number(formData.livreur_id));
@@ -446,20 +440,16 @@ export default function NewDeliveryPage() {
           * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; }
           body { font-size: 9px; line-height: 1.3; color: #000; padding: 10px 15px; }
           table { border-collapse: collapse; width: 100%; }
-
           .title-bar { text-align: center; background: #000; color: #fff; padding: 8px; margin-bottom: 10px; }
           .title-bar h1 { font-size: 16px; margin: 0; }
           .title-bar .ref { font-size: 10px; margin-top: 2px; }
-
           .info-section { margin-bottom: 8px; }
           .info-box { border: 1px solid #000; padding: 5px; font-size: 8px; }
           .info-box h3 { font-size: 9px; font-weight: bold; margin-bottom: 3px; background: #eee; padding: 2px 4px; margin: -5px -5px 4px -5px; }
-
           .stats-bar { display: flex; justify-content: space-around; background: #f8f8f8; border: 1px solid #ddd; padding: 8px; margin-bottom: 10px; }
           .stat { text-align: center; }
           .stat-value { font-size: 16px; font-weight: bold; color: #1a56db; }
           .stat-label { font-size: 7px; color: #666; text-transform: uppercase; }
-
           table.products th { background: #333; color: #fff; padding: 5px 4px; font-size: 8px; text-align: center; border: 1px solid #000; }
           table.products td { padding: 4px 3px; font-size: 8px; border: 1px solid #000; text-align: center; }
           table.products td.name { text-align: right; font-weight: 600; font-size: 9px; }
@@ -469,30 +459,24 @@ export default function NewDeliveryPage() {
           tr:nth-child(even) { background: #fafafa; }
           .total-row { background: #e8f4fd !important; font-weight: bold; }
           .total-row td { font-size: 9px; padding: 6px 4px; border-top: 2px solid #000; }
-
           .clients-section { margin-top: 12px; }
           .clients-section h3 { font-size: 10px; font-weight: bold; background: #333; color: #fff; padding: 4px 6px; margin-bottom: 0; }
           table.clients th { background: #eee; padding: 4px; font-size: 7px; text-align: center; border: 1px solid #000; }
           table.clients td { padding: 3px 4px; font-size: 8px; border: 1px solid #000; }
           table.clients td.client-name { text-align: right; font-weight: 600; }
           table.clients .client-total { font-weight: bold; }
-
           .signatures { margin-top: 20px; }
           .signatures td { width: 33%; text-align: center; padding-top: 30px; font-size: 8px; }
           .sig-line { border-top: 1px solid #000; width: 80%; margin: 0 auto; padding-top: 3px; }
-
           .footer { text-align: center; font-size: 7px; color: #666; margin-top: 10px; border-top: 1px dashed #000; padding-top: 5px; }
           .check-col { width: 30px; }
         </style>
       </head>
       <body>
-        <!-- Title -->
         <div class="title-bar">
           <h1>بون التحميل — Bon de Chargement</h1>
           <div class="ref">${dateStr}</div>
         </div>
-
-        <!-- Info Section -->
         <table class="info-section">
           <tr>
             <td style="width:50%; vertical-align:top;">
@@ -514,8 +498,6 @@ export default function NewDeliveryPage() {
             </td>
           </tr>
         </table>
-
-        <!-- Stats Bar -->
         <div class="stats-bar">
           <div class="stat"><div class="stat-value">${selectedOrders.length}</div><div class="stat-label">طلبات</div></div>
           <div class="stat"><div class="stat-value">${uniqueClients}</div><div class="stat-label">عملاء</div></div>
@@ -523,8 +505,6 @@ export default function NewDeliveryPage() {
           <div class="stat"><div class="stat-value">${totalPieces}</div><div class="stat-label">قطعة</div></div>
           <div class="stat"><div class="stat-value">${Number(totalAmount).toLocaleString('fr-FR')}</div><div class="stat-label">المبلغ (د.ج)</div></div>
         </div>
-
-        <!-- Products Table -->
         <table class="products">
           <thead>
             <tr>
@@ -562,8 +542,6 @@ export default function NewDeliveryPage() {
             </tr>
           </tbody>
         </table>
-
-        <!-- Client Details -->
         <div class="clients-section">
           <h3>تفصيل حسب العميل — Détail par client (${selectedOrders.length} طلب)</h3>
           <table class="clients">
@@ -601,8 +579,6 @@ export default function NewDeliveryPage() {
             </tbody>
           </table>
         </div>
-
-        <!-- Signatures -->
         <table class="signatures">
           <tr>
             <td><div class="sig-line">المسؤول — Responsable</div></td>
@@ -610,7 +586,6 @@ export default function NewDeliveryPage() {
             <td><div class="sig-line">المستودع — Magasinier</div></td>
           </tr>
         </table>
-
         <div class="footer">
           <p>تم الطباعة في ${new Date().toLocaleDateString('fr-FR')} - ${new Date().toLocaleTimeString('fr-FR')}</p>
         </div>
@@ -641,184 +616,174 @@ export default function NewDeliveryPage() {
   }
 
   return (
-    <div className="space-y-5">
-      {/* ───── Header ───── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard/deliveries" className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
-            <BackArrowIcon className="w-4 h-4" />
-            {t('deliveryNew.back')}
-          </Link>
-          <div>
-            <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">{t('deliveryNew.title')}</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{t('deliveryNew.subtitle')}</p>
-          </div>
-        </div>
-        <button onClick={() => setShowTour(true)} className="text-sm font-medium text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors">
+    <div>
+      <PageHeader
+        title={t('deliveryNew.title')}
+        subtitle={t('deliveryNew.subtitle')}
+        breadcrumb={[
+          { label: t('sidebar.deliveries'), href: '/dashboard/deliveries' },
+          { label: t('deliveryNew.title') },
+        ]}
+      >
+        <button
+          onClick={() => setShowTour(true)}
+          className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+        >
           {t('deliveryNew.tourBtn')}
         </button>
-      </div>
+      </PageHeader>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* ═══════ Left Side ═══════ */}
-        <div className="lg:col-span-2 space-y-5">
+        <div className="lg:col-span-2 space-y-4">
 
           {/* ───── Delivery Settings ───── */}
-          <div data-tour="dn-settings" className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
-                <TruckIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <h3 className="font-bold text-gray-800 dark:text-gray-100">{t('deliveryNew.settingsTitle')}</h3>
-            </div>
+          <div data-tour="dn-settings" className="surface-pro p-4">
+            <h3 className="surface-heading mb-3">{t('deliveryNew.settingsTitle')}</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Driver */}
+              <div>
+                <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t('deliveryNew.driverLabel')} <span className="text-red-500">{t('deliveryNew.required')}</span>
+                </label>
+                <select
+                  value={formData.livreur_id}
+                  onChange={(e) => setFormData({ ...formData, livreur_id: e.target.value })}
+                  className="select w-full text-[13px] py-2"
+                >
+                  <option value="">{t('deliveryNew.selectDriver')}</option>
+                  {livreurs.map((livreur) => (
+                    <option key={livreur.id} value={livreur.id}>
+                      {livreur.name} {livreur.phone && `(${livreur.phone})`}
+                    </option>
+                  ))}
+                </select>
 
-            <div className="p-5">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Driver */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t('deliveryNew.driverLabel')} <span className="text-red-500">{t('deliveryNew.required')}</span>
-                  </label>
-                  <select
-                    value={formData.livreur_id}
-                    onChange={(e) => setFormData({ ...formData, livreur_id: e.target.value })}
-                    className="w-full px-3 py-2.5 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm"
-                  >
-                    <option value="">{t('deliveryNew.selectDriver')}</option>
-                    {livreurs.map((livreur) => (
-                      <option key={livreur.id} value={livreur.id}>
-                        {livreur.name} {livreur.phone && `(${livreur.phone})`}
-                      </option>
-                    ))}
-                  </select>
-
-                  {formData.livreur_id && (() => {
-                    const driver = livreurs.find(l => l.id === Number(formData.livreur_id));
-                    if (!driver) return null;
-                    return (
-                      <div className={`mt-2 p-2.5 rounded-xl text-sm border ${driver.warehouse ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'}`}>
-                        <div className="flex items-center gap-2">
-                          <BuildingStorefrontIcon className={`w-4 h-4 ${driver.warehouse ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`} />
-                          <span className={`font-medium ${driver.warehouse ? 'text-blue-800 dark:text-blue-300' : 'text-red-800 dark:text-red-300'}`}>
-                            {driver.warehouse ? driver.warehouse.name : t('deliveryNew.noWarehouse')}
-                          </span>
-                        </div>
-                        {driver.warehouse && driver.warehouse.stock_count !== undefined && (
-                          <p className="text-blue-600 dark:text-blue-400 text-xs mt-1 ms-6">
-                            {driver.warehouse.stock_count > 0
-                              ? t('deliveryNew.stockInWarehouse').replace('{count}', String(driver.warehouse.stock_count))
-                              : t('deliveryNew.emptyStock')}
-                          </p>
-                        )}
-                        {!driver.warehouse && (
-                          <div className="mt-2">
-                            <p className="text-red-600 dark:text-red-400 text-xs mb-2">{t('deliveryNew.noWarehouseError')}</p>
-                            <button
-                              type="button"
-                              onClick={() => handleCreateWarehouse(driver)}
-                              disabled={isCreatingWarehouse}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
-                            >
-                              {isCreatingWarehouse ? <span className="spinner w-3 h-3"></span> : <BuildingStorefrontIcon className="w-3.5 h-3.5" />}
-                              {t('deliveryNew.createWarehouse')}
-                            </button>
-                          </div>
-                        )}
+                {formData.livreur_id && (() => {
+                  const driver = livreurs.find(l => l.id === Number(formData.livreur_id));
+                  if (!driver) return null;
+                  return (
+                    <div className="mt-2 p-2.5 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-[12px]">
+                      <div className="flex items-center gap-2">
+                        <span className={`metric-dot ${driver.warehouse ? 'metric-dot-green' : 'metric-dot-red'}`} aria-hidden />
+                        <BuildingStorefrontIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                        <span className="t-strong">
+                          {driver.warehouse ? driver.warehouse.name : t('deliveryNew.noWarehouse')}
+                        </span>
                       </div>
-                    );
-                  })()}
-                </div>
-
-                {/* Vehicle */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('deliveryNew.vehicleLabel')}</label>
-                  <select
-                    value={formData.vehicle_id}
-                    onChange={(e) => setFormData({ ...formData, vehicle_id: e.target.value })}
-                    className="w-full px-3 py-2.5 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm"
-                  >
-                    <option value="">{t('deliveryNew.selectVehicle')}</option>
-                    {vehicles.map((vehicle) => (
-                      <option key={vehicle.id} value={vehicle.id}>
-                        {vehicle.name} {vehicle.plate_number && `(${vehicle.plate_number})`}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Date */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t('deliveryNew.dateLabel')} <span className="text-red-500">{t('deliveryNew.required')}</span>
-                  </label>
-                  <DateInput
-                    value={formData.date}
-                    onChange={(v) => setFormData({ ...formData, date: v })}
-                    className="w-full"
-                  />
-                </div>
+                      {driver.warehouse && driver.warehouse.stock_count !== undefined && (
+                        <p className="text-gray-500 dark:text-gray-400 text-[11px] mt-1 ms-5">
+                          {driver.warehouse.stock_count > 0
+                            ? t('deliveryNew.stockInWarehouse').replace('{count}', String(driver.warehouse.stock_count))
+                            : t('deliveryNew.emptyStock')}
+                        </p>
+                      )}
+                      {!driver.warehouse && (
+                        <div className="mt-2">
+                          <p className="text-gray-500 dark:text-gray-400 text-[11px] mb-2">{t('deliveryNew.noWarehouseError')}</p>
+                          <button
+                            type="button"
+                            onClick={() => handleCreateWarehouse(driver)}
+                            disabled={isCreatingWarehouse}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-md text-white bg-orange-600 hover:bg-orange-700 disabled:opacity-50 transition-colors"
+                          >
+                            {isCreatingWarehouse ? <span className="spinner w-3 h-3"></span> : <BuildingStorefrontIcon className="w-3 h-3" />}
+                            {t('deliveryNew.createWarehouse')}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
-              {/* Notes */}
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('deliveryNew.notesLabel')}</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none transition-all text-sm"
-                  rows={2}
-                  placeholder={t('deliveryNew.notesPlaceholder')}
+              {/* Vehicle */}
+              <div>
+                <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('deliveryNew.vehicleLabel')}</label>
+                <select
+                  value={formData.vehicle_id}
+                  onChange={(e) => setFormData({ ...formData, vehicle_id: e.target.value })}
+                  className="select w-full text-[13px] py-2"
+                >
+                  <option value="">{t('deliveryNew.selectVehicle')}</option>
+                  {vehicles.map((vehicle) => (
+                    <option key={vehicle.id} value={vehicle.id}>
+                      {vehicle.name} {vehicle.plate_number && `(${vehicle.plate_number})`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Date */}
+              <div>
+                <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t('deliveryNew.dateLabel')} <span className="text-red-500">{t('deliveryNew.required')}</span>
+                </label>
+                <DateInput
+                  value={formData.date}
+                  onChange={(v) => setFormData({ ...formData, date: v })}
+                  className="w-full"
                 />
               </div>
+            </div>
 
-              {/* Auto-start toggle */}
-              <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <PlayIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('deliveryNew.autoStartLabel')}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{t('deliveryNew.autoStartDesc')}</p>
-                    </div>
+            {/* Notes */}
+            <div className="mt-4">
+              <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('deliveryNew.notesLabel')}</label>
+              <textarea
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                className="input w-full text-[13px] py-2"
+                rows={2}
+                placeholder={t('deliveryNew.notesPlaceholder')}
+              />
+            </div>
+
+            {/* Auto-start toggle */}
+            <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="metric-dot metric-dot-green" aria-hidden />
+                  <div>
+                    <p className="text-[13px] font-medium text-gray-700 dark:text-gray-200">{t('deliveryNew.autoStartLabel')}</p>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">{t('deliveryNew.autoStartDesc')}</p>
                   </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={autoStart}
-                    aria-label={t('deliveryNew.autoStartLabel')}
-                    onClick={() => handleAutoStartToggle(!autoStart)}
-                    dir="ltr"
-                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${autoStart ? 'bg-green-600' : 'bg-gray-200 dark:bg-gray-600'}`}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${autoStart ? 'translate-x-5' : 'translate-x-0'}`}
-                    />
-                  </button>
                 </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={autoStart}
+                  aria-label={t('deliveryNew.autoStartLabel')}
+                  onClick={() => handleAutoStartToggle(!autoStart)}
+                  dir="ltr"
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${autoStart ? 'bg-green-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${autoStart ? 'translate-x-5' : 'translate-x-0'}`}
+                  />
+                </button>
               </div>
             </div>
           </div>
 
           {/* ───── Available Orders ───── */}
-          <div data-tour="dn-orders" className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
-                  <CubeIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                </div>
-                <h3 className="font-bold text-gray-800 dark:text-gray-100">{t('deliveryNew.confirmedOrders')}</h3>
-                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
-                  {orders.length}
-                </span>
+          <div data-tour="dn-orders" className="surface-pro overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <h3 className="surface-heading">{t('deliveryNew.confirmedOrders')}</h3>
+                <span className="text-[12px] text-gray-500 dark:text-gray-400 tnum">({orders.length})</span>
               </div>
-              <button onClick={handleSelectAll} className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
+              <button
+                onClick={handleSelectAll}
+                className="text-[12px] font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+              >
                 {selectedOrders.length === orders.length ? t('deliveryNew.deselectAll') : t('deliveryNew.selectAll')}
               </button>
             </div>
 
             {orders.length === 0 ? (
-              <div className="text-center py-12 text-gray-500 dark:text-gray-400">{t('deliveryNew.noOrders')}</div>
+              <div className="text-center py-10 text-gray-500 dark:text-gray-400 text-[13px]">{t('deliveryNew.noOrders')}</div>
             ) : (
               <div className="divide-y divide-gray-100 dark:divide-gray-700 max-h-[500px] overflow-y-auto">
                 {orders.map((order) => {
@@ -827,20 +792,19 @@ export default function NewDeliveryPage() {
                   const hasGps = order.client?.gps_lat && order.client?.gps_lng;
 
                   return (
-                    <div key={order.id} className={`transition-colors ${isSelected ? 'bg-blue-50/60 dark:bg-blue-900/15' : ''}`}>
-                      {/* Order row */}
-                      <div onClick={() => handleSelectOrder(order)} className="px-5 py-3.5 cursor-pointer hover:bg-gray-50/80 dark:hover:bg-gray-700/30 transition-colors">
+                    <div key={order.id} className={`transition-colors ${isSelected ? 'bg-gray-50 dark:bg-gray-700/30' : ''}`}>
+                      <div onClick={() => handleSelectOrder(order)} className="px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${isSelected ? 'border-blue-500 bg-blue-500' : 'border-gray-300 dark:border-gray-600'}`}>
-                              {isSelected && <CheckCircleIcon className="w-4 h-4 text-white" />}
+                            <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${isSelected ? 'border-gray-700 bg-gray-700 dark:border-gray-300 dark:bg-gray-300' : 'border-gray-300 dark:border-gray-600'}`}>
+                              {isSelected && <CheckCircleIcon className="w-3 h-3 text-white dark:text-gray-900" />}
                             </div>
                             <div>
-                              <div className="font-bold text-sm text-gray-800 dark:text-gray-100">{order.reference}</div>
-                              <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                              <div className="t-strong text-[13px]">{order.reference}</div>
+                              <div className="text-[12px] text-gray-500 dark:text-gray-400 flex items-center gap-2">
                                 <span>{order.client?.name}</span>
                                 {order.client?.phone && (
-                                  <span className="flex items-center gap-1 text-xs">
+                                  <span className="flex items-center gap-1 text-[11px]">
                                     <PhoneIcon className="w-3 h-3" />
                                     {order.client.phone}
                                   </span>
@@ -849,81 +813,79 @@ export default function NewDeliveryPage() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            {hasGps && <MapPinIcon className="w-4 h-4 text-green-600 dark:text-green-400" title={t('deliveryNew.hasGPS')} />}
+                            {hasGps && <MapPinIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" title={t('deliveryNew.hasGPS')} />}
                             <div className={`text-${isRTL ? 'start' : 'end'}`}>
-                              <div className="font-bold text-sm text-gray-800 dark:text-gray-100">{formatCurrency(order.grand_total)}</div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400">{t('deliveryNew.productsCount').replace('{count}', String(order.items?.length || 0))}</div>
+                              <div className="tnum t-strong text-[13px]">{formatCurrency(order.grand_total)}</div>
+                              <div className="text-[11px] text-gray-500 dark:text-gray-400">{t('deliveryNew.productsCount').replace('{count}', String(order.items?.length || 0))}</div>
                             </div>
                           </div>
                         </div>
                         {order.client?.address && (
-                          <div className="mt-1.5 text-sm text-gray-500 dark:text-gray-400 ps-8">{order.client.address}</div>
+                          <div className="mt-1 text-[12px] text-gray-500 dark:text-gray-400 ps-7">{order.client.address}</div>
                         )}
                       </div>
 
-                      {/* Action buttons */}
-                      <div className="flex items-center justify-between px-5 py-2 border-t border-gray-100/80 dark:border-gray-700/50 bg-gray-50/30 dark:bg-gray-800/30">
-                        <button onClick={(e) => toggleOrderExpand(order.id, e)} className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
+                      <div className="flex items-center justify-between px-4 py-1.5 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/40 dark:bg-gray-900/20">
+                        <button onClick={(e) => toggleOrderExpand(order.id, e)} className="flex items-center gap-1 text-[11px] font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">
                           {isExpanded ? (
-                            <><ChevronUpIcon className="w-4 h-4" />{t('deliveryNew.hideProducts')}</>
+                            <><ChevronUpIcon className="w-3.5 h-3.5" />{t('deliveryNew.hideProducts')}</>
                           ) : (
-                            <><ChevronDownIcon className="w-4 h-4" />{t('deliveryNew.showProducts')} ({order.items?.length || 0})</>
+                            <><ChevronDownIcon className="w-3.5 h-3.5" />{t('deliveryNew.showProducts')} ({order.items?.length || 0})</>
                           )}
                         </button>
                         <div className="flex items-center gap-2">
-                          <button onClick={(e) => downloadOrderPDF(order, e)} className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 transition-colors" title={t('deliveryNew.downloadPDF')}>
-                            <DocumentArrowDownIcon className="w-4 h-4" />
+                          <button onClick={(e) => downloadOrderPDF(order, e)} className="flex items-center gap-1 text-[11px] font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors" title={t('deliveryNew.downloadPDF')}>
+                            <DocumentArrowDownIcon className="w-3.5 h-3.5" />
                             {t('deliveryNew.downloadPDF')}
                           </button>
-                          <button onClick={(e) => printOrder(order, e)} className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 transition-colors" title={t('deliveryNew.print')}>
-                            <PrinterIcon className="w-4 h-4" />
+                          <button onClick={(e) => printOrder(order, e)} className="flex items-center gap-1 text-[11px] font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors" title={t('deliveryNew.print')}>
+                            <PrinterIcon className="w-3.5 h-3.5" />
                             {t('deliveryNew.print')}
                           </button>
                         </div>
                       </div>
 
-                      {/* Expanded products */}
                       {isExpanded && (
-                        <div className="border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900/30 px-5 py-3">
-                          <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
-                            <table className="w-full text-sm">
+                        <div className="border-t border-gray-100 dark:border-gray-700 px-4 py-3 bg-gray-50/40 dark:bg-gray-900/20">
+                          <div className="table-pro-wrap">
+                            <table className="table-pro compact">
                               <thead>
-                                <tr className="bg-gray-100/80 dark:bg-gray-700/50">
-                                  <th className="text-center py-2.5 px-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-10">{t('deliveryNew.number')}</th>
-                                  <th className="text-start py-2.5 px-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryNew.designation')}</th>
-                                  <th className="text-center py-2.5 px-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-16">{t('deliveryNew.quantity')}</th>
-                                  <th className="text-center py-2.5 px-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-16">{t('deliveryNew.unit')}</th>
-                                  <th className="text-center py-2.5 px-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-16">{t('deliveryNew.count')}</th>
-                                  <th className="text-center py-2.5 px-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-20">{t('deliveryNew.unitPrice')}</th>
-                                  <th className="text-start py-2.5 px-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-24">{t('deliveryNew.amount')}</th>
+                                <tr>
+                                  <th className="text-center w-10">{t('deliveryNew.number')}</th>
+                                  <th>{t('deliveryNew.designation')}</th>
+                                  <th className="text-center">{t('deliveryNew.quantity')}</th>
+                                  <th className="text-center">{t('deliveryNew.unit')}</th>
+                                  <th className="text-center">{t('deliveryNew.count')}</th>
+                                  <th className="text-center">{t('deliveryNew.unitPrice')}</th>
+                                  <th className="text-end">{t('deliveryNew.amount')}</th>
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800">
+                              <tbody>
                                 {order.items && order.items.length > 0 ? (
                                   order.items.map((item, idx) => {
                                     const piecesPerUnit = item.product?.pieces_per_package || 1;
                                     const totalPieces = item.quantity_confirmed * piecesPerUnit;
                                     const lineTotal = item.quantity_confirmed * item.unit_price;
                                     return (
-                                      <tr key={idx} className="hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors">
-                                        <td className="py-2 px-2 text-center text-gray-500 dark:text-gray-400">{idx + 1}</td>
-                                        <td className="py-2 px-2 font-medium text-gray-800 dark:text-gray-100">{item.product?.name || '-'}</td>
-                                        <td className="py-2 px-2 text-center font-bold text-blue-600 dark:text-blue-400">{formatQty(item.quantity_confirmed, piecesPerUnit)}</td>
-                                        <td className="py-2 px-2 text-center text-gray-600 dark:text-gray-400">{formatNumber(piecesPerUnit)}</td>
-                                        <td className="py-2 px-2 text-center text-gray-600 dark:text-gray-400">{formatNumber(totalPieces)}</td>
-                                        <td className="py-2 px-2 text-center text-gray-600 dark:text-gray-400">{formatNumber(item.unit_price)}</td>
-                                        <td className="py-2 px-2 font-medium text-gray-800 dark:text-gray-100">{formatNumber(lineTotal)}</td>
+                                      <tr key={idx}>
+                                        <td className="text-center text-gray-500 tnum">{idx + 1}</td>
+                                        <td className="t-strong">{item.product?.name || '-'}</td>
+                                        <td className="text-center tnum t-strong">{formatQty(item.quantity_confirmed, piecesPerUnit)}</td>
+                                        <td className="text-center tnum t-muted">{formatNumber(piecesPerUnit)}</td>
+                                        <td className="text-center tnum">{formatNumber(totalPieces)}</td>
+                                        <td className="text-center tnum">{formatNumber(item.unit_price)}</td>
+                                        <td className="text-end tnum t-strong">{formatNumber(lineTotal)}</td>
                                       </tr>
                                     );
                                   })
                                 ) : (
-                                  <tr><td colSpan={7} className="py-4 text-center text-gray-500 dark:text-gray-400">{t('deliveryNew.noProducts')}</td></tr>
+                                  <tr><td colSpan={7} className="py-3 text-center text-gray-500 dark:text-gray-400 text-[12px]">{t('deliveryNew.noProducts')}</td></tr>
                                 )}
                               </tbody>
                               <tfoot>
-                                <tr className="border-t-2 border-gray-200 dark:border-gray-600 font-bold bg-green-50/50 dark:bg-green-900/10">
-                                  <td colSpan={6} className="py-2.5 px-2 text-start text-gray-700 dark:text-gray-300">{t('deliveryNew.totalLabel')}</td>
-                                  <td className="py-2.5 px-2 text-green-600 dark:text-green-400">{formatNumber(order.grand_total)}</td>
+                                <tr>
+                                  <td colSpan={6} className="text-start t-strong">{t('deliveryNew.totalLabel')}</td>
+                                  <td className="text-end tnum t-strong">{formatNumber(order.grand_total)}</td>
                                 </tr>
                               </tfoot>
                             </table>
@@ -939,51 +901,50 @@ export default function NewDeliveryPage() {
         </div>
 
         {/* ═══════ Right Side ═══════ */}
-        <div data-tour="dn-summary" className="space-y-5">
+        <div data-tour="dn-summary" className="space-y-4">
 
           {/* ───── Summary Card ───── */}
-          <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 rounded-2xl border border-indigo-200/80 dark:border-indigo-800/50 shadow-sm p-5">
-            <h3 className="font-bold text-indigo-800 dark:text-indigo-300 mb-4">{t('deliveryNew.summaryTitle')}</h3>
-            <div className="space-y-3">
+          <div className="surface-pro p-4">
+            <h3 className="surface-heading mb-3">{t('deliveryNew.summaryTitle')}</h3>
+            <div className="space-y-2 text-[13px]">
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">{t('deliveryNew.orderCount')}</span>
-                <span className="font-bold text-gray-800 dark:text-gray-100">{selectedOrders.length}</span>
+                <span className="text-gray-500 dark:text-gray-400">{t('deliveryNew.orderCount')}</span>
+                <span className="tnum t-strong">{selectedOrders.length}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">{t('deliveryNew.productCount')}</span>
-                <span className="font-bold text-gray-800 dark:text-gray-100">{Math.round(totalProducts)}</span>
+                <span className="text-gray-500 dark:text-gray-400">{t('deliveryNew.productCount')}</span>
+                <span className="tnum t-strong">{Math.round(totalProducts)}</span>
               </div>
-              <div className="flex justify-between text-lg border-t border-indigo-200/60 dark:border-indigo-700/50 pt-3">
-                <span className="text-gray-600 dark:text-gray-400">{t('deliveryNew.totalAmount')}</span>
-                <span className="font-extrabold text-green-600 dark:text-green-400">{formatCurrency(totalAmount)}</span>
+              <hr className="border-gray-200 dark:border-gray-700" />
+              <div className="flex justify-between text-[14px] font-semibold text-gray-900 dark:text-white">
+                <span>{t('deliveryNew.totalAmount')}</span>
+                <span className="tnum">{formatCurrency(totalAmount)}</span>
               </div>
             </div>
 
             {selectedOrders.length > 0 && (
               <button
                 onClick={printMergedProducts}
-                className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700 text-white rounded-xl font-bold transition-colors active:scale-[0.98]"
+                className="w-full mt-4 inline-flex items-center justify-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
-                <PrinterIcon className="w-5 h-5" />
+                <PrinterIcon className="w-4 h-4" />
                 {t('deliveryNew.printLoadingList')}
               </button>
             )}
           </div>
 
           {/* ───── Delivery Order (Roadmap) ───── */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center">
-                <ArrowsUpDownIcon className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-              </div>
+          <div className="surface-pro overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
+              <ArrowsUpDownIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
               <div>
-                <h3 className="font-bold text-gray-800 dark:text-gray-100">{t('deliveryNew.deliveryOrder')}</h3>
+                <h3 className="surface-heading">{t('deliveryNew.deliveryOrder')}</h3>
                 <p className="text-[10px] text-gray-400 dark:text-gray-500">{t('deliveryNew.dragToReorder')}</p>
               </div>
             </div>
 
             {selectedOrders.length === 0 ? (
-              <div className="text-center py-10 text-gray-500 dark:text-gray-400 text-sm">{t('deliveryNew.selectFromList')}</div>
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-[12px]">{t('deliveryNew.selectFromList')}</div>
             ) : (
               <div className="divide-y divide-gray-100 dark:divide-gray-700 max-h-[400px] overflow-y-auto">
                 {selectedOrders.map((order, index) => {
@@ -999,35 +960,35 @@ export default function NewDeliveryPage() {
                       onDragEnd={handleDragEnd}
                       className={`transition-opacity ${draggedIndex === index ? 'opacity-50' : ''}`}
                     >
-                      <div className="p-3 cursor-move">
-                        <div className="flex items-center gap-3">
+                      <div className="p-2.5 cursor-move">
+                        <div className="flex items-center gap-2">
                           <div className="flex flex-col gap-0.5">
                             <button onClick={() => moveOrder(index, 'up')} disabled={index === 0} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-30 transition-colors">
-                              <ChevronUpIcon className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+                              <ChevronUpIcon className="w-3 h-3 text-gray-500 dark:text-gray-400" />
                             </button>
                             <button onClick={() => moveOrder(index, 'down')} disabled={index === selectedOrders.length - 1} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-30 transition-colors">
-                              <ChevronDownIcon className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+                              <ChevronDownIcon className="w-3 h-3 text-gray-500 dark:text-gray-400" />
                             </button>
                           </div>
 
-                          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm flex-shrink-0 shadow-sm">
+                          <div className="w-7 h-7 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-center tnum text-[12px] text-gray-700 dark:text-gray-200 flex-shrink-0">
                             {index + 1}
                           </div>
 
                           <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm text-gray-800 dark:text-gray-100 truncate">{order.client?.name}</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">{order.reference} - {formatCurrency(order.grand_total)}</div>
+                            <div className="t-strong text-[12px] truncate">{order.client?.name}</div>
+                            <div className="text-[11px] text-gray-500 dark:text-gray-400 tnum">{order.reference} · {formatCurrency(order.grand_total)}</div>
                           </div>
 
                           <div className="flex items-center gap-0.5 flex-shrink-0">
-                            <button onClick={(e) => toggleOrderExpand(order.id, e)} className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg transition-colors" title={t('deliveryNew.viewProducts')}>
-                              <EyeIcon className="w-4 h-4" />
+                            <button onClick={(e) => toggleOrderExpand(order.id, e)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 rounded transition-colors" title={t('deliveryNew.viewProducts')}>
+                              <EyeIcon className="w-3.5 h-3.5" />
                             </button>
-                            <button onClick={(e) => downloadOrderPDF(order, e)} className="p-1.5 hover:bg-green-50 dark:hover:bg-green-900/20 text-green-600 dark:text-green-400 rounded-lg transition-colors" title={t('deliveryNew.downloadPDF')}>
-                              <DocumentArrowDownIcon className="w-4 h-4" />
+                            <button onClick={(e) => downloadOrderPDF(order, e)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 rounded transition-colors" title={t('deliveryNew.downloadPDF')}>
+                              <DocumentArrowDownIcon className="w-3.5 h-3.5" />
                             </button>
-                            <button onClick={(e) => printOrder(order, e)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-lg transition-colors" title={t('deliveryNew.print')}>
-                              <PrinterIcon className="w-4 h-4" />
+                            <button onClick={(e) => printOrder(order, e)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 rounded transition-colors" title={t('deliveryNew.print')}>
+                              <PrinterIcon className="w-3.5 h-3.5" />
                             </button>
                             {hasGps && (
                               <a
@@ -1035,55 +996,56 @@ export default function NewDeliveryPage() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
-                                className="p-1.5 hover:bg-green-50 dark:hover:bg-green-900/20 text-green-600 dark:text-green-400 rounded-lg transition-colors"
+                                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 rounded transition-colors"
                                 title={t('deliveryNew.location')}
                               >
-                                <MapPinIcon className="w-4 h-4" />
+                                <MapPinIcon className="w-3.5 h-3.5" />
                               </a>
                             )}
-                            <button onClick={() => handleRemoveSelected(order.id)} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg transition-colors" title={t('deliveryNew.remove')}>
-                              <XMarkIcon className="w-4 h-4" />
+                            <button onClick={() => handleRemoveSelected(order.id)} className="p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 rounded transition-colors" title={t('deliveryNew.remove')}>
+                              <XMarkIcon className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>
                       </div>
 
-                      {/* Expanded products in roadmap */}
                       {isExpanded && (
-                        <div className="border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20 p-2">
-                          <table className="w-full text-xs">
-                            <thead>
-                              <tr className="text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
-                                <th className="text-center py-1 w-6">#</th>
-                                <th className="text-start py-1">{t('deliveryNew.designation')}</th>
-                                <th className="text-center py-1 w-10">{t('deliveryNew.quantity')}</th>
-                                <th className="text-center py-1 w-10">{t('deliveryNew.unit')}</th>
-                                <th className="text-center py-1 w-10">{t('deliveryNew.count')}</th>
-                                <th className="text-start py-1 w-14">{t('deliveryNew.amount')}</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                              {order.items && order.items.length > 0 ? (
-                                order.items.map((item, idx) => {
-                                  const piecesPerUnit = item.product?.pieces_per_package || 1;
-                                  const totalPieces = item.quantity_confirmed * piecesPerUnit;
-                                  const lineTotal = item.quantity_confirmed * item.unit_price;
-                                  return (
-                                    <tr key={idx} className="text-gray-700 dark:text-gray-300">
-                                      <td className="py-1 text-center text-gray-400">{idx + 1}</td>
-                                      <td className="py-1 truncate max-w-[100px]">{item.product?.name}</td>
-                                      <td className="py-1 text-center font-bold text-blue-600 dark:text-blue-400">{formatQty(item.quantity_confirmed, piecesPerUnit)}</td>
-                                      <td className="py-1 text-center">{piecesPerUnit}</td>
-                                      <td className="py-1 text-center">{totalPieces}</td>
-                                      <td className="py-1 font-medium">{formatNumber(lineTotal)}</td>
-                                    </tr>
-                                  );
-                                })
-                              ) : (
-                                <tr><td colSpan={6} className="text-center text-gray-500 dark:text-gray-400 py-2">{t('deliveryNew.noProducts')}</td></tr>
-                              )}
-                            </tbody>
-                          </table>
+                        <div className="border-t border-gray-100 dark:border-gray-700 bg-gray-50/40 dark:bg-gray-900/20 px-2 py-2">
+                          <div className="table-pro-wrap">
+                            <table className="table-pro compact text-[11px]">
+                              <thead>
+                                <tr>
+                                  <th className="text-center w-6">#</th>
+                                  <th>{t('deliveryNew.designation')}</th>
+                                  <th className="text-center">{t('deliveryNew.quantity')}</th>
+                                  <th className="text-center">{t('deliveryNew.unit')}</th>
+                                  <th className="text-center">{t('deliveryNew.count')}</th>
+                                  <th className="text-end">{t('deliveryNew.amount')}</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {order.items && order.items.length > 0 ? (
+                                  order.items.map((item, idx) => {
+                                    const piecesPerUnit = item.product?.pieces_per_package || 1;
+                                    const totalPieces = item.quantity_confirmed * piecesPerUnit;
+                                    const lineTotal = item.quantity_confirmed * item.unit_price;
+                                    return (
+                                      <tr key={idx}>
+                                        <td className="text-center text-gray-400 tnum">{idx + 1}</td>
+                                        <td className="truncate max-w-[100px]">{item.product?.name}</td>
+                                        <td className="text-center tnum t-strong">{formatQty(item.quantity_confirmed, piecesPerUnit)}</td>
+                                        <td className="text-center tnum t-muted">{piecesPerUnit}</td>
+                                        <td className="text-center tnum">{totalPieces}</td>
+                                        <td className="text-end tnum">{formatNumber(lineTotal)}</td>
+                                      </tr>
+                                    );
+                                  })
+                                ) : (
+                                  <tr><td colSpan={6} className="text-center text-gray-500 dark:text-gray-400 py-2">{t('deliveryNew.noProducts')}</td></tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1093,41 +1055,35 @@ export default function NewDeliveryPage() {
             )}
 
             {/* Create Button */}
-            <div className="p-5 border-t border-gray-100 dark:border-gray-700">
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700">
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting || selectedOrders.length === 0 || !formData.livreur_id}
-                className={`w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl font-bold text-white transition-all disabled:opacity-50 active:scale-[0.98] ${
-                  autoStart
-                    ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
-                    : 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700'
-                }`}
+                className={`w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 text-[13px] font-semibold rounded-md text-white transition-colors disabled:opacity-50 ${autoStart ? 'bg-green-600 hover:bg-green-700' : 'bg-orange-600 hover:bg-orange-700'}`}
               >
                 {isSubmitting ? (
                   <>
-                    <div className="spinner w-5 h-5 border-white"></div>
+                    <div className="spinner w-4 h-4 border-white"></div>
                     {autoStart ? t('deliveryNew.creatingAndStarting') : t('deliveryNew.creating')}
                   </>
                 ) : (
                   <>
-                    {autoStart ? <PlayIcon className="w-5 h-5" /> : <TruckIcon className="w-5 h-5" />}
+                    {autoStart ? <PlayIcon className="w-4 h-4" /> : <TruckIcon className="w-4 h-4" />}
                     {autoStart ? t('deliveryNew.createAndStart') : t('deliveryNew.createDelivery')}
                   </>
                 )}
               </button>
               {autoStart && (
-                <p className="text-xs text-center text-green-600 dark:text-green-400 mt-2">{t('deliveryNew.autoStartNote')}</p>
+                <p className="text-[11px] text-center text-gray-500 dark:text-gray-400 mt-2">{t('deliveryNew.autoStartNote')}</p>
               )}
             </div>
           </div>
 
           {/* ───── Map Preview ───── */}
           {selectedOrders.some((o) => o.client?.gps_lat && o.client?.gps_lng) && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm p-5">
-              <h3 className="font-bold text-gray-800 dark:text-gray-100 mb-3 flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-green-50 dark:bg-green-900/30 flex items-center justify-center">
-                  <MapPinIcon className="w-4 h-4 text-green-600 dark:text-green-400" />
-                </div>
+            <div className="surface-pro p-4">
+              <h3 className="surface-heading mb-3 flex items-center gap-2">
+                <MapPinIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                 {t('deliveryNew.routePreview')}
               </h3>
               <a
@@ -1137,9 +1093,9 @@ export default function NewDeliveryPage() {
                   .join('/')}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium text-sm transition-colors"
+                className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
-                <MapPinIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
+                <MapPinIcon className="w-4 h-4" />
                 {t('deliveryNew.openGoogleMaps')}
               </a>
             </div>

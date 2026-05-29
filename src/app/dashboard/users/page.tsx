@@ -10,6 +10,8 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import toast from 'react-hot-toast';
 import type { User } from '@/lib/types';
 import { useLocale } from '@/lib/i18n/context';
+import { PageHeader } from '@/components/dashboard';
+import InviteUserModal from './InviteUserModal';
 
 export default function UsersPage() {
   const { t, locale } = useLocale();
@@ -19,6 +21,7 @@ export default function UsersPage() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isPasswordOpen, setIsPasswordOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -268,7 +271,7 @@ export default function UsersPage() {
       key: 'role',
       title: t('users.thRole'),
       render: (item: User) => (
-        <span className="badge badge-info">{roleLabels[item.role]}</span>
+        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">{roleLabels[item.role]}</span>
       ),
     },
     {
@@ -288,8 +291,9 @@ export default function UsersPage() {
       render: (item: User) => (
         <button
           onClick={() => toggleActiveMutation.mutate(item.id)}
-          className={`badge cursor-pointer ${item.is_active ? 'badge-success' : 'badge-danger'}`}
+          className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300 cursor-pointer hover:opacity-80 transition-opacity"
         >
+          <span className={`metric-dot ${item.is_active ? 'metric-dot-green' : 'metric-dot-neutral'}`} aria-hidden />
           {item.is_active ? t('users.statusActive') : t('users.statusInactive')}
         </button>
       ),
@@ -298,19 +302,19 @@ export default function UsersPage() {
       key: 'actions',
       title: t('users.thActions'),
       render: (item: User) => (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <button
             onClick={() => {
               setSelectedUser(item);
               setIsPasswordOpen(true);
             }}
-            className="p-1.5 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded-lg"
+            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
           >
             <KeyIcon className="w-4 h-4" />
           </button>
           <button
             onClick={() => handleOpenEdit(item)}
-            className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg"
+            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
           >
             <PencilIcon className="w-4 h-4" />
           </button>
@@ -319,7 +323,7 @@ export default function UsersPage() {
               setSelectedUser(item);
               setIsDeleteOpen(true);
             }}
-            className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg"
+            className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
           >
             <TrashIcon className="w-4 h-4" />
           </button>
@@ -329,26 +333,29 @@ export default function UsersPage() {
   ];
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('users.pageTitle')}</h1>
-          <p className="text-sm text-gray-400 mt-1">{t('users.pageSubtitle')}</p>
-        </div>
-        <button onClick={handleOpenCreate} className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition-colors">
+    <div className="space-y-4">
+      <PageHeader title={t('users.pageTitle')} subtitle={t('users.pageSubtitle')}>
+        <button
+          onClick={() => setIsInviteOpen(true)}
+          className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+        >
+          <PlusIcon className="w-4 h-4" />
+          {t('users.inviteUser')}
+        </button>
+        <button onClick={handleOpenCreate} className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-bold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors">
           <PlusIcon className="w-4 h-4" />
           {t('users.addUser')}
           <kbd className="hidden md:inline bg-white/20 px-1.5 py-0.5 rounded text-[10px] font-medium">Insert</kbd>
         </button>
-      </div>
+      </PageHeader>
 
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-          <div className="flex flex-wrap gap-4">
+      <div className="surface-pro overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+          <div className="flex flex-wrap gap-3">
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="select w-48"
+              className="select w-48 text-[14px] py-2"
             >
               <option value="">{t('users.allRoles')}</option>
               <option value="admin">{t('users.roleAdmin')}</option>
@@ -509,7 +516,7 @@ export default function UsersPage() {
             <button
               type="submit"
               disabled={createMutation.isPending || updateMutation.isPending}
-              className="px-4 py-2.5 text-sm font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+              className="px-4 py-2 text-[13px] font-bold rounded-md bg-orange-600 hover:bg-orange-700 text-white transition-colors"
             >
               {createMutation.isPending || updateMutation.isPending ? (
                 <span className="spinner w-4 h-4"></span>
@@ -571,7 +578,7 @@ export default function UsersPage() {
             <button
               type="submit"
               disabled={resetPasswordMutation.isPending}
-              className="px-4 py-2.5 text-sm font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+              className="px-4 py-2 text-[13px] font-bold rounded-md bg-orange-600 hover:bg-orange-700 text-white transition-colors"
             >
               {resetPasswordMutation.isPending ? (
                 <span className="spinner w-4 h-4"></span>
@@ -582,6 +589,8 @@ export default function UsersPage() {
           </div>
         </form>
       </Modal>
+
+      <InviteUserModal isOpen={isInviteOpen} onClose={() => setIsInviteOpen(false)} />
 
       <ConfirmDialog
         isOpen={isDeleteOpen}
@@ -616,7 +625,7 @@ export default function UsersPage() {
               <button
                 onClick={() => deleteMutation.mutate({ id: caisseWarning.userId, transferToAdmin: true })}
                 disabled={deleteMutation.isPending}
-                className="px-4 py-2.5 text-sm font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                className="px-4 py-2 text-[13px] font-bold rounded-md bg-orange-600 hover:bg-orange-700 text-white transition-colors"
               >
                 {deleteMutation.isPending ? (
                   <span className="spinner w-4 h-4"></span>

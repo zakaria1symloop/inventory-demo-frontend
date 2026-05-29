@@ -72,6 +72,7 @@ export interface Product {
   wholesale_price: number;
   min_selling_price?: number;
   tax_percent?: number;
+  tax_included?: boolean;
   pieces_per_package?: number;
   tax_type?: 'exclusive' | 'inclusive';
   discount_type?: 'percent' | 'fixed';

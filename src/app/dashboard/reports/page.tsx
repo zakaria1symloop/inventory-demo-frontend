@@ -8,6 +8,7 @@ import { useLocale, type TranslationKey } from '@/lib/i18n/context';
 import DateInput from '@/components/ui/DateInput';
 import toast from 'react-hot-toast';
 import type { Purchase, Sale } from '@/lib/types';
+import { PageHeader, FilterBar } from '@/components/dashboard';
 import {
   ShoppingCartIcon,
   BanknotesIcon,
@@ -83,43 +84,34 @@ function ChartTooltip({ active, payload, label, formatter }: { active?: boolean;
 }
 
 function StatusBadge({ status, type, t }: { status: string; type: 'status' | 'payment' | 'returnStatus'; t: (k: TranslationKey) => string }) {
-  const configs: Record<string, Record<string, { bg: string; text: string; label: string }>> = {
+  const configs: Record<string, Record<string, { dot: string; label: string }>> = {
     status: {
-      pending: { bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-700 dark:text-amber-300', label: t('reports.statusPending') },
-      received: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-300', label: t('reports.statusReceived') },
-      partial: { bg: 'bg-blue-50 dark:bg-blue-900/20', text: 'text-blue-700 dark:text-blue-300', label: t('reports.statusPartial') },
-      completed: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-300', label: t('reports.statusCompleted') },
-      cancelled: { bg: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-700 dark:text-red-300', label: t('reports.statusCancelled') },
+      pending:   { dot: 'metric-dot-orange', label: t('reports.statusPending') },
+      received:  { dot: 'metric-dot-green',  label: t('reports.statusReceived') },
+      partial:   { dot: 'metric-dot-blue',   label: t('reports.statusPartial') },
+      completed: { dot: 'metric-dot-green',  label: t('reports.statusCompleted') },
+      cancelled: { dot: 'metric-dot-red',    label: t('reports.statusCancelled') },
     },
     payment: {
-      unpaid: { bg: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-700 dark:text-red-300', label: t('reports.payUnpaid') },
-      partial: { bg: 'bg-orange-50 dark:bg-orange-900/20', text: 'text-orange-700 dark:text-orange-300', label: t('reports.payPartial') },
-      paid: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-300', label: t('reports.payPaid') },
+      unpaid:  { dot: 'metric-dot-red',    label: t('reports.payUnpaid') },
+      partial: { dot: 'metric-dot-orange', label: t('reports.payPartial') },
+      paid:    { dot: 'metric-dot-green',  label: t('reports.payPaid') },
     },
     returnStatus: {
-      pending: { bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-700 dark:text-amber-300', label: t('reports.statusPending') },
-      approved: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-300', label: t('reports.statusApproved') },
-      completed: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-300', label: t('reports.statusCompleted') },
-      rejected: { bg: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-700 dark:text-red-300', label: t('reports.statusRejected') },
+      pending:   { dot: 'metric-dot-orange', label: t('reports.statusPending') },
+      approved:  { dot: 'metric-dot-green',  label: t('reports.statusApproved') },
+      completed: { dot: 'metric-dot-green',  label: t('reports.statusCompleted') },
+      rejected:  { dot: 'metric-dot-red',    label: t('reports.statusRejected') },
     },
   };
-  const c = configs[type]?.[status] || { bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-600 dark:text-gray-300', label: status };
+  const c = configs[type]?.[status] || { dot: 'metric-dot-neutral', label: status };
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold ${c.bg} ${c.text}`}>
+    <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+      <span className={`metric-dot ${c.dot}`} aria-hidden />
       {c.label}
     </span>
   );
 }
-
-// ─── KPI color map ───
-const colorMap: Record<string, { hover: string; hoverDark: string; bar: string; iconBg: string; iconText: string; valueText: string }> = {
-  indigo: { hover: 'hover:bg-indigo-50/40', hoverDark: 'dark:hover:bg-indigo-900/10', bar: 'bg-indigo-500', iconBg: 'bg-indigo-100 dark:bg-indigo-900/30', iconText: 'text-indigo-600 dark:text-indigo-400', valueText: 'text-indigo-600 dark:text-indigo-400' },
-  emerald: { hover: 'hover:bg-emerald-50/40', hoverDark: 'dark:hover:bg-emerald-900/10', bar: 'bg-emerald-500', iconBg: 'bg-emerald-100 dark:bg-emerald-900/30', iconText: 'text-emerald-600 dark:text-emerald-400', valueText: 'text-emerald-600 dark:text-emerald-400' },
-  blue: { hover: 'hover:bg-blue-50/40', hoverDark: 'dark:hover:bg-blue-900/10', bar: 'bg-blue-500', iconBg: 'bg-blue-100 dark:bg-blue-900/30', iconText: 'text-blue-600 dark:text-blue-400', valueText: 'text-blue-600 dark:text-blue-400' },
-  red: { hover: 'hover:bg-red-50/40', hoverDark: 'dark:hover:bg-red-900/10', bar: 'bg-red-500', iconBg: 'bg-red-100 dark:bg-red-900/30', iconText: 'text-red-600 dark:text-red-400', valueText: 'text-red-600 dark:text-red-400' },
-  violet: { hover: 'hover:bg-violet-50/40', hoverDark: 'dark:hover:bg-violet-900/10', bar: 'bg-violet-500', iconBg: 'bg-violet-100 dark:bg-violet-900/30', iconText: 'text-violet-600 dark:text-violet-400', valueText: 'text-violet-600 dark:text-violet-400' },
-  amber: { hover: 'hover:bg-amber-50/40', hoverDark: 'dark:hover:bg-amber-900/10', bar: 'bg-amber-500', iconBg: 'bg-amber-100 dark:bg-amber-900/30', iconText: 'text-amber-600 dark:text-amber-400', valueText: 'text-amber-600 dark:text-amber-400' },
-};
 
 const PER_PAGE = 15;
 const today = () => new Date().toISOString().split('T')[0];
@@ -516,58 +508,67 @@ export default function ReportsPage() {
     onExportPDF: () => void,
     filterToggle?: { active: boolean; onToggle: () => void; count: number },
   ) => (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 px-5 py-3.5">
-      <div className="flex items-center gap-2 flex-wrap">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('reports.from')}</span>
-          <DateInput value={dateFrom} onChange={setDateFrom} className="w-36" />
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('reports.to')}</span>
-          <DateInput value={dateTo} onChange={setDateTo} className="w-36" />
-        </div>
-        <button onClick={onRefetch} className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-          <ArrowPathIcon className="w-4 h-4" />
-        </button>
-        {filterToggle && (
-          <button onClick={filterToggle.onToggle} className={`relative inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium rounded-xl transition-colors ${filterToggle.active ? 'bg-violet-600 text-white' : 'border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
-            <FunnelIcon className="w-4 h-4" />
-            {t('reports.filters')}
-            {filterToggle.count > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{filterToggle.count}</span>
-            )}
+    <FilterBar
+      trailing={
+        <>
+          <button onClick={onRefetch} className="inline-flex items-center gap-1.5 px-2.5 h-[38px] text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" title="Refresh">
+            <ArrowPathIcon className="w-4 h-4" />
           </button>
-        )}
-        <div className={`flex items-center gap-2 ${isRTL ? 'mr-auto' : 'ml-auto'}`}>
-          <button onClick={onExportExcel} className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 transition-colors">
+          {filterToggle && (
+            <button onClick={filterToggle.onToggle} className={`relative inline-flex items-center gap-1.5 px-3 h-[38px] text-[12px] font-semibold rounded-md transition-colors ${filterToggle.active ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' : 'border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+              <FunnelIcon className="w-4 h-4" />
+              {t('reports.filters')}
+              {filterToggle.count > 0 && (
+                <span className="ms-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-[10px] font-bold tnum">{filterToggle.count}</span>
+              )}
+            </button>
+          )}
+          <button onClick={onExportExcel} className="inline-flex items-center gap-1.5 px-3 h-[38px] text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
             <ArrowDownTrayIcon className="w-4 h-4" /> Excel
           </button>
-          <button onClick={onExportPDF} className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium rounded-xl text-white bg-red-600 hover:bg-red-700 transition-colors">
+          <button onClick={onExportPDF} className="inline-flex items-center gap-1.5 px-3 h-[38px] text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
             <ArrowDownTrayIcon className="w-4 h-4" /> PDF
           </button>
-        </div>
+        </>
+      }
+    >
+      <div className="flex items-center gap-1.5">
+        <span className="text-[12px] font-medium text-gray-500 dark:text-gray-400">{t('reports.from')}</span>
+        <DateInput value={dateFrom} onChange={setDateFrom} />
       </div>
-    </div>
+      <div className="flex items-center gap-1.5">
+        <span className="text-[12px] font-medium text-gray-500 dark:text-gray-400">{t('reports.to')}</span>
+        <DateInput value={dateTo} onChange={setDateTo} />
+      </div>
+    </FilterBar>
   );
 
-  const renderKpiStrip = (items: { label: string; value: string; color: string }[], loading: boolean) => (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
-      <div className={`grid grid-cols-2 md:grid-cols-${items.length} md:divide-x ${isRTL ? 'md:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
-        {items.map((kpi, i) => {
-          const c = colorMap[kpi.color];
-          return (
-            <div key={i} className={`group relative p-5 ${c.hover} ${c.hoverDark} transition-colors duration-200`}>
-              <div className={`absolute top-0 inset-x-0 h-[3px] ${c.bar} scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b`} />
-              <div className="text-center">
-                <div className={`text-xl font-black ${c.valueText} tabular-nums leading-none`}>
-                  {loading ? <div className="w-16 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mx-auto" /> : kpi.value}
-                </div>
-                <div className="text-[11px] font-semibold text-gray-400 mt-2">{kpi.label}</div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+  const colorToDot: Record<string, string> = {
+    indigo: 'metric-dot-violet',
+    violet: 'metric-dot-violet',
+    emerald: 'metric-dot-green',
+    blue: 'metric-dot-blue',
+    red: 'metric-dot-red',
+    amber: 'metric-dot-orange',
+  };
+
+  const renderKpiStrip = (items: { label: string; value: string; color: string; currency?: boolean }[], loading: boolean) => (
+    <div className={`grid grid-cols-2 md:grid-cols-${Math.min(items.length, 4)} gap-2.5`}>
+      {items.map((kpi, i) => (
+        <div key={i} className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className={`metric-dot ${colorToDot[kpi.color] || 'metric-dot-neutral'}`} aria-hidden />
+            <p className="metric-label truncate">{kpi.label}</p>
+          </div>
+          {loading ? (
+            <div className="w-20 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          ) : kpi.currency ? (
+            <p className="metric-value-currency">{kpi.value}</p>
+          ) : (
+            <p className="metric-value truncate">{kpi.value}</p>
+          )}
+        </div>
+      ))}
     </div>
   );
 
@@ -582,9 +583,9 @@ export default function ReportsPage() {
   ) => {
     if (loading || (barData.length === 0 && areaData.length === 0)) return null;
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5">
-          <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-4">{barTitle}</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className="surface-pro">
+          <h3 className="surface-heading mb-3">{barTitle}</h3>
           {barData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={barData} layout="vertical" margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
@@ -601,8 +602,8 @@ export default function ReportsPage() {
             <div className="flex items-center justify-center h-[300px] text-gray-400 text-sm">{t('reports.noData')}</div>
           )}
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5">
-          <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-4">{areaTitle}</h3>
+        <div className="surface-pro">
+          <h3 className="surface-heading mb-3">{areaTitle}</h3>
           {areaData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <AreaChart data={areaData} margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
@@ -633,7 +634,7 @@ export default function ReportsPage() {
     if (totalPages <= 1) return null;
     return (
       <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100 dark:border-gray-700">
-        <span className="text-xs text-gray-400 tabular-nums">
+        <span className="text-[12px] text-gray-500 dark:text-gray-400 tnum">
           {t('reports.pageInfo', { current: String(page), total: String(totalPages), count: String(totalCount) })}
         </span>
         <div className="flex items-center gap-1">
@@ -652,7 +653,7 @@ export default function ReportsPage() {
 
   const renderLoading = () => (
     <div className="flex items-center justify-center py-20">
-      <div className="w-8 h-8 border-[3px] border-violet-200 dark:border-violet-800 border-t-violet-600 rounded-full animate-spin" />
+      <div className="spinner" />
     </div>
   );
 
@@ -663,32 +664,28 @@ export default function ReportsPage() {
     </div>
   );
 
-  const thClass = "text-start text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-5 py-3";
-  const thEndClass = "text-end text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-5 py-3";
-  const thCenterClass = "text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-5 py-3";
-  const tdClass = "px-5 py-3";
+  const thClass = "text-start text-[10.5px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-4 py-2.5 bg-gray-50/60 dark:bg-gray-800/60";
+  const thEndClass = "text-end text-[10.5px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-4 py-2.5 bg-gray-50/60 dark:bg-gray-800/60";
+  const thCenterClass = "text-center text-[10.5px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-4 py-2.5 bg-gray-50/60 dark:bg-gray-800/60";
+  const tdClass = "px-4 py-2 text-[13px]";
 
   // ═══════════════════════════════════════════════
   // ─── RENDER ───
   // ═══════════════════════════════════════════════
   return (
-    <div className="space-y-5">
-      {/* ─── Header ─── */}
-      <div>
-        <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('reports.title')}</h1>
-        <p className="text-sm text-gray-400 mt-1">{t('reports.subtitle')}</p>
-      </div>
+    <div className="space-y-4">
+      <PageHeader title={t('reports.title')} subtitle={t('reports.subtitle')} tight />
 
       {/* ─── Tab Navigation ─── */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-1.5">
-        <div className="flex gap-1">
+      <div className="border-b border-gray-200 dark:border-gray-700">
+        <div className="flex gap-1 overflow-x-auto">
           {TABS.map((tab) => (
             <button key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 ${
+              className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-semibold border-b-2 -mb-px transition-colors ${
                 activeTab === tab.key
-                  ? 'bg-violet-600 text-white'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  ? 'border-gray-900 dark:border-gray-100 text-gray-900 dark:text-gray-100'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }`}>
               {tab.icon}
               <span className="hidden sm:inline">{t(tab.labelKey)}</span>
@@ -711,17 +708,17 @@ export default function ReportsPage() {
 
           {renderKpiStrip([
             { label: t('reports.kpiTotalPurchases'), value: purchasesKpis.count.toString(), color: 'indigo' },
-            { label: t('reports.kpiTotalAmount'), value: formatCurrency(purchasesKpis.totalAmount), color: 'emerald' },
-            { label: t('reports.kpiPaidAmount'), value: formatCurrency(purchasesKpis.paidAmount), color: 'blue' },
-            { label: t('reports.kpiDueAmount'), value: formatCurrency(purchasesKpis.dueAmount), color: 'red' },
+            { label: t('reports.kpiTotalAmount'), value: formatCurrency(purchasesKpis.totalAmount), color: 'emerald', currency: true },
+            { label: t('reports.kpiPaidAmount'), value: formatCurrency(purchasesKpis.paidAmount), color: 'blue', currency: true },
+            { label: t('reports.kpiDueAmount'), value: formatCurrency(purchasesKpis.dueAmount), color: 'red', currency: true },
           ], purchasesLoading)}
 
           {renderCharts(purchasesSupplierData, purchasesDailyData, t('reports.chartTopSuppliers'), t('reports.chartDailyTrend'), 'purchaseGrad', '#6366f1', purchasesLoading)}
 
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('reports.tableTitle')}</h3>
-              <span className="text-xs text-gray-400 tabular-nums">{filteredPurchases.length} {t('reports.entries')}</span>
+          <div className="bg-white dark:bg-gray-900 rounded-[10px] border border-gray-200/80 dark:border-gray-700/60 overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-gray-200/80 dark:border-gray-700/60 flex items-center justify-between">
+              <h3 className="surface-heading">{t('reports.tableTitle')}</h3>
+              <span className="text-[12px] text-gray-500 dark:text-gray-400 tnum">{filteredPurchases.length} {t('reports.entries')}</span>
             </div>
             {purchasesLoading ? renderLoading() : filteredPurchases.length === 0 ? renderEmpty() : (
               <>
@@ -744,14 +741,14 @@ export default function ReportsPage() {
                     <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
                       {paginatedPurchases.map((p) => (
                         <tr key={p.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
-                          <td className={tdClass}><Link href={`/dashboard/purchases/${p.id}`} className="text-sm font-mono font-bold text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 hover:underline">{p.reference}</Link></td>
+                          <td className={tdClass}><Link href={`/dashboard/purchases/${p.id}`} className="font-mono font-semibold text-gray-800 dark:text-gray-100 hover:underline">{p.reference}</Link></td>
                           <td className={tdClass}><span className="text-sm text-gray-700 dark:text-gray-300">{p.supplier?.name || '-'}</span></td>
                           <td className={tdClass}><span className="text-sm text-gray-600 dark:text-gray-400">{p.user?.name || '-'}</span></td>
                           <td className={tdClass}><span className="text-sm text-gray-600 dark:text-gray-400">{p.warehouse?.name || '-'}</span></td>
                           <td className={tdClass}><span className="text-sm text-gray-500 dark:text-gray-400">{formatDate(p.date)}</span></td>
-                          <td className={`${tdClass} text-end`}><span className="text-sm font-bold text-gray-800 dark:text-gray-100 tabular-nums">{formatCurrency(parseFloat(String(p.grand_total)) || 0)}</span></td>
-                          <td className={`${tdClass} text-end`}><span className="text-sm font-medium text-emerald-600 dark:text-emerald-400 tabular-nums">{formatCurrency(parseFloat(String(p.paid_amount)) || 0)}</span></td>
-                          <td className={`${tdClass} text-end`}><span className={`text-sm font-medium tabular-nums ${(parseFloat(String(p.due_amount)) || 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400'}`}>{formatCurrency(parseFloat(String(p.due_amount)) || 0)}</span></td>
+                          <td className={`${tdClass} text-end`}><span className="font-semibold text-gray-800 dark:text-gray-100 tnum">{formatCurrency(parseFloat(String(p.grand_total)) || 0)}</span></td>
+                          <td className={`${tdClass} text-end`}><span className="font-medium text-gray-700 dark:text-gray-300 tnum">{formatCurrency(parseFloat(String(p.paid_amount)) || 0)}</span></td>
+                          <td className={`${tdClass} text-end`}><span className={`font-medium tnum ${(parseFloat(String(p.due_amount)) || 0) > 0 ? 'text-gray-800 dark:text-gray-100' : 'text-gray-400'}`}>{formatCurrency(parseFloat(String(p.due_amount)) || 0)}</span></td>
                           <td className={`${tdClass} text-center`}><StatusBadge status={p.status} type="status" t={t} /></td>
                           <td className={`${tdClass} text-center`}><StatusBadge status={p.payment_status} type="payment" t={t} /></td>
                         </tr>
@@ -831,17 +828,17 @@ export default function ReportsPage() {
 
           {renderKpiStrip([
             { label: t('reports.kpiTotalSales'), value: salesKpis.count.toString(), color: 'indigo' },
-            { label: t('reports.kpiTotalAmount'), value: formatCurrency(salesKpis.totalAmount), color: 'emerald' },
-            { label: t('reports.kpiPaidAmount'), value: formatCurrency(salesKpis.paidAmount), color: 'blue' },
-            { label: t('reports.kpiDueAmount'), value: formatCurrency(salesKpis.dueAmount), color: 'red' },
+            { label: t('reports.kpiTotalAmount'), value: formatCurrency(salesKpis.totalAmount), color: 'emerald', currency: true },
+            { label: t('reports.kpiPaidAmount'), value: formatCurrency(salesKpis.paidAmount), color: 'blue', currency: true },
+            { label: t('reports.kpiDueAmount'), value: formatCurrency(salesKpis.dueAmount), color: 'red', currency: true },
           ], salesLoading)}
 
           {renderCharts(salesClientData, salesDailyData, t('reports.chartTopClients'), t('reports.chartDailySalesTrend'), 'salesGrad', '#10b981', salesLoading)}
 
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('reports.tableTitleSales')}</h3>
-              <span className="text-xs text-gray-400 tabular-nums">{sales.length} {t('reports.entries')}</span>
+          <div className="bg-white dark:bg-gray-900 rounded-[10px] border border-gray-200/80 dark:border-gray-700/60 overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-gray-200/80 dark:border-gray-700/60 flex items-center justify-between">
+              <h3 className="surface-heading">{t('reports.tableTitleSales')}</h3>
+              <span className="text-[12px] text-gray-500 dark:text-gray-400 tnum">{sales.length} {t('reports.entries')}</span>
             </div>
             {salesLoading ? renderLoading() : sales.length === 0 ? renderEmpty() : (
               <>
@@ -862,12 +859,12 @@ export default function ReportsPage() {
                     <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
                       {paginatedSales.map((s) => (
                         <tr key={s.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
-                          <td className={tdClass}><Link href={`/dashboard/sales/${s.id}`} className="text-sm font-mono font-bold text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 hover:underline">{s.reference}</Link></td>
+                          <td className={tdClass}><Link href={`/dashboard/sales/${s.id}`} className="font-mono font-semibold text-gray-800 dark:text-gray-100 hover:underline">{s.reference}</Link></td>
                           <td className={tdClass}><span className="text-sm text-gray-700 dark:text-gray-300">{s.client?.name || '-'}</span></td>
                           <td className={tdClass}><span className="text-sm text-gray-500 dark:text-gray-400">{formatDate(s.date)}</span></td>
-                          <td className={`${tdClass} text-end`}><span className="text-sm font-bold text-gray-800 dark:text-gray-100 tabular-nums">{formatCurrency(parseFloat(String(s.grand_total)) || 0)}</span></td>
-                          <td className={`${tdClass} text-end`}><span className="text-sm font-medium text-emerald-600 dark:text-emerald-400 tabular-nums">{formatCurrency(parseFloat(String(s.paid_amount)) || 0)}</span></td>
-                          <td className={`${tdClass} text-end`}><span className={`text-sm font-medium tabular-nums ${(parseFloat(String(s.due_amount)) || 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400'}`}>{formatCurrency(parseFloat(String(s.due_amount)) || 0)}</span></td>
+                          <td className={`${tdClass} text-end`}><span className="font-semibold text-gray-800 dark:text-gray-100 tnum">{formatCurrency(parseFloat(String(s.grand_total)) || 0)}</span></td>
+                          <td className={`${tdClass} text-end`}><span className="font-medium text-gray-700 dark:text-gray-300 tnum">{formatCurrency(parseFloat(String(s.paid_amount)) || 0)}</span></td>
+                          <td className={`${tdClass} text-end`}><span className={`font-medium tnum ${(parseFloat(String(s.due_amount)) || 0) > 0 ? 'text-gray-800 dark:text-gray-100' : 'text-gray-400'}`}>{formatCurrency(parseFloat(String(s.due_amount)) || 0)}</span></td>
                           <td className={`${tdClass} text-center`}><StatusBadge status={s.status} type="status" t={t} /></td>
                           <td className={`${tdClass} text-center`}><StatusBadge status={s.payment_status} type="payment" t={t} /></td>
                         </tr>
@@ -891,15 +888,15 @@ export default function ReportsPage() {
 
           {renderKpiStrip([
             { label: t('reports.kpiTotalSaleReturns'), value: saleReturnsKpis.count.toString(), color: 'violet' },
-            { label: t('reports.kpiTotalReturnAmount'), value: formatCurrency(saleReturnsKpis.totalAmount), color: 'amber' },
+            { label: t('reports.kpiTotalReturnAmount'), value: formatCurrency(saleReturnsKpis.totalAmount), color: 'amber', currency: true },
           ], saleReturnsLoading)}
 
           {renderCharts(saleReturnsClientData, saleReturnsDailyData, t('reports.chartTopReturnClients'), t('reports.chartDailyReturnTrend'), 'saleReturnGrad', '#f59e0b', saleReturnsLoading)}
 
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('reports.tableTitleSaleReturns')}</h3>
-              <span className="text-xs text-gray-400 tabular-nums">{saleReturns.length} {t('reports.entries')}</span>
+          <div className="bg-white dark:bg-gray-900 rounded-[10px] border border-gray-200/80 dark:border-gray-700/60 overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-gray-200/80 dark:border-gray-700/60 flex items-center justify-between">
+              <h3 className="surface-heading">{t('reports.tableTitleSaleReturns')}</h3>
+              <span className="text-[12px] text-gray-500 dark:text-gray-400 tnum">{saleReturns.length} {t('reports.entries')}</span>
             </div>
             {saleReturnsLoading ? renderLoading() : saleReturns.length === 0 ? renderEmpty() : (
               <>
@@ -918,11 +915,11 @@ export default function ReportsPage() {
                     <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
                       {paginatedSaleReturns.map((r) => (
                         <tr key={r.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
-                          <td className={tdClass}><span className="text-sm font-mono font-bold text-gray-800 dark:text-gray-100">{r.reference}</span></td>
-                          <td className={tdClass}>{r.sale ? <Link href={`/dashboard/sales/${r.sale_id}`} className="text-sm font-mono text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 hover:underline">{r.sale.reference}</Link> : <span className="text-sm text-gray-400">-</span>}</td>
+                          <td className={tdClass}><span className="font-mono font-semibold text-gray-800 dark:text-gray-100">{r.reference}</span></td>
+                          <td className={tdClass}>{r.sale ? <Link href={`/dashboard/sales/${r.sale_id}`} className="font-mono text-gray-700 dark:text-gray-200 hover:underline">{r.sale.reference}</Link> : <span className="text-sm text-gray-400">-</span>}</td>
                           <td className={tdClass}><span className="text-sm text-gray-700 dark:text-gray-300">{r.client?.name || '-'}</span></td>
                           <td className={tdClass}><span className="text-sm text-gray-500 dark:text-gray-400">{formatDate(r.date)}</span></td>
-                          <td className={`${tdClass} text-end`}><span className="text-sm font-bold text-gray-800 dark:text-gray-100 tabular-nums">{formatCurrency(parseFloat(String(r.total_amount)) || 0)}</span></td>
+                          <td className={`${tdClass} text-end`}><span className="font-semibold text-gray-800 dark:text-gray-100 tnum">{formatCurrency(parseFloat(String(r.total_amount)) || 0)}</span></td>
                           <td className={`${tdClass} text-center`}><StatusBadge status={r.status} type="returnStatus" t={t} /></td>
                         </tr>
                       ))}
@@ -945,15 +942,15 @@ export default function ReportsPage() {
 
           {renderKpiStrip([
             { label: t('reports.kpiTotalPurchaseReturns'), value: purchaseReturnsKpis.count.toString(), color: 'violet' },
-            { label: t('reports.kpiTotalReturnAmount'), value: formatCurrency(purchaseReturnsKpis.totalAmount), color: 'amber' },
+            { label: t('reports.kpiTotalReturnAmount'), value: formatCurrency(purchaseReturnsKpis.totalAmount), color: 'amber', currency: true },
           ], purchaseReturnsLoading)}
 
           {renderCharts(purchaseReturnsSupplierData, purchaseReturnsDailyData, t('reports.chartTopReturnSuppliers'), t('reports.chartDailyPurchaseReturnTrend'), 'purchaseReturnGrad', '#ef4444', purchaseReturnsLoading)}
 
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('reports.tableTitlePurchaseReturns')}</h3>
-              <span className="text-xs text-gray-400 tabular-nums">{purchaseReturnsList.length} {t('reports.entries')}</span>
+          <div className="bg-white dark:bg-gray-900 rounded-[10px] border border-gray-200/80 dark:border-gray-700/60 overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-gray-200/80 dark:border-gray-700/60 flex items-center justify-between">
+              <h3 className="surface-heading">{t('reports.tableTitlePurchaseReturns')}</h3>
+              <span className="text-[12px] text-gray-500 dark:text-gray-400 tnum">{purchaseReturnsList.length} {t('reports.entries')}</span>
             </div>
             {purchaseReturnsLoading ? renderLoading() : purchaseReturnsList.length === 0 ? renderEmpty() : (
               <>
@@ -972,11 +969,11 @@ export default function ReportsPage() {
                     <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
                       {paginatedPurchaseReturns.map((r) => (
                         <tr key={r.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
-                          <td className={tdClass}><span className="text-sm font-mono font-bold text-gray-800 dark:text-gray-100">{r.reference}</span></td>
-                          <td className={tdClass}>{r.purchase ? <Link href={`/dashboard/purchases/${r.purchase_id}`} className="text-sm font-mono text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 hover:underline">{r.purchase.reference}</Link> : <span className="text-sm text-gray-400">-</span>}</td>
+                          <td className={tdClass}><span className="font-mono font-semibold text-gray-800 dark:text-gray-100">{r.reference}</span></td>
+                          <td className={tdClass}>{r.purchase ? <Link href={`/dashboard/purchases/${r.purchase_id}`} className="font-mono text-gray-700 dark:text-gray-200 hover:underline">{r.purchase.reference}</Link> : <span className="text-sm text-gray-400">-</span>}</td>
                           <td className={tdClass}><span className="text-sm text-gray-700 dark:text-gray-300">{r.supplier?.name || '-'}</span></td>
                           <td className={tdClass}><span className="text-sm text-gray-500 dark:text-gray-400">{formatDate(r.date)}</span></td>
-                          <td className={`${tdClass} text-end`}><span className="text-sm font-bold text-gray-800 dark:text-gray-100 tabular-nums">{formatCurrency(parseFloat(String(r.total_amount)) || 0)}</span></td>
+                          <td className={`${tdClass} text-end`}><span className="font-semibold text-gray-800 dark:text-gray-100 tnum">{formatCurrency(parseFloat(String(r.total_amount)) || 0)}</span></td>
                           <td className={`${tdClass} text-center`}><StatusBadge status={r.status} type="returnStatus" t={t} /></td>
                         </tr>
                       ))}

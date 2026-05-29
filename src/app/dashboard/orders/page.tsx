@@ -35,6 +35,7 @@ import {
   ShoppingCartIcon,
   CubeIcon,
 } from '@heroicons/react/24/outline';
+import { PageHeader, FilterBar } from '@/components/dashboard';
 
 interface StockItem { product_id: number; quantity: number }
 
@@ -45,14 +46,14 @@ export default function OrdersPage() {
   const isRTL = locale === 'ar';
   const storageKey = 'orders_tour_step';
 
-  // STATUS_CONFIG using t() for labels
-  const STATUS_CONFIG: Record<string, { label: string; bg: string; darkBg: string; text: string; darkText: string }> = useMemo(() => ({
-    pending: { label: t('orders.statusPending'), bg: 'bg-amber-50', darkBg: 'dark:bg-amber-900/30', text: 'text-amber-700', darkText: 'dark:text-amber-400' },
-    confirmed: { label: t('orders.statusConfirmed'), bg: 'bg-blue-50', darkBg: 'dark:bg-blue-900/30', text: 'text-blue-700', darkText: 'dark:text-blue-400' },
-    assigned: { label: t('orders.statusAssigned'), bg: 'bg-cyan-50', darkBg: 'dark:bg-cyan-900/30', text: 'text-cyan-700', darkText: 'dark:text-cyan-400' },
-    delivered: { label: t('orders.statusDelivered'), bg: 'bg-emerald-50', darkBg: 'dark:bg-emerald-900/30', text: 'text-emerald-700', darkText: 'dark:text-emerald-400' },
-    partial: { label: t('orders.statusPartial'), bg: 'bg-orange-50', darkBg: 'dark:bg-orange-900/30', text: 'text-orange-700', darkText: 'dark:text-orange-400' },
-    cancelled: { label: t('orders.statusCancelled'), bg: 'bg-red-50', darkBg: 'dark:bg-red-900/30', text: 'text-red-700', darkText: 'dark:text-red-400' },
+  // STATUS_CONFIG using t() for labels; dot color follows status semantics.
+  const STATUS_CONFIG: Record<string, { label: string; dot: string }> = useMemo(() => ({
+    pending: { label: t('orders.statusPending'), dot: 'metric-dot-orange' },
+    confirmed: { label: t('orders.statusConfirmed'), dot: 'metric-dot-blue' },
+    assigned: { label: t('orders.statusAssigned'), dot: 'metric-dot-blue' },
+    delivered: { label: t('orders.statusDelivered'), dot: 'metric-dot-green' },
+    partial: { label: t('orders.statusPartial'), dot: 'metric-dot-orange' },
+    cancelled: { label: t('orders.statusCancelled'), dot: 'metric-dot-red' },
   }), [t]);
 
   const tourSteps: TourStep[] = useMemo(() => [
@@ -346,121 +347,97 @@ export default function OrdersPage() {
   const NextChevron = isRTL ? ChevronLeftIcon : ChevronRightIcon;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" data-tour="orders-title">
-        <div>
-          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-gray-100 tracking-tight leading-none">{t('orders.title')}</h1>
-          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('orders.subtitle')}</p>
-        </div>
-        <div className="flex items-center gap-2">
+      <div data-tour="orders-title">
+        <PageHeader title={t('orders.title')} subtitle={t('orders.subtitle')}>
           <button
             onClick={() => { localStorage.removeItem(storageKey); setShowTour(true); }}
-            className="flex items-center gap-1.5 text-sm text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300 font-medium transition-colors"
+            className="flex items-center gap-1.5 text-[13px] text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300 font-medium transition-colors"
             title={t('orders.tourButton')}
           >
             <QuestionMarkCircleIcon className="w-5 h-5" />
             <span className="hidden sm:inline">{t('orders.tourButton')}</span>
           </button>
-          <button
-            onClick={() => refetch()}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
-          >
-            <ArrowPathIcon className="w-4 h-4" />
+          <button onClick={() => refetch()} className="btn btn-secondary text-[13px] h-8 px-3">
+            <ArrowPathIcon className="w-4 h-4" strokeWidth={1.8} />
             <span className="hidden sm:inline">{t('orders.refreshButton')}</span>
           </button>
           <button
             onClick={() => router.push('/dashboard/orders/new')}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-orange-600 hover:bg-orange-700 rounded-xl transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-bold text-white bg-orange-600 hover:bg-orange-700 rounded-md transition-colors"
           >
             <PlusIcon className="w-4 h-4" />
             {t('orders.newOrder')}
             <kbd className="bg-white/20 px-1.5 py-0.5 rounded text-[10px] font-medium ms-1">Insert</kbd>
           </button>
-        </div>
+        </PageHeader>
       </div>
 
       {/* KPI Strip */}
-      <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden" data-tour="orders-kpis">
-        <div className={`grid grid-cols-2 sm:grid-cols-4 sm:divide-x ${isRTL ? 'sm:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
-          {/* Total Orders */}
-          <div className="group relative p-5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-indigo-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{t('orders.totalOrders')}</div>
-              <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.totalOrders}</div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5" data-tour="orders-kpis">
+        {[
+          { label: t('orders.totalOrders'), value: kpis.totalOrders, dot: 'metric-dot-neutral', currency: false, hint: '' },
+          { label: t('orders.todayOrders'), value: kpis.todayOrders, dot: 'metric-dot-blue', currency: false, hint: kpis.todayPending > 0 ? t('orders.pendingToday', { count: String(kpis.todayPending) }) : '' },
+          { label: t('orders.totalAmounts'), value: formatCurrency(kpis.totalAmount), dot: 'metric-dot-green', currency: true, hint: '' },
+          { label: t('orders.problems'), value: kpis.problemOrders, dot: 'metric-dot-red', currency: false, hint: '' },
+        ].map((s, i) => (
+          <div key={i} className="metric-tile">
+            <div className="flex items-center gap-1.5">
+              <span className={`metric-dot ${s.dot}`} aria-hidden />
+              <p className="metric-label truncate">{s.label}</p>
             </div>
+            {s.currency ? (
+              <p className="metric-value-currency">{s.value}</p>
+            ) : (
+              <p className="metric-value truncate">{s.value}</p>
+            )}
+            {s.hint && <p className="text-[10px] text-orange-600 dark:text-orange-400 font-medium mt-0.5">{s.hint}</p>}
           </div>
-          {/* Today Orders */}
-          <div className="group relative p-5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{t('orders.todayOrders')}</div>
-              <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.todayOrders}</div>
-              {kpis.todayPending > 0 && <div className="text-[10px] text-amber-600 dark:text-amber-400 font-medium mt-1">{t('orders.pendingToday', { count: String(kpis.todayPending) })}</div>}
-            </div>
-          </div>
-          {/* Total Amounts */}
-          <div className="group relative p-5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-emerald-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{t('orders.totalAmounts')}</div>
-              <div className="text-lg font-black text-gray-900 dark:text-white tabular-nums leading-none">{formatCurrency(kpis.totalAmount)}</div>
-            </div>
-          </div>
-          {/* Problems */}
-          <div className="group relative p-5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-red-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{t('orders.problems')}</div>
-              <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.problemOrders}</div>
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Main Content */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm">
-        {/* Search bar */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-700" data-tour="orders-search">
-          <div className="relative flex-1">
-            <MagnifyingGlassIcon className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500`} />
-            <input
-              type="text"
-              placeholder={t('orders.searchPlaceholder')}
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className={`input w-full ${isRTL ? 'pr-9' : 'pl-9'} text-sm`}
-            />
-          </div>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl border transition-all ${
-              showFilters || activeFilterCount > 0
-                ? 'border-orange-300 dark:border-orange-600 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400'
-                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
-          >
-            <FunnelIcon className="w-4 h-4" />
-            <span className="hidden sm:inline">{t('orders.filterButton')}</span>
-            {activeFilterCount > 0 && (
-              <span className="w-5 h-5 rounded-full bg-orange-600 text-white text-[10px] font-bold flex items-center justify-center">
-                {activeFilterCount}
-              </span>
-            )}
-          </button>
-          {activeFilterCount > 0 && (
-            <button onClick={clearFilters} className="text-sm text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium flex items-center gap-1">
-              <XMarkIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('orders.clearButton')}</span>
-            </button>
-          )}
-          <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:inline">{t('orders.orderCount', { count: String(data?.total || 0) })}</span>
+      <div className="surface-pro">
+        <div data-tour="orders-search">
+          <FilterBar
+            search={search}
+            onSearchChange={(v) => { setSearch(v); setPage(1); }}
+            searchPlaceholder={t('orders.searchPlaceholder')}
+            bare
+            trailing={
+              <>
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`inline-flex items-center gap-2 px-3 py-2 text-[13px] font-medium rounded-md border transition-all ${
+                    showFilters || activeFilterCount > 0
+                      ? 'border-orange-300 dark:border-orange-600 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400'
+                      : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  <FunnelIcon className="w-4 h-4" />
+                  <span className="hidden sm:inline">{t('orders.filterButton')}</span>
+                  {activeFilterCount > 0 && (
+                    <span className="w-5 h-5 rounded-full bg-orange-600 text-white text-[10px] font-bold flex items-center justify-center">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </button>
+                {activeFilterCount > 0 && (
+                  <button onClick={clearFilters} className="text-[13px] text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 font-medium flex items-center gap-1">
+                    <XMarkIcon className="w-4 h-4" />
+                    <span className="hidden sm:inline">{t('orders.clearButton')}</span>
+                  </button>
+                )}
+                <span className="text-[12px] text-gray-400 dark:text-gray-500 hidden sm:inline">{t('orders.orderCount', { count: String(data?.total || 0) })}</span>
+              </>
+            }
+          />
         </div>
 
         {/* Expanded Filters */}
         {showFilters && (
-          <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30">
+          <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
               <div>
                 <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('orders.filterStatus')}</label>
@@ -514,7 +491,7 @@ export default function OrdersPage() {
         )}
 
         {/* Quick Filter Chips */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 dark:border-gray-700 overflow-x-auto" data-tour="orders-chips">
+        <div className="flex items-center gap-2 px-4 py-3 border-t border-gray-100 dark:border-gray-700 overflow-x-auto" data-tour="orders-chips">
           {([
             { value: '', label: t('orders.chipAll'), count: kpis.totalOrders },
             { value: 'pending', label: t('orders.chipPending'), count: kpis.pendingCount },
@@ -567,42 +544,36 @@ export default function OrdersPage() {
               const hasStockData = order.warehouse_id ? !!warehouseStock[order.warehouse_id] : false;
 
               return (
-                <div key={order.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden hover:border-gray-300 dark:hover:border-gray-600 transition-all">
+                <div key={order.id} className="bg-white dark:bg-gray-800 rounded-md border border-gray-200/80 dark:border-gray-700 overflow-hidden hover:border-gray-300 dark:hover:border-gray-600 transition-all">
                   {/* Card Header */}
                   <div
-                    className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors"
+                    className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors"
                     onClick={() => handleExpand(order)}
                   >
-                    <div className="flex items-center gap-4 min-w-0 flex-1">
-                      <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
-                        order.status === 'pending' ? 'bg-amber-100 dark:bg-amber-900/30' :
-                        order.status === 'confirmed' ? 'bg-blue-100 dark:bg-blue-900/30' :
-                        order.status === 'assigned' ? 'bg-cyan-100 dark:bg-cyan-900/30' :
-                        order.status === 'delivered' ? 'bg-emerald-100 dark:bg-emerald-900/30' :
-                        order.status === 'partial' ? 'bg-orange-100 dark:bg-orange-900/30' :
-                        'bg-red-100 dark:bg-red-900/30'
-                      }`}>
-                        {order.status === 'pending' && <ClockIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />}
-                        {order.status === 'confirmed' && <CheckCircleIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
-                        {order.status === 'assigned' && <TruckIcon className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />}
-                        {order.status === 'delivered' && <CheckBadgeIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />}
-                        {order.status === 'partial' && <ExclamationTriangleIcon className="w-5 h-5 text-orange-600 dark:text-orange-400" />}
-                        {order.status === 'cancelled' && <XCircleIcon className="w-5 h-5 text-red-600 dark:text-red-400" />}
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-10 h-10 rounded-md flex items-center justify-center shrink-0 bg-gray-100 dark:bg-gray-700/60 text-gray-600 dark:text-gray-300">
+                        {order.status === 'pending' && <ClockIcon className="w-5 h-5" />}
+                        {order.status === 'confirmed' && <CheckCircleIcon className="w-5 h-5" />}
+                        {order.status === 'assigned' && <TruckIcon className="w-5 h-5" />}
+                        {order.status === 'delivered' && <CheckBadgeIcon className="w-5 h-5" />}
+                        {order.status === 'partial' && <ExclamationTriangleIcon className="w-5 h-5" />}
+                        {order.status === 'cancelled' && <XCircleIcon className="w-5 h-5" />}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-sm font-bold text-gray-800 dark:text-gray-100">{order.reference}</span>
-                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${statusCfg.bg} ${statusCfg.darkBg} ${statusCfg.text} ${statusCfg.darkText}`}>
+                          <span className="font-mono text-[13px] font-semibold text-gray-800 dark:text-gray-100">{order.reference}</span>
+                          <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                            <span className={`metric-dot ${statusCfg.dot}`} aria-hidden />
                             {statusCfg.label}
                           </span>
                           {order.has_problem && (
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 flex items-center gap-0.5">
-                              <ExclamationTriangleIcon className="w-3 h-3" />
+                            <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                              <span className="metric-dot metric-dot-red" aria-hidden />
                               {t('orders.problemLabel')}
                             </span>
                           )}
                           {order.client?.name && (
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
                               {order.client.name}
                             </span>
                           )}
@@ -677,7 +648,7 @@ export default function OrdersPage() {
                             </div>
                             <div>
                               <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('orders.detailTotal')}</span>
-                              <div className="font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{formatCurrency(order.grand_total)}</div>
+                              <div className="font-bold text-gray-800 dark:text-gray-100 mt-0.5 tnum">{formatCurrency(order.grand_total)}</div>
                             </div>
                           </div>
 
@@ -770,11 +741,11 @@ export default function OrdersPage() {
                                             <span className="text-sm font-medium text-gray-800 dark:text-gray-100">{item.product?.name || `#${item.product_id}`}</span>
                                             {item.product?.barcode && <span className={`text-[10px] text-gray-400 dark:text-gray-500 ${isRTL ? 'mr-1' : 'ml-1'}`}>({item.product.barcode})</span>}
                                           </td>
-                                          <td className="text-center text-sm font-bold text-gray-700 dark:text-gray-300 py-2.5">
+                                          <td className="text-center text-sm font-bold text-gray-700 dark:text-gray-300 py-2.5 tnum">
                                             {fmtQty(item.quantity_ordered, ppp)}
                                           </td>
                                           {order.status === 'pending' && hasStockData && (
-                                            <td className={`text-center text-sm font-bold py-2.5 ${isShort ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                            <td className={`text-center text-sm font-bold py-2.5 tnum ${isShort ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-200'}`}>
                                               {available !== null ? fmtQty(available, ppp) : '-'}
                                             </td>
                                           )}
@@ -795,7 +766,7 @@ export default function OrdersPage() {
                                                       }}
                                                       className="input w-14 text-center text-sm"
                                                     />
-                                                    <span className="text-[10px] text-blue-600 dark:text-blue-400">{ppp > 1 ? t('orders.unitCarton') : t('orders.unitUnit')}</span>
+                                                    <span className="text-[10px] text-gray-500 dark:text-gray-400">{ppp > 1 ? t('orders.unitCarton') : t('orders.unitUnit')}</span>
                                                   </div>
                                                   {ppp > 1 && (
                                                     <div className="flex flex-col items-center">
@@ -811,7 +782,7 @@ export default function OrdersPage() {
                                                         }}
                                                         className="input w-14 text-center text-sm"
                                                       />
-                                                      <span className="text-[10px] text-orange-600 dark:text-orange-400">{t('orders.unitPiece')}</span>
+                                                      <span className="text-[10px] text-gray-500 dark:text-gray-400">{t('orders.unitPiece')}</span>
                                                     </div>
                                                   )}
                                                 </div>
@@ -819,25 +790,25 @@ export default function OrdersPage() {
                                             );
                                           })()}
                                           {(order.status === 'confirmed' || order.status === 'assigned') && (
-                                            <td className="text-center text-sm font-bold text-blue-600 dark:text-blue-400 py-2.5">
+                                            <td className="text-center text-sm font-bold text-gray-700 dark:text-gray-200 py-2.5 tnum">
                                               {fmtQty(item.quantity_confirmed, ppp)}
                                             </td>
                                           )}
                                           {(order.status === 'delivered' || order.status === 'partial') && (
                                             <>
-                                              <td className="text-center text-sm font-bold text-blue-600 dark:text-blue-400 py-2.5">
+                                              <td className="text-center text-sm font-bold text-gray-700 dark:text-gray-200 py-2.5 tnum">
                                                 {fmtQty(item.quantity_confirmed, ppp)}
                                               </td>
-                                              <td className="text-center text-sm font-bold text-emerald-600 dark:text-emerald-400 py-2.5">
+                                              <td className="text-center text-sm font-bold text-gray-700 dark:text-gray-200 py-2.5 tnum">
                                                 {fmtQty(item.quantity_delivered, ppp)}
                                                 {item.quantity_returned > 0 && (
-                                                  <div className="text-[10px] text-red-500 dark:text-red-400">{t('orders.returned')} {fmtQty(item.quantity_returned, ppp)}</div>
+                                                  <div className="text-[10px] text-gray-500 dark:text-gray-400">{t('orders.returned')} {fmtQty(item.quantity_returned, ppp)}</div>
                                                 )}
                                               </td>
                                             </>
                                           )}
-                                          <td className="text-center text-sm text-gray-600 dark:text-gray-300 py-2.5">{formatCurrency(item.unit_price)}</td>
-                                          <td className="text-center text-sm font-bold text-gray-700 dark:text-gray-300 py-2.5">{formatCurrency(item.subtotal)}</td>
+                                          <td className="text-center text-sm text-gray-600 dark:text-gray-300 py-2.5 tnum">{formatCurrency(item.unit_price)}</td>
+                                          <td className="text-center text-sm font-bold text-gray-700 dark:text-gray-300 py-2.5 tnum">{formatCurrency(item.subtotal)}</td>
                                         </tr>
                                       );
                                     })}

@@ -334,6 +334,19 @@ html {
 }
 .dark .metric-value { color: rgb(245, 245, 245); }
 
+/* Currency variant: smaller, wraps instead of truncating so long money
+   strings ("1,250,000.00 د.ج") read fully inside a narrow tile. */
+.metric-value-currency {
+  font-size: 16px;
+  font-weight: 600;
+  color: rgb(10, 10, 10);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.005em;
+  line-height: 1.15;
+  white-space: normal;
+}
+.dark .metric-value-currency { color: rgb(245, 245, 245); }
+
 .metric-sub {
   font-size: 11.5px;
   color: rgb(115, 115, 115);
@@ -364,6 +377,118 @@ html {
   letter-spacing: -0.005em;
 }
 .dark .surface-heading { color: rgb(229, 229, 229); }
+
+/* ─────────────────────────────────────────────────────────────────
+   .table-pro — enterprise data table
+   ─────────────────────────────────────────────────────────────────
+   Apply to a <table>. Auto-styles thead/tbody/tr/th/td with a
+   restrained, dense, "ERP-looking" treatment:
+     - hairline row separators (no zebra)
+     - tabular-nums for numeric alignment
+     - small uppercase header labels
+     - hover row reveal (no blue highlights)
+     - right-aligned class .tnum for monetary/numeric cells
+   Wrap in <div class="table-pro-wrap"> for rounded chrome + overflow.
+*/
+.table-pro-wrap {
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.dark .table-pro-wrap {
+  background: #171717;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.table-pro {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  color: rgb(38, 38, 38);
+}
+.dark .table-pro { color: rgb(212, 212, 212); }
+
+.table-pro thead th {
+  text-align: start;
+  padding: 9px 14px;
+  background: rgb(250, 250, 250);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: rgb(115, 115, 115);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+/* Alignment overrides must beat the default `.table-pro thead th` rule
+   above (which has higher specificity than the bare `.text-end` /
+   `.text-center` utilities). Without these the numeric columns'
+   headers stay stuck on the left while their .tnum data cells render
+   on the right — visual column misalignment. */
+.table-pro thead th.text-end    { text-align: end; }
+.table-pro thead th.text-center { text-align: center; }
+.table-pro thead th.text-start  { text-align: start; }
+.table-pro thead th.tnum        { text-align: end; }
+.dark .table-pro thead th {
+  background: rgb(26, 26, 26);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+  color: rgb(163, 163, 163);
+}
+
+.table-pro tbody td {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  vertical-align: middle;
+}
+.dark .table-pro tbody td {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+.table-pro tbody tr:last-child td { border-bottom: 0; }
+.table-pro tbody tr {
+  transition: background-color 0.12s ease;
+}
+.table-pro tbody tr:hover {
+  background: rgb(250, 250, 250);
+}
+.dark .table-pro tbody tr:hover {
+  background: rgb(26, 26, 26);
+}
+
+/* Tabular numbers — apply to numeric cells (prices, qty, ids) */
+.table-pro .tnum,
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+  text-align: end;
+  white-space: nowrap;
+}
+
+/* Strong primary cell — for the row's "name" column */
+.table-pro .t-strong {
+  font-weight: 500;
+  color: rgb(10, 10, 10);
+}
+.dark .table-pro .t-strong { color: rgb(245, 245, 245); }
+
+/* Muted secondary cell — codes, meta */
+.table-pro .t-muted {
+  color: rgb(115, 115, 115);
+  font-size: 12px;
+}
+.dark .table-pro .t-muted { color: rgb(163, 163, 163); }
+
+/* Compact density variant */
+.table-pro.compact thead th { padding: 7px 12px; }
+.table-pro.compact tbody td { padding: 7px 12px; }
+
+/* Empty state row */
+.table-pro .t-empty {
+  text-align: center;
+  padding: 40px 14px;
+  color: rgb(163, 163, 163);
+  font-size: 13px;
+}
 
 /* ─────────────────────────────────────────────────────────────────
    Design system tokens (Pro / enterprise)

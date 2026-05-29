@@ -9,6 +9,7 @@ import Link from 'next/link';
 import GuidedTour from '@/components/GuidedTour';
 import type { TourStep } from '@/components/GuidedTour';
 import { useLocale } from '@/lib/i18n/context';
+import { PageHeader, FilterBar } from '@/components/dashboard';
 import {
   TruckIcon,
   PlusIcon,
@@ -134,38 +135,39 @@ export default function DeliveriesPage() {
 
   const formatDate = (date: string) => new Date(date).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'ar-DZ');
 
+  // Accepts ISO timestamps ("2026-05-28T15:06:14.000000Z") or plain "HH:MM:SS".
+  // Always returns HH:MM in the user's locale.
+  const formatTime = (value?: string | null) => {
+    if (!value) return '';
+    const d = new Date(value.includes('T') ? value : `1970-01-01T${value}Z`);
+    if (isNaN(d.getTime())) return value;
+    return d.toLocaleTimeString(locale === 'fr' ? 'fr-FR' : 'ar-DZ', { hour: '2-digit', minute: '2-digit', hour12: false });
+  };
+
   const getStatusConfig = (status: string) => {
-    const configs: Record<string, { class: string; text: string; color: string; bgColor: string; icon: React.ReactNode }> = {
+    const configs: Record<string, { dot: string; text: string; icon: React.ReactNode }> = {
       preparing: {
-        class: 'badge-warning',
+        dot: 'metric-dot-orange',
         text: t('deliveries.preparing'),
-        color: 'text-amber-700 dark:text-amber-300',
-        bgColor: 'bg-amber-50 dark:bg-amber-900/20',
         icon: <ClockIcon className="w-4 h-4" />,
       },
       in_progress: {
-        class: 'badge-info',
+        dot: 'metric-dot-blue',
         text: t('deliveries.inProgress'),
-        color: 'text-blue-700 dark:text-blue-300',
-        bgColor: 'bg-blue-50 dark:bg-blue-900/20',
         icon: <TruckIcon className="w-4 h-4" />,
       },
       completed: {
-        class: 'badge-success',
+        dot: 'metric-dot-green',
         text: t('deliveries.completed'),
-        color: 'text-emerald-700 dark:text-emerald-300',
-        bgColor: 'bg-emerald-50 dark:bg-emerald-900/20',
         icon: <CheckCircleIcon className="w-4 h-4" />,
       },
       cancelled: {
-        class: 'badge-danger',
+        dot: 'metric-dot-red',
         text: t('deliveries.cancelled'),
-        color: 'text-red-700 dark:text-red-300',
-        bgColor: 'bg-red-50 dark:bg-red-900/20',
         icon: <XCircleIcon className="w-4 h-4" />,
       },
     };
-    return configs[status] || { class: 'badge-secondary', text: status, color: 'text-gray-700', bgColor: 'bg-gray-50', icon: null };
+    return configs[status] || { dot: 'metric-dot-neutral', text: status, icon: null };
   };
 
   // Filtered deliveries
@@ -270,7 +272,7 @@ export default function DeliveriesPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {showTour && (
         <GuidedTour
           steps={deliveryTourSteps}
@@ -280,191 +282,108 @@ export default function DeliveriesPage() {
       )}
 
       {/* ─── Header ─── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-3">
-        <div data-tour="deliveries-title">
-          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('deliveries.title')}</h1>
-          <p className="text-sm text-gray-400 mt-1.5">{t('deliveries.subtitle')}</p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
+      <div data-tour="deliveries-title">
+        <PageHeader title={t('deliveries.title')} subtitle={t('deliveries.subtitle')}>
           <button
             onClick={() => setShowTour(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium rounded-xl border-2 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-[13px] font-medium rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             title={t('deliveries.tourButton')}
           >
-            <QuestionMarkCircleIcon className="w-5 h-5" />
-            {t('deliveries.tourButton')}
+            <QuestionMarkCircleIcon className="w-4 h-4" />
+            <span className="hidden sm:inline">{t('deliveries.tourButton')}</span>
           </button>
           <Link
             href="/dashboard/deliveries/new"
-            className="group inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] transition-all duration-200"
+            className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-bold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors"
             data-tour="deliveries-add"
           >
-            <PlusIcon className="w-5 h-5 group-hover:rotate-90 transition-transform duration-200" />
+            <PlusIcon className="w-4 h-4" />
             <span className="hidden sm:inline">{t('deliveries.addNew')}</span>
             <span className="sm:hidden">{t('deliveries.addNewShort')}</span>
             <kbd className="hidden sm:inline bg-white/20 px-1.5 py-0.5 rounded-md text-[10px] font-mono">Insert</kbd>
           </Link>
-        </div>
+        </PageHeader>
       </div>
 
       {/* ─── KPI Strip ─── */}
-      <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden" data-tour="deliveries-kpis">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 sm:divide-x sm:divide-x-reverse divide-gray-100 dark:divide-gray-700">
-          {/* Total deliveries */}
-          <div className="group relative p-5 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.totalDeliveries}</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('deliveries.kpiTotal')}</div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5" data-tour="deliveries-kpis">
+        {[
+          { label: t('deliveries.kpiTotal'),       value: kpis.totalDeliveries,            dot: 'metric-dot-neutral', currency: false },
+          { label: t('deliveries.kpiSuccessRate'), value: `${kpis.successRate}%`,          dot: 'metric-dot-green',   currency: false },
+          { label: t('deliveries.kpiDelivered'),   value: `${kpis.deliveredOrders} / ${kpis.totalOrders}`, dot: 'metric-dot-blue', currency: false },
+          { label: t('deliveries.kpiFailed'),      value: kpis.failedOrders,               dot: 'metric-dot-red',     currency: false },
+          { label: t('deliveries.kpiCollected'),   value: formatCurrency(kpis.collectedAmount), dot: 'metric-dot-violet', currency: true },
+          { label: t('deliveries.kpiUnassigned'),  value: kpis.unassignedOrders,           dot: 'metric-dot-orange',  currency: false },
+        ].map((s, i) => (
+          <div key={i} className="metric-tile">
+            <div className="flex items-center gap-1.5">
+              <span className={`metric-dot ${s.dot}`} aria-hidden />
+              <p className="metric-label truncate">{s.label}</p>
             </div>
+            {s.currency ? (
+              <p className="metric-value-currency">{s.value}</p>
+            ) : (
+              <p className="metric-value truncate">{s.value}</p>
+            )}
           </div>
-
-          {/* Success rate */}
-          <div className="group relative p-5 hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-emerald-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums leading-none">{kpis.successRate}%</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('deliveries.kpiSuccessRate')}</div>
-            </div>
-          </div>
-
-          {/* Orders delivered / total */}
-          <div className="group relative p-5 hover:bg-purple-50/40 dark:hover:bg-purple-900/10 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-purple-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-2xl font-black text-gray-900 dark:text-white tabular-nums leading-none">
-                <span className="text-emerald-600 dark:text-emerald-400">{kpis.deliveredOrders}</span>
-                <span className="text-gray-300 dark:text-gray-600 mx-1">/</span>
-                <span>{kpis.totalOrders}</span>
-              </div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('deliveries.kpiDelivered')}</div>
-            </div>
-          </div>
-
-          {/* Failed */}
-          <div className="group relative p-5 hover:bg-red-50/40 dark:hover:bg-red-900/10 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-red-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-3xl font-black text-red-600 dark:text-red-400 tabular-nums leading-none">{kpis.failedOrders}</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('deliveries.kpiFailed')}</div>
-            </div>
-          </div>
-
-          {/* Collected amount */}
-          <div className="group relative p-5 hover:bg-teal-50/40 dark:hover:bg-teal-900/10 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-teal-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-lg font-black text-teal-600 dark:text-teal-400 tabular-nums leading-none">{formatCurrency(kpis.collectedAmount)}</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('deliveries.kpiCollected')}</div>
-            </div>
-          </div>
-
-          {/* Unassigned orders */}
-          <div className="group relative p-5 hover:bg-orange-50/40 dark:hover:bg-orange-900/10 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-orange-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-3xl font-black text-orange-600 dark:text-orange-400 tabular-nums leading-none">{kpis.unassignedOrders}</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('deliveries.kpiUnassigned')}</div>
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* ─── Quick Filter Chips + Search ─── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3" data-tour="deliveries-chips">
-        {/* Search */}
-        <div className="relative flex-1 max-w-sm">
-          <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t('deliveries.searchPlaceholder')}
-            className="input pr-10 text-sm"
-          />
-        </div>
-
-        {/* Status chips */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <button
-            onClick={() => setStatusFilter('')}
-            className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all duration-200 ${
-              !statusFilter
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-            }`}
-          >
-            {t('deliveries.chipAll')} {kpis.totalDeliveries}
-          </button>
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'preparing' ? '' : 'preparing')}
-            className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all duration-200 ${
-              statusFilter === 'preparing'
-                ? 'bg-amber-500 text-white'
-                : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30'
-            }`}
-          >
-            {t('deliveries.chipPreparing')} {kpis.preparingCount}
-          </button>
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'in_progress' ? '' : 'in_progress')}
-            className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all duration-200 ${
-              statusFilter === 'in_progress'
-                ? 'bg-blue-500 text-white'
-                : 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30'
-            }`}
-          >
-            {t('deliveries.chipInProgress')} {kpis.inProgressCount}
-          </button>
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'completed' ? '' : 'completed')}
-            className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all duration-200 ${
-              statusFilter === 'completed'
-                ? 'bg-emerald-500 text-white'
-                : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/30'
-            }`}
-          >
-            {t('deliveries.chipCompleted')} {kpis.completedCount}
-          </button>
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'cancelled' ? '' : 'cancelled')}
-            className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all duration-200 ${
-              statusFilter === 'cancelled'
-                ? 'bg-red-500 text-white'
-                : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30'
-            }`}
-          >
-            {t('deliveries.chipCancelled')} {kpis.cancelledCount}
-          </button>
-        </div>
-
-        {/* Toggle filters */}
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-full transition-all duration-200 ${
-            showFilters || hasActiveFilters
-              ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
-              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-          }`}
+      {/* ─── Search + Filter Chips + Toggle ─── */}
+      <div data-tour="deliveries-chips">
+        <FilterBar
+          search={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder={t('deliveries.searchPlaceholder')}
+          trailing={
+            <>
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold rounded-md transition-colors ${
+                  showFilters || hasActiveFilters
+                    ? 'bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-700'
+                    : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
+              >
+                <FunnelIcon className="w-3.5 h-3.5" />
+                {t('deliveries.advancedFilters')}
+                {showFilters ? <ChevronUpIcon className="w-3 h-3" /> : <ChevronDownIcon className="w-3 h-3" />}
+              </button>
+              {hasActiveFilters && (
+                <button onClick={clearFilters} className="text-[12px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-semibold flex items-center gap-1">
+                  <XCircleIcon className="w-3.5 h-3.5" />
+                  {t('deliveries.clearAll')}
+                </button>
+              )}
+            </>
+          }
         >
-          <FunnelIcon className="w-3.5 h-3.5" />
-          {t('deliveries.advancedFilters')}
-          {showFilters ? <ChevronUpIcon className="w-3 h-3" /> : <ChevronDownIcon className="w-3 h-3" />}
-        </button>
-
-        {hasActiveFilters && (
-          <button onClick={clearFilters} className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 font-bold flex items-center gap-1">
-            <XCircleIcon className="w-3.5 h-3.5" />
-            {t('deliveries.clearAll')}
-          </button>
-        )}
+          {/* Status chips inline */}
+          {([
+            { v: '',            label: t('deliveries.chipAll'),        count: kpis.totalDeliveries },
+            { v: 'preparing',   label: t('deliveries.chipPreparing'),  count: kpis.preparingCount },
+            { v: 'in_progress', label: t('deliveries.chipInProgress'), count: kpis.inProgressCount },
+            { v: 'completed',   label: t('deliveries.chipCompleted'),  count: kpis.completedCount },
+            { v: 'cancelled',   label: t('deliveries.chipCancelled'),  count: kpis.cancelledCount },
+          ] as const).map((c) => (
+            <button
+              key={c.v}
+              onClick={() => setStatusFilter(statusFilter === c.v ? '' : c.v)}
+              className={`px-3 py-1.5 text-[12px] font-semibold rounded-md whitespace-nowrap transition-colors ${
+                statusFilter === c.v
+                  ? 'bg-orange-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              {c.label} <span className={`${statusFilter === c.v ? 'text-orange-200' : 'text-gray-400 dark:text-gray-500'} tnum`}>({c.count})</span>
+            </button>
+          ))}
+        </FilterBar>
       </div>
 
       {/* ─── Expanded Filters ─── */}
       {showFilters && (
-        <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm p-5 space-y-4">
+        <div className="surface-pro p-4 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Livreur Filter */}
             <div>
@@ -520,18 +439,19 @@ export default function DeliveriesPage() {
             {hasActiveFilters && ` (${t('deliveries.ofTotal', { total: deliveries.length })})`}
           </span>
           {kpis.todayDeliveries > 0 && (
-            <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2.5 py-1 rounded-full">
+            <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-2.5 py-1 rounded-md">
+              <span className="metric-dot metric-dot-blue" aria-hidden />
               {t('deliveries.todayBadge', { count: kpis.todayDeliveries, active: kpis.todayInProgress })}
             </span>
           )}
         </div>
 
         {paginatedDeliveries.length === 0 ? (
-          <div className="rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 p-12 text-center">
+          <div className="rounded-md border border-dashed border-gray-200 dark:border-gray-700 p-12 text-center">
             <TruckIcon className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
             <p className="text-gray-500 dark:text-gray-400 font-medium">{t('deliveries.noResults')}</p>
             {hasActiveFilters && (
-              <button onClick={clearFilters} className="mt-2 text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 font-bold">
+              <button onClick={clearFilters} className="mt-2 text-sm text-orange-600 dark:text-orange-400 hover:text-orange-700 font-bold">
                 {t('deliveries.clearFilters')}
               </button>
             )}
@@ -546,34 +466,33 @@ export default function DeliveriesPage() {
                 : 0;
               const totalAmt = Number(delivery.total_amount) || 0;
               const collectedAmt = Number(delivery.collected_amount) || 0;
-              const collectionPercent = totalAmt > 0 ? Math.round((collectedAmt / totalAmt) * 100) : 0;
+              // Cap at 100% — when livreur collects old debt on top of the
+              // current delivery, raw ratio can exceed 100% which is confusing.
+              const collectionPercent = totalAmt > 0
+                ? Math.min(100, Math.round((collectedAmt / totalAmt) * 100))
+                : 0;
 
               return (
                 <div
                   key={delivery.id}
-                  className="group rounded-xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 overflow-hidden"
+                  className="group rounded-md border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 transition-colors overflow-hidden"
                 >
                   <div className="flex flex-col sm:flex-row items-stretch">
-                    {/* Status indicator strip */}
-                    <div className={`sm:w-1.5 h-1.5 sm:h-auto ${
-                      delivery.status === 'preparing' ? 'bg-amber-400' :
-                      delivery.status === 'in_progress' ? 'bg-blue-500' :
-                      delivery.status === 'completed' ? 'bg-emerald-500' :
-                      'bg-red-400'
-                    }`} />
-
                     {/* Main content */}
-                    <div className="flex-1 p-4">
+                    <div className="flex-1 p-3">
                       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                         {/* Left: Reference + Status */}
                         <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
-                          <div className={`w-9 h-9 rounded-xl ${status.bgColor} flex items-center justify-center ${status.color}`}>
+                          <div className="w-9 h-9 rounded-md bg-gray-100 dark:bg-gray-700/60 flex items-center justify-center text-gray-600 dark:text-gray-300">
                             {status.icon}
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-bold text-gray-900 dark:text-white">{delivery.reference}</span>
-                              <span className={`badge ${status.class} text-[10px]`}>{status.text}</span>
+                              <span className="text-[13px] font-semibold text-gray-900 dark:text-white">{delivery.reference}</span>
+                              <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                                <span className={`metric-dot ${status.dot}`} aria-hidden />
+                                {status.text}
+                              </span>
                             </div>
                             <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400">
                               <span className="flex items-center gap-1">
@@ -583,8 +502,8 @@ export default function DeliveriesPage() {
                               {delivery.start_time && (
                                 <span className="flex items-center gap-1">
                                   <ClockIcon className="w-3 h-3" />
-                                  {delivery.start_time}
-                                  {delivery.end_time && ` - ${delivery.end_time}`}
+                                  {formatTime(delivery.start_time)}
+                                  {delivery.end_time && ` - ${formatTime(delivery.end_time)}`}
                                 </span>
                               )}
                             </div>
@@ -608,12 +527,12 @@ export default function DeliveriesPage() {
                         {/* Orders progress */}
                         <div className="flex items-center gap-4 flex-shrink-0">
                           <div className="text-center min-w-[100px]">
-                            <div className="flex items-center justify-center gap-1.5 text-xs mb-1">
-                              <span className="text-emerald-600 dark:text-emerald-400 font-bold">{delivery.delivered_count}</span>
+                            <div className="flex items-center justify-center gap-1.5 text-xs mb-1 tnum">
+                              <span className="text-gray-800 dark:text-gray-100 font-semibold">{delivery.delivered_count}</span>
                               <span className="text-gray-300 dark:text-gray-600">/</span>
-                              <span className="text-gray-600 dark:text-gray-300 font-medium">{delivery.total_orders}</span>
+                              <span className="text-gray-600 dark:text-gray-300">{delivery.total_orders}</span>
                               {delivery.failed_count > 0 && (
-                                <span className="text-red-500 text-[10px] font-bold">({delivery.failed_count} {t('deliveries.failed')})</span>
+                                <span className="text-red-500 dark:text-red-400 text-[10px] font-semibold">({delivery.failed_count} {t('deliveries.failed')})</span>
                               )}
                             </div>
                             {delivery.total_orders > 0 && (
@@ -637,9 +556,9 @@ export default function DeliveriesPage() {
                           {/* Amount */}
                           {totalAmt > 0 && (
                             <div className="text-center min-w-[90px] hidden md:block">
-                              <div className="text-xs font-bold text-gray-900 dark:text-white">{formatCurrency(totalAmt)}</div>
+                              <div className="text-xs font-semibold text-gray-800 dark:text-gray-100 tnum">{formatCurrency(totalAmt)}</div>
                               {collectedAmt > 0 && (
-                                <div className="text-[10px] text-teal-600 dark:text-teal-400 font-medium mt-0.5">
+                                <div className="text-[10px] text-gray-500 dark:text-gray-400 font-medium mt-0.5 tnum">
                                   {t('deliveries.collected')}: {collectionPercent}%
                                 </div>
                               )}
@@ -653,7 +572,7 @@ export default function DeliveriesPage() {
                             <button
                               onClick={() => handleStartDelivery(delivery.id)}
                               disabled={startingId === delivery.id}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-all"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold rounded-md bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-50 transition-colors"
                             >
                               {startingId === delivery.id ? (
                                 <div className="spinner w-3.5 h-3.5 border-white"></div>
@@ -665,7 +584,7 @@ export default function DeliveriesPage() {
                           )}
                           <button
                             onClick={() => router.push(`/dashboard/deliveries/${delivery.id}`)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                           >
                             <EyeIcon className="w-3.5 h-3.5" />
                             {t('deliveries.view')}
@@ -699,9 +618,9 @@ export default function DeliveriesPage() {
                   )}
                   <button
                     onClick={() => setCurrentPage(page)}
-                    className={`w-9 h-9 text-sm font-bold rounded-lg transition-all ${
+                    className={`w-9 h-9 text-sm font-bold rounded-md transition-colors ${
                       page === currentPage
-                        ? 'bg-indigo-600 text-white'
+                        ? 'bg-orange-600 text-white'
                         : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
                   >

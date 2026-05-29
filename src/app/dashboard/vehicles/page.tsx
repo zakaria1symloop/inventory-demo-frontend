@@ -9,12 +9,10 @@ import type { TourStep } from '@/components/GuidedTour';
 import {
   TruckIcon,
   PlusIcon,
-  PencilSquareIcon,
+  PencilIcon,
   TrashIcon,
-  MagnifyingGlassIcon,
-  CheckCircleIcon,
-  XCircleIcon,
 } from '@heroicons/react/24/outline';
+import { PageHeader, FilterBar } from '@/components/dashboard';
 
 interface Vehicle {
   id: number;
@@ -26,8 +24,7 @@ interface Vehicle {
 }
 
 export default function VehiclesPage() {
-  const { t, locale, dir } = useLocale();
-  const isRTL = dir === 'rtl';
+  const { t } = useLocale();
 
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -72,12 +69,9 @@ export default function VehiclesPage() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger shortcuts when typing in input fields
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
-
-      // Insert key or Alt+N: open add modal
       if (e.key === 'Insert' || (e.altKey && e.key.toLowerCase() === 'n')) {
         e.preventDefault();
         setEditingVehicle(null);
@@ -160,20 +154,12 @@ export default function VehiclesPage() {
   const activeCount = vehicles.filter(v => v.is_active).length;
   const inactiveCount = vehicles.filter(v => !v.is_active).length;
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString(locale === 'ar' ? 'ar-DZ' : 'fr-DZ', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Guided Tour */}
       {showTour && (
         <GuidedTour
@@ -183,304 +169,208 @@ export default function VehiclesPage() {
         />
       )}
 
-      {/* ─── Header ─── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div data-tour="vehicles-header">
-          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">
-            {t('vehicles.title')}
-          </h1>
-          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1.5">
-            {t('vehicles.subtitle')}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Tour button - text only */}
+      <div data-tour="vehicles-header">
+        <PageHeader title={t('vehicles.title')} subtitle={t('vehicles.subtitle')}>
           <button
             onClick={() => {
               localStorage.removeItem('vehicles_tour_step');
               setShowTour(true);
             }}
-            className="text-sm text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 font-medium transition-colors"
+            className="text-[13px] text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 font-medium transition-colors"
           >
             {t('vehicles.tourTitle')}
           </button>
-          {/* Add vehicle button */}
           <button
             onClick={() => { setEditingVehicle(null); resetForm(); setShowModal(true); }}
-            className="group inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-teal-600 hover:bg-teal-700 active:scale-[0.98] transition-all duration-200"
+            className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-bold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors"
             data-tour="vehicles-add"
           >
-            <PlusIcon className="w-5 h-5 group-hover:rotate-90 transition-transform duration-200" />
+            <PlusIcon className="w-4 h-4" />
             {t('vehicles.addVehicle')}
-            <kbd className="hidden sm:inline bg-teal-700/60 px-1.5 py-0.5 rounded text-[10px] font-mono">Insert</kbd>
+            <kbd className="hidden md:inline bg-white/20 px-1.5 py-0.5 rounded text-[10px] font-mono ms-1">Insert</kbd>
           </button>
+        </PageHeader>
+      </div>
+
+      {/* ─── KPI Tiles ─── */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="metric-tile">
+          <div className="metric-label">
+            <span className="metric-dot metric-dot-blue" aria-hidden />
+            {t('vehicles.totalVehicles')}
+          </div>
+          <div className="metric-value">{totalCount}</div>
+        </div>
+        <div className="metric-tile">
+          <div className="metric-label">
+            <span className="metric-dot metric-dot-green" aria-hidden />
+            {t('vehicles.activeVehicles')}
+          </div>
+          <div className="metric-value">{activeCount}</div>
+        </div>
+        <div className="metric-tile">
+          <div className="metric-label">
+            <span className="metric-dot metric-dot-neutral" aria-hidden />
+            {t('vehicles.inactiveVehicles')}
+          </div>
+          <div className="metric-value">{inactiveCount}</div>
         </div>
       </div>
 
-      {/* ─── Shortcuts hint ─── */}
-      <div className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 px-4 py-2 rounded-xl flex items-center gap-6 text-xs">
-        <span className="font-semibold">{t('vehicles.shortcuts')}</span>
-        <span>
-          <kbd className="bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded text-[10px] font-mono">Insert</kbd>
-          {' '}{t('vehicles.insertNew')}
-        </span>
-      </div>
+      <FilterBar
+        search={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder={t('vehicles.search')}
+      />
 
-      {/* ─── KPI Strip ─── */}
-      <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
-        <div className={`grid grid-cols-3 sm:divide-x ${isRTL ? 'sm:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
-          {/* Total vehicles */}
-          <div className="group relative p-5 hover:bg-teal-50/40 dark:hover:bg-teal-900/10 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-teal-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{totalCount}</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('vehicles.totalVehicles')}</div>
-            </div>
-          </div>
-          {/* Active */}
-          <div className="group relative p-5 hover:bg-green-50/40 dark:hover:bg-green-900/10 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-green-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-3xl font-black text-green-600 dark:text-green-400 tabular-nums leading-none">{activeCount}</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('vehicles.activeVehicles')}</div>
-            </div>
-          </div>
-          {/* Inactive */}
-          <div className="group relative p-5 hover:bg-red-50/40 dark:hover:bg-red-900/10 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-red-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-3xl font-black text-red-500 dark:text-red-400 tabular-nums leading-none">{inactiveCount}</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('vehicles.inactiveVehicles')}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ─── Table Card ─── */}
-      <div
-        data-tour="vehicles-table"
-        className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden"
-      >
-        {/* Search bar */}
-        <div className="p-4 border-b border-gray-100 dark:border-gray-800">
-          <div className="relative max-w-sm">
-            <MagnifyingGlassIcon className={`w-4 h-4 text-gray-400 dark:text-gray-500 absolute top-1/2 -translate-y-1/2 ${isRTL ? 'right-3' : 'left-3'}`} />
-            <input
-              type="text"
-              placeholder={t('vehicles.search')}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className={`w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 dark:focus:border-teal-500 transition-colors ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'}`}
-            />
-          </div>
-        </div>
-
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-100 dark:border-gray-800">
-                <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">
-                  #
-                </th>
-                <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">
-                  {t('vehicles.name')}
-                </th>
-                <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">
-                  {t('vehicles.plateNumber')}
-                </th>
-                <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">
-                  {t('vehicles.model')}
-                </th>
-                <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">
-                  {t('vehicles.status')}
-                </th>
-                <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">
-                  {t('vehicles.actions')}
-                </th>
+      <div className="table-pro-wrap" data-tour="vehicles-table">
+        <table className="table-pro">
+          <thead>
+            <tr>
+              <th className="text-end">#</th>
+              <th>{t('vehicles.name')}</th>
+              <th>{t('vehicles.plateNumber')}</th>
+              <th>{t('vehicles.model')}</th>
+              <th>{t('vehicles.status')}</th>
+              <th>{t('vehicles.actions')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredVehicles.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="text-center py-12">
+                  <div className="flex flex-col items-center gap-2">
+                    <TruckIcon className="w-10 h-10 text-gray-300 dark:text-gray-600" />
+                    <p className="text-sm text-gray-400 dark:text-gray-500">
+                      {t('vehicles.noVehicles')}
+                    </p>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
-              {filteredVehicles.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="text-center py-16">
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="w-14 h-14 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                        <TruckIcon className="w-7 h-7 text-gray-300 dark:text-gray-600" />
-                      </div>
-                      <p className="text-sm text-gray-400 dark:text-gray-500 font-medium">
-                        {t('vehicles.noVehicles')}
-                      </p>
+            ) : (
+              filteredVehicles.map((vehicle, index) => (
+                <tr key={vehicle.id}>
+                  <td className="tnum">{index + 1}</td>
+                  <td className="font-medium">{vehicle.name}</td>
+                  <td dir="ltr">{vehicle.plate_number || '-'}</td>
+                  <td>{vehicle.model || '-'}</td>
+                  <td>
+                    <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                      <span className={`metric-dot ${vehicle.is_active ? 'metric-dot-green' : 'metric-dot-neutral'}`} aria-hidden />
+                      {vehicle.is_active ? t('vehicles.active') : t('vehicles.inactive')}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => handleEdit(vehicle)}
+                        className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                        title={t('vehicles.editVehicle')}
+                      >
+                        <PencilIcon className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(vehicle.id)}
+                        className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
+                        title={t('vehicles.deleteConfirm')}
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>
-              ) : (
-                filteredVehicles.map((vehicle, index) => (
-                  <tr
-                    key={vehicle.id}
-                    className="group hover:bg-teal-50/30 dark:hover:bg-teal-900/10 transition-colors duration-150"
-                  >
-                    <td className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500 font-mono">
-                      {index + 1}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                        {vehicle.name}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3" dir="ltr">
-                      <span className="text-sm text-gray-600 dark:text-gray-300 font-mono">
-                        {vehicle.plate_number || '-'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm text-gray-600 dark:text-gray-300">
-                        {vehicle.model || '-'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {vehicle.is_active ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400">
-                          <CheckCircleIcon className="w-3.5 h-3.5" />
-                          {t('vehicles.active')}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400">
-                          <XCircleIcon className="w-3.5 h-3.5" />
-                          {t('vehicles.inactive')}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        <button
-                          onClick={() => handleEdit(vehicle)}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors"
-                          title={t('vehicles.editVehicle')}
-                        >
-                          <PencilSquareIcon className="w-[18px] h-[18px]" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(vehicle.id)}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                          title={t('vehicles.deleteConfirm')}
-                        >
-                          <TrashIcon className="w-[18px] h-[18px]" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       {/* ─── Modal ─── */}
       {showModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          onClick={() => setShowModal(false)}
-        >
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-
-          {/* Modal content */}
-          <div
-            className="relative w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200/80 dark:border-gray-700 overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal gradient header */}
-            <div className="bg-gradient-to-l from-teal-600 to-emerald-600 px-6 py-4">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
-                  <TruckIcon className="w-5 h-5 text-white" />
-                </div>
-                <h2 className="text-lg font-bold text-white">
+        <>
+          <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setShowModal(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 pointer-events-none">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl flex flex-col overflow-hidden w-full max-w-[540px] max-h-[calc(100vh-3rem)] pointer-events-auto">
+              <header className="px-5 py-4 border-b dark:border-gray-700">
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">
                   {editingVehicle ? t('vehicles.editVehicle') : t('vehicles.addVehicle')}
                 </h2>
-              </div>
+              </header>
+              <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+                <main className="flex-1 overflow-y-auto p-5 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                      {t('vehicles.name')} <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="input"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                        {t('vehicles.plateNumber')}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.plate_number}
+                        onChange={(e) => setFormData({ ...formData, plate_number: e.target.value })}
+                        className="input"
+                        dir="ltr"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                        {t('vehicles.model')}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.model}
+                        onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                        className="input"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.is_active}
+                        onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                        className="w-4 h-4 text-blue-600 rounded"
+                      />
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {t('vehicles.active')}
+                      </span>
+                    </label>
+                  </div>
+                </main>
+                <footer className="px-5 py-3 border-t dark:border-gray-700 flex gap-3 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowModal(false)}
+                    className="btn btn-secondary"
+                  >
+                    {t('vehicles.cancel')}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="btn btn-primary"
+                  >
+                    {isSubmitting ? t('vehicles.saving') : t('vehicles.save')}
+                  </button>
+                </footer>
+              </form>
             </div>
-
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              {/* Name */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                  {t('vehicles.name')} <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 dark:focus:border-teal-500 transition-colors"
-                  required
-                />
-              </div>
-
-              {/* Plate number + Model */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                    {t('vehicles.plateNumber')}
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.plate_number}
-                    onChange={(e) => setFormData({ ...formData, plate_number: e.target.value })}
-                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 dark:focus:border-teal-500 transition-colors"
-                    dir="ltr"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                    {t('vehicles.model')}
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.model}
-                    onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 dark:focus:border-teal-500 transition-colors"
-                  />
-                </div>
-              </div>
-
-              {/* Active checkbox */}
-              <div>
-                <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={formData.is_active}
-                    onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                    className="w-4 h-4 text-teal-600 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-600 rounded focus:ring-teal-500 focus:ring-2"
-                  />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t('vehicles.active')}
-                  </span>
-                </label>
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all duration-200"
-                >
-                  {isSubmitting ? t('vehicles.saving') : t('vehicles.save')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 inline-flex items-center justify-center px-5 py-2.5 text-sm font-bold rounded-xl text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 active:scale-[0.98] transition-all duration-200"
-                >
-                  {t('vehicles.cancel')}
-                </button>
-              </div>
-            </form>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

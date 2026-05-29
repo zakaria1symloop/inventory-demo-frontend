@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { dashboardApi, locationApi, tenantApi, saasPaymentApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/store/auth';
 import { useLocale } from '@/lib/i18n/context';
+import { PageHeader } from '@/components/dashboard';
 import toast from 'react-hot-toast';
 import {
   ExclamationTriangleIcon,
@@ -415,10 +416,7 @@ function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{t('dashboard.title')}</h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">{t('dashboard.subtitle')}</p>
-      </div>
+      <PageHeader title={t('dashboard.title')} subtitle={t('dashboard.subtitle')} />
 
       {/* Payment Result Message */}
       {paymentMsg && (
@@ -452,11 +450,12 @@ function DashboardPage() {
 
       {/* System Health Alerts - Admin Only */}
       {isAdmin && healthAlerts && healthAlerts.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-orange-200 dark:border-orange-800 p-4">
+        <div className="surface-pro p-4">
           <div className="flex items-center gap-2 mb-3">
-            <ShieldExclamationIcon className="w-5 h-5 text-orange-500" />
-            <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200">{t('dashboard.systemHealth')}</h2>
-            <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+            <ShieldExclamationIcon className="w-4 h-4 text-orange-500" />
+            <h2 className="text-[13px] font-semibold text-gray-800 dark:text-gray-200">{t('dashboard.systemHealth')}</h2>
+            <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+              <span className="metric-dot metric-dot-orange" aria-hidden />
               {healthAlerts.length} {t('dashboard.alert')}
             </span>
           </div>
@@ -520,18 +519,21 @@ function DashboardPage() {
 
       {/* All Clear */}
       {isAdmin && healthAlerts && healthAlerts.length === 0 && (
-        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-3 flex items-center gap-2">
-          <CheckCircleIcon className="w-5 h-5 text-green-500" />
-          <span className="text-green-800 dark:text-green-300 text-sm font-medium">{t('dashboard.systemHealthy')}</span>
+        <div className="surface-pro px-4 py-2.5 flex items-center gap-2">
+          <CheckCircleIcon className="w-4 h-4 text-green-500" />
+          <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-gray-700 dark:text-gray-300">
+            <span className="metric-dot metric-dot-green" aria-hidden />
+            {t('dashboard.systemHealthy')}
+          </span>
         </div>
       )}
 
       {/* App Versions - Admin Only */}
       {isAdmin && appVersions && (appVersions.driver_apk_url || appVersions.sales_apk_url || appVersions.cashvan_apk_url) && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+        <div className="surface-pro p-4">
           <div className="flex items-center gap-2 mb-3">
-            <ArrowDownTrayIcon className="w-5 h-5 text-blue-500" />
-            <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200">{t('dashboard.mobileApps')}</h2>
+            <ArrowDownTrayIcon className="w-4 h-4 text-gray-500" />
+            <h2 className="text-[13px] font-semibold text-gray-800 dark:text-gray-200">{t('dashboard.mobileApps')}</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {appVersions.sales_apk_url && (
@@ -541,7 +543,7 @@ function DashboardPage() {
                   <p className="font-medium text-gray-800 dark:text-gray-200 text-sm">{t('dashboard.sellerApp')}</p>
                   <p className="text-xs text-gray-500">{appVersions.sales_apk_version || '-'}</p>
                 </div>
-                <ArrowDownTrayIcon className="w-5 h-5 text-blue-500" />
+                <ArrowDownTrayIcon className="w-4 h-4 text-gray-500" />
               </a>
             )}
             {appVersions.driver_apk_url && (
@@ -551,7 +553,7 @@ function DashboardPage() {
                   <p className="font-medium text-gray-800 dark:text-gray-200 text-sm">{t('dashboard.driverApp')}</p>
                   <p className="text-xs text-gray-500">{appVersions.driver_apk_version || '-'}</p>
                 </div>
-                <ArrowDownTrayIcon className="w-5 h-5 text-blue-500" />
+                <ArrowDownTrayIcon className="w-4 h-4 text-gray-500" />
               </a>
             )}
             {appVersions.cashvan_apk_url && (
@@ -561,7 +563,7 @@ function DashboardPage() {
                   <p className="font-medium text-gray-800 dark:text-gray-200 text-sm">{t('dashboard.cashvanApp')}</p>
                   <p className="text-xs text-gray-500">{appVersions.cashvan_apk_version || '-'}</p>
                 </div>
-                <ArrowDownTrayIcon className="w-5 h-5 text-blue-500" />
+                <ArrowDownTrayIcon className="w-4 h-4 text-gray-500" />
               </a>
             )}
           </div>
@@ -619,9 +621,9 @@ function DashboardPage() {
       {/* Row 3: Sales Chart + Mini Driver Map */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Sales/Purchases Area Chart */}
-        <div className="lg:col-span-2 card">
+        <div className="lg:col-span-2 surface-pro p-4">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">
+            <h2 className="text-[13px] font-semibold text-gray-800 dark:text-gray-100">
               {t('dashboard.salesAndPurchases')}
             </h2>
             <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
@@ -718,15 +720,15 @@ function DashboardPage() {
         </div>
 
         {/* Mini Driver Map */}
-        <div className="card !p-0 overflow-hidden flex flex-col">
+        <div className="surface-pro overflow-hidden flex flex-col">
           <div className="flex items-center justify-between px-4 pt-4 pb-2">
-            <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-              <MapPinIcon className="w-4 h-4 text-blue-500" />
+            <h2 className="text-[13px] font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+              <MapPinIcon className="w-4 h-4 text-gray-500" />
               {t('dashboard.driverLocations')}
             </h2>
             <Link
               href="/dashboard/drivers-map"
-              className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+              className="text-[12px] text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
               {t('dashboard.viewAll')}
             </Link>
@@ -755,8 +757,8 @@ function DashboardPage() {
       {/* Row 4: Top Products + Top Clients + Low Stock */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Top Products Bar Chart */}
-        <div className="card">
-          <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-4">
+        <div className="surface-pro p-4">
+          <h2 className="text-[13px] font-semibold text-gray-800 dark:text-gray-100 mb-4">
             {t('dashboard.topProducts')}
           </h2>
           {topProducts && topProducts.length > 0 ? (
@@ -811,8 +813,8 @@ function DashboardPage() {
         </div>
 
         {/* Top Clients */}
-        <div className="card">
-          <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-4">
+        <div className="surface-pro p-4">
+          <h2 className="text-[13px] font-semibold text-gray-800 dark:text-gray-100 mb-4">
             {t('dashboard.topClients')}
           </h2>
           {topClients && topClients.length > 0 ? (
@@ -855,9 +857,9 @@ function DashboardPage() {
         </div>
 
         {/* Low Stock Alerts */}
-        <div className="card">
-          <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
-            <ExclamationTriangleIcon className="w-5 h-5 text-orange-500" />
+        <div className="surface-pro p-4">
+          <h2 className="text-[13px] font-semibold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
+            <ExclamationTriangleIcon className="w-4 h-4 text-orange-500" />
             {t('dashboard.lowStockAlert')}
           </h2>
           {lowStock && lowStock.length > 0 ? (

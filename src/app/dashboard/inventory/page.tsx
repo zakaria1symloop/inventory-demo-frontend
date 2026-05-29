@@ -22,6 +22,7 @@ import {
 } from '@heroicons/react/24/outline';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import { PageHeader, FilterBar } from '@/components/dashboard';
 
 interface Product {
   id: number;
@@ -657,11 +658,26 @@ export default function InventoryPage() {
   };
 
   const getStockStatusBadge = (product: Product) => {
-    if (product.total_stock <= 0)
-      return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">{t('stock.outOfStock')}</span>;
-    if (product.total_stock <= product.stock_alert * (product.pieces_per_package || 1))
-      return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">{t('stock.lowStock')}</span>;
-    return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">{t('stock.inStock')}</span>;
+    // Dot + label. Color only on the dot; text stays neutral so the table
+    // doesn't look like a Christmas tree when many rows have status.
+    let dot = 'metric-dot-green';
+    let label = t('stock.inStock');
+    if (product.total_stock <= 0) {
+      dot = 'metric-dot-red';
+      label = t('stock.outOfStock');
+    } else if (
+      product.total_stock <=
+      product.stock_alert * (product.pieces_per_package || 1)
+    ) {
+      dot = 'metric-dot-orange';
+      label = t('stock.lowStock');
+    }
+    return (
+      <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+        <span className={`metric-dot ${dot}`} aria-hidden />
+        {label}
+      </span>
+    );
   };
 
   const getProductStockForWarehouse = (product: Product, warehouseId: number) => {
@@ -708,106 +724,60 @@ export default function InventoryPage() {
       {/* ========== TAB 1: INVENTORY ========== */}
       {activeTab === 'inventory' && (
         <>
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold dark:text-white">{t('stock.inventoryTitle')}</h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{t('stock.inventorySubtitle')}</p>
-            </div>
-            <button onClick={() => fetchProducts()} className="btn btn-secondary">
-              <ArrowPathIcon className="w-5 h-5" />
+          <PageHeader
+            title={t('stock.inventoryTitle')}
+            subtitle={t('stock.inventorySubtitle')}
+          >
+            <button onClick={() => fetchProducts()} className="btn btn-secondary text-[13px] h-8 px-3">
+              <ArrowPathIcon className="w-4 h-4" strokeWidth={1.8} />
               {t('common.refresh')}
             </button>
+          </PageHeader>
+
+          {/* Stats — restrained, ERP-style. Only the dot carries color. */}
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-2.5">
+            {[
+              { label: t('stock.invProducts'),  value: stats.totalProducts, dot: 'metric-dot-neutral', currency: false },
+              { label: t('stock.inStock'),      value: stats.inStock,       dot: 'metric-dot-green',   currency: false },
+              { label: t('stock.lowStock'),     value: stats.lowStock,      dot: 'metric-dot-orange',  currency: false },
+              { label: t('stock.outOfStock'),   value: stats.outOfStock,    dot: 'metric-dot-red',     currency: false },
+              { label: t('stock.totalCost'),    value: formatCurrency(stats.totalValue),       dot: 'metric-dot-violet', currency: true },
+              { label: t('stock.totalRetail'),  value: formatCurrency(stats.totalRetailValue), dot: 'metric-dot-blue',   currency: true },
+            ].map((s, i) => (
+              <div key={i} className="metric-tile">
+                <div className="flex items-center gap-1.5">
+                  <span className={`metric-dot ${s.dot}`} aria-hidden />
+                  <p className="metric-label truncate">{s.label}</p>
+                </div>
+                {s.currency ? (
+                  <p className="metric-value-currency">{s.value}</p>
+                ) : (
+                  <p className="metric-value truncate">{s.value}</p>
+                )}
+              </div>
+            ))}
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-            <div className="card p-3">
-              <div className="flex items-center gap-2">
-                <CubeIcon className="w-5 h-5 text-blue-600" />
-                <div>
-                  <p className="text-xs text-gray-500">{t('stock.invProducts')}</p>
-                  <p className="text-lg font-bold">{stats.totalProducts}</p>
-                </div>
-              </div>
-            </div>
-            <div className="card p-3">
-              <div className="flex items-center gap-2">
-                <CheckCircleIcon className="w-5 h-5 text-green-600" />
-                <div>
-                  <p className="text-xs text-gray-500">{t('stock.inStock')}</p>
-                  <p className="text-lg font-bold text-green-600">{stats.inStock}</p>
-                </div>
-              </div>
-            </div>
-            <div className="card p-3">
-              <div className="flex items-center gap-2">
-                <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600" />
-                <div>
-                  <p className="text-xs text-gray-500">{t('stock.lowStock')}</p>
-                  <p className="text-lg font-bold text-yellow-600">{stats.lowStock}</p>
-                </div>
-              </div>
-            </div>
-            <div className="card p-3">
-              <div className="flex items-center gap-2">
-                <XMarkIcon className="w-5 h-5 text-red-600" />
-                <div>
-                  <p className="text-xs text-gray-500">{t('stock.outOfStock')}</p>
-                  <p className="text-lg font-bold text-red-600">{stats.outOfStock}</p>
-                </div>
-              </div>
-            </div>
-            <div className="card p-3">
-              <div className="flex items-center gap-2">
-                <ChartBarIcon className="w-5 h-5 text-purple-600" />
-                <div>
-                  <p className="text-xs text-gray-500">{t('stock.totalCost')}</p>
-                  <p className="text-sm font-bold text-purple-600">{formatCurrency(stats.totalValue)}</p>
-                </div>
-              </div>
-            </div>
-            <div className="card p-3">
-              <div className="flex items-center gap-2">
-                <ChartBarIcon className="w-5 h-5 text-indigo-600" />
-                <div>
-                  <p className="text-xs text-gray-500">{t('stock.totalRetail')}</p>
-                  <p className="text-sm font-bold text-indigo-600">{formatCurrency(stats.totalRetailValue)}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Filters */}
-          <div className="card p-3">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="relative col-span-2 md:col-span-1">
-                <MagnifyingGlassIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder="بحث بالاسم أو الباركود..."
-                  value={searchTerm}
-                  onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-                  className="input pr-9 text-sm"
-                />
-              </div>
-              <select value={selectedWarehouse} onChange={(e) => { setSelectedWarehouse(e.target.value); setCurrentPage(1); }} className="select text-sm">
-                <option value="">{t('stock.invAllWarehouses')}</option>
-                {warehouses.map((wh) => <option key={wh.id} value={wh.id}>{wh.name}</option>)}
-              </select>
-              <select value={selectedCategory} onChange={(e) => { setSelectedCategory(e.target.value); setCurrentPage(1); }} className="select text-sm">
-                <option value="">{t('stock.invAllCategories')}</option>
-                {categories.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-              </select>
-              <select value={stockFilter} onChange={(e) => { setStockFilter(e.target.value); setCurrentPage(1); }} className="select text-sm">
-                <option value="">{t('stock.invAllStatuses')}</option>
-                <option value="in_stock">{t('stock.inStock')}</option>
-                <option value="low_stock">{t('stock.lowStock')}</option>
-                <option value="out_of_stock">{t('stock.outOfStock')}</option>
-              </select>
-            </div>
-          </div>
+          <FilterBar
+            search={searchTerm}
+            onSearchChange={(v) => { setSearchTerm(v); setCurrentPage(1); }}
+            searchPlaceholder={t('stock.searchProduct')}
+          >
+            <select value={selectedWarehouse} onChange={(e) => { setSelectedWarehouse(e.target.value); setCurrentPage(1); }} className="select text-[14px] py-2">
+              <option value="">{t('stock.invAllWarehouses')}</option>
+              {warehouses.map((wh) => <option key={wh.id} value={wh.id}>{wh.name}</option>)}
+            </select>
+            <select value={selectedCategory} onChange={(e) => { setSelectedCategory(e.target.value); setCurrentPage(1); }} className="select text-[14px] py-2">
+              <option value="">{t('stock.invAllCategories')}</option>
+              {categories.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+            </select>
+            <select value={stockFilter} onChange={(e) => { setStockFilter(e.target.value); setCurrentPage(1); }} className="select text-[14px] py-2">
+              <option value="">{t('stock.invAllStatuses')}</option>
+              <option value="in_stock">{t('stock.inStock')}</option>
+              <option value="low_stock">{t('stock.lowStock')}</option>
+              <option value="out_of_stock">{t('stock.outOfStock')}</option>
+            </select>
+          </FilterBar>
 
           {/* Products Table */}
           <div className="card p-0 overflow-hidden">

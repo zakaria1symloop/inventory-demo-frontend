@@ -8,6 +8,8 @@ export interface User {
   email: string;
   phone?: string;
   role: 'admin' | 'manager' | 'seller' | 'livreur' | 'cashvan';
+  role_id?: number;
+  permission_keys?: string[];
   avatar?: string;
   is_active: boolean;
   email_verified_at: string | null;

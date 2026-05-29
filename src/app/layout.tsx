@@ -114,7 +114,7 @@ export default async function RootLayout({
   const initialLocale: Locale =
     candidate === 'ar' || candidate === 'fr' || candidate === 'en'
       ? candidate
-      : 'en';
+      : 'fr';
   const htmlDir = initialLocale === 'ar' ? 'rtl' : 'ltr';
 
   return (
@@ -236,32 +236,22 @@ export default async function RootLayout({
                       '@type': 'Offer',
                       name: 'Free',
                       price: '0',
-                      priceCurrency: 'USD',
-                      description: 'Free plan — 25 products, 14-day trial of paid features',
+                      priceCurrency: 'DZD',
+                      description: 'Offre gratuite — 25 produits, essai 14 jours des fonctions payantes',
                       availability: 'https://schema.org/InStock',
                     },
                     {
                       '@type': 'Offer',
                       name: 'Starter',
-                      price: '19',
-                      priceCurrency: 'USD',
-                      description: 'Starter plan — 100 products',
-                      availability: 'https://schema.org/InStock',
-                    },
-                    {
-                      '@type': 'Offer',
-                      name: 'Pro',
-                      price: '49',
-                      priceCurrency: 'USD',
-                      description: 'Pro plan — 500 products, multi-warehouse, POS, GPS',
+                      price: '4500',
+                      priceCurrency: 'DZD',
+                      description: 'Starter — jusqu’à 500 produits, 3 utilisateurs, caisse POS, livraison GPS',
                       availability: 'https://schema.org/InStock',
                     },
                     {
                       '@type': 'Offer',
                       name: 'Business',
-                      price: '99',
-                      priceCurrency: 'USD',
-                      description: 'Business plan — 2000 products, CashVan, full mobile apps',
+                      description: 'Business — produits et utilisateurs illimités, CashVan, multi-entrepôts, intégrations sur mesure. Sur devis, nous contacter.',
                       availability: 'https://schema.org/InStock',
                     },
                   ],

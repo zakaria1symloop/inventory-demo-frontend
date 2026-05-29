@@ -10,6 +10,7 @@ import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import GuidedTour from '@/components/GuidedTour';
 import type { TourStep } from '@/components/GuidedTour';
 import { useLocale } from '@/lib/i18n/context';
+import { PageHeader } from '@/components/dashboard';
 
 interface ProductCategoryPrice {
   id: number;
@@ -995,171 +996,201 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
         </button>
       </div>
 
-      {/* Quick Entry Modal */}
+      {/* Quick Entry Modal — same enterprise design as SaleForm.
+         Purchases ADD to stock, so we don't validate stock here, but we
+         still show current stock at the top as useful context (so the
+         user knows "I have 0, buying 50, will end with 50"). */}
       {quickEntryModal.show && quickEntryModal.product && (() => {
-        const ppp = quickEntryModal.product?.pieces_per_package || 1;
+        const product = quickEntryModal.product;
+        const ppp = product.pieces_per_package || 1;
+        const currentStock = warehouseStock[product.id] || 0;
+        const requestedPieces = (quickEntryModal.quantity || 0) * ppp;
         const sortedCats = clientCategories.slice().sort((a, b) => a.id - b.id);
+
+        const stockDot = currentStock <= 0
+          ? 'metric-dot-red'
+          : currentStock < ppp * 5
+          ? 'metric-dot-orange'
+          : 'metric-dot-green';
+
+        const closeModal = () => {
+          setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0, categoryPrices: {} });
+          barcodeInputRef.current?.focus();
+        };
+
+        const canConfirm = (quickEntryModal.quantity || 0) > 0;
+
         return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl shadow-black/20 p-6 w-full sm:w-[480px] max-w-full mx-4 max-h-[90vh] overflow-y-auto border border-gray-200/50 dark:border-gray-700">
-            <div className="absolute top-0 right-0 left-0 h-[3px] rounded-t-2xl bg-gradient-to-l from-blue-500 to-indigo-600" />
-            <h3 className="text-lg font-extrabold mb-4 text-center text-gray-900 dark:text-gray-100">{quickEntryModal.product.name}</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('purchases.pfQtyLabel')}</label>
-                <input
-                  ref={quickQtyRef}
-                  type="number"
-                  value={quickEntryModal.quantity}
-                  onChange={(e) => setQuickEntryModal(prev => ({ ...prev, quantity: Number(e.target.value) || 0 }))}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      quickPriceRef.current?.focus();
-                      quickPriceRef.current?.select();
-                    } else if (e.key === 'Escape') {
-                      setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0, categoryPrices: {} });
-                      barcodeInputRef.current?.focus();
-                    }
-                  }}
-                  className="input w-full text-center text-xl"
-                  min="1"
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('purchases.pfPurchasePricePerPiece')}</label>
-                <input
-                  ref={quickPriceRef}
-                  type="number"
-                  value={quickEntryModal.unitPrice}
-                  onChange={(e) => setQuickEntryModal(prev => ({ ...prev, unitPrice: Number(e.target.value) || 0 }))}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      confirmQuickEntry();
-                    } else if (e.key === 'Escape') {
-                      setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0, categoryPrices: {} });
-                      barcodeInputRef.current?.focus();
-                    }
-                  }}
-                  className="input w-full text-center text-xl"
-                  min="0"
-                />
-                {ppp > 1 && (
-                  <div className="text-center text-sm text-blue-600 dark:text-blue-400 mt-1 font-medium">
-                    {t('purchases.pfCartonPrice')} {formatCurrency(quickEntryModal.unitPrice * ppp)}
+          <>
+            <div className="fixed inset-0 bg-black/40 z-40" onClick={closeModal} />
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 pointer-events-none">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl flex flex-col overflow-hidden w-full max-w-[480px] max-h-[calc(100vh-3rem)] pointer-events-auto border border-gray-200 dark:border-gray-700">
+                <header className="px-5 py-3 border-b border-gray-200 dark:border-gray-700">
+                  <h3 className="text-[14px] font-semibold text-gray-900 dark:text-gray-100 truncate">{product.name}</h3>
+                  <div className="mt-1 flex items-center gap-1.5 text-[12px] font-medium text-gray-600 dark:text-gray-400">
+                    <span className={`metric-dot ${stockDot}`} aria-hidden />
+                    {warehouseId
+                      ? `${t('purchases.pfAvailable')} ${formatStockQty(currentStock, ppp)}`
+                      : t('purchases.selectWarehouseFirst')}
                   </div>
-                )}
-              </div>
+                </header>
+                <main className="flex-1 overflow-y-auto p-5 space-y-4">
+                  <div>
+                    <label className="flex items-center justify-between text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                      <span>{t('purchases.pfQtyLabel')}</span>
+                      {ppp > 1 && (quickEntryModal.quantity || 0) > 0 && (
+                        <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400 tnum">
+                          = {requestedPieces} {t('purchases.pfPerPiece')}
+                        </span>
+                      )}
+                    </label>
+                    <input
+                      ref={quickQtyRef}
+                      type="number"
+                      value={quickEntryModal.quantity}
+                      onChange={(e) => setQuickEntryModal(prev => ({ ...prev, quantity: Number(e.target.value) || 0 }))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          quickPriceRef.current?.focus();
+                          quickPriceRef.current?.select();
+                        } else if (e.key === 'Escape') {
+                          closeModal();
+                        }
+                      }}
+                      className="input w-full text-center text-[15px] font-semibold tnum"
+                      min="1"
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">{t('purchases.pfPurchasePricePerPiece')}</label>
+                    <input
+                      ref={quickPriceRef}
+                      type="number"
+                      value={quickEntryModal.unitPrice}
+                      onChange={(e) => setQuickEntryModal(prev => ({ ...prev, unitPrice: Number(e.target.value) || 0 }))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (canConfirm) confirmQuickEntry();
+                        } else if (e.key === 'Escape') {
+                          closeModal();
+                        }
+                      }}
+                      className="input w-full text-center text-[15px] font-semibold tnum"
+                      min="0"
+                      step="0.01"
+                    />
+                    {ppp > 1 && (
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 text-center tnum">
+                        {t('purchases.pfCartonPrice')} {formatCurrency(quickEntryModal.unitPrice * ppp)}
+                      </p>
+                    )}
+                  </div>
 
-              {/* Category prices */}
-              {sortedCats.length > 0 && (
-              <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-3 space-y-3">
-                <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{t('purchases.pfSellingPricesPerPiece')}</div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {sortedCats.map((cat, catIdx) => (
-                    <div key={cat.id}>
-                      <label className="block text-xs text-amber-600 font-medium mb-0.5">{cat.name}</label>
-                      <input
-                        ref={(el) => { catPriceRefs.current[cat.id] = el; if (catIdx === 0 && !quickSellingRef.current) quickSellingRef.current = el; }}
-                        type="number"
-                        value={quickEntryModal.categoryPrices[cat.id] || ''}
-                        onChange={(e) => setQuickEntryModal(prev => ({
-                          ...prev,
-                          categoryPrices: { ...prev.categoryPrices, [cat.id]: Number(e.target.value) || 0 }
-                        }))}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            confirmQuickEntry();
-                          } else if (e.key === 'Escape') {
-                            setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0, categoryPrices: {} });
-                            barcodeInputRef.current?.focus();
-                          }
-                        }}
-                        className="input w-full text-center text-sm"
-                        min="0"
-                        placeholder="0"
-                      />
+                  {/* Category prices (purchase-specific feature) */}
+                  {sortedCats.length > 0 && (
+                    <div className="surface-pro !p-3 space-y-2">
+                      <p className="text-[10.5px] uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400">
+                        {t('purchases.pfSellingPricesPerPiece')}
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {sortedCats.map((cat, catIdx) => (
+                          <div key={cat.id}>
+                            <label className="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-0.5">{cat.name}</label>
+                            <input
+                              ref={(el) => { catPriceRefs.current[cat.id] = el; if (catIdx === 0 && !quickSellingRef.current) quickSellingRef.current = el; }}
+                              type="number"
+                              value={quickEntryModal.categoryPrices[cat.id] || ''}
+                              onChange={(e) => setQuickEntryModal(prev => ({
+                                ...prev,
+                                categoryPrices: { ...prev.categoryPrices, [cat.id]: Number(e.target.value) || 0 }
+                              }))}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  if (canConfirm) confirmQuickEntry();
+                                } else if (e.key === 'Escape') {
+                                  closeModal();
+                                }
+                              }}
+                              className="input w-full text-center text-[13px] py-1.5 tnum"
+                              min="0"
+                              placeholder="0.00"
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-              )}
+                  )}
 
-              <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/30 rounded-xl border border-blue-100 dark:border-blue-800">
-                <div className="text-2xl font-black text-blue-700 dark:text-blue-300 tabular-nums">
-                  {formatCurrency(quickEntryModal.unitPrice * ppp * quickEntryModal.quantity)}
-                </div>
-                <div className="text-xs text-blue-500 dark:text-blue-400 font-medium mt-0.5">
-                  ({quickEntryModal.unitPrice} × {ppp} {t('purchases.pfPerPiece')} × {quickEntryModal.quantity})
-                </div>
-              </div>
-              <div className="flex gap-2.5">
-                <button
-                  type="button"
-                  onClick={confirmQuickEntry}
-                  className="flex-1 px-4 py-2.5 text-sm font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-all duration-200"
-                >
-                  {t('purchases.pfAddBtn')} <kbd className={`bg-white/20 px-1.5 py-0.5 rounded-md text-[10px] font-mono ${dir === 'rtl' ? 'mr-1' : 'ml-1'}`}>Enter</kbd>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0, sellingPrice: 0, categoryPrices: {} });
-                    barcodeInputRef.current?.focus();
-                  }}
-                  className="flex-1 px-4 py-2.5 text-sm font-bold rounded-xl text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 active:scale-[0.98] transition-all duration-200"
-                >
-                  {t('common.cancel')} <kbd className={`bg-gray-200 dark:bg-gray-600 px-1.5 py-0.5 rounded-md text-[10px] font-mono ${dir === 'rtl' ? 'mr-1' : 'ml-1'}`}>Esc</kbd>
-                </button>
+                  <div className="p-3 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 text-center">
+                    <div className="text-[15px] font-semibold text-gray-900 dark:text-white tnum">
+                      {t('purchases.pfTotalSum')} {formatCurrency(quickEntryModal.unitPrice * ppp * quickEntryModal.quantity)}
+                    </div>
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                      ({quickEntryModal.unitPrice} × {ppp} {t('purchases.pfPerPiece')} × {quickEntryModal.quantity})
+                    </div>
+                  </div>
+                </main>
+                <footer className="flex gap-2 px-5 py-3 border-t border-gray-200 dark:border-gray-700">
+                  <button
+                    type="button"
+                    onClick={confirmQuickEntry}
+                    disabled={!canConfirm}
+                    className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 text-[13px] font-semibold rounded-md text-white bg-gray-900 hover:bg-black dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {t('purchases.pfAddBtn')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="flex-1 inline-flex items-center justify-center px-4 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    {t('common.cancel')}
+                  </button>
+                </footer>
               </div>
             </div>
-          </div>
-        </div>
+          </>
         );
       })()}
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          {onCancel ? (
-            <button onClick={onCancel} className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          ) : (
-            <Link href="/dashboard/purchases" className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
-          )}
-          <div>
-            <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-gray-100 tracking-tight leading-none">{isEditMode ? t('purchases.editInvoice') : t('purchases.newPurchaseInvoice')}</h1>
-            <p className="text-sm text-gray-400 mt-1">{isEditMode ? t('purchases.editInvoiceDesc') : t('purchases.newInvoiceDesc')}</p>
-          </div>
+      {onCancel ? (
+        <div className="mb-4">
+          <h1 className="text-[20px] md:text-[22px] font-semibold text-gray-900 dark:text-white tracking-tight leading-tight">
+            {isEditMode ? t('purchases.editInvoice') : t('purchases.newPurchaseInvoice')}
+          </h1>
+          <p className="mt-1 text-[13px] text-gray-500 dark:text-gray-400">
+            {isEditMode ? t('purchases.editInvoiceDesc') : t('purchases.newInvoiceDesc')}
+          </p>
         </div>
-      </div>
+      ) : (
+        <PageHeader
+          title={isEditMode ? t('purchases.editInvoice') : t('purchases.newPurchaseInvoice')}
+          subtitle={isEditMode ? t('purchases.editInvoiceDesc') : t('purchases.newInvoiceDesc')}
+          breadcrumb={[
+            { label: t('purchases.title'), href: '/dashboard/purchases' },
+            { label: isEditMode ? t('purchases.editInvoice') : t('purchases.newPurchaseInvoice') },
+          ]}
+        />
+      )}
 
       <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4">
             {/* Basic Info */}
-            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm" data-tour="pf-info">
-              <div className="flex items-center gap-2.5 px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 rounded-t-2xl">
-                <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                </div>
-                <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('purchases.pfInvoiceInfo')}</span>
+            <div className="surface-pro" data-tour="pf-info">
+              <div className="px-4 py-2.5 border-b border-gray-200/80 dark:border-gray-700">
+                <h2 className="text-[13px] font-semibold text-gray-700 dark:text-gray-200">{t('purchases.pfInvoiceInfo')}</h2>
               </div>
-              <div className="p-5">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="relative">
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('purchases.pfSupplier')}</label>
+                  <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('purchases.pfSupplier')}</label>
                   <input
                     ref={supplierSearchRef}
                     type="text"
@@ -1319,7 +1350,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('purchases.pfWarehouse')}</label>
+                  <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('purchases.pfWarehouse')}</label>
                   <select
                     value={warehouseId}
                     onChange={(e) => {
@@ -1330,7 +1361,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                         setWarehouseId(e.target.value);
                       }
                     }}
-                    className="select w-full"
+                    className="select w-full text-[14px] py-2"
                     required={!creatingWarehouse}
                   >
                     <option value="">{t('purchases.pfChooseWarehouse')}</option>
@@ -1370,7 +1401,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('purchases.pfDate')}</label>
+                  <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('purchases.pfDate')}</label>
                   <DateInput
                     value={date}
                     onChange={(v) => setDate(v)}
@@ -1416,42 +1447,42 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
             </div>
 
             {/* Product Search */}
-            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm" data-tour="pf-products">
-              <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 rounded-t-2xl">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
-                  </div>
-                  <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('purchases.pfAddProducts')}</span>
+            <div className="surface-pro" data-tour="pf-products">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200/80 dark:border-gray-700">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-[13px] font-semibold text-gray-700 dark:text-gray-200">{t('purchases.pfAddProducts')}</h2>
                   {items.length > 0 && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 tabular-nums">{items.length} {t('purchases.pfProduct')}</span>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-500 dark:text-gray-400 tnum">
+                      <span className="metric-dot metric-dot-neutral" aria-hidden />
+                      {items.length} {t('purchases.pfProduct')}
+                    </span>
                   )}
                 </div>
                 {/* Search Mode Toggle */}
-                <div className="flex items-center gap-3">
-                  <span className={`text-sm ${searchMode === 'barcode' ? 'text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-400'}`}>{t('purchases.pfBarcode')}</span>
+                <div className="flex items-center gap-2.5">
+                  <span className={`text-[12px] ${searchMode === 'barcode' ? 'text-gray-700 dark:text-gray-200 font-medium' : 'text-gray-400'}`}>{t('purchases.pfBarcode')}</span>
                   <button
                     type="button"
                     onClick={toggleSearchMode}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                      searchMode === 'name' ? 'bg-blue-600' : 'bg-gray-300'
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 ${
+                      searchMode === 'name' ? 'bg-gray-700 dark:bg-gray-300' : 'bg-gray-300 dark:bg-gray-600'
                     }`}
                     style={{ direction: 'ltr' }}
                   >
                     <span
-                      className={`inline-block h-4 w-4 rounded-full bg-white transition-all duration-200 ${
+                      className={`inline-block h-3.5 w-3.5 rounded-full bg-white dark:bg-gray-900 transition-all duration-200 ${
                         searchMode === 'name' ? 'mr-1 ml-auto' : 'ml-1 mr-auto'
                       }`}
                     />
                   </button>
-                  <span className={`text-sm ${searchMode === 'name' ? 'text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-400'}`}>{t('purchases.pfName')}</span>
+                  <span className={`text-[12px] ${searchMode === 'name' ? 'text-gray-700 dark:text-gray-200 font-medium' : 'text-gray-400'}`}>{t('purchases.pfName')}</span>
                 </div>
               </div>
 
-              <div className="px-5 pt-4 pb-0 mb-4">
+              <div className="px-4 pt-3 pb-0 mb-3">
                 {searchMode === 'barcode' ? (
                   <div>
-                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('purchases.pfBarcodeSearch')}</label>
+                    <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('purchases.pfBarcodeSearch')}</label>
                     <input
                       ref={barcodeInputRef}
                       type="text"
@@ -1465,7 +1496,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                   </div>
                 ) : (
                   <div className="relative">
-                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('purchases.pfNameSearch')}</label>
+                    <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('purchases.pfNameSearch')}</label>
                     <input
                       ref={productSearchRef}
                       type="text"
@@ -1563,22 +1594,23 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                 )}
               </div>
 
-              {/* Items Table - New Format */}
-              <div className="overflow-x-auto px-5 pb-5" data-tour="pf-items">
-                <table className="w-full text-sm">
+              {/* Items Table */}
+              <div className="px-4 pb-4" data-tour="pf-items">
+                <div className="table-pro-wrap">
+                <table className="table-pro compact">
                   <thead>
-                    <tr className="bg-slate-50 dark:bg-gray-700/50 border-b-2 border-slate-200 dark:border-gray-600">
-                      <th className="px-2 py-2.5 text-center w-12 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">#</th>
-                      <th className={`px-2 py-2.5 ${dir === 'rtl' ? 'text-right' : 'text-left'} text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase`}>{t('purchases.pfDesignation')}</th>
-                      <th className="px-2 py-2.5 text-center w-24 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">{t('purchases.pfStockAvail')}</th>
-                      <th className="px-2 py-2.5 text-center w-20 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">{t('purchases.pfQtyCol')}</th>
-                      <th className="px-2 py-2.5 text-center w-16 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">{t('purchases.pfUnitCol')}</th>
-                      <th className="px-2 py-2.5 text-center w-20 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">{t('purchases.pfCountCol')}</th>
-                      <th className="px-2 py-2.5 text-center w-24 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">{t('purchases.pfUnitPriceCol')}</th>
-                      <th className="px-2 py-2.5 text-center w-20 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">{t('purchases.pfDiscountCol')}</th>
-                      <th className="px-2 py-2.5 text-center w-16 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">TVA</th>
-                      <th className="px-2 py-2.5 text-center w-24 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">{t('purchases.pfAmountCol')}</th>
-                      <th className="px-2 py-2.5 w-10"></th>
+                    <tr>
+                      <th className="text-center w-10">#</th>
+                      <th>{t('purchases.pfDesignation')}</th>
+                      <th className="text-center w-24">{t('purchases.pfStockAvail')}</th>
+                      <th className="text-center w-[120px]">{t('purchases.pfQtyCol')}</th>
+                      <th className="text-center w-20">{t('purchases.pfUnitCol')}</th>
+                      <th className="text-center w-[100px]">{t('purchases.pfCountCol')}</th>
+                      <th className="text-center w-[120px]">{t('purchases.pfUnitPriceCol')}</th>
+                      <th className="text-center w-[100px]">{t('purchases.pfDiscountCol')}</th>
+                      <th className="text-center w-16">TVA</th>
+                      <th className="text-center w-[110px]">{t('purchases.pfAmountCol')}</th>
+                      <th className="w-10"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1586,25 +1618,25 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                       <tr>
                         <td colSpan={11} className="text-center py-12">
                           <div className="flex flex-col items-center gap-2">
-                            <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center">
-                              <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                            <div className="w-12 h-12 rounded-md bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                              <svg className="w-6 h-6 text-gray-300 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
                             </div>
-                            <p className="text-sm text-gray-400 font-medium">{t('purchases.pfNoProductsYet')}</p>
-                            <p className="text-xs text-gray-300 dark:text-gray-500">{t('purchases.pfSearchHint')}</p>
+                            <p className="text-[13px] text-gray-500 dark:text-gray-400 font-semibold">{t('purchases.pfNoProductsYet')}</p>
+                            <p className="text-[11px] text-gray-400 dark:text-gray-500">{t('purchases.pfSearchHint')}</p>
                           </div>
                         </td>
                       </tr>
                     ) : (
                       items.map((item, index) => (
-                        <tr key={index} className="border-b border-gray-100 dark:border-gray-700 hover:bg-blue-50/30 dark:hover:bg-blue-900/20 transition-colors duration-150 group">
-                          <td className="px-2 py-2 text-center font-medium text-gray-500">{index + 1}</td>
-                          <td className="px-2 py-2">
-                            <div className="font-medium">{item.product_name}</div>
-                            <div className="text-xs text-gray-500">{item.barcode}</div>
+                        <tr key={index} className="group">
+                          <td className="text-center tnum t-muted">{index + 1}</td>
+                          <td>
+                            <div className="t-strong">{item.product_name}</div>
+                            <div className="text-[11px] text-gray-500">{item.barcode}</div>
                           </td>
-                          <td className="px-2 py-2 text-center text-sm">
+                          <td className="text-center tnum">
                             {warehouseId ? (
-                              <span className="text-blue-600 font-medium">
+                              <span className="text-gray-700 dark:text-gray-200 font-medium">
                                 {formatStockQty(warehouseStock[item.product_id] || 0, item.pieces_per_package)}
                               </span>
                             ) : (
@@ -1613,58 +1645,42 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                           </td>
                           <td className="px-2 py-2">
                             <div className="space-y-1">
-                              {/* Cartons row - blue */}
-                              <div className="flex items-center gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => updateItem(index, 'quantity', Math.max(0, item.quantity - 1))}
-                                  className="w-6 h-6 flex items-center justify-center rounded border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold"
-                                >-</button>
+                              {/* Cartons */}
+                              <div className="flex items-center gap-1.5">
                                 <input
                                   ref={(el) => { inputRefs.current[`${index}-quantity`] = el; }}
                                   type="number"
                                   value={item.quantity}
                                   onChange={(e) => updateItem(index, 'quantity', Math.max(0, parseInt(e.target.value) || 0))}
                                   onKeyDown={(e) => handleKeyDown(e, index, 'quantity')}
-                                  className="input w-16 text-center text-sm py-1 border-blue-300 font-semibold"
+                                  className="input w-full !px-2 text-center text-[13px] py-1 font-semibold tnum"
                                   min="0"
                                 />
-                                <button
-                                  type="button"
-                                  onClick={() => updateItem(index, 'quantity', item.quantity + 1)}
-                                  className="w-6 h-6 flex items-center justify-center rounded border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold"
-                                >+</button>
+                                {item.pieces_per_package > 1 && (
+                                  <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap">crt</span>
+                                )}
                               </div>
-                              {/* Pieces row - orange (only if ppp > 1) */}
+                              {/* Extra pieces (only if ppp > 1) */}
                               {item.pieces_per_package > 1 && (
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => updateItem(index, 'extra_pieces', Math.max(0, item.extra_pieces - 1))}
-                                    className="w-6 h-6 flex items-center justify-center rounded border border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 text-xs font-bold"
-                                  >-</button>
+                                <div className="flex items-center gap-1.5">
                                   <input
                                     ref={(el) => { inputRefs.current[`${index}-extra_pieces`] = el; }}
                                     type="number"
                                     value={item.extra_pieces}
                                     onChange={(e) => updateItem(index, 'extra_pieces', parseInt(e.target.value) || 0)}
                                     onKeyDown={(e) => handleKeyDown(e, index, 'extra_pieces')}
-                                    className="input w-16 text-center text-sm py-1 border-orange-300 font-semibold"
+                                    className="input w-full !px-2 text-center text-[13px] py-1 font-semibold tnum"
                                     min="0"
                                     max={item.pieces_per_package - 1}
                                   />
-                                  <button
-                                    type="button"
-                                    onClick={() => updateItem(index, 'extra_pieces', item.extra_pieces + 1)}
-                                    className="w-6 h-6 flex items-center justify-center rounded border border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 text-xs font-bold"
-                                  >+</button>
+                                  <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap">pc</span>
                                 </div>
                               )}
                             </div>
                           </td>
-                          <td className="px-2 py-2 text-center text-sm">
-                            <div className="text-blue-600 font-medium">{item.pieces_per_package}</div>
-                            <div className="text-xs text-gray-500">{item.unit_name}</div>
+                          <td className="text-center tnum">
+                            <div className="t-strong">{item.pieces_per_package}</div>
+                            <div className="text-[11px] text-gray-500">{item.unit_name}</div>
                           </td>
                           <td className="px-2 py-2 text-center">
                             <input
@@ -1680,7 +1696,7 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                                   nextRef?.select();
                                 }
                               }}
-                              className="input w-20 text-center text-sm py-1 font-semibold"
+                              className="input w-full !px-2 text-center text-[13px] py-1 font-semibold tnum"
                               min="0"
                             />
                           </td>
@@ -1734,18 +1750,18 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                               step="0.01"
                             />
                           </td>
-                          <td className="px-2 py-2 text-center text-sm">
-                            <div className="font-medium">{item.tax_percent}%</div>
-                            <div className="text-gray-500 text-xs">{formatCurrency(item.tax)}</div>
+                          <td className="text-center tnum">
+                            <div className="t-strong">{item.tax_percent}%</div>
+                            <div className="text-gray-500 text-[11px]">{formatCurrency(item.tax)}</div>
                           </td>
-                          <td className="px-2 py-2 text-center font-black text-emerald-600 tabular-nums">
+                          <td className="text-center tnum t-strong">
                             {formatCurrency(item.subtotal)}
                           </td>
-                          <td className="px-2 py-2">
+                          <td>
                             <button
                               type="button"
                               onClick={() => removeItem(index)}
-                              className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 opacity-50 group-hover:opacity-100 transition-all"
+                              className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-60 group-hover:opacity-100 transition-all"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1757,21 +1773,22 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                     )}
                   </tbody>
                 </table>
+                </div>
               </div>
 
-              <div className="mt-2 px-5 pb-5 text-xs text-gray-400 flex items-center gap-1.5">
+              <div className="px-4 pb-3 text-[11px] text-gray-400 flex items-center gap-1.5">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 {t('purchases.pfEnterNextField')}
               </div>
             </div>
 
             {/* Notes */}
-            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm p-5">
-              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">{t('purchases.pfNotes')}</label>
+            <div className="surface-pro p-4">
+              <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">{t('purchases.pfNotes')}</label>
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                className="input w-full"
+                className="input w-full text-[14px] py-2"
                 rows={2}
                 placeholder={t('purchases.pfAddNotes')}
               />
@@ -1780,15 +1797,12 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
 
           {/* Sidebar - Summary */}
           <div>
-            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm sticky top-24" data-tour="pf-summary">
-              <div className="flex items-center gap-2.5 px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 rounded-t-2xl">
-                <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                </div>
-                <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('purchases.pfInvoiceSummary')}</span>
+            <div className="surface-pro sticky top-24" data-tour="pf-summary">
+              <div className="px-4 py-2.5 border-b border-gray-200/80 dark:border-gray-700">
+                <h2 className="text-[13px] font-semibold text-gray-700 dark:text-gray-200">{t('purchases.pfInvoiceSummary')}</h2>
               </div>
 
-              <div className="p-5 space-y-3">
+              <div className="p-4 space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-500 dark:text-gray-400">{t('purchases.pfProductsTotal', { count: items.length })}</span>
                   <span className="font-bold text-gray-900 dark:text-gray-100 tabular-nums">{formatCurrency(totalAmount)}</span>
@@ -1862,28 +1876,28 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                   </div>
                 </div>
 
-                <div className="h-px bg-gray-100" />
+                <div className="h-px bg-gray-200 dark:bg-gray-700" />
 
-                <div className="flex justify-between items-center p-3 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl border border-emerald-100 dark:border-emerald-800">
-                  <span className="font-bold text-emerald-800 dark:text-emerald-300">{t('purchases.pfFinalTotal')}</span>
-                  <span className="text-xl font-black text-emerald-700 dark:text-emerald-300 tabular-nums">{formatCurrency(grandTotal)}</span>
+                <div className="flex justify-between items-center p-3 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                  <span className="text-[13px] font-semibold text-gray-700 dark:text-gray-200">{t('purchases.pfFinalTotal')}</span>
+                  <span className="text-[16px] font-semibold text-gray-900 dark:text-white tnum">{formatCurrency(grandTotal)}</span>
                 </div>
 
                 {/* Payment Section */}
-                <div className="p-3.5 bg-gradient-to-b from-blue-50 to-blue-50/30 dark:from-blue-900/30 dark:to-blue-900/10 border border-blue-200/60 dark:border-blue-800 rounded-xl">
-                  <label className="block text-sm font-bold text-blue-800 dark:text-blue-300 mb-2">{t('purchases.pfPaidAmount')}</label>
+                <div className="p-3 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                  <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">{t('purchases.pfPaidAmount')}</label>
                   <input
                     ref={paidAmountRef}
                     type="number"
                     value={paidAmount}
                     onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
-                    className="input w-full text-lg font-black text-center tabular-nums"
+                    className="input w-full text-[15px] font-semibold text-center tnum py-2"
                     min="0"
                     step="0.01"
                     placeholder="0"
                   />
                   {supplierId && previousDebt > 0 && (
-                    <div className="mt-2 text-[11px] text-blue-500 dark:text-blue-400 text-center font-medium">
+                    <div className="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400 text-center">
                       {t('purchases.pfPayMoreHint')}
                     </div>
                   )}
@@ -1969,10 +1983,10 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                     ref={submitBtnRef}
                     type="submit"
                     disabled={isSaving || items.length === 0}
-                    className="w-full px-5 py-3 text-sm font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-semibold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSaving ? t('purchases.saving') : t('purchases.saveInvoice')}
-                    {!isSaving && <kbd className={`bg-white/20 px-1.5 py-0.5 rounded-md text-[10px] font-mono ${dir === 'rtl' ? 'mr-2' : 'ml-2'}`}>F4</kbd>}
+                    {!isSaving && <kbd className="bg-white/20 px-1.5 py-0.5 rounded-md text-[10px] font-mono">F4</kbd>}
                   </button>
 
                   {!isEditMode && (
@@ -1980,18 +1994,18 @@ export default function PurchaseForm({ purchaseId = null, onSuccess, onCancel }:
                       type="button"
                       onClick={handleSaveDraft}
                       disabled={isSaving || items.length === 0}
-                      className="w-full px-5 py-2.5 text-sm font-bold rounded-xl text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border-2 border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/50 hover:border-amber-300 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isSaving ? t('purchases.saving') : t('purchases.saveAsDraft')}
                     </button>
                   )}
 
                   {onCancel ? (
-                    <button type="button" onClick={onCancel} className="w-full px-5 py-2.5 text-sm font-bold rounded-xl text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 active:scale-[0.98] transition-all duration-200 text-center block">
+                    <button type="button" onClick={onCancel} className="w-full inline-flex items-center justify-center px-4 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                       {t('common.cancel')}
                     </button>
                   ) : (
-                    <Link href="/dashboard/purchases" className="w-full px-5 py-2.5 text-sm font-bold rounded-xl text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 active:scale-[0.98] transition-all duration-200 text-center block">
+                    <Link href="/dashboard/purchases" className="w-full inline-flex items-center justify-center px-4 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                       {t('common.cancel')}
                     </Link>
                   )}

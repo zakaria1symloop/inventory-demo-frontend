@@ -9,24 +9,19 @@ import {
   PencilIcon,
   TrashIcon,
   KeyIcon,
-  CheckCircleIcon,
-  XCircleIcon,
   BanknotesIcon,
   UsersIcon,
   TruckIcon,
   ShoppingCartIcon,
   DevicePhoneMobileIcon,
   QuestionMarkCircleIcon,
-  EnvelopeIcon,
-  PhoneIcon,
-  CalendarDaysIcon,
   CubeIcon,
 } from '@heroicons/react/24/outline';
-import Modal from '@/components/ui/Modal';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import toast from 'react-hot-toast';
 import GuidedTour from '@/components/GuidedTour';
 import type { TourStep } from '@/components/GuidedTour';
+import { PageHeader, FilterBar } from '@/components/dashboard';
 
 interface Driver {
   id: number;
@@ -40,27 +35,14 @@ interface Driver {
   created_at: string;
 }
 
-const roleConfig: Record<string, { color: string; bgColor: string; icon: React.ReactNode }> = {
-  livreur: {
-    color: 'text-blue-700 dark:text-blue-300',
-    bgColor: 'bg-blue-50 dark:bg-blue-900/20',
-    icon: <TruckIcon className="w-4 h-4" />,
-  },
-  seller: {
-    color: 'text-purple-700 dark:text-purple-300',
-    bgColor: 'bg-purple-50 dark:bg-purple-900/20',
-    icon: <ShoppingCartIcon className="w-4 h-4" />,
-  },
-  cashvan: {
-    color: 'text-orange-700 dark:text-orange-300',
-    bgColor: 'bg-orange-50 dark:bg-orange-900/20',
-    icon: <DevicePhoneMobileIcon className="w-4 h-4" />,
-  },
+const roleDot: Record<string, string> = {
+  livreur: 'metric-dot-blue',
+  seller: 'metric-dot-violet',
+  cashvan: 'metric-dot-orange',
 };
 
 export default function DriversPage() {
-  const { t, locale, dir } = useLocale();
-  const isRTL = dir === 'rtl';
+  const { t, locale } = useLocale();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -274,14 +256,6 @@ export default function DriversPage() {
     }
   };
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString(locale === 'fr' ? 'fr-DZ' : 'ar-DZ', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -303,7 +277,6 @@ export default function DriversPage() {
 
   // KPI counts from current data (page-level counts)
   const activeCount = drivers.filter(d => d.is_active).length;
-  const inactiveCount = drivers.filter(d => !d.is_active).length;
   const livreurCount = drivers.filter(d => d.role === 'livreur').length;
   const sellerCount = drivers.filter(d => d.role === 'seller').length;
   const cashvanCount = drivers.filter(d => d.role === 'cashvan').length;
@@ -313,7 +286,7 @@ export default function DriversPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {showTour && (
         <GuidedTour
           steps={driversTourSteps}
@@ -322,320 +295,201 @@ export default function DriversPage() {
         />
       )}
 
-      {/* ─── Header ─── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-3">
-        <div data-tour="drivers-title">
-          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('drivers.pageTitle')}</h1>
-          <p className="text-sm text-gray-400 mt-1.5">{t('drivers.pageSubtitle')}</p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
+      <div data-tour="drivers-title">
+        <PageHeader title={t('drivers.pageTitle')} subtitle={t('drivers.pageSubtitle')}>
           <button
             onClick={() => setShowTour(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium rounded-xl border-2 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+            className="inline-flex items-center gap-1.5 text-[13px] text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 font-medium transition-colors"
             title={t('drivers.tourButton')}
           >
-            <QuestionMarkCircleIcon className="w-5 h-5" />
+            <QuestionMarkCircleIcon className="w-4 h-4" />
             {t('drivers.tourButton')}
           </button>
           <button
             onClick={() => openModal()}
-            className="group inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-cyan-600 hover:bg-cyan-700 active:scale-[0.98] transition-all duration-200"
+            className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-bold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors"
             data-tour="drivers-add"
           >
-            <PlusIcon className="w-5 h-5 group-hover:rotate-90 transition-transform duration-200" />
+            <PlusIcon className="w-4 h-4" />
             <span className="hidden sm:inline">{t('drivers.addEmployee')}</span>
             <span className="sm:hidden">{t('drivers.addShort')}</span>
-            <kbd className="hidden sm:inline bg-white/20 px-1.5 py-0.5 rounded-md text-[10px] font-mono">Insert</kbd>
+            <kbd className="hidden md:inline bg-white/20 px-1.5 py-0.5 rounded text-[10px] font-mono ms-1">Insert</kbd>
           </button>
+        </PageHeader>
+      </div>
+
+      {/* KPI Tiles */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3" data-tour="drivers-kpis">
+        <div className="metric-tile">
+          <div className="metric-label">
+            <span className="metric-dot metric-dot-neutral" aria-hidden />
+            {t('drivers.kpiTotal')}
+          </div>
+          <div className="metric-value">{pagination?.total || drivers.length}</div>
+        </div>
+        <div className="metric-tile">
+          <div className="metric-label">
+            <span className="metric-dot metric-dot-blue" aria-hidden />
+            {t('drivers.kpiLivreurs')}
+          </div>
+          <div className="metric-value">{livreurCount}</div>
+        </div>
+        <div className="metric-tile">
+          <div className="metric-label">
+            <span className="metric-dot metric-dot-violet" aria-hidden />
+            {t('drivers.kpiSellers')}
+          </div>
+          <div className="metric-value">{sellerCount}</div>
+        </div>
+        <div className="metric-tile">
+          <div className="metric-label">
+            <span className="metric-dot metric-dot-orange" aria-hidden />
+            {t('drivers.kpiCashvan')}
+          </div>
+          <div className="metric-value">{cashvanCount}</div>
+        </div>
+        <div className="metric-tile">
+          <div className="metric-label">
+            <span className="metric-dot metric-dot-green" aria-hidden />
+            {t('drivers.kpiActiveInactive')}
+          </div>
+          <div className="metric-value">{activeCount}</div>
         </div>
       </div>
 
-      {/* ─── KPI Strip ─── */}
-      <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden" data-tour="drivers-kpis">
-        <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 sm:divide-x ${isRTL ? 'sm:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
-          {/* Total */}
-          <div className="group relative p-5 hover:bg-slate-50/40 dark:hover:bg-slate-900/10 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-slate-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{pagination?.total || drivers.length}</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('drivers.kpiTotal')}</div>
-            </div>
-          </div>
-
-          {/* Livreurs */}
-          <div className="group relative p-5 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors duration-200 cursor-pointer" onClick={() => { setRoleFilter(roleFilter === 'livreur' ? 'all' : 'livreur'); setPage(1); }}>
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-3xl font-black text-blue-600 dark:text-blue-400 tabular-nums leading-none">{livreurCount}</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('drivers.kpiLivreurs')}</div>
-            </div>
-          </div>
-
-          {/* Sellers */}
-          <div className="group relative p-5 hover:bg-purple-50/40 dark:hover:bg-purple-900/10 transition-colors duration-200 cursor-pointer" onClick={() => { setRoleFilter(roleFilter === 'seller' ? 'all' : 'seller'); setPage(1); }}>
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-purple-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-3xl font-black text-purple-600 dark:text-purple-400 tabular-nums leading-none">{sellerCount}</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('drivers.kpiSellers')}</div>
-            </div>
-          </div>
-
-          {/* Cashvan */}
-          <div className="group relative p-5 hover:bg-orange-50/40 dark:hover:bg-orange-900/10 transition-colors duration-200 cursor-pointer" onClick={() => { setRoleFilter(roleFilter === 'cashvan' ? 'all' : 'cashvan'); setPage(1); }}>
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-orange-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-3xl font-black text-orange-600 dark:text-orange-400 tabular-nums leading-none">{cashvanCount}</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('drivers.kpiCashvan')}</div>
-            </div>
-          </div>
-
-          {/* Active/Inactive */}
-          <div className="group relative p-5 hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-emerald-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-2xl font-black tabular-nums leading-none">
-                <span className="text-emerald-600 dark:text-emerald-400">{activeCount}</span>
-                <span className="text-gray-300 dark:text-gray-600 mx-1">/</span>
-                <span className="text-red-500 dark:text-red-400 text-lg">{inactiveCount}</span>
-              </div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('drivers.kpiActiveInactive')}</div>
-            </div>
-          </div>
-        </div>
+      {/* Filters */}
+      <div data-tour="drivers-chips">
+        <FilterBar
+          search={search}
+          onSearchChange={(v) => { setSearch(v); setPage(1); }}
+          searchPlaceholder={t('drivers.searchPlaceholder')}
+        >
+          <select
+            value={roleFilter}
+            onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
+          >
+            <option value="all">{t('drivers.filterAll')}</option>
+            <option value="livreur">{t('drivers.filterLivreurs')}</option>
+            <option value="seller">{t('drivers.filterSellers')}</option>
+            <option value="cashvan">{t('drivers.filterCashvan')}</option>
+          </select>
+        </FilterBar>
       </div>
 
-      {/* ─── Search + Role Chips ─── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3" data-tour="drivers-chips">
-        {/* Search */}
-        <div className="relative flex-1 max-w-sm">
-          <svg className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            placeholder={t('drivers.searchPlaceholder')}
-            className={`input ${isRTL ? 'pr-10' : 'pl-10'} text-sm`}
-          />
-        </div>
-
-        {/* Role chips */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <button
-            onClick={() => { setRoleFilter('all'); setPage(1); }}
-            className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all duration-200 ${
-              roleFilter === 'all'
-                ? 'bg-slate-700 text-white'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-            }`}
-          >
-            {t('drivers.filterAll')}
-          </button>
-          <button
-            onClick={() => { setRoleFilter(roleFilter === 'livreur' ? 'all' : 'livreur'); setPage(1); }}
-            className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-full transition-all duration-200 ${
-              roleFilter === 'livreur'
-                ? 'bg-blue-500 text-white'
-                : 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30'
-            }`}
-          >
-            <TruckIcon className="w-3.5 h-3.5" />
-            {t('drivers.filterLivreurs')}
-          </button>
-          <button
-            onClick={() => { setRoleFilter(roleFilter === 'seller' ? 'all' : 'seller'); setPage(1); }}
-            className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-full transition-all duration-200 ${
-              roleFilter === 'seller'
-                ? 'bg-purple-500 text-white'
-                : 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/30'
-            }`}
-          >
-            <ShoppingCartIcon className="w-3.5 h-3.5" />
-            {t('drivers.filterSellers')}
-          </button>
-          <button
-            onClick={() => { setRoleFilter(roleFilter === 'cashvan' ? 'all' : 'cashvan'); setPage(1); }}
-            className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-full transition-all duration-200 ${
-              roleFilter === 'cashvan'
-                ? 'bg-orange-500 text-white'
-                : 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/30'
-            }`}
-          >
-            <DevicePhoneMobileIcon className="w-3.5 h-3.5" />
-            {t('drivers.filterCashvan')}
-          </button>
-        </div>
-      </div>
-
-      {/* ─── Drivers List ─── */}
+      {/* Table */}
       <div data-tour="drivers-list">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm text-gray-500 dark:text-gray-400">
-            {pagination?.total || drivers.length} {t('drivers.employeeCount')}
-          </span>
-        </div>
-
         {drivers.length === 0 ? (
-          <div className="rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 p-12 text-center">
+          <div className="surface-pro p-12 text-center">
             <UsersIcon className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
             <p className="text-gray-500 dark:text-gray-400 font-medium">{t('drivers.noEmployees')}</p>
-            <button onClick={() => openModal()} className="mt-3 text-sm text-cyan-600 dark:text-cyan-400 hover:text-cyan-800 font-bold">
+            <button onClick={() => openModal()} className="mt-3 text-sm text-gray-700 dark:text-gray-200 hover:underline font-bold">
               {t('drivers.addFirstEmployee')}
             </button>
           </div>
         ) : (
-          <div className="space-y-2.5">
-            {drivers.map((driver) => {
-              const role = roleConfig[driver.role] || roleConfig.livreur;
-
-              return (
-                <div
-                  key={driver.id}
-                  className="group rounded-xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 overflow-hidden"
-                >
-                  <div className="flex flex-col sm:flex-row items-stretch">
-                    {/* Role color strip */}
-                    <div className={`sm:w-1.5 h-1.5 sm:h-auto ${
-                      driver.role === 'livreur' ? 'bg-blue-500' :
-                      driver.role === 'seller' ? 'bg-purple-500' :
-                      'bg-orange-500'
-                    }`} />
-
-                    {/* Content */}
-                    <div className="flex-1 p-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                        {/* Avatar + Name */}
-                        <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
-                          <div className={`w-10 h-10 rounded-xl ${role.bgColor} flex items-center justify-center ${role.color}`}>
-                            {role.icon}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-bold text-gray-900 dark:text-white">{driver.name}</span>
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${role.bgColor} ${role.color}`}>
-                                {roleLabels[driver.role] || driver.role}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400">
-                              <span className="flex items-center gap-1" dir="ltr">
-                                <EnvelopeIcon className="w-3 h-3" />
-                                {driver.email}
-                              </span>
-                              {driver.phone && (
-                                <span className="flex items-center gap-1" dir="ltr">
-                                  <PhoneIcon className="w-3 h-3" />
-                                  {driver.phone}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Status + Debt toggle */}
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="table-pro-wrap">
+            <table className="table-pro">
+              <thead>
+                <tr>
+                  <th>{t('drivers.labelName')}</th>
+                  <th>{t('drivers.labelType')}</th>
+                  <th>{t('drivers.labelEmail')}</th>
+                  <th>{t('drivers.labelPhone')}</th>
+                  <th>{t('drivers.statusActive')}</th>
+                  <th>{t('drivers.debtCollectTitle')}</th>
+                  <th>{t('common.actions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {drivers.map((driver) => (
+                  <tr key={driver.id}>
+                    <td className="font-medium">{driver.name}</td>
+                    <td>
+                      <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                        <span className={`metric-dot ${roleDot[driver.role] || 'metric-dot-neutral'}`} aria-hidden />
+                        {roleLabels[driver.role] || driver.role}
+                      </span>
+                    </td>
+                    <td dir="ltr">{driver.email}</td>
+                    <td dir="ltr">{driver.phone || '-'}</td>
+                    <td>
+                      <button
+                        onClick={() => toggleActiveMutation.mutate(driver.id)}
+                        className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300 hover:underline"
+                      >
+                        <span className={`metric-dot ${driver.is_active ? 'metric-dot-green' : 'metric-dot-red'}`} aria-hidden />
+                        {driver.is_active ? t('drivers.statusActive') : t('drivers.statusInactive')}
+                      </button>
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => toggleCollectDebtMutation.mutate(driver.id)}
+                          className="inline-flex items-center gap-1 text-[12px] font-medium text-gray-700 dark:text-gray-300 hover:underline"
+                          title={t('drivers.debtCollectTitle')}
+                        >
+                          <BanknotesIcon className="w-3.5 h-3.5" />
+                          {driver.can_collect_debt ? t('drivers.debtCollectEnabled') : t('drivers.debtCollectDisabled')}
+                        </button>
+                        {driver.role === 'cashvan' && (
                           <button
-                            onClick={() => toggleActiveMutation.mutate(driver.id)}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-colors ${
-                              driver.is_active
-                                ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/30'
-                                : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30'
-                            }`}
+                            onClick={() => toggleSellFromMainStockMutation.mutate(driver.id)}
+                            className="inline-flex items-center gap-1 text-[12px] font-medium text-gray-700 dark:text-gray-300 hover:underline"
+                            title={locale === 'ar' ? 'البيع من المخزون الرئيسي' : 'Vendre depuis stock principal'}
                           >
-                            {driver.is_active ? (
-                              <>
-                                <CheckCircleIcon className="w-3.5 h-3.5" />
-                                {t('drivers.statusActive')}
-                              </>
-                            ) : (
-                              <>
-                                <XCircleIcon className="w-3.5 h-3.5" />
-                                {t('drivers.statusInactive')}
-                              </>
-                            )}
+                            <CubeIcon className="w-3.5 h-3.5" />
+                            {driver.sell_from_main_stock
+                              ? (locale === 'ar' ? 'مخزون رئيسي' : 'Stock principal')
+                              : (locale === 'ar' ? 'تحويل' : 'Transfert')}
                           </button>
-                          <button
-                            onClick={() => toggleCollectDebtMutation.mutate(driver.id)}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-colors ${
-                              driver.can_collect_debt
-                                ? 'bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/30'
-                                : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                            }`}
-                            title={t('drivers.debtCollectTitle')}
-                          >
-                            <BanknotesIcon className="w-3.5 h-3.5" />
-                            {driver.can_collect_debt ? t('drivers.debtCollectEnabled') : t('drivers.debtCollectDisabled')}
-                          </button>
-                          {driver.role === 'cashvan' && (
-                            <button
-                              onClick={() => toggleSellFromMainStockMutation.mutate(driver.id)}
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-colors ${
-                                driver.sell_from_main_stock
-                                  ? 'bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/30'
-                                  : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                              }`}
-                              title={locale === 'ar' ? 'البيع من المخزون الرئيسي' : 'Vendre depuis stock principal'}
-                            >
-                              <CubeIcon className="w-3.5 h-3.5" />
-                              {driver.sell_from_main_stock
-                                ? (locale === 'ar' ? 'مخزون رئيسي' : 'Stock principal')
-                                : (locale === 'ar' ? 'تحويل مطلوب' : 'Transfert requis')}
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Date */}
-                        <div className="hidden md:flex items-center gap-1 text-xs text-gray-400 flex-shrink-0">
-                          <CalendarDaysIcon className="w-3.5 h-3.5" />
-                          {formatDate(driver.created_at)}
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <button
-                            onClick={() => openModal(driver)}
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all"
-                            title={t('drivers.editTitle')}
-                          >
-                            <PencilIcon className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedDriver(driver);
-                              setIsPasswordModalOpen(true);
-                            }}
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-all"
-                            title={t('drivers.changePasswordTitle')}
-                          >
-                            <KeyIcon className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedDriver(driver);
-                              setIsDeleteOpen(true);
-                            }}
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 transition-all"
-                            title={t('drivers.deleteTitle')}
-                          >
-                            <TrashIcon className="w-4 h-4" />
-                          </button>
-                        </div>
+                        )}
                       </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                    </td>
+                    <td>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => openModal(driver)}
+                          className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                          title={t('drivers.editTitle')}
+                        >
+                          <PencilIcon className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedDriver(driver);
+                            setIsPasswordModalOpen(true);
+                          }}
+                          className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                          title={t('drivers.changePasswordTitle')}
+                        >
+                          <KeyIcon className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedDriver(driver);
+                            setIsDeleteOpen(true);
+                          }}
+                          className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
+                          title={t('drivers.deleteTitle')}
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 
         {/* Pagination */}
         {pagination && pagination.lastPage > 1 && (
-          <div className="flex items-center justify-center gap-1.5 mt-6">
+          <div className="flex items-center justify-center gap-1.5 mt-4">
             <button
               onClick={() => setPage(Math.max(1, page - 1))}
               disabled={page === 1}
-              className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {t('drivers.previous')}
             </button>
@@ -648,9 +502,9 @@ export default function DriversPage() {
                   )}
                   <button
                     onClick={() => setPage(pg)}
-                    className={`w-9 h-9 text-sm font-bold rounded-lg transition-all ${
+                    className={`w-9 h-9 text-sm font-bold rounded-md transition-all ${
                       pg === page
-                        ? 'bg-cyan-600 text-white'
+                        ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900'
                         : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
                   >
@@ -661,7 +515,7 @@ export default function DriversPage() {
             <button
               onClick={() => setPage(Math.min(pagination.lastPage, page + 1))}
               disabled={page === pagination.lastPage}
-              className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {t('drivers.next')}
             </button>
@@ -670,184 +524,200 @@ export default function DriversPage() {
       </div>
 
       {/* Add/Edit Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={closeModal}
-        title={selectedDriver ? t('drivers.modalTitleEdit') : t('drivers.modalTitleAdd')}
-      >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">
-              {t('drivers.labelType')} <span className="text-red-500">*</span>
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { value: 'livreur', label: t('drivers.roleLivreur'), icon: <TruckIcon className="w-5 h-5" />, color: 'blue' },
-                { value: 'seller', label: t('drivers.roleSeller'), icon: <ShoppingCartIcon className="w-5 h-5" />, color: 'purple' },
-                { value: 'cashvan', label: t('drivers.roleCashvan'), icon: <DevicePhoneMobileIcon className="w-5 h-5" />, color: 'orange' },
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => !selectedDriver && setFormData({ ...formData, role: opt.value })}
-                  disabled={!!selectedDriver}
-                  className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 text-sm font-medium transition-all ${
-                    formData.role === opt.value
-                      ? opt.color === 'blue'
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-                        : opt.color === 'purple'
-                        ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300'
-                        : 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300'
-                      : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500'
-                  } ${selectedDriver ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
-                >
-                  {opt.icon}
-                  <span className="text-xs">{opt.label}</span>
-                </button>
-              ))}
+      {isModalOpen && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-40" onClick={closeModal} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 pointer-events-none">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl flex flex-col overflow-hidden w-full max-w-[560px] max-h-[calc(100vh-3rem)] pointer-events-auto">
+              <header className="px-5 py-4 border-b dark:border-gray-700">
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                  {selectedDriver ? t('drivers.modalTitleEdit') : t('drivers.modalTitleAdd')}
+                </h2>
+              </header>
+              <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+                <main className="flex-1 overflow-y-auto p-5 space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">
+                      {t('drivers.labelType')} <span className="text-red-500">*</span>
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { value: 'livreur', label: t('drivers.roleLivreur'), icon: <TruckIcon className="w-5 h-5" /> },
+                        { value: 'seller', label: t('drivers.roleSeller'), icon: <ShoppingCartIcon className="w-5 h-5" /> },
+                        { value: 'cashvan', label: t('drivers.roleCashvan'), icon: <DevicePhoneMobileIcon className="w-5 h-5" /> },
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => !selectedDriver && setFormData({ ...formData, role: opt.value })}
+                          disabled={!!selectedDriver}
+                          className={`flex flex-col items-center gap-1.5 p-3 rounded-md border text-sm font-medium transition-all ${
+                            formData.role === opt.value
+                              ? 'border-gray-900 dark:border-gray-200 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white'
+                              : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500'
+                          } ${selectedDriver ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                          {opt.icon}
+                          <span className="text-xs">{opt.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">
+                      {t('drivers.labelName')} <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="input"
+                      required
+                      placeholder={t('drivers.placeholderFullName')}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">
+                      {t('drivers.labelEmail')} <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      className="input"
+                      required
+                      dir="ltr"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">{t('drivers.labelPhone')}</label>
+                    <input
+                      type="text"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      className="input"
+                      dir="ltr"
+                      placeholder={t('drivers.placeholderPhone')}
+                    />
+                  </div>
+                  {!selectedDriver && (
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">
+                        {t('drivers.labelPassword')} <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="password"
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        className="input"
+                        required
+                        minLength={6}
+                        dir="ltr"
+                      />
+                      <p className="text-[10px] text-gray-400 mt-1">{t('drivers.passwordHint')}</p>
+                    </div>
+                  )}
+                </main>
+                <footer className="px-5 py-3 border-t dark:border-gray-700 flex gap-3 justify-end">
+                  <button type="button" onClick={closeModal} className="btn btn-secondary">
+                    {t('drivers.cancel')}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createMutation.isPending || updateMutation.isPending}
+                    className="btn btn-primary"
+                  >
+                    {createMutation.isPending || updateMutation.isPending ? t('drivers.saving') : t('drivers.save')}
+                  </button>
+                </footer>
+              </form>
             </div>
           </div>
-          <div>
-            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">
-              {t('drivers.labelName')} <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="input"
-              required
-              placeholder={t('drivers.placeholderFullName')}
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">
-              {t('drivers.labelEmail')} <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="input"
-              required
-              dir="ltr"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">{t('drivers.labelPhone')}</label>
-            <input
-              type="text"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              className="input"
-              dir="ltr"
-              placeholder={t('drivers.placeholderPhone')}
-            />
-          </div>
-          {!selectedDriver && (
-            <div>
-              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">
-                {t('drivers.labelPassword')} <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="password"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="input"
-                required
-                minLength={6}
-                dir="ltr"
-              />
-              <p className="text-[10px] text-gray-400 mt-1">{t('drivers.passwordHint')}</p>
-            </div>
-          )}
-          <div className="flex gap-3 pt-2">
-            <button
-              type="submit"
-              disabled={createMutation.isPending || updateMutation.isPending}
-              className="flex-1 py-2.5 text-sm font-bold rounded-xl text-white bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 transition-all"
-            >
-              {createMutation.isPending || updateMutation.isPending ? t('drivers.saving') : t('drivers.save')}
-            </button>
-            <button type="button" onClick={closeModal} className="flex-1 py-2.5 text-sm font-bold rounded-xl border-2 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all">
-              {t('drivers.cancel')}
-            </button>
-          </div>
-        </form>
-      </Modal>
+        </>
+      )}
 
       {/* Password Reset Modal */}
-      <Modal
-        isOpen={isPasswordModalOpen}
-        onClose={() => {
-          setIsPasswordModalOpen(false);
-          setSelectedDriver(null);
-          setPasswordData({ password: '', password_confirmation: '' });
-        }}
-        title={t('drivers.passwordModalTitle')}
-      >
-        <form onSubmit={handlePasswordSubmit} className="space-y-4">
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-700/50">
-            <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
-              <KeyIcon className="w-5 h-5" />
+      {isPasswordModalOpen && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-40" onClick={() => {
+            setIsPasswordModalOpen(false);
+            setSelectedDriver(null);
+            setPasswordData({ password: '', password_confirmation: '' });
+          }} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 pointer-events-none">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl flex flex-col overflow-hidden w-full max-w-[480px] max-h-[calc(100vh-3rem)] pointer-events-auto">
+              <header className="px-5 py-4 border-b dark:border-gray-700">
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                  {t('drivers.passwordModalTitle')}
+                </h2>
+              </header>
+              <form onSubmit={handlePasswordSubmit} className="flex flex-col flex-1 overflow-hidden">
+                <main className="flex-1 overflow-y-auto p-5 space-y-4">
+                  <div className="flex items-center gap-3 p-3 rounded-md bg-gray-50 dark:bg-gray-700/50">
+                    <div className="w-9 h-9 rounded-md bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300">
+                      <KeyIcon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-gray-900 dark:text-white">{selectedDriver?.name}</p>
+                      <p className="text-xs text-gray-400">{t('drivers.changePasswordFor')}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">
+                      {t('drivers.newPassword')} <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordData.password}
+                      onChange={(e) => setPasswordData({ ...passwordData, password: e.target.value })}
+                      className="input"
+                      required
+                      minLength={6}
+                      dir="ltr"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">
+                      {t('drivers.confirmPassword')} <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordData.password_confirmation}
+                      onChange={(e) =>
+                        setPasswordData({ ...passwordData, password_confirmation: e.target.value })
+                      }
+                      className="input"
+                      required
+                      minLength={6}
+                      dir="ltr"
+                    />
+                  </div>
+                </main>
+                <footer className="px-5 py-3 border-t dark:border-gray-700 flex gap-3 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPasswordModalOpen(false);
+                      setSelectedDriver(null);
+                      setPasswordData({ password: '', password_confirmation: '' });
+                    }}
+                    className="btn btn-secondary"
+                  >
+                    {t('drivers.cancel')}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={resetPasswordMutation.isPending}
+                    className="btn btn-primary"
+                  >
+                    {resetPasswordMutation.isPending ? t('drivers.saving') : t('drivers.changePasswordBtn')}
+                  </button>
+                </footer>
+              </form>
             </div>
-            <div>
-              <p className="text-sm font-bold text-gray-900 dark:text-white">{selectedDriver?.name}</p>
-              <p className="text-xs text-gray-400">{t('drivers.changePasswordFor')}</p>
-            </div>
           </div>
-          <div>
-            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">
-              {t('drivers.newPassword')} <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="password"
-              value={passwordData.password}
-              onChange={(e) => setPasswordData({ ...passwordData, password: e.target.value })}
-              className="input"
-              required
-              minLength={6}
-              dir="ltr"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5">
-              {t('drivers.confirmPassword')} <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="password"
-              value={passwordData.password_confirmation}
-              onChange={(e) =>
-                setPasswordData({ ...passwordData, password_confirmation: e.target.value })
-              }
-              className="input"
-              required
-              minLength={6}
-              dir="ltr"
-            />
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button
-              type="submit"
-              disabled={resetPasswordMutation.isPending}
-              className="flex-1 py-2.5 text-sm font-bold rounded-xl text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-50 transition-all"
-            >
-              {resetPasswordMutation.isPending ? t('drivers.saving') : t('drivers.changePasswordBtn')}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setIsPasswordModalOpen(false);
-                setSelectedDriver(null);
-                setPasswordData({ password: '', password_confirmation: '' });
-              }}
-              className="flex-1 py-2.5 text-sm font-bold rounded-xl border-2 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
-            >
-              {t('drivers.cancel')}
-            </button>
-          </div>
-        </form>
-      </Modal>
+        </>
+      )}
 
       {/* Delete Confirmation */}
       <ConfirmDialog

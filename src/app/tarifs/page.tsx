@@ -5,13 +5,13 @@ import TarifsClient from './TarifsClient';
 export const metadata: Metadata = {
   title: 'Tarifs TrackSera — Logiciel de gestion, caisse & distribution',
   description:
-    'Tarifs simples et transparents pour TrackSera : gestion de produits, caisse (POS), stock, livraison, Cashvan et facturation. Essai gratuit 14 jours sans carte bancaire. À partir de $19/mois.',
+    'Tarifs simples et transparents pour TrackSera : gestion de produits, caisse (POS), stock, livraison, Cashvan et facturation. Essai gratuit 14 jours sans carte bancaire. À partir de 4 500 DZD/mois.',
   keywords: [
     'tracksera pricing',
     'tarif logiciel gestion',
+    'tarif logiciel distribution algerie',
     'tarif POS',
     'distribution management software pricing',
-    'business management software pricing',
     'logiciel cashvan tarif',
     'أسعار برنامج كاشير',
     'أسعار برنامج توزيع',
@@ -30,13 +30,13 @@ export const metadata: Metadata = {
     url: `${SITE_URL}/tarifs`,
     title: 'Tarifs TrackSera — Logiciel de gestion, caisse & distribution',
     description:
-      'Essai gratuit 14 jours. Tarifs à partir de $19/mois. Gestion de produits, caisse (POS), stock, livraison et Cashvan dans une seule plateforme.',
+      'Essai gratuit 14 jours. Tarifs à partir de 4 500 DZD/mois. Gestion de produits, caisse (POS), stock, livraison et Cashvan dans une seule plateforme.',
     siteName: 'TrackSera',
     locale: 'fr_DZ',
     alternateLocale: ['ar_DZ', 'en'],
     images: [
       {
-        url: '/api/og?title=Tarifs+TrackSera&subtitle=Essai+gratuit+14+jours+%E2%80%93+%C3%A0+partir+de+%2419%2Fmois&category=Tarifs&theme=blue',
+        url: '/api/og?title=Tarifs+TrackSera&subtitle=Essai+gratuit+14+jours+%E2%80%93+%C3%A0+partir+de+4500+DZD%2Fmois&category=Tarifs&theme=blue',
         width: 1200,
         height: 630,
         alt: 'Tarifs TrackSera',
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Tarifs TrackSera',
-    description: 'Gestion produits, caisse & distribution — à partir de $19/mois.',
+    description: 'Gestion produits, caisse & distribution — à partir de 4 500 DZD/mois.',
     images: [
       '/api/og?title=Tarifs+TrackSera&subtitle=Essai+gratuit+14+jours&category=Tarifs&theme=blue',
     ],
@@ -56,11 +56,11 @@ export const metadata: Metadata = {
 export default function TarifsPage() {
   const canonical = `${SITE_URL}/tarifs`;
 
-  const offers = [
-    { name: 'Free', price: '0', description: '14-day free trial, no credit card required.' },
-    { name: 'Starter', price: '19', description: 'Small businesses — 1 user, 100 products.' },
-    { name: 'Pro', price: '49', description: 'Medium businesses — 5 users, 500 products, GPS, POS.' },
-    { name: 'Business', price: '99', description: 'Large businesses — 10 users, Cashvan, mobile apps.' },
+  // price: null = "contact us" (no fixed price). Currency is DZD.
+  const offers: { name: string; price: string | null; description: string }[] = [
+    { name: 'Free', price: '0', description: 'Essai gratuit 14 jours, sans carte bancaire.' },
+    { name: 'Starter', price: '4500', description: 'Commerces et petits distributeurs — jusqu’à 500 produits, 3 utilisateurs.' },
+    { name: 'Business', price: null, description: 'Sans limite — produits et utilisateurs illimités, CashVan, multi-entrepôts. Sur devis, nous contacter.' },
   ];
 
   const faqs = [
@@ -70,11 +70,11 @@ export default function TarifsPage() {
     },
     {
       q: 'Comment puis-je payer ?',
-      a: "Paiement par carte bancaire via notre partenaire Paddle. La facturation est mensuelle ou annuelle, et vous pouvez changer de moyen de paiement à tout moment.",
+      a: "Paiement par carte bancaire, CCP ou BaridiMob. La facturation est mensuelle ou annuelle, et vous pouvez changer de moyen de paiement à tout moment.",
     },
     {
       q: 'Les prix incluent-ils les taxes ?',
-      a: "Les prix affichés sont en USD. Les taxes locales (TVA / Sales Tax) peuvent être ajoutées au paiement selon votre pays, calculées et collectées par Paddle en tant que Merchant of Record.",
+      a: "Les prix sont affichés en dinar algérien (DZD), toutes taxes comprises. Aucun frais caché ni frais d'installation.",
     },
     {
       q: 'Puis-je changer de formule plus tard ?',
@@ -106,23 +106,28 @@ export default function TarifsPage() {
         '@id': `${canonical}#product`,
         name: 'TrackSera',
         description:
-          'Cloud business management software for retailers, wholesalers, and distributors. Inventory, POS, orders, delivery, mobile sales (CashVan), and invoicing.',
+          'Logiciel de gestion de la distribution pour distributeurs et grossistes en Algérie : stock, caisse (POS), commandes, livraison, vente mobile (CashVan) et facturation.',
         brand: { '@type': 'Brand', name: 'TrackSera' },
-        offers: offers.map((o) => ({
-          '@type': 'Offer',
-          name: o.name,
-          description: o.description,
-          price: o.price,
-          priceCurrency: 'USD',
-          url: canonical,
-          availability: 'https://schema.org/InStock',
-          priceSpecification: {
-            '@type': 'UnitPriceSpecification',
-            price: o.price,
-            priceCurrency: 'USD',
-            unitText: 'MONTH',
-          },
-        })),
+        offers: offers.map((o) => {
+          const offer: Record<string, unknown> = {
+            '@type': 'Offer',
+            name: o.name,
+            description: o.description,
+            url: canonical,
+            availability: 'https://schema.org/InStock',
+          };
+          if (o.price !== null) {
+            offer.price = o.price;
+            offer.priceCurrency = 'DZD';
+            offer.priceSpecification = {
+              '@type': 'UnitPriceSpecification',
+              price: o.price,
+              priceCurrency: 'DZD',
+              unitText: 'MONTH',
+            };
+          }
+          return offer;
+        }),
       },
       {
         '@type': 'FAQPage',

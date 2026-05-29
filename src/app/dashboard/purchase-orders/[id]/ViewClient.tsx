@@ -7,6 +7,7 @@ import { purchaseOrdersApi } from '@/lib/api';
 import { useLocale } from '@/lib/i18n/context';
 import { ArrowLeftIcon, PencilIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import { PageHeader } from '@/components/dashboard';
 
 interface POItem {
   id: number;
@@ -103,102 +104,106 @@ export default function ViewClient() {
     received: t('purchases.statusReceived') || 'Received',
     cancelled: t('purchases.statusCancelled') || 'Cancelled',
   };
-  const statusColor: Record<string, string> = {
-    pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-    confirmed: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-    received: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-    cancelled: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+  const statusDot: Record<string, string> = {
+    pending: 'metric-dot-orange',
+    confirmed: 'metric-dot-blue',
+    received: 'metric-dot-green',
+    cancelled: 'metric-dot-red',
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard/purchase-orders" className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-            <ArrowLeftIcon className="w-6 h-6" />
+    <div className="space-y-4">
+      <PageHeader
+        title={order.reference}
+        breadcrumb={[
+          { label: t('purchases.poTitle') || 'Purchase orders', href: '/dashboard/purchase-orders' },
+          { label: order.reference },
+        ]}
+        pill={
+          <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+            <span className={`metric-dot ${statusDot[order.status] || 'metric-dot-neutral'}`} aria-hidden />
+            {statusLabel[order.status] || order.status}
+          </span>
+        }
+      >
+        <button
+          onClick={handleDownloadPdf}
+          className="inline-flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+        >
+          <ArrowDownTrayIcon className="w-4 h-4" />
+          {t('purchases.downloadPdf') || 'PDF'}
+        </button>
+        {order.status !== 'received' && order.status !== 'cancelled' && (
+          <Link
+            href={`/dashboard/purchase-orders/${order.id}/edit`}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-[13px] font-bold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors"
+          >
+            <PencilIcon className="w-4 h-4" />
+            {t('common.edit') || 'Edit'}
           </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{order.reference}</h1>
-            <div className="flex items-center gap-2 mt-1">
-              <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor[order.status] || 'bg-gray-100 text-gray-800'}`}>
-                {statusLabel[order.status] || order.status}
-              </span>
-              {order.purchase && (
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {t('purchases.convertedTo') || 'Converted to purchase'}: {order.purchase.reference}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={handleDownloadPdf} className="btn btn-secondary inline-flex items-center gap-2">
-            <ArrowDownTrayIcon className="w-4 h-4" />
-            {t('purchases.downloadPdf') || 'PDF'}
-          </button>
-          {order.status !== 'received' && order.status !== 'cancelled' && (
-            <Link href={`/dashboard/purchase-orders/${order.id}/edit`} className="btn btn-primary inline-flex items-center gap-2">
-              <PencilIcon className="w-4 h-4" />
-              {t('common.edit') || 'Edit'}
-            </Link>
-          )}
-        </div>
-      </div>
+        )}
+      </PageHeader>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <div className="card">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">{t('purchases.orderInfo') || 'Order Info'}</h2>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+      {order.purchase && (
+        <p className="text-[12px] text-gray-500 dark:text-gray-400">
+          {t('purchases.convertedTo') || 'Converted to purchase'}: <span className="font-mono text-gray-700 dark:text-gray-200">{order.purchase.reference}</span>
+        </p>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 space-y-4">
+          <div className="surface-pro">
+            <h2 className="surface-heading mb-3">{t('purchases.orderInfo') || 'Order Info'}</h2>
+            <div className="grid grid-cols-2 gap-4 text-[13px]">
               <div>
-                <div className="text-gray-500 dark:text-gray-400">{t('purchases.supplierLabel') || 'Supplier'}</div>
-                <div className="font-medium text-gray-900 dark:text-gray-100">{order.supplier?.name || '—'}</div>
+                <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{t('purchases.supplierLabel') || 'Supplier'}</div>
+                <div className="font-medium text-gray-900 dark:text-gray-100 mt-0.5">{order.supplier?.name || '—'}</div>
               </div>
               <div>
-                <div className="text-gray-500 dark:text-gray-400">{t('purchases.warehouseLabel') || 'Warehouse'}</div>
-                <div className="font-medium text-gray-900 dark:text-gray-100">{order.warehouse?.name || '—'}</div>
+                <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{t('purchases.warehouseLabel') || 'Warehouse'}</div>
+                <div className="font-medium text-gray-900 dark:text-gray-100 mt-0.5">{order.warehouse?.name || '—'}</div>
               </div>
               <div>
-                <div className="text-gray-500 dark:text-gray-400">{t('purchases.orderDate') || 'Date'}</div>
-                <div className="font-medium text-gray-900 dark:text-gray-100">{order.date}</div>
+                <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{t('purchases.orderDate') || 'Date'}</div>
+                <div className="font-medium text-gray-900 dark:text-gray-100 mt-0.5 tnum">{order.date}</div>
               </div>
               <div>
-                <div className="text-gray-500 dark:text-gray-400">{t('purchases.expectedDelivery') || 'Expected delivery'}</div>
-                <div className="font-medium text-gray-900 dark:text-gray-100">{order.expected_delivery_date || '—'}</div>
+                <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{t('purchases.expectedDelivery') || 'Expected delivery'}</div>
+                <div className="font-medium text-gray-900 dark:text-gray-100 mt-0.5 tnum">{order.expected_delivery_date || '—'}</div>
               </div>
               {order.user && (
                 <div>
-                  <div className="text-gray-500 dark:text-gray-400">{t('common.createdBy') || 'Created by'}</div>
-                  <div className="font-medium text-gray-900 dark:text-gray-100">{order.user.name}</div>
+                  <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{t('common.createdBy') || 'Created by'}</div>
+                  <div className="font-medium text-gray-900 dark:text-gray-100 mt-0.5">{order.user.name}</div>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="card">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">{t('purchases.items') || 'Items'}</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+          <div className="surface-pro">
+            <h2 className="surface-heading mb-3">{t('purchases.items') || 'Items'}</h2>
+            <div className="table-pro-wrap">
+              <table className="table-pro compact">
                 <thead>
-                  <tr className="bg-green-100 dark:bg-green-900/30">
-                    <th className="px-2 py-2 text-start text-gray-700 dark:text-gray-300">{t('purchases.designation') || 'Product'}</th>
-                    <th className="px-2 py-2 text-center w-20 text-gray-700 dark:text-gray-300">{t('purchases.qty') || 'Qty'}</th>
-                    <th className="px-2 py-2 text-center w-24 text-gray-700 dark:text-gray-300">{t('purchases.unitPrice') || 'Unit price'}</th>
-                    <th className="px-2 py-2 text-center w-20 text-gray-700 dark:text-gray-300">{t('purchases.discountLabel') || 'Discount'}</th>
-                    <th className="px-2 py-2 text-center w-24 text-gray-700 dark:text-gray-300">{t('purchases.subtotal') || 'Subtotal'}</th>
+                  <tr>
+                    <th>{t('purchases.designation') || 'Product'}</th>
+                    <th className="text-end w-20">{t('purchases.qty') || 'Qty'}</th>
+                    <th className="text-end w-28">{t('purchases.unitPrice') || 'Unit price'}</th>
+                    <th className="text-end w-24">{t('purchases.discountLabel') || 'Discount'}</th>
+                    <th className="text-end w-28">{t('purchases.subtotal') || 'Subtotal'}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(order.items || []).map((it) => (
-                    <tr key={it.id} className="border-b border-gray-200 dark:border-gray-700">
-                      <td className="px-2 py-2">
-                        <div className="font-medium text-gray-900 dark:text-gray-100">{it.product?.name || '—'}</div>
-                        {it.product?.barcode && <div className="text-xs text-gray-500 dark:text-gray-400">{it.product.barcode}</div>}
+                    <tr key={it.id}>
+                      <td>
+                        <div className="font-medium text-gray-800 dark:text-gray-100">{it.product?.name || '—'}</div>
+                        {it.product?.barcode && <div className="text-[11px] text-gray-500 dark:text-gray-400">{it.product.barcode}</div>}
                       </td>
-                      <td className="px-2 py-2 text-center">{Number(it.quantity)}</td>
-                      <td className="px-2 py-2 text-center">{formatCurrency(Number(it.unit_price))}</td>
-                      <td className="px-2 py-2 text-center">{formatCurrency(Number(it.discount) || 0)}</td>
-                      <td className="px-2 py-2 text-center font-bold text-green-600 dark:text-green-400">{formatCurrency(Number(it.subtotal) || 0)}</td>
+                      <td className="text-end tnum">{Number(it.quantity)}</td>
+                      <td className="text-end tnum">{formatCurrency(Number(it.unit_price))}</td>
+                      <td className="text-end tnum">{formatCurrency(Number(it.discount) || 0)}</td>
+                      <td className="text-end font-semibold text-gray-800 dark:text-gray-100 tnum">{formatCurrency(Number(it.subtotal) || 0)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -207,18 +212,18 @@ export default function ViewClient() {
           </div>
 
           {(order.note || order.terms) && (
-            <div className="card">
-              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">{t('purchases.notesAndTerms') || 'Notes & Terms'}</h2>
+            <div className="surface-pro">
+              <h2 className="surface-heading mb-3">{t('purchases.notesAndTerms') || 'Notes & Terms'}</h2>
               {order.note && (
                 <div className="mb-3">
-                  <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">{t('purchases.notesLabel') || 'Notes'}</div>
-                  <div className="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap">{order.note}</div>
+                  <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{t('purchases.notesLabel') || 'Notes'}</div>
+                  <div className="text-[13px] text-gray-900 dark:text-gray-100 whitespace-pre-wrap">{order.note}</div>
                 </div>
               )}
               {order.terms && (
                 <div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">{t('purchases.deliveryTerms') || 'Delivery terms'}</div>
-                  <div className="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap">{order.terms}</div>
+                  <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{t('purchases.deliveryTerms') || 'Delivery terms'}</div>
+                  <div className="text-[13px] text-gray-900 dark:text-gray-100 whitespace-pre-wrap">{order.terms}</div>
                 </div>
               )}
             </div>
@@ -226,29 +231,29 @@ export default function ViewClient() {
         </div>
 
         <div>
-          <div className="card sticky top-24">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">{t('purchases.orderSummary') || 'Summary'}</h2>
-            <div className="space-y-3 text-sm">
+          <div className="surface-pro sticky top-24">
+            <h2 className="surface-heading mb-3">{t('purchases.orderSummary') || 'Summary'}</h2>
+            <div className="space-y-2.5 text-[13px]">
               <div className="flex justify-between">
                 <span className="text-gray-500 dark:text-gray-400">{t('purchases.subtotal') || 'Subtotal'}</span>
-                <span className="font-medium text-gray-900 dark:text-gray-100">{formatCurrency(Number(order.total_amount) || 0)}</span>
+                <span className="font-medium text-gray-900 dark:text-gray-100 tnum">{formatCurrency(Number(order.total_amount) || 0)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500 dark:text-gray-400">{t('purchases.discountLabel') || 'Discount'}</span>
-                <span className="font-medium text-gray-900 dark:text-gray-100">{formatCurrency(Number(order.discount) || 0)}</span>
+                <span className="font-medium text-gray-900 dark:text-gray-100 tnum">{formatCurrency(Number(order.discount) || 0)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500 dark:text-gray-400">{t('purchases.taxLabel') || 'Tax'}</span>
-                <span className="font-medium text-gray-900 dark:text-gray-100">{formatCurrency(Number(order.tax) || 0)}</span>
+                <span className="font-medium text-gray-900 dark:text-gray-100 tnum">{formatCurrency(Number(order.tax) || 0)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500 dark:text-gray-400">{t('purchases.shippingLabel') || 'Shipping'}</span>
-                <span className="font-medium text-gray-900 dark:text-gray-100">{formatCurrency(Number(order.shipping) || 0)}</span>
+                <span className="font-medium text-gray-900 dark:text-gray-100 tnum">{formatCurrency(Number(order.shipping) || 0)}</span>
               </div>
               <hr className="border-gray-200 dark:border-gray-700" />
-              <div className="flex justify-between text-lg font-bold">
+              <div className="flex justify-between text-[15px] font-semibold">
                 <span className="text-gray-900 dark:text-gray-100">{t('purchases.finalTotal') || 'Total'}</span>
-                <span className="text-green-600 dark:text-green-400">{formatCurrency(Number(order.grand_total) || 0)}</span>
+                <span className="text-gray-900 dark:text-gray-100 tnum">{formatCurrency(Number(order.grand_total) || 0)}</span>
               </div>
             </div>
           </div>

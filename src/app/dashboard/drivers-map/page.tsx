@@ -5,6 +5,8 @@ import dynamic from 'next/dynamic';
 import toast from 'react-hot-toast';
 import { locationApi } from '@/lib/api';
 import { useLocale } from '@/lib/i18n/context';
+import { PageHeader } from '@/components/dashboard';
+import { ArrowPathIcon } from '@heroicons/react/24/outline';
 
 // Dynamically import the map component to avoid SSR issues with Leaflet
 const DriverMap = dynamic(() => import('./DriverMap'), {
@@ -77,78 +79,63 @@ export default function DriversMapPage() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('driversMap.title')}</h1>
-          <p className="text-gray-500 dark:text-gray-400 text-sm">
-            {t('driversMap.subtitle')}
-          </p>
-        </div>
-        <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={autoRefresh}
-              onChange={(e) => setAutoRefresh(e.target.checked)}
-              className="w-4 h-4 rounded"
-            />
-            <span className="text-sm text-gray-700 dark:text-gray-300">{t('driversMap.autoRefresh')}</span>
-          </label>
-          <button
-            onClick={fetchDrivers}
-            disabled={loading}
-            className="btn btn-primary flex items-center gap-2"
-          >
-            <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            {t('driversMap.refresh')}
-          </button>
-        </div>
-      </div>
+      <PageHeader title={t('driversMap.title')} subtitle={t('driversMap.subtitle')}>
+        <label className="inline-flex items-center gap-2 cursor-pointer text-[13px] text-gray-700 dark:text-gray-200">
+          <input
+            type="checkbox"
+            checked={autoRefresh}
+            onChange={(e) => setAutoRefresh(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 dark:border-gray-600"
+          />
+          {t('driversMap.autoRefresh')}
+        </label>
+        <button
+          onClick={fetchDrivers}
+          disabled={loading}
+          className="inline-flex items-center gap-1.5 px-3 h-[34px] text-[13px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors disabled:opacity-50"
+        >
+          <ArrowPathIcon className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          {t('driversMap.refresh')}
+        </button>
+      </PageHeader>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="card p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">{t('driversMap.totalDrivers')}</div>
-          <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{driversData?.total_count || 0}</div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div className="metric-tile">
+          <div className="metric-label">{t('driversMap.totalDrivers')}</div>
+          <div className="metric-value tnum">{driversData?.total_count || 0}</div>
         </div>
-        <div className="card p-4 bg-green-50 dark:bg-green-900/20">
-          <div className="text-sm text-green-700 dark:text-green-300">{t('driversMap.online')}</div>
-          <div className="text-2xl font-bold text-green-600 dark:text-green-400">{driversData?.online_count || 0}</div>
+        <div className="metric-tile">
+          <div className="metric-label flex items-center gap-1.5"><span className="metric-dot metric-dot-green" aria-hidden />{t('driversMap.online')}</div>
+          <div className="metric-value tnum">{driversData?.online_count || 0}</div>
         </div>
-        <div className="card p-4 bg-gray-50 dark:bg-gray-700/50">
-          <div className="text-sm text-gray-500 dark:text-gray-400">{t('driversMap.offline')}</div>
-          <div className="text-2xl font-bold text-gray-400 dark:text-gray-500">
-            {(driversData?.total_count || 0) - (driversData?.online_count || 0)}
-          </div>
+        <div className="metric-tile">
+          <div className="metric-label flex items-center gap-1.5"><span className="metric-dot metric-dot-neutral" aria-hidden />{t('driversMap.offline')}</div>
+          <div className="metric-value tnum">{(driversData?.total_count || 0) - (driversData?.online_count || 0)}</div>
         </div>
-        <div className="card p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">{t('driversMap.lastUpdate')}</div>
-          <div className="text-lg font-medium text-gray-900 dark:text-gray-100">
-            {lastUpdate ? lastUpdate.toLocaleTimeString(locale === 'fr' ? 'fr-DZ' : 'ar-DZ') : '-'}
-          </div>
+        <div className="metric-tile">
+          <div className="metric-label">{t('driversMap.lastUpdate')}</div>
+          <div className="metric-value tnum">{lastUpdate ? lastUpdate.toLocaleTimeString(locale === 'fr' ? 'fr-DZ' : 'ar-DZ') : '-'}</div>
         </div>
       </div>
 
-      {/* Map */}
-      <div className="card mb-6">
+      {/* Map (untouched) */}
+      <div className="card mb-4">
         <DriverMap drivers={driversData?.drivers || []} />
       </div>
 
       {/* Drivers List */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Online Drivers */}
-        <div className="card">
-          <h3 className="font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-gray-100">
-            <span className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
+        <div className="surface-pro p-4">
+          <h3 className="surface-heading flex items-center gap-2 mb-3">
+            <span className="metric-dot metric-dot-green" aria-hidden />
             {t('driversMap.onlineDrivers')} ({onlineDrivers.length})
           </h3>
           {onlineDrivers.length === 0 ? (
-            <div className="text-gray-500 dark:text-gray-400 text-center py-4">{t('driversMap.noOnlineDrivers')}</div>
+            <div className="t-empty text-center py-4 text-[13px]">{t('driversMap.noOnlineDrivers')}</div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {onlineDrivers.map((driver) => (
                 <DriverCard key={driver.id} driver={driver} />
               ))}
@@ -157,15 +144,15 @@ export default function DriversMapPage() {
         </div>
 
         {/* Offline Drivers */}
-        <div className="card">
-          <h3 className="font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-gray-100">
-            <span className="w-3 h-3 bg-gray-400 rounded-full"></span>
+        <div className="surface-pro p-4">
+          <h3 className="surface-heading flex items-center gap-2 mb-3">
+            <span className="metric-dot metric-dot-neutral" aria-hidden />
             {t('driversMap.offlineDrivers')} ({offlineDrivers.length})
           </h3>
           {offlineDrivers.length === 0 ? (
-            <div className="text-gray-500 dark:text-gray-400 text-center py-4">{t('driversMap.allDriversOnline')}</div>
+            <div className="t-empty text-center py-4 text-[13px]">{t('driversMap.allDriversOnline')}</div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {offlineDrivers.map((driver) => (
                 <DriverCard key={driver.id} driver={driver} />
               ))}
@@ -195,27 +182,28 @@ function DriverCard({ driver }: { driver: Driver }) {
   };
 
   return (
-    <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+    <div className="flex items-center justify-between p-2.5 rounded-md border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800">
       <div className="flex items-center gap-3">
-        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${
-          driver.is_online ? 'bg-green-500' : 'bg-gray-400'
-        }`}>
+        <div className="w-9 h-9 rounded-md flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium text-[14px]">
           {driver.name.charAt(0)}
         </div>
         <div>
-          <div className="font-medium text-gray-900 dark:text-gray-100">{driver.name}</div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">{driver.phone || '-'}</div>
+          <div className="text-[13px] font-medium text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
+            <span className={`metric-dot ${driver.is_online ? 'metric-dot-green' : 'metric-dot-neutral'}`} aria-hidden />
+            {driver.name}
+          </div>
+          <div className="text-[12px] text-gray-500 dark:text-gray-400">{driver.phone || '-'}</div>
         </div>
       </div>
       <div className="text-end">
         {driver.has_active_delivery && (
-          <div className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-1 rounded mb-1">
+          <div className="text-[11px] text-gray-600 dark:text-gray-300 mb-0.5">
             {driver.delivery_reference}
           </div>
         )}
-        <div className="text-xs text-gray-500 dark:text-gray-400">{getTimeSinceUpdate()}</div>
+        <div className="text-[11px] text-gray-500 dark:text-gray-400">{getTimeSinceUpdate()}</div>
         {driver.vehicle_name && (
-          <div className="text-xs text-gray-400 dark:text-gray-500">{driver.vehicle_name}</div>
+          <div className="text-[11px] text-gray-400 dark:text-gray-500">{driver.vehicle_name}</div>
         )}
       </div>
     </div>

@@ -11,6 +11,7 @@ import {
   ArrowPathIcon,
   BanknotesIcon,
 } from '@heroicons/react/24/outline';
+import { PageHeader, FilterBar } from '@/components/dashboard';
 import {
   BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip,
@@ -58,12 +59,11 @@ interface Warehouse {
   name: string;
 }
 
-// ─── KPI color map ───
-const colorMap: Record<string, { hover: string; hoverDark: string; bar: string; iconBg: string; iconText: string; valueText: string }> = {
-  emerald: { hover: 'hover:bg-emerald-50/40', hoverDark: 'dark:hover:bg-emerald-900/10', bar: 'bg-emerald-500', iconBg: 'bg-emerald-100 dark:bg-emerald-900/30', iconText: 'text-emerald-600 dark:text-emerald-400', valueText: 'text-emerald-600 dark:text-emerald-400' },
-  blue: { hover: 'hover:bg-blue-50/40', hoverDark: 'dark:hover:bg-blue-900/10', bar: 'bg-blue-500', iconBg: 'bg-blue-100 dark:bg-blue-900/30', iconText: 'text-blue-600 dark:text-blue-400', valueText: 'text-blue-600 dark:text-blue-400' },
-  amber: { hover: 'hover:bg-amber-50/40', hoverDark: 'dark:hover:bg-amber-900/10', bar: 'bg-amber-500', iconBg: 'bg-amber-100 dark:bg-amber-900/30', iconText: 'text-amber-600 dark:text-amber-400', valueText: 'text-amber-600 dark:text-amber-400' },
-  violet: { hover: 'hover:bg-violet-50/40', hoverDark: 'dark:hover:bg-violet-900/10', bar: 'bg-violet-500', iconBg: 'bg-violet-100 dark:bg-violet-900/30', iconText: 'text-violet-600 dark:text-violet-400', valueText: 'text-violet-600 dark:text-violet-400' },
+const colorToDot: Record<string, string> = {
+  emerald: 'metric-dot-green',
+  blue: 'metric-dot-blue',
+  amber: 'metric-dot-orange',
+  violet: 'metric-dot-violet',
 };
 
 const today = () => new Date().toISOString().split('T')[0];
@@ -351,23 +351,20 @@ export default function ProfitLossReportPage() {
     label: string; desc?: string; value: number; dotColor: string; bold?: boolean;
   }) => {
     const isNeg = value < 0;
-    const textColor = dotColor === 'dynamic'
-      ? (isNeg ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400')
-      : `text-${dotColor}-600 dark:text-${dotColor}-400`;
-    const bgDot = dotColor === 'dynamic'
-      ? (isNeg ? 'bg-red-500' : 'bg-emerald-500')
-      : `bg-${dotColor}-500`;
+    const dotClass = dotColor === 'dynamic'
+      ? (isNeg ? 'metric-dot-red' : 'metric-dot-green')
+      : (colorToDot[dotColor] || 'metric-dot-neutral');
 
     return (
-      <div className="flex items-start justify-between py-4 gap-4">
-        <div className="flex items-start gap-3 min-w-0">
-          <span className={`w-2.5 h-2.5 rounded-full mt-1 shrink-0 ${bgDot}`} />
+      <div className="flex items-start justify-between py-3 gap-4">
+        <div className="flex items-start gap-2.5 min-w-0">
+          <span className={`metric-dot ${dotClass} mt-1.5 shrink-0`} aria-hidden />
           <div className="min-w-0">
-            <p className={`text-sm ${bold ? 'font-extrabold' : 'font-bold'} text-gray-700 dark:text-gray-200`}>{label}</p>
-            {desc && <p className="text-[11px] text-gray-400 mt-0.5">{desc}</p>}
+            <p className={`text-[13px] ${bold ? 'font-semibold' : 'font-medium'} text-gray-800 dark:text-gray-100`}>{label}</p>
+            {desc && <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{desc}</p>}
           </div>
         </div>
-        <span className={`text-lg ${bold ? 'font-black' : 'font-bold'} tabular-nums whitespace-nowrap ${textColor}`}>
+        <span className={`${bold ? 'text-[16px] font-semibold' : 'text-[15px] font-medium'} tnum whitespace-nowrap text-gray-900 dark:text-gray-100`}>
           {isLoading ? <Skeleton /> : formatCurrency(value)}
         </span>
       </div>
@@ -376,93 +373,75 @@ export default function ProfitLossReportPage() {
 
   const dateRangeLabel = `${dateFrom} → ${dateTo}`;
 
+  const kpiItems: { label: string; count: number; value: string; color: string }[] = [
+    { label: t('profitLoss.sales' as TranslationKey), count: pnl.salesCount, value: formatCurrency(pnl.salesTotal), color: 'emerald' },
+    { label: t('profitLoss.purchases' as TranslationKey), count: pnl.purchasesCount, value: formatCurrency(pnl.purchasesTotal), color: 'blue' },
+    { label: t('profitLoss.salesReturn' as TranslationKey), count: pnl.saleReturnsCount, value: formatCurrency(pnl.saleReturnsTotal), color: 'amber' },
+    { label: t('profitLoss.purchasesReturn' as TranslationKey), count: pnl.purchaseReturnsCount, value: formatCurrency(pnl.purchaseReturnsTotal), color: 'violet' },
+  ];
+
   return (
-    <div className="space-y-5">
-      {/* ─── Header ─── */}
-      <div>
-        <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">
-          {t('profitLoss.title' as TranslationKey)}
-        </h1>
-        <p className="text-sm text-gray-400 mt-1">{t('profitLoss.subtitle' as TranslationKey)}</p>
-      </div>
+    <div className="space-y-4">
+      <PageHeader title={t('profitLoss.title' as TranslationKey)} subtitle={t('profitLoss.subtitle' as TranslationKey)} tight />
 
       {/* ─── Filter Bar ─── */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 px-5 py-3.5">
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('profitLoss.from' as TranslationKey)}</span>
-            <DateInput value={dateFrom} onChange={setDateFrom} className="w-36" />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('profitLoss.to' as TranslationKey)}</span>
-            <DateInput value={dateTo} onChange={setDateTo} className="w-36" />
-          </div>
-
-          <div className="h-6 w-px bg-gray-200 dark:bg-gray-700" />
-
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('profitLoss.filterWarehouse' as TranslationKey)}</span>
-            <select value={filterWarehouse} onChange={(e) => setFilterWarehouse(e.target.value)} className="input text-sm py-2 min-w-[140px]">
-              <option value="">{t('profitLoss.filterAll' as TranslationKey)}</option>
-              {warehouses.map(w => (
-                <option key={w.id} value={String(w.id)}>{w.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <button onClick={refetchAll} className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-            <ArrowPathIcon className="w-4 h-4" />
-          </button>
-
-          <div className={`flex items-center gap-2 ${isRTL ? 'mr-auto' : 'ml-auto'}`}>
-            <button onClick={exportExcel} className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 transition-colors">
+      <FilterBar
+        trailing={
+          <>
+            <button onClick={refetchAll} className="inline-flex items-center gap-1.5 px-2.5 h-[38px] text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" title="Refresh">
+              <ArrowPathIcon className="w-4 h-4" />
+            </button>
+            <button onClick={exportExcel} className="inline-flex items-center gap-1.5 px-3 h-[38px] text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               <ArrowDownTrayIcon className="w-4 h-4" /> Excel
             </button>
-            <button onClick={exportPDF} className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium rounded-xl text-white bg-red-600 hover:bg-red-700 transition-colors">
+            <button onClick={exportPDF} className="inline-flex items-center gap-1.5 px-3 h-[38px] text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               <ArrowDownTrayIcon className="w-4 h-4" /> PDF
             </button>
-          </div>
+          </>
+        }
+      >
+        <div className="flex items-center gap-1.5">
+          <span className="text-[12px] font-medium text-gray-500 dark:text-gray-400">{t('profitLoss.from' as TranslationKey)}</span>
+          <DateInput value={dateFrom} onChange={setDateFrom} />
         </div>
-      </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[12px] font-medium text-gray-500 dark:text-gray-400">{t('profitLoss.to' as TranslationKey)}</span>
+          <DateInput value={dateTo} onChange={setDateTo} />
+        </div>
+        <select value={filterWarehouse} onChange={(e) => setFilterWarehouse(e.target.value)}>
+          <option value="">{t('profitLoss.filterWarehouse' as TranslationKey)}</option>
+          {warehouses.map(w => (
+            <option key={w.id} value={String(w.id)}>{w.name}</option>
+          ))}
+        </select>
+      </FilterBar>
 
       {/* ─── KPI Cards (4 columns) ─── */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
-        <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 lg:divide-x ${isRTL ? 'lg:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
-          {[
-            { label: t('profitLoss.sales' as TranslationKey), count: pnl.salesCount, value: formatCurrency(pnl.salesTotal), color: 'emerald' },
-            { label: t('profitLoss.purchases' as TranslationKey), count: pnl.purchasesCount, value: formatCurrency(pnl.purchasesTotal), color: 'blue' },
-            { label: t('profitLoss.salesReturn' as TranslationKey), count: pnl.saleReturnsCount, value: formatCurrency(pnl.saleReturnsTotal), color: 'amber' },
-            { label: t('profitLoss.purchasesReturn' as TranslationKey), count: pnl.purchaseReturnsCount, value: formatCurrency(pnl.purchaseReturnsTotal), color: 'violet' },
-          ].map((kpi, i) => {
-            const c = colorMap[kpi.color];
-            return (
-              <div key={i} className={`group relative p-5 ${c.hover} ${c.hoverDark} transition-colors duration-200`}>
-                <div className={`absolute top-0 inset-x-0 h-[3px] ${c.bar} scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b`} />
-                <div className="text-center">
-                  <div className={`text-xl font-black ${c.valueText} tabular-nums leading-none`}>
-                    {isLoading ? <Skeleton /> : kpi.value}
-                  </div>
-                  <div className="text-[11px] font-semibold text-gray-400 mt-2">
-                    {kpi.label}
-                    <span className={`${isRTL ? 'mr-1' : 'ml-1'} text-gray-300 dark:text-gray-500`}>({kpi.count})</span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+        {kpiItems.map((kpi, i) => (
+          <div key={i} className="metric-tile">
+            <div className="flex items-center gap-1.5">
+              <span className={`metric-dot ${colorToDot[kpi.color] || 'metric-dot-neutral'}`} aria-hidden />
+              <p className="metric-label truncate">
+                {kpi.label}
+                <span className="ms-1 text-gray-400 dark:text-gray-500 normal-case font-normal tnum">({kpi.count})</span>
+              </p>
+            </div>
+            {isLoading ? <Skeleton /> : <p className="metric-value-currency">{kpi.value}</p>}
+          </div>
+        ))}
       </div>
 
       {/* ─── Financial Statement + Chart ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
 
         {/* ─── Financial Summary Card (3/5) ─── */}
-        <div className="lg:col-span-3 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('profitLoss.summaryTitle' as TranslationKey)}</h3>
-            <span className="text-[10px] text-gray-400 tabular-nums">{dateRangeLabel}</span>
+        <div className="lg:col-span-3 surface-pro p-0 overflow-hidden">
+          <div className="px-5 py-3 border-b border-gray-200/80 dark:border-gray-700/60">
+            <h3 className="surface-heading">{t('profitLoss.summaryTitle' as TranslationKey)}</h3>
+            <span className="text-[11px] text-gray-500 dark:text-gray-400 tnum">{dateRangeLabel}</span>
           </div>
-          <div className="px-5 divide-y divide-gray-100 dark:divide-gray-700/50">
+          <div className="px-5 divide-y divide-gray-200/60 dark:divide-gray-700/40">
             <FinancialRow
               label={t('profitLoss.revenue' as TranslationKey)}
               desc={t('profitLoss.revenueDesc' as TranslationKey)}
@@ -497,14 +476,14 @@ export default function ProfitLossReportPage() {
         </div>
 
         {/* ─── Chart (2/5) ─── */}
-        <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('profitLoss.chartTitle' as TranslationKey)}</h3>
-            <span className="text-[10px] text-gray-400 tabular-nums">{dateRangeLabel}</span>
+        <div className="lg:col-span-2 surface-pro">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="surface-heading">{t('profitLoss.chartTitle' as TranslationKey)}</h3>
+            <span className="text-[11px] text-gray-500 dark:text-gray-400 tnum">{dateRangeLabel}</span>
           </div>
           {isLoading ? (
             <div className="flex items-center justify-center h-[300px]">
-              <div className="w-8 h-8 border-[3px] border-violet-200 dark:border-violet-800 border-t-violet-600 rounded-full animate-spin" />
+              <div className="spinner" />
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={300}>
@@ -525,33 +504,39 @@ export default function ProfitLossReportPage() {
       </div>
 
       {/* ─── Profit Card ─── */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border-2 border-violet-200 dark:border-violet-800/40 overflow-hidden">
-        <div className="px-5 py-4 border-b border-violet-100 dark:border-violet-800/30 bg-violet-50/50 dark:bg-violet-900/10">
-          <h3 className="text-sm font-bold text-violet-700 dark:text-violet-300 flex items-center gap-2">
+      <div className="surface-pro p-0 overflow-hidden">
+        <div className="px-5 py-3 border-b border-gray-200/80 dark:border-gray-700/60">
+          <h3 className="surface-heading flex items-center gap-2">
             <BanknotesIcon className="w-4 h-4" />
             {t('profitLoss.profitSection' as TranslationKey)}
           </h3>
         </div>
-        <div className="px-5 divide-y divide-violet-100 dark:divide-violet-800/20">
-          <div className="flex items-start justify-between py-5 gap-4">
-            <div className="min-w-0">
-              <p className="text-sm font-extrabold text-gray-700 dark:text-gray-200">
-                {t('profitLoss.profitFifo' as TranslationKey)}
-              </p>
-              <p className="text-[11px] text-gray-400 mt-0.5">{t('profitLoss.profitDesc' as TranslationKey)}</p>
+        <div className="px-5 divide-y divide-gray-200/60 dark:divide-gray-700/40">
+          <div className="flex items-start justify-between py-4 gap-4">
+            <div className="flex items-start gap-2.5 min-w-0">
+              <span className={`metric-dot ${pnl.profitFifo >= 0 ? 'metric-dot-green' : 'metric-dot-red'} mt-1.5 shrink-0`} aria-hidden />
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold text-gray-800 dark:text-gray-100">
+                  {t('profitLoss.profitFifo' as TranslationKey)}
+                </p>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{t('profitLoss.profitDesc' as TranslationKey)}</p>
+              </div>
             </div>
-            <span className={`text-2xl font-black tabular-nums whitespace-nowrap ${pnl.profitFifo >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+            <span className="text-[18px] font-semibold tnum whitespace-nowrap text-gray-900 dark:text-gray-100">
               {isLoading ? <Skeleton /> : formatCurrency(pnl.profitFifo)}
             </span>
           </div>
-          <div className="flex items-start justify-between py-5 gap-4">
-            <div className="min-w-0">
-              <p className="text-sm font-extrabold text-gray-700 dark:text-gray-200">
-                {t('profitLoss.profitAvg' as TranslationKey)}
-              </p>
-              <p className="text-[11px] text-gray-400 mt-0.5">{t('profitLoss.profitDesc' as TranslationKey)}</p>
+          <div className="flex items-start justify-between py-4 gap-4">
+            <div className="flex items-start gap-2.5 min-w-0">
+              <span className={`metric-dot ${pnl.profitAvg >= 0 ? 'metric-dot-green' : 'metric-dot-red'} mt-1.5 shrink-0`} aria-hidden />
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold text-gray-800 dark:text-gray-100">
+                  {t('profitLoss.profitAvg' as TranslationKey)}
+                </p>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{t('profitLoss.profitDesc' as TranslationKey)}</p>
+              </div>
             </div>
-            <span className={`text-2xl font-black tabular-nums whitespace-nowrap ${pnl.profitAvg >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+            <span className="text-[18px] font-semibold tnum whitespace-nowrap text-gray-900 dark:text-gray-100">
               {isLoading ? <Skeleton /> : formatCurrency(pnl.profitAvg)}
             </span>
           </div>

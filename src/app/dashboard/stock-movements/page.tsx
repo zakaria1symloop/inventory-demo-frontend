@@ -5,21 +5,11 @@ import { stockMovementsApi, productsApi, warehousesApi } from '@/lib/api';
 import DateInput from '@/components/ui/DateInput';
 import toast from 'react-hot-toast';
 import { useLocale } from '@/lib/i18n/context';
+import { PageHeader, FilterBar } from '@/components/dashboard';
 import {
   ArrowPathIcon,
-  FunnelIcon,
   XMarkIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  ArrowDownIcon,
-  ArrowUpIcon,
-  ArrowsRightLeftIcon,
   CubeIcon,
-  TruckIcon,
-  ShoppingCartIcon,
-  ClipboardDocumentCheckIcon,
-  BanknotesIcon,
-  ArchiveBoxIcon,
 } from '@heroicons/react/24/outline';
 
 interface StockMovement {
@@ -51,24 +41,27 @@ interface Warehouse {
   name: string;
 }
 
-const MOVEMENT_TYPES = {
-  purchase: { label: 'شراء', color: 'bg-green-100 text-green-800 border-green-200', icon: ArrowDownIcon, direction: 'in' },
-  purchase_return: { label: 'مرتجع شراء', color: 'bg-red-100 text-red-800 border-red-200', icon: ArrowUpIcon, direction: 'out' },
-  sale: { label: 'بيع', color: 'bg-blue-100 text-blue-800 border-blue-200', icon: ArrowUpIcon, direction: 'out' },
-  sale_return: { label: 'مرتجع بيع', color: 'bg-purple-100 text-purple-800 border-purple-200', icon: ArrowDownIcon, direction: 'in' },
-  adjustment: { label: 'تسوية', color: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: ArrowsRightLeftIcon, direction: 'both' },
-  transfer: { label: 'نقل صادر', color: 'bg-gray-100 text-gray-800 border-gray-200', icon: ArrowUpIcon, direction: 'out' },
-  transfer_in: { label: 'نقل وارد', color: 'bg-cyan-100 text-cyan-800 border-cyan-200', icon: ArrowDownIcon, direction: 'in' },
-  transfer_out: { label: 'نقل صادر', color: 'bg-gray-100 text-gray-800 border-gray-200', icon: ArrowUpIcon, direction: 'out' },
-  delivery: { label: 'توصيل', color: 'bg-orange-100 text-orange-800 border-orange-200', icon: TruckIcon, direction: 'out' },
-  delivery_out: { label: 'خروج للتوصيل', color: 'bg-orange-100 text-orange-800 border-orange-200', icon: TruckIcon, direction: 'out' },
-  delivery_return: { label: 'مرتجع توصيل', color: 'bg-pink-100 text-pink-800 border-pink-200', icon: ArrowDownIcon, direction: 'in' },
-  opening: { label: 'رصيد افتتاحي', color: 'bg-indigo-100 text-indigo-800 border-indigo-200', icon: ArchiveBoxIcon, direction: 'in' },
-  order: { label: 'طلب', color: 'bg-cyan-100 text-cyan-800 border-cyan-200', icon: ShoppingCartIcon, direction: 'out' },
-  van_out: { label: 'خروج للبيع المتنقل', color: 'bg-amber-100 text-amber-800 border-amber-200', icon: TruckIcon, direction: 'out' },
-  van_sale: { label: 'بيع متنقل', color: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: BanknotesIcon, direction: 'out' },
-  van_return: { label: 'مرتجع بيع متنقل', color: 'bg-teal-100 text-teal-800 border-teal-200', icon: ArrowDownIcon, direction: 'in' },
-} as const;
+// Movement type → status dot color
+const TYPE_DOTS: Record<string, string> = {
+  purchase: 'metric-dot-green',
+  purchase_return: 'metric-dot-red',
+  sale: 'metric-dot-blue',
+  sale_return: 'metric-dot-violet',
+  adjustment: 'metric-dot-orange',
+  transfer: 'metric-dot-neutral',
+  transfer_in: 'metric-dot-blue',
+  transfer_out: 'metric-dot-neutral',
+  delivery: 'metric-dot-orange',
+  delivery_out: 'metric-dot-orange',
+  delivery_return: 'metric-dot-violet',
+  opening: 'metric-dot-violet',
+  order: 'metric-dot-blue',
+  van_out: 'metric-dot-orange',
+  van_sale: 'metric-dot-green',
+  van_return: 'metric-dot-violet',
+};
+
+const ALL_TYPE_KEYS = Object.keys(TYPE_DOTS);
 
 export default function StockMovementsPage() {
   const [movements, setMovements] = useState<StockMovement[]>([]);
@@ -78,7 +71,6 @@ export default function StockMovementsPage() {
   const [pagination, setPagination] = useState({ currentPage: 1, lastPage: 1, total: 0 });
 
   // Filters
-  const [showFilters, setShowFilters] = useState(true);
   const [productFilter, setProductFilter] = useState('');
   const [warehouseFilter, setWarehouseFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
@@ -156,7 +148,7 @@ export default function StockMovementsPage() {
     setPagination(prev => ({ ...prev, currentPage: 1 }));
   };
 
-  const hasActiveFilters = productFilter || warehouseFilter || typeFilter || directionFilter || fromDate || toDate;
+  const hasActiveFilters = !!(productFilter || warehouseFilter || typeFilter || directionFilter || fromDate || toDate);
 
   // Filter movements by search term (client-side for current page)
   const filteredMovements = useMemo(() => {
@@ -170,7 +162,6 @@ export default function StockMovementsPage() {
     );
   }, [movements, searchTerm]);
 
-  // Calculate summary from current data
   const summary = useMemo(() => {
     const incoming = filteredMovements.filter(m => m.quantity_change > 0).reduce((sum, m) => sum + m.quantity_change, 0);
     const outgoing = filteredMovements.filter(m => m.quantity_change < 0).reduce((sum, m) => sum + Math.abs(m.quantity_change), 0);
@@ -193,12 +184,6 @@ export default function StockMovementsPage() {
     return new Intl.NumberFormat(locale === 'fr' ? 'fr-DZ' : 'ar-DZ').format(num);
   };
 
-  const formatCurrency = (value: number | string | null | undefined) => {
-    const num = typeof value === 'string' ? parseFloat(value) : (value ?? 0);
-    if (isNaN(num)) return '0 د.ج.';
-    return new Intl.NumberFormat(locale === 'fr' ? 'fr-DZ' : 'ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(num);
-  };
-
   const formatQty = (qty: number, ppp: number) => {
     const absQty = Math.abs(qty);
     if (!ppp || ppp <= 1) return `${formatNumber(qty)} ${t('stock.piece')}`;
@@ -211,7 +196,7 @@ export default function StockMovementsPage() {
     return `${sign}${cartons} ك + ${pieces} ق (${formatNumber(qty)})`;
   };
 
-  const getTypeInfo = (type: string) => {
+  const getTypeLabel = (type: string) => {
     const typeLabels: Record<string, string> = {
       purchase: t('stock.typePurchase'),
       purchase_return: t('stock.typePurchaseReturn'),
@@ -230,330 +215,214 @@ export default function StockMovementsPage() {
       van_sale: t('stock.typeVanSale'),
       van_return: t('stock.typeVanReturn'),
     };
-    const base = MOVEMENT_TYPES[type as keyof typeof MOVEMENT_TYPES] || {
-      label: type,
-      color: 'bg-gray-100 text-gray-800 border-gray-200',
-      icon: CubeIcon,
-      direction: 'both'
-    };
-    return { ...base, label: typeLabels[type] || base.label };
+    return typeLabels[type] || type;
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">{t('stock.movementsTitle')}</h1>
-          <p className="text-gray-500 mt-1">{t('stock.movementsSubtitle')}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`btn btn-outline inline-flex items-center gap-2 ${hasActiveFilters ? 'border-blue-500 text-blue-600' : ''}`}
-          >
-            <FunnelIcon className="w-5 h-5" />
-            {t('common.filters')}
-            {hasActiveFilters && <span className="w-2 h-2 bg-blue-500 rounded-full"></span>}
-          </button>
-          <button onClick={fetchMovements} className="btn btn-outline inline-flex items-center gap-2">
-            <ArrowPathIcon className="w-5 h-5" />
-            {t('common.refresh')}
-          </button>
-        </div>
-      </div>
+    <div>
+      <PageHeader
+        title={t('stock.movementsTitle')}
+        subtitle={t('stock.movementsSubtitle')}
+      >
+        <button
+          onClick={fetchMovements}
+          className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+        >
+          <ArrowPathIcon className="w-4 h-4" strokeWidth={1.8} />
+          {t('common.refresh')}
+        </button>
+      </PageHeader>
 
-      {/* Quick Summary */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="card p-4 bg-green-50 border border-green-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-              <ArrowDownIcon className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <div className="text-sm text-green-600">{t('stock.incoming')}</div>
-              <div className="text-xl font-bold text-green-700">+{formatNumber(summary.incoming)}</div>
-            </div>
+      {/* Metric tiles */}
+      <div className="grid grid-cols-3 gap-2.5 mb-4">
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-green" aria-hidden />
+            <p className="metric-label truncate">{t('stock.incoming')}</p>
           </div>
+          <p className="metric-value tnum">+{formatNumber(summary.incoming)}</p>
         </div>
-        <div className="card p-4 bg-red-50 border border-red-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-              <ArrowUpIcon className="w-5 h-5 text-red-600" />
-            </div>
-            <div>
-              <div className="text-sm text-red-600">{t('stock.outgoing')}</div>
-              <div className="text-xl font-bold text-red-700">-{formatNumber(summary.outgoing)}</div>
-            </div>
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-red" aria-hidden />
+            <p className="metric-label truncate">{t('stock.outgoing')}</p>
           </div>
+          <p className="metric-value tnum">-{formatNumber(summary.outgoing)}</p>
         </div>
-        <div className="card p-4 bg-blue-50 border border-blue-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-              <ArrowsRightLeftIcon className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <div className="text-sm text-blue-600">{t('stock.net')}</div>
-              <div className={`text-xl font-bold ${summary.net >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                {summary.net >= 0 ? '+' : ''}{formatNumber(summary.net)}
-              </div>
-            </div>
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-blue" aria-hidden />
+            <p className="metric-label truncate">{t('stock.net')}</p>
           </div>
+          <p className="metric-value tnum">{summary.net >= 0 ? '+' : ''}{formatNumber(summary.net)}</p>
         </div>
       </div>
 
       {/* Filters */}
-      {showFilters && (
-        <div className="card p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-medium">{t('common.filterResults')}</h3>
-            {hasActiveFilters && (
-              <button onClick={resetFilters} className="text-sm text-red-600 hover:text-red-800 flex items-center gap-1">
-                <XMarkIcon className="w-4 h-4" />
-                {t('common.clearFilters')}
-              </button>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Search */}
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">{t('common.search')}</label>
-              <input
-                type="text"
-                placeholder={t('stock.searchProductOrRef')}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="input input-bordered w-full"
-              />
-            </div>
-
-            {/* Product Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">{t('stock.product')}</label>
-              <select
-                value={productFilter}
-                onChange={(e) => { setProductFilter(e.target.value); setPagination(p => ({ ...p, currentPage: 1 })); }}
-                className="select select-bordered w-full"
-              >
-                <option value="">{t('common.all')}</option>
-                {products.map((product) => (
-                  <option key={product.id} value={product.id}>{product.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Warehouse Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">{t('stock.warehouse')}</label>
-              <select
-                value={warehouseFilter}
-                onChange={(e) => { setWarehouseFilter(e.target.value); setPagination(p => ({ ...p, currentPage: 1 })); }}
-                className="select select-bordered w-full"
-              >
-                <option value="">{t('common.all')}</option>
-                {warehouses.map((warehouse) => (
-                  <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Type Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">{t('stock.movementType')}</label>
-              <select
-                value={typeFilter}
-                onChange={(e) => { setTypeFilter(e.target.value); setPagination(p => ({ ...p, currentPage: 1 })); }}
-                className="select select-bordered w-full"
-              >
-                <option value="">{t('stock.allTypes')}</option>
-                {Object.keys(MOVEMENT_TYPES).map((key) => {
-                  const info = getTypeInfo(key);
-                  return <option key={key} value={key}>{info.label}</option>;
-                })}
-              </select>
-            </div>
-
-            {/* Direction Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">{t('stock.direction')}</label>
-              <select
-                value={directionFilter}
-                onChange={(e) => { setDirectionFilter(e.target.value); setPagination(p => ({ ...p, currentPage: 1 })); }}
-                className="select select-bordered w-full"
-              >
-                <option value="">{t('common.all')}</option>
-                <option value="incoming">{t('stock.dirIncoming')}</option>
-                <option value="outgoing">{t('stock.dirOutgoing')}</option>
-              </select>
-            </div>
-
-            {/* Date From */}
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">{t('common.fromDate')}</label>
-              <DateInput
-                value={fromDate}
-                onChange={(v) => { setFromDate(v); setPagination(p => ({ ...p, currentPage: 1 })); }}
-                placeholder={t('common.fromDate')}
-              />
-            </div>
-
-            {/* Date To */}
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">{t('common.toDate')}</label>
-              <DateInput
-                value={toDate}
-                onChange={(v) => { setToDate(v); setPagination(p => ({ ...p, currentPage: 1 })); }}
-                placeholder={t('common.toDate')}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      <FilterBar
+        search={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder={t('stock.searchProductOrRef')}
+        trailing={hasActiveFilters ? (
+          <button
+            onClick={resetFilters}
+            className="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+          >
+            <XMarkIcon className="w-3.5 h-3.5" />
+            {t('common.clearFilters')}
+          </button>
+        ) : undefined}
+      >
+        <select
+          value={productFilter}
+          onChange={(e) => { setProductFilter(e.target.value); setPagination(p => ({ ...p, currentPage: 1 })); }}
+        >
+          <option value="">{t('stock.product')}</option>
+          {products.map((product) => (
+            <option key={product.id} value={product.id}>{product.name}</option>
+          ))}
+        </select>
+        <select
+          value={warehouseFilter}
+          onChange={(e) => { setWarehouseFilter(e.target.value); setPagination(p => ({ ...p, currentPage: 1 })); }}
+        >
+          <option value="">{t('stock.warehouse')}</option>
+          {warehouses.map((warehouse) => (
+            <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
+          ))}
+        </select>
+        <select
+          value={typeFilter}
+          onChange={(e) => { setTypeFilter(e.target.value); setPagination(p => ({ ...p, currentPage: 1 })); }}
+        >
+          <option value="">{t('stock.allTypes')}</option>
+          {ALL_TYPE_KEYS.map((key) => (
+            <option key={key} value={key}>{getTypeLabel(key)}</option>
+          ))}
+        </select>
+        <select
+          value={directionFilter}
+          onChange={(e) => { setDirectionFilter(e.target.value); setPagination(p => ({ ...p, currentPage: 1 })); }}
+        >
+          <option value="">{t('stock.direction')}</option>
+          <option value="incoming">{t('stock.dirIncoming')}</option>
+          <option value="outgoing">{t('stock.dirOutgoing')}</option>
+        </select>
+        <DateInput
+          value={fromDate}
+          onChange={(v) => { setFromDate(v); setPagination(p => ({ ...p, currentPage: 1 })); }}
+          placeholder={t('common.fromDate')}
+        />
+        <DateInput
+          value={toDate}
+          onChange={(v) => { setToDate(v); setPagination(p => ({ ...p, currentPage: 1 })); }}
+          placeholder={t('common.toDate')}
+        />
+      </FilterBar>
 
       {/* Table */}
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="loading loading-spinner loading-lg"></div>
-            </div>
-          ) : (
-            <table className="w-full">
+      <div>
+        {isLoading ? (
+          <div className="surface-pro flex items-center justify-center h-64">
+            <div className="spinner"></div>
+          </div>
+        ) : filteredMovements.length === 0 ? (
+          <div className="surface-pro text-center py-12 text-gray-500 dark:text-gray-400">
+            <CubeIcon className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" strokeWidth={1.5} />
+            <p className="text-[14px] font-medium">{t('stock.noMovements')}</p>
+            <p className="text-[12px] mt-1 t-muted">{t('stock.tryChangeFilters')}</p>
+          </div>
+        ) : (
+          <div className="table-pro-wrap">
+            <table className="table-pro">
               <thead>
-                <tr className="bg-gray-50">
-                  <th className="px-4 py-3 text-start text-sm font-medium text-gray-600">{t('common.date')}</th>
-                  <th className="px-4 py-3 text-start text-sm font-medium text-gray-600">{t('stock.product')}</th>
-                  <th className="px-4 py-3 text-start text-sm font-medium text-gray-600">{t('stock.warehouse')}</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{t('stock.movementType')}</th>
-                  <th className="px-4 py-3 text-start text-sm font-medium text-gray-600">{t('stock.reference')}</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{t('stock.before')}</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{t('stock.change')}</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{t('stock.after')}</th>
-                  <th className="px-4 py-3 text-start text-sm font-medium text-gray-600">{t('stock.userCol')}</th>
+                <tr>
+                  <th>{t('common.date')}</th>
+                  <th>{t('stock.product')}</th>
+                  <th>{t('stock.warehouse')}</th>
+                  <th>{t('stock.movementType')}</th>
+                  <th>{t('stock.reference')}</th>
+                  <th className="text-end">{t('stock.before')}</th>
+                  <th className="text-end">{t('stock.change')}</th>
+                  <th className="text-end">{t('stock.after')}</th>
+                  <th>{t('stock.userCol')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredMovements.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="px-4 py-12 text-center text-gray-500">
-                      <CubeIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                      <p className="text-lg font-medium">{t('stock.noMovements')}</p>
-                      <p className="text-sm">{t('stock.tryChangeFilters')}</p>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredMovements.map((movement) => {
-                    const typeInfo = getTypeInfo(movement.type);
-                    const IconComponent = typeInfo.icon;
-                    const isIncoming = movement.quantity_change > 0;
-
-                    return (
-                      <tr key={movement.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
-                          {formatDate(movement.created_at)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="font-medium text-gray-900">{movement.product?.name || '-'}</div>
-                          <div className="text-xs text-gray-500">{movement.product?.sku}</div>
-                        </td>
-                        <td className="px-4 py-3 text-gray-600">
-                          {movement.warehouse?.name || '-'}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${typeInfo.color}`}>
-                            <IconComponent className="w-3.5 h-3.5" />
-                            {typeInfo.label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-sm font-mono text-gray-600">
-                            {movement.reference || '-'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-center text-gray-500">
-                          <div>{formatNumber(movement.quantity_before)}</div>
-                          {(movement.product?.pieces_per_package ?? 0) > 1 && (
-                            <div className="text-xs text-gray-400">{formatQty(movement.quantity_before, movement.product!.pieces_per_package)}</div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex items-center gap-1 font-bold ${isIncoming ? 'text-green-600' : 'text-red-600'}`}>
-                            {isIncoming ? (
-                              <ArrowDownIcon className="w-4 h-4" />
-                            ) : (
-                              <ArrowUpIcon className="w-4 h-4" />
-                            )}
-                            {isIncoming ? '+' : ''}{formatNumber(movement.quantity_change)}
-                          </span>
-                          {(movement.product?.pieces_per_package ?? 0) > 1 && (
-                            <div className={`text-xs ${isIncoming ? 'text-green-500' : 'text-red-500'}`}>
-                              {formatQty(movement.quantity_change, movement.product!.pieces_per_package)}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-center font-medium text-gray-900">
-                          <div>{formatNumber(movement.quantity_after)}</div>
-                          {(movement.product?.pieces_per_package ?? 0) > 1 && (
-                            <div className="text-xs text-gray-400">{formatQty(movement.quantity_after, movement.product!.pieces_per_package)}</div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          {movement.user?.name || '-'}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
+              <tbody>
+                {filteredMovements.map((movement) => {
+                  const typeLabel = getTypeLabel(movement.type);
+                  const typeDot = TYPE_DOTS[movement.type] || 'metric-dot-neutral';
+                  const isIncoming = movement.quantity_change > 0;
+                  const ppp = movement.product?.pieces_per_package ?? 0;
+                  return (
+                    <tr key={movement.id}>
+                      <td className="tnum t-muted whitespace-nowrap">{formatDate(movement.created_at)}</td>
+                      <td>
+                        <div className="t-strong">{movement.product?.name || '-'}</div>
+                        {movement.product?.sku && <div className="text-[11px] t-muted">{movement.product.sku}</div>}
+                      </td>
+                      <td className="t-muted">{movement.warehouse?.name || '-'}</td>
+                      <td>
+                        <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                          <span className={`metric-dot ${typeDot}`} aria-hidden />
+                          {typeLabel}
+                        </span>
+                      </td>
+                      <td className="font-mono text-[12px] t-muted">{movement.reference || '-'}</td>
+                      <td className="tnum t-muted">
+                        <div>{formatNumber(movement.quantity_before)}</div>
+                        {ppp > 1 && (
+                          <div className="text-[11px] t-muted">{formatQty(movement.quantity_before, ppp)}</div>
+                        )}
+                      </td>
+                      <td className="tnum t-strong">
+                        <div>{isIncoming ? '+' : ''}{formatNumber(movement.quantity_change)}</div>
+                        {ppp > 1 && (
+                          <div className="text-[11px] t-muted">{formatQty(movement.quantity_change, ppp)}</div>
+                        )}
+                      </td>
+                      <td className="tnum">
+                        <div>{formatNumber(movement.quantity_after)}</div>
+                        {ppp > 1 && (
+                          <div className="text-[11px] t-muted">{formatQty(movement.quantity_after, ppp)}</div>
+                        )}
+                      </td>
+                      <td className="t-muted">{movement.user?.name || '-'}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Pagination */}
         {pagination.lastPage > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
-            <div className="text-sm text-gray-600">
+          <div className="flex items-center justify-between mt-3">
+            <p className="text-[12px] text-gray-500 dark:text-gray-400">
               {t('common.showing', { count: filteredMovements.length, total: pagination.total, item: t('stock.movement') })}
-            </div>
-            <div className="flex items-center gap-2">
+            </p>
+            <div className="flex items-center gap-1">
               <button
                 onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage - 1 }))}
                 disabled={pagination.currentPage === 1}
-                className="btn btn-sm btn-ghost disabled:opacity-50"
+                className="px-2.5 py-1 text-[12px] font-medium rounded-md border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:text-gray-300"
               >
-                <ChevronRightIcon className="w-5 h-5" />
+                {pagination.currentPage - 1 || '—'}
               </button>
-              <span className="px-3 py-1 text-sm font-medium">
+              <span className="px-2.5 py-1 text-[12px] font-medium text-gray-900 dark:text-white">
                 {pagination.currentPage} / {pagination.lastPage}
               </span>
               <button
                 onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage + 1 }))}
                 disabled={pagination.currentPage === pagination.lastPage}
-                className="btn btn-sm btn-ghost disabled:opacity-50"
+                className="px-2.5 py-1 text-[12px] font-medium rounded-md border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:text-gray-300"
               >
-                <ChevronLeftIcon className="w-5 h-5" />
+                {pagination.currentPage + 1 > pagination.lastPage ? '—' : pagination.currentPage + 1}
               </button>
             </div>
           </div>
         )}
-      </div>
-
-      {/* Movement Types Legend */}
-      <div className="card p-4">
-        <h3 className="font-medium mb-3">{t('stock.movementTypesGuide')}</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-          {Object.keys(MOVEMENT_TYPES).map((key) => {
-            const info = getTypeInfo(key);
-            const IconComponent = info.icon;
-            return (
-              <div key={key} className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${info.color}`}>
-                <IconComponent className="w-4 h-4" />
-                <span className="text-sm font-medium">{info.label}</span>
-              </div>
-            );
-          })}
-        </div>
       </div>
     </div>
   );

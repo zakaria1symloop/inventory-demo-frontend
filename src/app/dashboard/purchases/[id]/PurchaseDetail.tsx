@@ -8,24 +8,17 @@ import { formatQty, formatQtyLong } from '@/lib/utils';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import {
-  ArrowRightIcon,
   PrinterIcon,
   PencilIcon,
   TrashIcon,
   CheckCircleIcon,
-  ClockIcon,
-  XCircleIcon,
   BanknotesIcon,
-  TruckIcon,
-  BuildingStorefrontIcon,
-  CalendarIcon,
-  UserIcon,
   CreditCardIcon,
-  PlusIcon
 } from '@heroicons/react/24/outline';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import Modal from '@/components/ui/Modal';
 import { useLocale } from '@/lib/i18n/context';
+import { PageHeader } from '@/components/dashboard';
 
 interface PurchaseItem {
   id: number;
@@ -149,32 +142,30 @@ export default function PurchaseDetail() {
   };
 
   const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { bg: string; text: string; icon: any; label: string }> = {
-      pending: { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-800 dark:text-yellow-300', icon: ClockIcon, label: t('purchases.pendingLabel') },
-      received: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-800 dark:text-green-300', icon: CheckCircleIcon, label: t('purchases.receivedLabel') },
-      partial: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-800 dark:text-blue-300', icon: TruckIcon, label: t('purchases.partialLabel') },
+    const statusConfig: Record<string, { dot: string; label: string }> = {
+      pending: { dot: 'metric-dot-orange', label: t('purchases.pendingLabel') },
+      received: { dot: 'metric-dot-green', label: t('purchases.receivedLabel') },
+      partial: { dot: 'metric-dot-blue', label: t('purchases.partialLabel') },
     };
     const config = statusConfig[status] || statusConfig.pending;
-    const Icon = config.icon;
     return (
-      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${config.bg} ${config.text}`}>
-        <Icon className="w-4 h-4" />
+      <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+        <span className={`metric-dot ${config.dot}`} aria-hidden />
         {config.label}
       </span>
     );
   };
 
   const getPaymentStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { bg: string; text: string; icon: any; label: string }> = {
-      unpaid: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-300', icon: XCircleIcon, label: t('purchases.unpaidLabel') },
-      partial: { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-800 dark:text-orange-300', icon: BanknotesIcon, label: t('purchases.partiallyPaid') },
-      paid: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-800 dark:text-green-300', icon: CheckCircleIcon, label: t('purchases.paidLabel') },
+    const statusConfig: Record<string, { dot: string; label: string }> = {
+      unpaid: { dot: 'metric-dot-red', label: t('purchases.unpaidLabel') },
+      partial: { dot: 'metric-dot-orange', label: t('purchases.partiallyPaid') },
+      paid: { dot: 'metric-dot-green', label: t('purchases.paidLabel') },
     };
     const config = statusConfig[status] || statusConfig.unpaid;
-    const Icon = config.icon;
     return (
-      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${config.bg} ${config.text}`}>
-        <Icon className="w-4 h-4" />
+      <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+        <span className={`metric-dot ${config.dot}`} aria-hidden />
         {config.label}
       </span>
     );
@@ -188,6 +179,16 @@ export default function PurchaseDetail() {
       other: t('purchases.other'),
     };
     return methods[method] || method;
+  };
+
+  const getPaymentMethodDot = (method: string) => {
+    const dots: Record<string, string> = {
+      cash: 'metric-dot-green',
+      bank: 'metric-dot-blue',
+      check: 'metric-dot-orange',
+      other: 'metric-dot-neutral',
+    };
+    return dots[method] || 'metric-dot-neutral';
   };
 
   const handlePrint = () => {
@@ -263,7 +264,7 @@ export default function PurchaseDetail() {
               const totalPieces = Math.round(item.quantity);
               const cartons = Math.floor(totalPieces / ppp);
               const remainPcs = totalPieces % ppp;
-              const cartonsDisplay = ppp > 1 ? (remainPcs > 0 ? cartons + ' + ' + remainPcs + '\u0642' : '' + cartons) : '-';
+              const cartonsDisplay = ppp > 1 ? (remainPcs > 0 ? cartons + ' + ' + remainPcs + 'ق' : '' + cartons) : '-';
               return '<tr>'
                 + '<td>' + (index + 1) + '</td>'
                 + '<td>' + (item.product?.name || '-') + '</td>'
@@ -431,166 +432,161 @@ export default function PurchaseDetail() {
 
   if (!purchase) {
     return (
-      <div className="text-center py-16">
-        <div className="text-gray-400 mb-4">
-          <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
+      <div>
+        <PageHeader
+          title={t('purchases.notFoundTitle')}
+          breadcrumb={[
+            { label: t('purchases.title'), href: '/dashboard/purchases' },
+            { label: t('purchases.notFoundTitle') },
+          ]}
+        />
+        <div className="text-center py-12 text-gray-500 dark:text-gray-400 text-[14px]">
+          <Link href="/dashboard/purchases" className="hover:text-gray-700 dark:hover:text-gray-200 underline-offset-2 hover:underline">
+            {t('purchases.backToPurchases')}
+          </Link>
         </div>
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">{t('purchases.notFoundTitle')}</h3>
-        <Link href="/dashboard/purchases" className="text-blue-600 hover:text-blue-800">
-          {t('purchases.backToPurchases')}
-        </Link>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Link
-            href="/dashboard/purchases"
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-          >
-            <ArrowRightIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{purchase.reference}</h1>
-            <p className="text-sm text-gray-500">
-              {t('purchases.createdAt', { date: formatDate(purchase.created_at) })}
-            </p>
+    <div>
+      <PageHeader
+        title={purchase.reference}
+        subtitle={t('purchases.createdAt', { date: formatDate(purchase.created_at) })}
+        breadcrumb={[
+          { label: t('purchases.title'), href: '/dashboard/purchases' },
+          { label: purchase.reference },
+        ]}
+      >
+        {purchase.status === 'pending' && (
+          <>
+            <button
+              onClick={handleConfirm}
+              disabled={isConfirming}
+              className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-50"
+            >
+              <CheckCircleIcon className="w-4 h-4" />
+              {isConfirming ? t('purchases.confirming') : t('purchases.confirmReceipt')}
+            </button>
+            <Link
+              href={`/dashboard/purchases/edit/${purchase.id}`}
+              className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              <PencilIcon className="w-4 h-4" />
+              {t('purchases.edit')}
+            </Link>
+            <button
+              onClick={handlePrint}
+              className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              <PrinterIcon className="w-4 h-4" />
+              {t('purchases.print')}
+            </button>
+            <button
+              onClick={() => setIsDeleteOpen(true)}
+              className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-red-600 dark:text-red-400 bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+            >
+              <TrashIcon className="w-4 h-4" />
+              {t('purchases.delete')}
+            </button>
+          </>
+        )}
+        {purchase.status === 'received' && (
+          <>
+            {purchase.due_amount > 0 && (
+              <>
+                <button
+                  onClick={openPaymentModal}
+                  disabled={isProcessingPayment}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors disabled:opacity-50"
+                >
+                  <CreditCardIcon className="w-4 h-4" />
+                  {t('purchases.addPayment')}
+                </button>
+                <button
+                  onClick={handlePayFull}
+                  disabled={isProcessingPayment}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-50"
+                >
+                  <BanknotesIcon className="w-4 h-4" />
+                  {t('purchases.payAll')}
+                </button>
+              </>
+            )}
+            <Link
+              href={`/dashboard/purchases/edit/${purchase.id}`}
+              className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              <PencilIcon className="w-4 h-4" />
+              {t('purchases.edit')}
+            </Link>
+            <button
+              onClick={handlePrint}
+              className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              <PrinterIcon className="w-4 h-4" />
+              {t('purchases.print')}
+            </button>
+          </>
+        )}
+      </PageHeader>
+
+      {/* ─── Metric tiles ─── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-4">
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-neutral" aria-hidden />
+            <p className="metric-label truncate">{t('purchases.supplier')}</p>
           </div>
+          <p className="metric-value truncate">{purchase.supplier?.name || t('purchases.noSupplierLabel')}</p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          {purchase.status === 'pending' && (
-            <>
-              <button
-                onClick={handleConfirm}
-                className="btn bg-green-600 text-white hover:bg-green-700"
-                disabled={isConfirming}
-              >
-                <CheckCircleIcon className="w-5 h-5" />
-                {isConfirming ? t('purchases.confirming') : t('purchases.confirmReceipt')}
-              </button>
-              <Link
-                href={`/dashboard/purchases/edit/${purchase.id}`}
-                className="btn btn-secondary"
-              >
-                <PencilIcon className="w-5 h-5" />
-                {t('purchases.edit')}
-              </Link>
-              <button
-                onClick={handlePrint}
-                className="btn btn-secondary"
-              >
-                <PrinterIcon className="w-5 h-5" />
-                {t('purchases.print')}
-              </button>
-              <button
-                onClick={() => setIsDeleteOpen(true)}
-                className="btn bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"
-              >
-                <TrashIcon className="w-5 h-5" />
-                {t('purchases.delete')}
-              </button>
-            </>
-          )}
-          {purchase.status === 'received' && (
-            <>
-              {purchase.due_amount > 0 && (
-                <>
-                  <button
-                    onClick={openPaymentModal}
-                    className="btn btn-primary"
-                    disabled={isProcessingPayment}
-                  >
-                    <CreditCardIcon className="w-5 h-5" />
-                    {t('purchases.addPayment')}
-                  </button>
-                  <button
-                    onClick={handlePayFull}
-                    className="btn bg-green-600 text-white hover:bg-green-700"
-                    disabled={isProcessingPayment}
-                  >
-                    <BanknotesIcon className="w-5 h-5" />
-                    {t('purchases.payAll')}
-                  </button>
-                </>
-              )}
-              <Link
-                href={`/dashboard/purchases/edit/${purchase.id}`}
-                className="btn btn-secondary"
-              >
-                <PencilIcon className="w-5 h-5" />
-                {t('purchases.edit')}
-              </Link>
-              <button
-                onClick={handlePrint}
-                className="btn btn-secondary"
-              >
-                <PrinterIcon className="w-5 h-5" />
-                {t('purchases.print')}
-              </button>
-            </>
-          )}
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-neutral" aria-hidden />
+            <p className="metric-label truncate">{t('purchases.date')}</p>
+          </div>
+          <p className="metric-value truncate">{formatDate(purchase.date)}</p>
+        </div>
+
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-neutral" aria-hidden />
+            <p className="metric-label truncate">{t('purchases.receivingStatus')}</p>
+          </div>
+          <div className="mt-1">{getStatusBadge(purchase.status)}</div>
+        </div>
+
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-neutral" aria-hidden />
+            <p className="metric-label truncate">{t('purchases.paymentStatusLabel')}</p>
+          </div>
+          <div className="mt-1">
+            {purchase.status === 'pending' ? (
+              <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                <span className="metric-dot metric-dot-neutral" aria-hidden />
+                {t('purchases.awaitingConfirm')}
+              </span>
+            ) : (
+              getPaymentStatusBadge(purchase.payment_status)
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Status Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="card">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-              <BuildingStorefrontIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">{t('purchases.supplier')}</p>
-              <p className="font-semibold">{purchase.supplier?.name || t('purchases.noSupplierLabel')}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-              <CalendarIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">{t('purchases.date')}</p>
-              <p className="font-semibold">{formatDate(purchase.date)}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <p className="text-sm text-gray-500 mb-2">{t('purchases.receivingStatus')}</p>
-          {getStatusBadge(purchase.status)}
-        </div>
-
-        <div className="card">
-          <p className="text-sm text-gray-500 mb-2">{t('purchases.paymentStatusLabel')}</p>
-          {purchase.status === 'pending' ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-              <ClockIcon className="w-4 h-4" />
-              {t('purchases.awaitingConfirm')}
-            </span>
-          ) : (
-            getPaymentStatusBadge(purchase.payment_status)
-          )}
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Items Table */}
-        <div className="lg:col-span-2">
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-4">{t('purchases.products', { count: String(purchase.items?.length || 0) })}</h3>
-            <div className="overflow-x-auto">
-              <table>
+      {/* ─── Main grid ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Items + payments column */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Items Table */}
+          <div className="surface-pro p-4">
+            <h3 className="text-[14px] font-semibold text-gray-900 dark:text-white mb-3">
+              {t('purchases.products', { count: String(purchase.items?.length || 0) })}
+            </h3>
+            <div className="table-pro-wrap">
+              <table className="table-pro compact">
                 <thead>
                   <tr>
                     <th className="text-center w-12">#</th>
@@ -608,30 +604,26 @@ export default function PurchaseDetail() {
                     const piecesPerPkg = item.product?.pieces_per_package || 1;
                     return (
                       <tr key={item.id}>
-                        <td className="text-center text-gray-500">{index + 1}</td>
+                        <td className="text-center text-gray-500 tnum">{index + 1}</td>
                         <td>
-                          <div className="font-medium">{item.product?.name || '-'}</div>
+                          <div className="t-strong">{item.product?.name || '-'}</div>
                           {item.product?.barcode && (
-                            <div className="text-xs text-gray-400">{item.product.barcode}</div>
+                            <div className="text-[11px] text-gray-400">{item.product.barcode}</div>
                           )}
                         </td>
-                        <td className="text-center font-semibold">{formatQty(item.quantity, piecesPerPkg)}</td>
-                        <td className="text-center">
+                        <td className="text-center tnum t-strong">{formatQty(item.quantity, piecesPerPkg)}</td>
+                        <td className="text-center tnum">
                           {formatCurrency(item.unit_price)}
                           {piecesPerPkg > 1 && (
-                            <div className="text-xs text-blue-500">({formatCurrency(item.unit_price * piecesPerPkg)}/carton)</div>
+                            <div className="text-[11px] text-gray-500 dark:text-gray-400">({formatCurrency(item.unit_price * piecesPerPkg)}/carton)</div>
                           )}
                         </td>
-                        <td className="text-center">
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
-                            {piecesPerPkg}
-                          </span>
-                        </td>
-                        <td className="text-center text-red-600 dark:text-red-400">{item.discount > 0 ? `-${formatCurrency(item.discount)}` : '-'}</td>
-                        <td className="text-center text-blue-600 dark:text-blue-400">{item.tax > 0 ? formatCurrency(item.tax) : '-'}</td>
-                        <td className="text-center font-semibold">
+                        <td className="text-center tnum t-muted">{piecesPerPkg}</td>
+                        <td className="text-center tnum t-muted">{item.discount > 0 ? `-${formatCurrency(item.discount)}` : '-'}</td>
+                        <td className="text-center tnum t-muted">{item.tax > 0 ? formatCurrency(item.tax) : '-'}</td>
+                        <td className="text-center tnum t-strong">
                           {formatCurrency(item.subtotal)}
-                          <div className="text-xs text-gray-400">
+                          <div className="text-[11px] text-gray-400">
                             {item.unit_price} × {piecesPerPkg} × {formatQty(item.quantity, piecesPerPkg)}
                           </div>
                         </td>
@@ -645,15 +637,18 @@ export default function PurchaseDetail() {
 
           {/* Payments History */}
           {purchase.payments && purchase.payments.length > 0 && (
-            <div className="card mt-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">{t('purchases.paymentHistory', { count: String(purchase.payments.length) })}</h3>
-                <span className="text-sm text-gray-500">
-                  {t('purchases.totalPaid')}: <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(purchase.paid_amount)}</span>
+            <div className="surface-pro p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-[14px] font-semibold text-gray-900 dark:text-white">
+                  {t('purchases.paymentHistory', { count: String(purchase.payments.length) })}
+                </h3>
+                <span className="text-[12px] text-gray-500 dark:text-gray-400">
+                  {t('purchases.totalPaid')}:{' '}
+                  <span className="t-strong tnum">{formatCurrency(purchase.paid_amount)}</span>
                 </span>
               </div>
-              <div className="overflow-x-auto">
-                <table>
+              <div className="table-pro-wrap">
+                <table className="table-pro compact">
                   <thead>
                     <tr>
                       <th className="text-center w-12">#</th>
@@ -668,22 +663,18 @@ export default function PurchaseDetail() {
                   <tbody>
                     {purchase.payments.map((payment, index) => (
                       <tr key={payment.id}>
-                        <td className="text-center text-gray-500">{index + 1}</td>
-                        <td className="text-center font-mono text-sm">{payment.reference}</td>
-                        <td className="text-center">{formatDate(payment.date)}</td>
+                        <td className="text-center text-gray-500 tnum">{index + 1}</td>
+                        <td className="text-center font-mono text-[12px] tnum">{payment.reference}</td>
+                        <td className="text-center tnum">{formatDate(payment.date)}</td>
                         <td className="text-center">
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            payment.payment_method === 'cash' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' :
-                            payment.payment_method === 'bank' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' :
-                            payment.payment_method === 'check' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' :
-                            'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
-                          }`}>
+                          <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                            <span className={`metric-dot ${getPaymentMethodDot(payment.payment_method)}`} aria-hidden />
                             {getPaymentMethodLabel(payment.payment_method)}
                           </span>
                         </td>
-                        <td className="text-center font-semibold text-green-600 dark:text-green-400">{formatCurrency(payment.amount)}</td>
-                        <td className="text-center text-gray-600 dark:text-gray-400">{payment.user?.name || '-'}</td>
-                        <td className="text-gray-500 text-sm">{payment.notes || '-'}</td>
+                        <td className="text-center tnum t-strong">{formatCurrency(payment.amount)}</td>
+                        <td className="text-center t-muted">{payment.user?.name || '-'}</td>
+                        <td className="t-muted text-[12px]">{payment.notes || '-'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -694,61 +685,62 @@ export default function PurchaseDetail() {
         </div>
 
         {/* Summary Sidebar */}
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Totals */}
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-4">{t('purchases.invoiceSummary')}</h3>
-            <div className="space-y-3">
+          <div className="surface-pro p-4">
+            <h3 className="text-[14px] font-semibold text-gray-900 dark:text-white mb-3">{t('purchases.invoiceSummary')}</h3>
+            <div className="space-y-2 text-[13px]">
               <div className="flex justify-between text-gray-600 dark:text-gray-400">
                 <span>{t('purchases.subtotalAmount')}</span>
-                <span>{formatCurrency(purchase.total_amount)}</span>
+                <span className="tnum">{formatCurrency(purchase.total_amount)}</span>
               </div>
               {purchase.discount > 0 && (
-                <div className="flex justify-between text-red-600 dark:text-red-400">
+                <div className="flex justify-between text-gray-600 dark:text-gray-400">
                   <span>{t('purchases.discount')}</span>
-                  <span>-{formatCurrency(purchase.discount)}</span>
+                  <span className="tnum">-{formatCurrency(purchase.discount)}</span>
                 </div>
               )}
               {purchase.tax > 0 && (
-                <div className="flex justify-between text-blue-600 dark:text-blue-400">
+                <div className="flex justify-between text-gray-600 dark:text-gray-400">
                   <span>{t('purchases.tax')}</span>
-                  <span>+{formatCurrency(purchase.tax)}</span>
+                  <span className="tnum">+{formatCurrency(purchase.tax)}</span>
                 </div>
               )}
               {purchase.shipping > 0 && (
                 <div className="flex justify-between text-gray-600 dark:text-gray-400">
                   <span>{t('purchases.shipping')}</span>
-                  <span>+{formatCurrency(purchase.shipping)}</span>
+                  <span className="tnum">+{formatCurrency(purchase.shipping)}</span>
                 </div>
               )}
               {purchase.timbre > 0 && (
                 <div className="flex justify-between text-gray-600 dark:text-gray-400">
                   <span>{locale === 'ar' ? 'الطابع' : 'Timbre'}</span>
-                  <span>+{formatCurrency(purchase.timbre)}</span>
+                  <span className="tnum">+{formatCurrency(purchase.timbre)}</span>
                 </div>
               )}
-              <hr className="dark:border-gray-700" />
-              <div className="flex justify-between text-lg font-bold">
+              <hr className="border-gray-200 dark:border-gray-700" />
+              <div className="flex justify-between text-[14px] font-semibold text-gray-900 dark:text-white">
                 <span>{t('purchases.grandTotal')}</span>
-                <span className="text-green-600 dark:text-green-400">{formatCurrency(purchase.grand_total)}</span>
+                <span className="tnum">{formatCurrency(purchase.grand_total)}</span>
               </div>
               {purchase.status === 'pending' ? (
-                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-3 text-center">
-                  <p className="text-yellow-700 dark:text-yellow-300 text-sm font-medium">{t('purchases.unconfirmedInvoice')}</p>
-                  <p className="text-yellow-600 dark:text-yellow-400 text-xs mt-1">{t('purchases.debtAfterConfirm')}</p>
+                <div className="mt-2 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-3">
+                  <div className="flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                    <span className="metric-dot metric-dot-orange" aria-hidden />
+                    {t('purchases.unconfirmedInvoice')}
+                  </div>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">{t('purchases.debtAfterConfirm')}</p>
                 </div>
               ) : (
                 <>
-                  <hr className="dark:border-gray-700" />
+                  <hr className="border-gray-200 dark:border-gray-700" />
                   <div className="flex justify-between text-gray-600 dark:text-gray-400">
                     <span>{t('purchases.paidAmount')}</span>
-                    <span className="text-green-600 dark:text-green-400">{formatCurrency(purchase.paid_amount)}</span>
+                    <span className="tnum">{formatCurrency(purchase.paid_amount)}</span>
                   </div>
-                  <div className="flex justify-between font-semibold">
+                  <div className="flex justify-between font-semibold text-gray-900 dark:text-white">
                     <span>{t('purchases.remainingAmount')}</span>
-                    <span className={purchase.due_amount > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}>
-                      {formatCurrency(purchase.due_amount)}
-                    </span>
+                    <span className="tnum">{formatCurrency(purchase.due_amount)}</span>
                   </div>
                 </>
               )}
@@ -756,38 +748,21 @@ export default function PurchaseDetail() {
           </div>
 
           {/* Additional Info */}
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-4">{t('purchases.additionalInfo')}</h3>
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                  <TruckIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">{t('purchases.warehouse')}</p>
-                  <p className="font-medium">{purchase.warehouse?.name || '-'}</p>
-                </div>
+          <div className="surface-pro p-4">
+            <h3 className="text-[14px] font-semibold text-gray-900 dark:text-white mb-3">{t('purchases.additionalInfo')}</h3>
+            <div className="space-y-3 text-[13px]">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500 dark:text-gray-400">{t('purchases.warehouse')}</span>
+                <span className="text-gray-700 dark:text-gray-200 font-medium">{purchase.warehouse?.name || '-'}</span>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                  <UserIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">{t('purchases.by')}</p>
-                  <p className="font-medium">{purchase.user?.name || '-'}</p>
-                </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500 dark:text-gray-400">{t('purchases.by')}</span>
+                <span className="text-gray-700 dark:text-gray-200 font-medium">{purchase.user?.name || '-'}</span>
               </div>
               {purchase.supplier?.phone && (
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                    <svg className="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">{t('purchases.supplierPhone')}</p>
-                    <p className="font-medium">{purchase.supplier.phone}</p>
-                  </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">{t('purchases.supplierPhone')}</span>
+                  <span className="text-gray-700 dark:text-gray-200 font-medium tnum">{purchase.supplier.phone}</span>
                 </div>
               )}
             </div>
@@ -795,9 +770,9 @@ export default function PurchaseDetail() {
 
           {/* Notes */}
           {purchase.note && (
-            <div className="card">
-              <h3 className="text-lg font-semibold mb-3">{t('purchases.notes')}</h3>
-              <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{purchase.note}</p>
+            <div className="surface-pro p-4">
+              <h3 className="text-[14px] font-semibold text-gray-900 dark:text-white mb-2">{t('purchases.notes')}</h3>
+              <p className="text-[13px] text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{purchase.note}</p>
             </div>
           )}
         </div>
@@ -820,28 +795,28 @@ export default function PurchaseDetail() {
         title={t('purchases.addPaymentTitle')}
       >
         <form onSubmit={handlePayment} className="space-y-4">
-          <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-4">
-            <div className="flex justify-between mb-2">
+          <div className="surface-pro p-3 text-[13px]">
+            <div className="flex justify-between mb-1.5">
               <span className="text-gray-600 dark:text-gray-400">{t('purchases.totalAmountLabel')}</span>
-              <span className="font-semibold">{formatCurrency(purchase.grand_total)}</span>
+              <span className="tnum t-strong">{formatCurrency(purchase.grand_total)}</span>
             </div>
-            <div className="flex justify-between mb-2">
+            <div className="flex justify-between mb-1.5">
               <span className="text-gray-600 dark:text-gray-400">{t('purchases.paidAmount')}:</span>
-              <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(purchase.paid_amount)}</span>
+              <span className="tnum t-strong">{formatCurrency(purchase.paid_amount)}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">{t('purchases.remainingAmount')}:</span>
-              <span className="font-bold text-red-600 dark:text-red-400">{formatCurrency(purchase.due_amount)}</span>
+            <div className="flex justify-between font-semibold">
+              <span className="text-gray-700 dark:text-gray-200">{t('purchases.remainingAmount')}:</span>
+              <span className="tnum">{formatCurrency(purchase.due_amount)}</span>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('purchases.amount')}</label>
+            <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('purchases.amount')}</label>
             <input
               type="number"
               value={paymentData.amount}
               onChange={(e) => setPaymentData(prev => ({ ...prev, amount: e.target.value }))}
-              className="input w-full"
+              className="input w-full text-[14px] py-2"
               placeholder="0.00"
               min="0"
               max={purchase.due_amount}
@@ -852,14 +827,14 @@ export default function PurchaseDetail() {
               <button
                 type="button"
                 onClick={() => setPaymentData(prev => ({ ...prev, amount: purchase.due_amount.toString() }))}
-                className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded hover:bg-blue-200 dark:hover:bg-blue-900/50"
+                className="text-[11px] font-medium px-2 py-1 rounded border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 {t('purchases.fullAmount')}
               </button>
               <button
                 type="button"
                 onClick={() => setPaymentData(prev => ({ ...prev, amount: (purchase.due_amount / 2).toFixed(2) }))}
-                className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
+                className="text-[11px] font-medium px-2 py-1 rounded border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 {t('purchases.halfAmount')}
               </button>
@@ -867,11 +842,11 @@ export default function PurchaseDetail() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('purchases.paymentMethod')}</label>
+            <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('purchases.paymentMethod')}</label>
             <select
               value={paymentData.payment_method}
               onChange={(e) => setPaymentData(prev => ({ ...prev, payment_method: e.target.value as any }))}
-              className="select w-full"
+              className="select w-full text-[14px] py-2"
               required
             >
               <option value="cash">{t('purchases.cash')}</option>
@@ -882,7 +857,7 @@ export default function PurchaseDetail() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('purchases.paymentDate')}</label>
+            <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('purchases.paymentDate')}</label>
             <DateInput
               value={paymentData.date}
               onChange={(v) => setPaymentData(prev => ({ ...prev, date: v }))}
@@ -892,34 +867,34 @@ export default function PurchaseDetail() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('purchases.notes')}</label>
+            <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('purchases.notes')}</label>
             <textarea
               value={paymentData.notes}
               onChange={(e) => setPaymentData(prev => ({ ...prev, notes: e.target.value }))}
-              className="input w-full"
+              className="input w-full text-[14px] py-2"
               rows={2}
               placeholder={t('purchases.optionalNotes')}
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
+          <div className="flex justify-end gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
             <button
               type="button"
               onClick={() => setIsPaymentOpen(false)}
-              className="btn btn-secondary"
+              className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
               {t('purchases.cancel')}
             </button>
             <button
               type="submit"
               disabled={isProcessingPayment}
-              className="btn btn-primary"
+              className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors disabled:opacity-50"
             >
               {isProcessingPayment ? (
-                <span className="spinner w-5 h-5"></span>
+                <span className="spinner w-4 h-4"></span>
               ) : (
                 <>
-                  <CheckCircleIcon className="w-5 h-5" />
+                  <CheckCircleIcon className="w-4 h-4" />
                   {t('purchases.confirmPayment')}
                 </>
               )}

@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { brandsApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { useLocale } from '@/lib/i18n/context';
+import { PageHeader, FilterBar } from '@/components/dashboard';
+import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 interface Brand {
   id: number;
@@ -30,12 +32,9 @@ export default function BrandsPage() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger shortcuts when typing in input fields
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
-
-      // Insert key or Alt+N: open add modal
       if (e.key === 'Insert' || (e.altKey && e.key.toLowerCase() === 'n')) {
         e.preventDefault();
         setEditingBrand(null);
@@ -113,46 +112,33 @@ export default function BrandsPage() {
   }
 
   return (
-    <div>
-      {/* Shortcuts hint */}
-      <div className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg mb-4 flex items-center gap-6 text-sm">
-        <span className="font-medium">{t('common.shortcuts') + ':'}</span>
-        <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Insert</kbd> {t('common.addNew')}</span>
-      </div>
-
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">{t('stock.brandsTitle')}</h1>
+    <div className="space-y-4">
+      <PageHeader title={t('stock.brandsTitle')}>
         <button
           onClick={() => {
             setEditingBrand(null);
             setFormData({ name: '', is_active: true });
             setShowModal(true);
           }}
-          className="btn btn-primary"
+          className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-bold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
+          <PlusIcon className="w-4 h-4" />
           {t('stock.addBrand')}
-          <kbd className="bg-blue-700 px-1.5 py-0.5 rounded text-xs me-2">Insert</kbd>
+          <kbd className="hidden md:inline bg-white/20 px-1.5 py-0.5 rounded text-[10px] font-mono ms-1">Insert</kbd>
         </button>
-      </div>
+      </PageHeader>
 
-      <div className="card">
-        <div className="mb-4">
-          <input
-            type="text"
-            placeholder={t('common.search')}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="input max-w-xs"
-          />
-        </div>
+      <FilterBar
+        search={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder={t('common.search')}
+      />
 
-        <table>
+      <div className="table-pro-wrap">
+        <table className="table-pro">
           <thead>
             <tr>
-              <th>#</th>
+              <th className="text-end">#</th>
               <th>{t('common.name')}</th>
               <th>{t('common.status')}</th>
               <th>{t('common.actions')}</th>
@@ -168,30 +154,27 @@ export default function BrandsPage() {
             ) : (
               filteredBrands.map((brand, index) => (
                 <tr key={brand.id}>
-                  <td>{index + 1}</td>
+                  <td className="tnum">{index + 1}</td>
                   <td className="font-medium">{brand.name}</td>
                   <td>
-                    <span className={`badge ${brand.is_active ? 'badge-success' : 'badge-danger'}`}>
+                    <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                      <span className={`metric-dot ${brand.is_active ? 'metric-dot-green' : 'metric-dot-neutral'}`} aria-hidden />
                       {brand.is_active ? t('common.active') : t('common.inactive')}
                     </span>
                   </td>
                   <td>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1">
                       <button
                         onClick={() => handleEdit(brand)}
-                        className="text-blue-600 hover:text-blue-800"
+                        className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
+                        <PencilIcon className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(brand.id)}
-                        className="text-red-600 hover:text-red-800"
+                        className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
+                        <TrashIcon className="w-4 h-4" />
                       </button>
                     </div>
                   </td>
@@ -204,54 +187,58 @@ export default function BrandsPage() {
 
       {/* Modal */}
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <h2 className="text-xl font-bold mb-4">
-                {editingBrand ? t('stock.editBrand') : t('stock.addBrand')}
-              </h2>
-              <form onSubmit={handleSubmit}>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t('common.name')} <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="input"
-                    required
-                  />
-                </div>
-
-                <div className="mb-6">
-                  <label className="flex items-center gap-2 cursor-pointer">
+        <>
+          <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setShowModal(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 pointer-events-none">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl flex flex-col overflow-hidden w-full max-w-[480px] max-h-[calc(100vh-3rem)] pointer-events-auto">
+              <header className="px-5 py-4 border-b dark:border-gray-700">
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                  {editingBrand ? t('stock.editBrand') : t('stock.addBrand')}
+                </h2>
+              </header>
+              <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+                <main className="flex-1 overflow-y-auto p-5 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {t('common.name')} <span className="text-red-500">*</span>
+                    </label>
                     <input
-                      type="checkbox"
-                      checked={formData.is_active}
-                      onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                      className="w-4 h-4 text-blue-600 rounded"
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="input"
+                      required
                     />
-                    <span className="text-sm font-medium text-gray-700">{t('common.active')}</span>
-                  </label>
-                </div>
+                  </div>
 
-                <div className="flex gap-3">
-                  <button type="submit" disabled={isSubmitting} className="btn btn-primary flex-1">
-                    {isSubmitting ? t('common.saving') : t('common.save')}
-                  </button>
+                  <div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.is_active}
+                        onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                        className="w-4 h-4 text-blue-600 rounded"
+                      />
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('common.active')}</span>
+                    </label>
+                  </div>
+                </main>
+                <footer className="px-5 py-3 border-t dark:border-gray-700 flex gap-3 justify-end">
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
-                    className="btn btn-secondary flex-1"
+                    className="btn btn-secondary"
                   >
                     {t('common.cancel')}
                   </button>
-                </div>
+                  <button type="submit" disabled={isSubmitting} className="btn btn-primary">
+                    {isSubmitting ? t('common.saving') : t('common.save')}
+                  </button>
+                </footer>
               </form>
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

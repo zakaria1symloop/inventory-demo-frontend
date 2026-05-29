@@ -4,12 +4,12 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { categoriesApi } from '@/lib/api';
 import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
-import DataTable from '@/components/ui/DataTable';
 import Modal from '@/components/ui/Modal';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import toast from 'react-hot-toast';
 import type { Category } from '@/lib/types';
 import { useLocale } from '@/lib/i18n/context';
+import { PageHeader, FilterBar } from '@/components/dashboard';
 
 export default function CategoriesPage() {
   const { t } = useLocale();
@@ -100,63 +100,15 @@ export default function CategoriesPage() {
     }
   };
 
-  const columns = [
-    { key: 'name', title: t('common.name') },
-    {
-      key: 'parent',
-      title: t('stock.parentCategory'),
-      render: (item: Category) => item.parent?.name || '-',
-    },
-    {
-      key: 'products_count',
-      title: t('stock.productsCount'),
-      render: (item: Category) => item.products_count || 0,
-    },
-    {
-      key: 'is_active',
-      title: t('common.status'),
-      render: (item: Category) => (
-        <span className={`badge ${item.is_active ? 'badge-success' : 'badge-danger'}`}>
-          {item.is_active ? t('common.active') : t('common.disabled')}
-        </span>
-      ),
-    },
-    {
-      key: 'actions',
-      title: t('common.actions'),
-      render: (item: Category) => (
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => handleOpenEdit(item)}
-            className="p-1.5 hover:bg-blue-50 text-blue-600 rounded-lg"
-          >
-            <PencilIcon className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => {
-              setSelectedCategory(item);
-              setIsDeleteOpen(true);
-            }}
-            className="p-1.5 hover:bg-red-50 text-red-600 rounded-lg"
-          >
-            <TrashIcon className="w-4 h-4" />
-          </button>
-        </div>
-      ),
-    },
-  ];
-
-  const parentCategories = (categories as Category[])?.filter((c) => !c.parent_id) || [];
+  const allCategories = (categories as Category[]) || [];
+  const parentCategories = allCategories.filter((c) => !c.parent_id);
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing in an input field
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) {
         return;
       }
-
-      // Insert key or Alt+N: open add modal
       if (e.key === 'Insert' || (e.altKey && e.key.toLowerCase() === 'n')) {
         e.preventDefault();
         handleOpenCreate();
@@ -168,35 +120,86 @@ export default function CategoriesPage() {
   }, []);
 
   return (
-    <div className="space-y-6">
-      {/* Shortcuts hint */}
-      <div className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg mb-4 flex items-center gap-6 text-sm">
-        <span className="font-medium">{t('common.shortcuts') + ':'}</span>
-        <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Insert</kbd> {t('common.addNew')}</span>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">{t('stock.categoriesTitle')}</h1>
-          <p className="text-gray-500 mt-1">{t('stock.categoriesSubtitle')}</p>
-        </div>
-        <button onClick={handleOpenCreate} className="btn btn-primary">
-          <kbd className="bg-blue-700 px-1.5 py-0.5 rounded text-xs me-2">Insert</kbd>
-          <PlusIcon className="w-5 h-5" />
+    <div className="space-y-4">
+      <PageHeader title={t('stock.categoriesTitle')} subtitle={t('stock.categoriesSubtitle')}>
+        <button
+          onClick={handleOpenCreate}
+          className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-bold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors"
+        >
+          <PlusIcon className="w-4 h-4" />
           {t('stock.addCategory')}
+          <kbd className="hidden md:inline bg-white/20 px-1.5 py-0.5 rounded text-[10px] font-mono ms-1">Insert</kbd>
         </button>
-      </div>
+      </PageHeader>
 
-      <div className="card">
-        <DataTable
-          columns={columns}
-          data={categories || []}
-          isLoading={isLoading}
-          searchable
-          searchPlaceholder={t('stock.searchCategory')}
-          onSearch={setSearch}
-          emptyMessage={t('stock.noCategories')}
-        />
+      <FilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder={t('stock.searchCategory')}
+      />
+
+      <div className="table-pro-wrap">
+        <table className="table-pro">
+          <thead>
+            <tr>
+              <th className="text-end">#</th>
+              <th>{t('common.name')}</th>
+              <th>{t('stock.parentCategory')}</th>
+              <th className="text-end">{t('stock.productsCount')}</th>
+              <th>{t('common.status')}</th>
+              <th>{t('common.actions')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr>
+                <td colSpan={6} className="text-center py-8 text-gray-500">
+                  <span className="spinner inline-block" />
+                </td>
+              </tr>
+            ) : allCategories.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="text-center py-8 text-gray-500">
+                  {t('stock.noCategories')}
+                </td>
+              </tr>
+            ) : (
+              allCategories.map((item, index) => (
+                <tr key={item.id}>
+                  <td className="tnum">{index + 1}</td>
+                  <td className="font-medium">{item.name}</td>
+                  <td>{item.parent?.name || '-'}</td>
+                  <td className="tnum">{item.products_count || 0}</td>
+                  <td>
+                    <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                      <span className={`metric-dot ${item.is_active ? 'metric-dot-green' : 'metric-dot-neutral'}`} aria-hidden />
+                      {item.is_active ? t('common.active') : t('common.disabled')}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => handleOpenEdit(item)}
+                        className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                      >
+                        <PencilIcon className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedCategory(item);
+                          setIsDeleteOpen(true);
+                        }}
+                        className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       <Modal

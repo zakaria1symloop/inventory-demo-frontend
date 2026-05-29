@@ -16,6 +16,7 @@ import {
   FunnelIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
+import { PageHeader, FilterBar } from '@/components/dashboard';
 import {
   BarChart, Bar, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip,
@@ -56,12 +57,11 @@ function ChartTooltip({ active, payload, label, formatter }: { active?: boolean;
   );
 }
 
-// ─── KPI color map ───
-const colorMap: Record<string, { hover: string; hoverDark: string; bar: string; iconBg: string; iconText: string; valueText: string }> = {
-  indigo: { hover: 'hover:bg-indigo-50/40', hoverDark: 'dark:hover:bg-indigo-900/10', bar: 'bg-indigo-500', iconBg: 'bg-indigo-100 dark:bg-indigo-900/30', iconText: 'text-indigo-600 dark:text-indigo-400', valueText: 'text-indigo-600 dark:text-indigo-400' },
-  emerald: { hover: 'hover:bg-emerald-50/40', hoverDark: 'dark:hover:bg-emerald-900/10', bar: 'bg-emerald-500', iconBg: 'bg-emerald-100 dark:bg-emerald-900/30', iconText: 'text-emerald-600 dark:text-emerald-400', valueText: 'text-emerald-600 dark:text-emerald-400' },
-  blue: { hover: 'hover:bg-blue-50/40', hoverDark: 'dark:hover:bg-blue-900/10', bar: 'bg-blue-500', iconBg: 'bg-blue-100 dark:bg-blue-900/30', iconText: 'text-blue-600 dark:text-blue-400', valueText: 'text-blue-600 dark:text-blue-400' },
-  red: { hover: 'hover:bg-red-50/40', hoverDark: 'dark:hover:bg-red-900/10', bar: 'bg-red-500', iconBg: 'bg-red-100 dark:bg-red-900/30', iconText: 'text-red-600 dark:text-red-400', valueText: 'text-red-600 dark:text-red-400' },
+const colorToDot: Record<string, string> = {
+  indigo: 'metric-dot-violet',
+  emerald: 'metric-dot-green',
+  blue: 'metric-dot-blue',
+  red: 'metric-dot-red',
 };
 
 const PER_PAGE = 15;
@@ -246,83 +246,81 @@ export default function SellersReportPage() {
 
   const activeFilterCount = [filterSeller, filterWarehouse].filter(Boolean).length;
 
-  const thClass = "text-start text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-5 py-3";
-  const thEndClass = "text-end text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-5 py-3";
-  const tdClass = "px-5 py-3";
+  const thClass = "text-start text-[10.5px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-4 py-2.5 bg-gray-50/60 dark:bg-gray-800/60";
+  const thEndClass = "text-end text-[10.5px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-4 py-2.5 bg-gray-50/60 dark:bg-gray-800/60";
+  const tdClass = "px-4 py-2 text-[13px]";
+
+  const kpiItems: { label: string; value: string; color: string; currency?: boolean }[] = [
+    { label: t('sellers.kpiActiveSellers' as TranslationKey), value: kpis.activeSellers.toString(), color: 'indigo' },
+    { label: t('sellers.kpiTotalSales' as TranslationKey), value: kpis.totalSales.toString(), color: 'emerald' },
+    { label: t('sellers.kpiTotalPaid' as TranslationKey), value: formatCurrency(kpis.totalPaid), color: 'blue', currency: true },
+    { label: t('sellers.kpiTotalDue' as TranslationKey), value: formatCurrency(kpis.totalDue), color: 'red', currency: true },
+  ];
 
   return (
-    <div className="space-y-5">
-      {/* ─── Header ─── */}
-      <div>
-        <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('sellers.title' as TranslationKey)}</h1>
-        <p className="text-sm text-gray-400 mt-1">{t('sellers.subtitle' as TranslationKey)}</p>
-      </div>
+    <div className="space-y-4">
+      <PageHeader title={t('sellers.title' as TranslationKey)} subtitle={t('sellers.subtitle' as TranslationKey)} tight />
 
-      <div className="flex gap-5">
+      <div className="flex gap-4">
         {/* Main content */}
-        <div className="flex-1 min-w-0 space-y-5">
+        <div className="flex-1 min-w-0 space-y-4">
           {/* ─── Filter Bar ─── */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 px-5 py-3.5">
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('sellers.from' as TranslationKey)}</span>
-                <DateInput value={dateFrom} onChange={setDateFrom} className="w-36" />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('sellers.to' as TranslationKey)}</span>
-                <DateInput value={dateTo} onChange={setDateTo} className="w-36" />
-              </div>
-              <button onClick={() => refetchSales()} className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                <ArrowPathIcon className="w-4 h-4" />
-              </button>
-              <button onClick={() => setShowFilters(!showFilters)} className={`relative inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium rounded-xl transition-colors ${showFilters ? 'bg-amber-500 text-white' : 'border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
-                <FunnelIcon className="w-4 h-4" />
-                {t('sellers.filters' as TranslationKey)}
-                {activeFilterCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{activeFilterCount}</span>
-                )}
-              </button>
-              <div className={`flex items-center gap-2 ${isRTL ? 'mr-auto' : 'ml-auto'}`}>
-                <button onClick={exportExcel} className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 transition-colors">
+          <FilterBar
+            trailing={
+              <>
+                <button onClick={() => refetchSales()} className="inline-flex items-center gap-1.5 px-2.5 h-[38px] text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" title="Refresh">
+                  <ArrowPathIcon className="w-4 h-4" />
+                </button>
+                <button onClick={() => setShowFilters(!showFilters)} className={`relative inline-flex items-center gap-1.5 px-3 h-[38px] text-[12px] font-semibold rounded-md transition-colors ${showFilters ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' : 'border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                  <FunnelIcon className="w-4 h-4" />
+                  {t('sellers.filters' as TranslationKey)}
+                  {activeFilterCount > 0 && (
+                    <span className="ms-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-[10px] font-bold tnum">{activeFilterCount}</span>
+                  )}
+                </button>
+                <button onClick={exportExcel} className="inline-flex items-center gap-1.5 px-3 h-[38px] text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                   <ArrowDownTrayIcon className="w-4 h-4" /> Excel
                 </button>
-                <button onClick={exportPDF} className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium rounded-xl text-white bg-red-600 hover:bg-red-700 transition-colors">
+                <button onClick={exportPDF} className="inline-flex items-center gap-1.5 px-3 h-[38px] text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                   <ArrowDownTrayIcon className="w-4 h-4" /> PDF
                 </button>
-              </div>
+              </>
+            }
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="text-[12px] font-medium text-gray-500 dark:text-gray-400">{t('sellers.from' as TranslationKey)}</span>
+              <DateInput value={dateFrom} onChange={setDateFrom} />
             </div>
-          </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[12px] font-medium text-gray-500 dark:text-gray-400">{t('sellers.to' as TranslationKey)}</span>
+              <DateInput value={dateTo} onChange={setDateTo} />
+            </div>
+          </FilterBar>
 
           {/* ─── KPIs ─── */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
-            <div className={`grid grid-cols-2 md:grid-cols-4 md:divide-x ${isRTL ? 'md:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
-              {[
-                { label: t('sellers.kpiActiveSellers' as TranslationKey), value: kpis.activeSellers.toString(), color: 'indigo' },
-                { label: t('sellers.kpiTotalSales' as TranslationKey), value: kpis.totalSales.toString(), color: 'emerald' },
-                { label: t('sellers.kpiTotalPaid' as TranslationKey), value: formatCurrency(kpis.totalPaid), color: 'blue' },
-                { label: t('sellers.kpiTotalDue' as TranslationKey), value: formatCurrency(kpis.totalDue), color: 'red' },
-              ].map((kpi, i) => {
-                const c = colorMap[kpi.color];
-                return (
-                  <div key={i} className={`group relative p-5 ${c.hover} ${c.hoverDark} transition-colors duration-200`}>
-                    <div className={`absolute top-0 inset-x-0 h-[3px] ${c.bar} scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b`} />
-                    <div className="text-center">
-                      <div className={`text-xl font-black ${c.valueText} tabular-nums leading-none`}>
-                        {isLoading ? <div className="w-16 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mx-auto" /> : kpi.value}
-                      </div>
-                      <div className="text-[11px] font-semibold text-gray-400 mt-2">{kpi.label}</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+            {kpiItems.map((kpi, i) => (
+              <div key={i} className="metric-tile">
+                <div className="flex items-center gap-1.5">
+                  <span className={`metric-dot ${colorToDot[kpi.color] || 'metric-dot-neutral'}`} aria-hidden />
+                  <p className="metric-label truncate">{kpi.label}</p>
+                </div>
+                {isLoading ? (
+                  <div className="w-20 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                ) : kpi.currency ? (
+                  <p className="metric-value-currency">{kpi.value}</p>
+                ) : (
+                  <p className="metric-value truncate">{kpi.value}</p>
+                )}
+              </div>
+            ))}
           </div>
 
           {/* ─── Charts ─── */}
           {!isLoading && (topSellersData.length > 0 || dailyData.length > 0) && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5">
-                <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-4">{t('sellers.chartTopSellers' as TranslationKey)}</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <div className="surface-pro">
+                <h3 className="surface-heading mb-3">{t('sellers.chartTopSellers' as TranslationKey)}</h3>
                 {topSellersData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={topSellersData} layout="vertical" margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
@@ -339,8 +337,8 @@ export default function SellersReportPage() {
                   <div className="flex items-center justify-center h-[300px] text-gray-400 text-sm">{t('sellers.noData' as TranslationKey)}</div>
                 )}
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5">
-                <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-4">{t('sellers.chartDailyTrend' as TranslationKey)}</h3>
+              <div className="surface-pro">
+                <h3 className="surface-heading mb-3">{t('sellers.chartDailyTrend' as TranslationKey)}</h3>
                 {dailyData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={300}>
                     <AreaChart data={dailyData} margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
@@ -367,14 +365,14 @@ export default function SellersReportPage() {
           )}
 
           {/* ─── Table ─── */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('sellers.tableTitle' as TranslationKey)}</h3>
-              <span className="text-xs text-gray-400 tabular-nums">{sellerStats.length} {t('sellers.entries' as TranslationKey)}</span>
+          <div className="bg-white dark:bg-gray-900 rounded-[10px] border border-gray-200/80 dark:border-gray-700/60 overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-gray-200/80 dark:border-gray-700/60 flex items-center justify-between">
+              <h3 className="surface-heading">{t('sellers.tableTitle' as TranslationKey)}</h3>
+              <span className="text-[12px] text-gray-500 dark:text-gray-400 tnum">{sellerStats.length} {t('sellers.entries' as TranslationKey)}</span>
             </div>
             {isLoading ? (
               <div className="flex items-center justify-center py-20">
-                <div className="w-8 h-8 border-[3px] border-amber-200 dark:border-amber-800 border-t-amber-500 rounded-full animate-spin" />
+                <div className="spinner" />
               </div>
             ) : sellerStats.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-gray-400">
@@ -398,20 +396,20 @@ export default function SellersReportPage() {
                     <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
                       {paginated.map((s) => (
                         <tr key={s.userId} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
-                          <td className={tdClass}><span className="text-sm font-bold text-amber-600 dark:text-amber-400">{s.name}</span></td>
-                          <td className={`${tdClass} text-end`}><span className="text-sm font-medium text-gray-700 dark:text-gray-300 tabular-nums">{s.salesCount}</span></td>
-                          <td className={`${tdClass} text-end`}><span className="text-sm font-bold text-gray-800 dark:text-gray-100 tabular-nums">{formatCurrency(s.totalAmount)}</span></td>
-                          <td className={`${tdClass} text-end`}><span className="text-sm font-medium text-emerald-600 dark:text-emerald-400 tabular-nums">{formatCurrency(s.paidAmount)}</span></td>
-                          <td className={`${tdClass} text-end`}><span className={`text-sm font-medium tabular-nums ${s.dueAmount > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400'}`}>{formatCurrency(s.dueAmount)}</span></td>
+                          <td className={tdClass}><span className="font-semibold text-gray-800 dark:text-gray-100">{s.name}</span></td>
+                          <td className={`${tdClass} text-end`}><span className="font-medium text-gray-700 dark:text-gray-300 tnum">{s.salesCount}</span></td>
+                          <td className={`${tdClass} text-end`}><span className="font-semibold text-gray-800 dark:text-gray-100 tnum">{formatCurrency(s.totalAmount)}</span></td>
+                          <td className={`${tdClass} text-end`}><span className="font-medium text-gray-700 dark:text-gray-300 tnum">{formatCurrency(s.paidAmount)}</span></td>
+                          <td className={`${tdClass} text-end`}><span className={`font-medium tnum ${s.dueAmount > 0 ? 'text-gray-800 dark:text-gray-100' : 'text-gray-400'}`}>{formatCurrency(s.dueAmount)}</span></td>
                           <td className={tdClass}>
                             <div className="flex items-center gap-2.5">
-                              <div className="flex-1 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                              <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                                 <div
                                   className={`h-full rounded-full transition-all duration-500 ${s.collectionRate >= 80 ? 'bg-emerald-500' : s.collectionRate >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
                                   style={{ width: `${Math.min(100, s.collectionRate)}%` }}
                                 />
                               </div>
-                              <span className={`text-xs font-bold tabular-nums min-w-[36px] text-end ${s.collectionRate >= 80 ? 'text-emerald-600 dark:text-emerald-400' : s.collectionRate >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
+                              <span className="text-[12px] font-semibold tnum min-w-[36px] text-end text-gray-700 dark:text-gray-300">
                                 {s.collectionRate}%
                               </span>
                             </div>
@@ -422,17 +420,17 @@ export default function SellersReportPage() {
                   </table>
                 </div>
                 {totalPages > 1 && (
-                  <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100 dark:border-gray-700">
-                    <span className="text-xs text-gray-400 tabular-nums">
+                  <div className="flex items-center justify-between px-4 py-2.5 border-t border-gray-200/80 dark:border-gray-700/60">
+                    <span className="text-[12px] text-gray-500 dark:text-gray-400 tnum">
                       {t('sellers.pageInfo' as TranslationKey, { current: String(page), total: String(totalPages), count: String(sellerStats.length) })}
                     </span>
                     <div className="flex items-center gap-1">
                       <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40">
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40">
                         <PrevChevron className="w-3.5 h-3.5" /> {t('sellers.prev' as TranslationKey)}
                       </button>
                       <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40">
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40">
                         {t('sellers.next' as TranslationKey)} <NextChevron className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -445,26 +443,26 @@ export default function SellersReportPage() {
 
         {/* ─── Filter Panel ─── */}
         {showFilters && (
-          <div className="w-72 shrink-0">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5 sticky top-4 space-y-4">
+          <div className="w-64 shrink-0">
+            <div className="surface-pro sticky top-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                <h3 className="surface-heading flex items-center gap-2">
                   <FunnelIcon className="w-4 h-4" />
                   {t('sellers.filters' as TranslationKey)}
                 </h3>
-                <button onClick={() => setShowFilters(false)} className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                <button onClick={() => setShowFilters(false)} className="w-7 h-7 rounded-md flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                   <XMarkIcon className="w-4 h-4" />
                 </button>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{t('sellers.colSeller' as TranslationKey)}</label>
-                <input type="text" value={filterSeller} onChange={(e) => { setFilterSeller(e.target.value); setPage(1); }} placeholder={t('sellers.filterSearchSeller' as TranslationKey)} className="input w-full text-sm" />
+                <label className="block text-[12px] font-medium text-gray-600 dark:text-gray-400 mb-1">{t('sellers.colSeller' as TranslationKey)}</label>
+                <input type="text" value={filterSeller} onChange={(e) => { setFilterSeller(e.target.value); setPage(1); }} placeholder={t('sellers.filterSearchSeller' as TranslationKey)} className="input w-full text-[13px]" />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{t('sellers.filterWarehouse' as TranslationKey)}</label>
-                <select value={filterWarehouse} onChange={(e) => { setFilterWarehouse(e.target.value); setPage(1); }} className="input w-full text-sm">
+                <label className="block text-[12px] font-medium text-gray-600 dark:text-gray-400 mb-1">{t('sellers.filterWarehouse' as TranslationKey)}</label>
+                <select value={filterWarehouse} onChange={(e) => { setFilterWarehouse(e.target.value); setPage(1); }} className="input w-full text-[13px]">
                   <option value="">{t('sellers.filterAll' as TranslationKey)}</option>
                   {warehouses.map(w => (
                     <option key={w.id} value={String(w.id)}>{w.name}</option>
@@ -473,7 +471,7 @@ export default function SellersReportPage() {
               </div>
 
               {activeFilterCount > 0 && (
-                <button onClick={() => { setFilterSeller(''); setFilterWarehouse(''); setPage(1); }} className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                <button onClick={() => { setFilterSeller(''); setFilterWarehouse(''); setPage(1); }} className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                   <XMarkIcon className="w-3.5 h-3.5" />
                   {t('sellers.clearFilters' as TranslationKey)}
                 </button>

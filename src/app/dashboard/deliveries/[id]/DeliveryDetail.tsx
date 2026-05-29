@@ -8,12 +8,9 @@ import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { useLocale } from '@/lib/i18n/context';
 import GuidedTour, { TourStep } from '@/components/GuidedTour';
+import { PageHeader } from '@/components/dashboard';
 import {
-  ArrowRightIcon,
-  ArrowLeftIcon,
   TruckIcon,
-  UserIcon,
-  BanknotesIcon,
   ClockIcon,
   CheckCircleIcon,
   XCircleIcon,
@@ -25,9 +22,6 @@ import {
   ExclamationTriangleIcon,
   CurrencyDollarIcon,
   PlayIcon,
-  BuildingStorefrontIcon,
-  IdentificationIcon,
-  ChartBarIcon,
 } from '@heroicons/react/24/outline';
 
 interface OrderItem {
@@ -134,8 +128,6 @@ export default function DeliveryDetail() {
 
   const [isStarting, setIsStarting] = useState(false);
 
-  const BackArrowIcon = isRTL ? ArrowRightIcon : ArrowLeftIcon;
-
   const tourSteps: TourStep[] = useMemo(() => [
     { target: '[data-tour="dd-header"]', title: t('deliveryDetail.tourHeaderTitle'), desc: t('deliveryDetail.tourHeaderDesc'), position: 'bottom' as const },
     { target: '[data-tour="dd-info"]', title: t('deliveryDetail.tourInfoTitle'), desc: t('deliveryDetail.tourInfoDesc'), position: 'bottom' as const },
@@ -143,25 +135,25 @@ export default function DeliveryDetail() {
     { target: '[data-tour="dd-orders"]', title: t('deliveryDetail.tourOrdersTitle'), desc: t('deliveryDetail.tourOrdersDesc'), position: 'top' as const },
   ], [t]);
 
-  const getStatusConfig = (status: string) => {
-    const configs: Record<string, { bg: string; darkBg: string; text: string; darkText: string; icon: typeof ClockIcon; label: string; color: string }> = {
-      preparing: { bg: 'bg-amber-100', darkBg: 'dark:bg-amber-900/30', text: 'text-amber-800', darkText: 'dark:text-amber-300', icon: ClockIcon, label: t('deliveryDetail.statusPreparing'), color: 'amber' },
-      in_progress: { bg: 'bg-blue-100', darkBg: 'dark:bg-blue-900/30', text: 'text-blue-800', darkText: 'dark:text-blue-300', icon: TruckIcon, label: t('deliveryDetail.statusInProgress'), color: 'blue' },
-      completed: { bg: 'bg-green-100', darkBg: 'dark:bg-green-900/30', text: 'text-green-800', darkText: 'dark:text-green-300', icon: CheckCircleIcon, label: t('deliveryDetail.statusCompleted'), color: 'green' },
-      cancelled: { bg: 'bg-red-100', darkBg: 'dark:bg-red-900/30', text: 'text-red-800', darkText: 'dark:text-red-300', icon: XCircleIcon, label: t('deliveryDetail.statusCancelled'), color: 'red' },
+  const getStatusDot = (status: string) => {
+    const map: Record<string, { dot: string; label: string }> = {
+      preparing: { dot: 'metric-dot-orange', label: t('deliveryDetail.statusPreparing') },
+      in_progress: { dot: 'metric-dot-blue', label: t('deliveryDetail.statusInProgress') },
+      completed: { dot: 'metric-dot-green', label: t('deliveryDetail.statusCompleted') },
+      cancelled: { dot: 'metric-dot-red', label: t('deliveryDetail.statusCancelled') },
     };
-    return configs[status] || configs.preparing;
+    return map[status] || map.preparing;
   };
 
-  const getOrderStatusConfig = (status: string) => {
-    const configs: Record<string, { bg: string; text: string; icon: typeof ClockIcon; label: string }> = {
-      pending: { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-800 dark:text-amber-300', icon: ClockIcon, label: t('deliveryDetail.orderPending') },
-      delivered: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-800 dark:text-green-300', icon: CheckCircleIcon, label: t('deliveryDetail.orderDelivered') },
-      partial: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-800 dark:text-blue-300', icon: CubeIcon, label: t('deliveryDetail.orderPartial') },
-      failed: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-300', icon: XCircleIcon, label: t('deliveryDetail.orderFailed') },
-      postponed: { bg: 'bg-gray-100 dark:bg-gray-700/50', text: 'text-gray-700 dark:text-gray-300', icon: ClockIcon, label: t('deliveryDetail.orderPostponed') },
+  const getOrderStatusDot = (status: string) => {
+    const map: Record<string, { dot: string; label: string }> = {
+      pending: { dot: 'metric-dot-orange', label: t('deliveryDetail.orderPending') },
+      delivered: { dot: 'metric-dot-green', label: t('deliveryDetail.orderDelivered') },
+      partial: { dot: 'metric-dot-blue', label: t('deliveryDetail.orderPartial') },
+      failed: { dot: 'metric-dot-red', label: t('deliveryDetail.orderFailed') },
+      postponed: { dot: 'metric-dot-neutral', label: t('deliveryDetail.orderPostponed') },
     };
-    return configs[status] || configs.pending;
+    return map[status] || map.pending;
   };
 
   const returnReasonLabels = useMemo(() => ({
@@ -349,10 +341,21 @@ export default function DeliveryDetail() {
   };
 
   if (isLoading) return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
-  if (!delivery) return <div className="text-center py-12 text-gray-500 dark:text-gray-400">{t('deliveryDetail.notFound')}</div>;
+  if (!delivery) {
+    return (
+      <div>
+        <PageHeader
+          title={t('deliveryDetail.notFound')}
+          breadcrumb={[
+            { label: t('sidebar.deliveries'), href: '/dashboard/deliveries' },
+            { label: '—' },
+          ]}
+        />
+      </div>
+    );
+  }
 
-  const statusConfig = getStatusConfig(delivery.status);
-  const StatusIcon = statusConfig.icon;
+  const statusInfo = getStatusDot(delivery.status);
   const uncollectedAmount = (Number(delivery.total_amount) || 0) - (Number(delivery.collected_amount) || 0);
   const collectionRate = Number(delivery.total_amount) > 0 ? ((Number(delivery.collected_amount) || 0) / Number(delivery.total_amount)) * 100 : 0;
   const totalDelivered = delivery.delivery_orders?.filter(o => ['delivered', 'partial'].includes(o.status)).length || 0;
@@ -360,147 +363,153 @@ export default function DeliveryDetail() {
   const totalLoss = delivery.returns?.filter(r => !r.returnable_to_stock).reduce((sum, r) => sum + (r.loss_amount || 0), 0) || 0;
 
   return (
-    <div className="space-y-5">
-      {/* ───── Header ───── */}
-      <div data-tour="dd-header" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard/deliveries" className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-            <BackArrowIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-          </Link>
-
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">{delivery.reference}</h1>
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${statusConfig.bg} ${statusConfig.darkBg} ${statusConfig.text} ${statusConfig.darkText}`}>
-                <StatusIcon className="w-4 h-4" />
-                {statusConfig.label}
-              </span>
-            </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{t('deliveryDetail.dateLabel')} {formatDate(delivery.date)}</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <button onClick={() => setShowTour(true)} className="text-sm font-medium text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors">
+    <div>
+      <div data-tour="dd-header">
+        <PageHeader
+          title={delivery.reference}
+          subtitle={`${t('deliveryDetail.dateLabel')} ${formatDate(delivery.date)}`}
+          breadcrumb={[
+            { label: t('sidebar.deliveries'), href: '/dashboard/deliveries' },
+            { label: delivery.reference },
+          ]}
+          pill={
+            <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+              <span className={`metric-dot ${statusInfo.dot}`} aria-hidden />
+              {statusInfo.label}
+            </span>
+          }
+        >
+          <button
+            onClick={() => setShowTour(true)}
+            className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
             {t('deliveryDetail.tourBtn')}
           </button>
-
           {delivery.status === 'preparing' && (
             <button
               onClick={handleStartDelivery}
               disabled={isStarting}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 transition-all active:scale-[0.98]"
+              className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-50"
             >
               {isStarting ? <div className="spinner w-4 h-4 border-white"></div> : <PlayIcon className="w-4 h-4" />}
               {isStarting ? t('deliveryDetail.starting') : t('deliveryDetail.startDelivery')}
             </button>
           )}
-
-          <button onClick={fetchDelivery} className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl border-2 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all">
+          <button
+            onClick={fetchDelivery}
+            className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
             <ArrowPathIcon className="w-4 h-4" />
             {t('deliveryDetail.refresh')}
           </button>
-        </div>
+        </PageHeader>
       </div>
 
-      {/* ───── Info Cards ───── */}
-      <div data-tour="dd-info" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      {/* ───── Info Tiles ───── */}
+      <div data-tour="dd-info" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 mb-4">
         {[
-          { icon: UserIcon, label: t('deliveryDetail.driver'), value: delivery.livreur?.name || t('deliveryDetail.noData'), color: 'blue' },
-          { icon: TruckIcon, label: t('deliveryDetail.vehicle'), value: delivery.vehicle?.name || t('deliveryDetail.noData'), color: 'purple' },
-          { icon: BuildingStorefrontIcon, label: t('deliveryDetail.warehouse'), value: delivery.warehouse?.name || t('deliveryDetail.noData'), color: 'indigo' },
-          { icon: IdentificationIcon, label: t('deliveryDetail.plateNumber'), value: delivery.vehicle?.plate_number || t('deliveryDetail.noData'), color: 'emerald' },
-          { icon: ClockIcon, label: t('deliveryDetail.startTime'), value: delivery.start_time ? formatDateTime(delivery.start_time) : t('deliveryDetail.noData'), color: 'orange' },
-          { icon: ClockIcon, label: t('deliveryDetail.endTime'), value: delivery.end_time ? formatDateTime(delivery.end_time) : t('deliveryDetail.noData'), color: 'rose' },
-        ].map((card, i) => {
-          const colorMap: Record<string, string> = {
-            blue: 'bg-blue-50 dark:bg-blue-900/30 border-blue-100 dark:border-blue-800 text-blue-600 dark:text-blue-400',
-            purple: 'bg-purple-50 dark:bg-purple-900/30 border-purple-100 dark:border-purple-800 text-purple-600 dark:text-purple-400',
-            indigo: 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-100 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400',
-            emerald: 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-100 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400',
-            orange: 'bg-orange-50 dark:bg-orange-900/30 border-orange-100 dark:border-orange-800 text-orange-600 dark:text-orange-400',
-            rose: 'bg-rose-50 dark:bg-rose-900/30 border-rose-100 dark:border-rose-800 text-rose-600 dark:text-rose-400',
-          };
-          return (
-            <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-4 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className={`w-11 h-11 rounded-xl border flex items-center justify-center ${colorMap[card.color]}`}>
-                  <card.icon className="w-5 h-5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[11px] uppercase tracking-wider text-gray-400 dark:text-gray-500">{card.label}</p>
-                  <p className="text-sm font-bold text-gray-800 dark:text-gray-100 truncate">{card.value}</p>
-                </div>
-              </div>
+          { label: t('deliveryDetail.driver'), value: delivery.livreur?.name || t('deliveryDetail.noData') },
+          { label: t('deliveryDetail.vehicle'), value: delivery.vehicle?.name || t('deliveryDetail.noData') },
+          { label: t('deliveryDetail.warehouse'), value: delivery.warehouse?.name || t('deliveryDetail.noData') },
+          { label: t('deliveryDetail.plateNumber'), value: delivery.vehicle?.plate_number || t('deliveryDetail.noData') },
+          { label: t('deliveryDetail.startTime'), value: delivery.start_time ? formatDateTime(delivery.start_time) : t('deliveryDetail.noData') },
+          { label: t('deliveryDetail.endTime'), value: delivery.end_time ? formatDateTime(delivery.end_time) : t('deliveryDetail.noData') },
+        ].map((card, i) => (
+          <div key={i} className="metric-tile">
+            <div className="flex items-center gap-1.5">
+              <span className="metric-dot metric-dot-neutral" aria-hidden />
+              <p className="metric-label truncate">{card.label}</p>
             </div>
-          );
-        })}
-      </div>
-
-      {/* ───── Financial KPI Strip ───── */}
-      <div data-tour="dd-kpi" className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
-        <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 ${isRTL ? 'divide-x-reverse' : ''} divide-x divide-gray-100 dark:divide-gray-700`}>
-          {[
-            { icon: BanknotesIcon, label: t('deliveryDetail.totalAmount'), value: formatCurrency(Number(delivery.total_amount) || 0), color: 'blue', bar: 'bg-blue-500' },
-            { icon: CheckCircleIcon, label: t('deliveryDetail.collected'), value: formatCurrency(Number(delivery.collected_amount) || 0), color: 'green', bar: 'bg-green-500' },
-            { icon: XCircleIcon, label: t('deliveryDetail.remaining'), value: formatCurrency(uncollectedAmount), color: 'red', bar: 'bg-red-500' },
-            { icon: ChartBarIcon, label: t('deliveryDetail.collectionRate'), value: `${collectionRate.toFixed(0)}%`, color: 'indigo', bar: 'bg-indigo-500' },
-            { icon: ExclamationTriangleIcon, label: t('deliveryDetail.totalLoss'), value: formatCurrency(totalLoss), color: 'orange', bar: 'bg-orange-500' },
-          ].map((kpi, i) => {
-            const textColor: Record<string, string> = {
-              blue: 'text-blue-600 dark:text-blue-400',
-              green: 'text-green-600 dark:text-green-400',
-              red: 'text-red-600 dark:text-red-400',
-              indigo: 'text-indigo-600 dark:text-indigo-400',
-              orange: 'text-orange-600 dark:text-orange-400',
-            };
-            return (
-              <div key={i} className="group relative p-4 hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
-                <div className={`absolute top-0 ${isRTL ? 'right-0' : 'left-0'} w-full h-[3px] ${kpi.bar} scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-${isRTL ? 'right' : 'left'}`} />
-                <div className="flex items-center gap-2 mb-1">
-                  <kpi.icon className={`w-4 h-4 ${textColor[kpi.color]}`} />
-                  <span className="text-[11px] text-gray-500 dark:text-gray-400">{kpi.label}</span>
-                </div>
-                <p className={`text-lg font-bold ${textColor[kpi.color]}`}>{kpi.value}</p>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ───── Order Stats Strip ───── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { value: delivery.total_orders, label: t('deliveryDetail.totalOrders'), color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-          { value: totalDelivered, label: t('deliveryDetail.deliveredCount'), color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/20' },
-          { value: delivery.failed_count || 0, label: t('deliveryDetail.failedPostponed'), color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20' },
-          { value: totalReturns, label: t('deliveryDetail.returnsCount'), color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-900/20' },
-        ].map((stat, i) => (
-          <div key={i} className={`${stat.bg} rounded-2xl border border-gray-200/60 dark:border-gray-700 p-4 text-center`}>
-            <p className={`text-3xl font-extrabold ${stat.color}`}>{stat.value}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">{stat.label}</p>
+            <p className="metric-value truncate">{card.value}</p>
           </div>
         ))}
       </div>
 
+      {/* ───── Financial KPI ───── */}
+      <div data-tour="dd-kpi" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 mb-4">
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-blue" aria-hidden />
+            <p className="metric-label truncate">{t('deliveryDetail.totalAmount')}</p>
+          </div>
+          <p className="metric-value metric-value-currency">{formatCurrency(Number(delivery.total_amount) || 0)}</p>
+        </div>
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-green" aria-hidden />
+            <p className="metric-label truncate">{t('deliveryDetail.collected')}</p>
+          </div>
+          <p className="metric-value metric-value-currency">{formatCurrency(Number(delivery.collected_amount) || 0)}</p>
+        </div>
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-red" aria-hidden />
+            <p className="metric-label truncate">{t('deliveryDetail.remaining')}</p>
+          </div>
+          <p className="metric-value metric-value-currency">{formatCurrency(uncollectedAmount)}</p>
+        </div>
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-violet" aria-hidden />
+            <p className="metric-label truncate">{t('deliveryDetail.collectionRate')}</p>
+          </div>
+          <p className="metric-value tnum">{collectionRate.toFixed(0)}%</p>
+        </div>
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-orange" aria-hidden />
+            <p className="metric-label truncate">{t('deliveryDetail.totalLoss')}</p>
+          </div>
+          <p className="metric-value metric-value-currency">{formatCurrency(totalLoss)}</p>
+        </div>
+      </div>
+
+      {/* ───── Order Stats ───── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-4">
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-blue" aria-hidden />
+            <p className="metric-label truncate">{t('deliveryDetail.totalOrders')}</p>
+          </div>
+          <p className="metric-value tnum">{delivery.total_orders}</p>
+        </div>
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-green" aria-hidden />
+            <p className="metric-label truncate">{t('deliveryDetail.deliveredCount')}</p>
+          </div>
+          <p className="metric-value tnum">{totalDelivered}</p>
+        </div>
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-red" aria-hidden />
+            <p className="metric-label truncate">{t('deliveryDetail.failedPostponed')}</p>
+          </div>
+          <p className="metric-value tnum">{delivery.failed_count || 0}</p>
+        </div>
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-orange" aria-hidden />
+            <p className="metric-label truncate">{t('deliveryDetail.returnsCount')}</p>
+          </div>
+          <p className="metric-value tnum">{totalReturns}</p>
+        </div>
+      </div>
+
       {/* ───── Delivery Orders ───── */}
-      <div data-tour="dd-orders" className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
-              <CubeIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-            </div>
-            <h2 className="font-bold text-gray-800 dark:text-gray-100">{t('deliveryDetail.orderDetails')}</h2>
-            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">
-              {delivery.delivery_orders?.length || 0}
+      <div data-tour="dd-orders" className="surface-pro overflow-hidden mb-4">
+        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="surface-heading">{t('deliveryDetail.orderDetails')}</h2>
+            <span className="text-[12px] text-gray-500 dark:text-gray-400 tnum">
+              ({delivery.delivery_orders?.length || 0})
             </span>
           </div>
         </div>
 
         <div className="divide-y divide-gray-100 dark:divide-gray-700">
           {delivery.delivery_orders?.map((order) => {
-            const orderStatus = getOrderStatusConfig(order.status);
-            const OrderStatusIcon = orderStatus.icon;
+            const orderStatus = getOrderStatusDot(order.status);
             const remaining = order.amount_due - order.amount_collected;
             const hasRemaining = remaining > 0;
             const isExpanded = expandedOrder === order.id;
@@ -509,42 +518,40 @@ export default function DeliveryDetail() {
               <div key={order.id}>
                 {/* Order Header */}
                 <div
-                  className={`flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-gray-50/80 dark:hover:bg-gray-700/30 transition-colors ${isExpanded ? 'bg-gray-50/80 dark:bg-gray-700/30' : ''}`}
+                  className={`flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${isExpanded ? 'bg-gray-50 dark:bg-gray-700/30' : ''}`}
                   onClick={() => toggleExpand(order.id)}
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center font-bold text-sm text-gray-600 dark:text-gray-300">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-center tnum text-[13px] text-gray-700 dark:text-gray-200">
                       {order.delivery_order}
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-gray-800 dark:text-gray-100">{order.order?.reference || t('deliveryDetail.noData')}</span>
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${orderStatus.bg} ${orderStatus.text}`}>
-                          <OrderStatusIcon className="w-3.5 h-3.5" />
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="t-strong text-[13px]">{order.order?.reference || t('deliveryDetail.noData')}</span>
+                        <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                          <span className={`metric-dot ${orderStatus.dot}`} aria-hidden />
                           {orderStatus.label}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                      <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-0.5">
                         {order.client?.name} {order.client?.phone ? `• ${order.client.phone}` : ''}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-5">
-                    <div className="hidden sm:flex items-center gap-5">
+                  <div className="flex items-center gap-4">
+                    <div className="hidden sm:flex items-center gap-4 text-[12px]">
                       <div className="text-center">
-                        <p className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('deliveryDetail.amountDue')}</p>
-                        <p className="font-bold text-gray-800 dark:text-gray-100">{formatCurrency(order.amount_due)}</p>
+                        <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">{t('deliveryDetail.amountDue')}</p>
+                        <p className="tnum t-strong">{formatCurrency(order.amount_due)}</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('deliveryDetail.amountCollected')}</p>
-                        <p className="font-bold text-green-600 dark:text-green-400">{formatCurrency(order.amount_collected)}</p>
+                        <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">{t('deliveryDetail.amountCollected')}</p>
+                        <p className="tnum t-strong">{formatCurrency(order.amount_collected)}</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('deliveryDetail.remainingAmount')}</p>
-                        <p className={`font-bold ${hasRemaining ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                          {formatCurrency(remaining)}
-                        </p>
+                        <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">{t('deliveryDetail.remainingAmount')}</p>
+                        <p className="tnum t-strong">{formatCurrency(remaining)}</p>
                       </div>
                     </div>
 
@@ -552,14 +559,14 @@ export default function DeliveryDetail() {
                       <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => openPaymentModal(order)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                          className="inline-flex items-center gap-1 px-2 py-1.5 text-[11px] font-semibold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors"
                         >
                           <CurrencyDollarIcon className="w-3.5 h-3.5" />
                           {t('deliveryDetail.collectBtn')}
                         </button>
                         <button
                           onClick={() => handlePayFull(order)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors"
+                          className="inline-flex items-center gap-1 px-2 py-1.5 text-[11px] font-semibold rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors"
                         >
                           <CheckCircleIcon className="w-3.5 h-3.5" />
                           {t('deliveryDetail.fullPaymentBtn')}
@@ -568,68 +575,62 @@ export default function DeliveryDetail() {
                     )}
 
                     {isExpanded ? (
-                      <ChevronUpIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+                      <ChevronUpIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                     ) : (
-                      <ChevronDownIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+                      <ChevronDownIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                     )}
                   </div>
                 </div>
 
                 {/* Order Details (Expanded) */}
                 {isExpanded && order.order?.items && (
-                  <div className="border-t border-gray-100 dark:border-gray-700 px-5 py-4 bg-gray-50/30 dark:bg-gray-900/20">
-                    <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2 text-sm">
-                      <CubeIcon className="w-4 h-4 text-indigo-500" />
+                  <div className="border-t border-gray-100 dark:border-gray-700 px-4 py-3 bg-gray-50/40 dark:bg-gray-900/20">
+                    <h4 className="surface-heading mb-3 flex items-center gap-2">
+                      <CubeIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                       {t('deliveryDetail.products')} ({order.order.items.length})
                     </h4>
-                    <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
-                      <table className="w-full text-sm">
+                    <div className="table-pro-wrap">
+                      <table className="table-pro compact">
                         <thead>
-                          <tr className="bg-gray-100/80 dark:bg-gray-700/50">
-                            <th className="px-3 py-2.5 text-start text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.product')}</th>
-                            <th className="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.ordered')}</th>
-                            <th className="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.delivered')}</th>
-                            <th className="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.returned')}</th>
-                            <th className="px-3 py-2.5 text-start text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.unitPrice')}</th>
-                            <th className="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.piecesPerUnit')}</th>
-                            <th className="px-3 py-2.5 text-start text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.subtotal')}</th>
+                          <tr>
+                            <th>{t('deliveryDetail.product')}</th>
+                            <th className="text-center">{t('deliveryDetail.ordered')}</th>
+                            <th className="text-center">{t('deliveryDetail.delivered')}</th>
+                            <th className="text-center">{t('deliveryDetail.returned')}</th>
+                            <th className="text-center">{t('deliveryDetail.unitPrice')}</th>
+                            <th className="text-center">{t('deliveryDetail.piecesPerUnit')}</th>
+                            <th className="text-center">{t('deliveryDetail.subtotal')}</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800">
+                        <tbody>
                           {order.order.items.map((item) => {
                             const piecesPerPkg = item.product?.pieces_per_package || 1;
                             const deliveredAmount = (item.quantity_delivered || 0) * item.unit_price;
                             return (
-                              <tr key={item.id} className="hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors">
-                                <td className="px-3 py-2.5">
-                                  <div className="font-medium text-gray-800 dark:text-gray-100">{item.product?.name || t('deliveryDetail.noData')}</div>
-                                  {item.product?.barcode && <div className="text-[10px] text-gray-400 dark:text-gray-500">{item.product.barcode}</div>}
+                              <tr key={item.id}>
+                                <td>
+                                  <div className="t-strong">{item.product?.name || t('deliveryDetail.noData')}</div>
+                                  {item.product?.barcode && <div className="text-[11px] text-gray-400">{item.product.barcode}</div>}
                                 </td>
-                                <td className="px-3 py-2.5 text-center text-gray-700 dark:text-gray-300">
+                                <td className="text-center tnum">
                                   <div>{formatQty(item.quantity_confirmed, piecesPerPkg)}</div>
                                   {piecesPerPkg > 1 && <div className="text-[10px] text-gray-400">{item.quantity_confirmed} {t('deliveryDetail.pieces')}</div>}
                                 </td>
-                                <td className="px-3 py-2.5 text-center">
-                                  <span className={item.quantity_delivered > 0 ? 'text-green-600 dark:text-green-400 font-medium' : 'text-gray-400'}>
-                                    {formatQty(item.quantity_delivered || 0, piecesPerPkg)}
-                                  </span>
+                                <td className="text-center tnum">
+                                  {formatQty(item.quantity_delivered || 0, piecesPerPkg)}
                                   {piecesPerPkg > 1 && (item.quantity_delivered || 0) > 0 && (
                                     <div className="text-[10px] text-gray-400">{item.quantity_delivered} {t('deliveryDetail.pieces')}</div>
                                   )}
                                 </td>
-                                <td className="px-3 py-2.5 text-center">
-                                  <span className={item.quantity_returned > 0 ? 'text-red-600 dark:text-red-400 font-medium' : 'text-gray-400'}>
-                                    {formatQty(item.quantity_returned || 0, piecesPerPkg)}
-                                  </span>
-                                </td>
-                                <td className="px-3 py-2.5 text-gray-700 dark:text-gray-300">
+                                <td className="text-center tnum t-muted">{formatQty(item.quantity_returned || 0, piecesPerPkg)}</td>
+                                <td className="text-center tnum">
                                   {formatCurrency(item.unit_price)}
                                   {piecesPerPkg > 1 && (
-                                    <div className="text-[10px] text-blue-500 dark:text-blue-400">({formatCurrency(item.unit_price * piecesPerPkg)}{t('deliveryDetail.perCarton')})</div>
+                                    <div className="text-[10px] text-gray-500 dark:text-gray-400">({formatCurrency(item.unit_price * piecesPerPkg)}{t('deliveryDetail.perCarton')})</div>
                                   )}
                                 </td>
-                                <td className="px-3 py-2.5 text-center text-gray-700 dark:text-gray-300">{piecesPerPkg}</td>
-                                <td className="px-3 py-2.5 font-medium text-gray-800 dark:text-gray-100">
+                                <td className="text-center tnum t-muted">{piecesPerPkg}</td>
+                                <td className="text-center tnum t-strong">
                                   {formatCurrency(deliveredAmount)}
                                   {piecesPerPkg > 1 && (item.quantity_delivered || 0) > 0 && (
                                     <div className="text-[10px] text-gray-400">{item.unit_price} × {item.quantity_delivered}</div>
@@ -643,29 +644,29 @@ export default function DeliveryDetail() {
                     </div>
 
                     {/* Order Additional Info */}
-                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700 grid grid-cols-2 md:grid-cols-4 gap-3 text-[12px]">
                       {order.delivered_at && (
                         <div>
-                          <p className="text-gray-500 dark:text-gray-400 text-xs">{t('deliveryDetail.deliveryTime')}</p>
-                          <p className="font-medium text-gray-800 dark:text-gray-100">{formatDateTime(order.delivered_at)}</p>
+                          <p className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{t('deliveryDetail.deliveryTime')}</p>
+                          <p className="text-[13px] text-gray-900 dark:text-gray-100 font-medium leading-snug">{formatDateTime(order.delivered_at)}</p>
                         </div>
                       )}
                       {order.client?.address && (
                         <div className="col-span-2">
-                          <p className="text-gray-500 dark:text-gray-400 text-xs">{t('deliveryDetail.address')}</p>
-                          <p className="font-medium text-gray-800 dark:text-gray-100">{order.client.address}</p>
+                          <p className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{t('deliveryDetail.address')}</p>
+                          <p className="text-[13px] text-gray-900 dark:text-gray-100 font-medium leading-snug">{order.client.address}</p>
                         </div>
                       )}
                       {order.failure_reason && (
                         <div className="col-span-2">
-                          <p className="text-gray-500 dark:text-gray-400 text-xs">{t('deliveryDetail.failureReason')}</p>
-                          <p className="font-medium text-red-600 dark:text-red-400">{order.failure_reason}</p>
+                          <p className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{t('deliveryDetail.failureReason')}</p>
+                          <p className="text-[13px] text-gray-900 dark:text-gray-100 font-medium leading-snug">{order.failure_reason}</p>
                         </div>
                       )}
                       {order.notes && (
                         <div className="col-span-2">
-                          <p className="text-gray-500 dark:text-gray-400 text-xs">{t('deliveryDetail.notes')}</p>
-                          <p className="font-medium text-gray-800 dark:text-gray-100">{order.notes}</p>
+                          <p className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{t('deliveryDetail.notes')}</p>
+                          <p className="text-[13px] text-gray-900 dark:text-gray-100 font-medium leading-snug">{order.notes}</p>
                         </div>
                       )}
                     </div>
@@ -679,21 +680,18 @@ export default function DeliveryDetail() {
 
       {/* ───── Returns Section ───── */}
       {delivery.returns && delivery.returns.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center">
-                <ArrowPathIcon className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-              </div>
-              <h2 className="font-bold text-gray-800 dark:text-gray-100">{t('deliveryDetail.returnsTitle')}</h2>
-              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300">
-                {delivery.returns.length}
+        <div className="surface-pro overflow-hidden mb-4">
+          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h2 className="surface-heading">{t('deliveryDetail.returnsTitle')}</h2>
+              <span className="text-[12px] text-gray-500 dark:text-gray-400 tnum">
+                ({delivery.returns.length})
               </span>
             </div>
             {delivery.returns.some(r => !r.processed) && (
               <button
                 onClick={() => openProcessModal()}
-                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 transition-all active:scale-[0.98]"
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-[12px] font-semibold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors"
               >
                 <ArrowPathIcon className="w-3.5 h-3.5" />
                 {t('deliveryDetail.processAllReturns')}
@@ -701,67 +699,50 @@ export default function DeliveryDetail() {
             )}
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="table-pro-wrap">
+            <table className="table-pro compact">
               <thead>
-                <tr className="bg-gray-50/80 dark:bg-gray-700/30">
-                  <th className="px-4 py-2.5 text-start text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.product')}</th>
-                  <th className="px-4 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.quantity')}</th>
-                  <th className="px-4 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.reason')}</th>
-                  <th className="px-4 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.returnableToStock')}</th>
-                  <th className="px-4 py-2.5 text-start text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.lossAmount')}</th>
-                  <th className="px-4 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.status')}</th>
-                  <th className="px-4 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('deliveryDetail.actions')}</th>
+                <tr>
+                  <th>{t('deliveryDetail.product')}</th>
+                  <th className="text-center">{t('deliveryDetail.quantity')}</th>
+                  <th className="text-center">{t('deliveryDetail.reason')}</th>
+                  <th className="text-center">{t('deliveryDetail.returnableToStock')}</th>
+                  <th className="text-center">{t('deliveryDetail.lossAmount')}</th>
+                  <th className="text-center">{t('deliveryDetail.status')}</th>
+                  <th className="text-center">{t('deliveryDetail.actions')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+              <tbody>
                 {delivery.returns.map((ret) => (
-                  <tr key={ret.id} className="hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors">
-                    <td className="px-4 py-3 font-medium text-gray-800 dark:text-gray-100">{ret.product?.name || t('deliveryDetail.noData')}</td>
-                    <td className="px-4 py-3 text-center text-gray-700 dark:text-gray-300">{formatQty(ret.quantity, ret.product?.pieces_per_package)}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${ret.reason === 'damaged' ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' : 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300'}`}>
+                  <tr key={ret.id}>
+                    <td className="t-strong">{ret.product?.name || t('deliveryDetail.noData')}</td>
+                    <td className="text-center tnum">{formatQty(ret.quantity, ret.product?.pieces_per_package)}</td>
+                    <td className="text-center">
+                      <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                        <span className={`metric-dot ${ret.reason === 'damaged' ? 'metric-dot-red' : 'metric-dot-orange'}`} aria-hidden />
                         {returnReasonLabels[ret.reason] || ret.reason}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center">
-                      {ret.returnable_to_stock ? (
-                        <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
-                          <CheckCircleIcon className="w-4 h-4" />
-                          <span className="text-xs font-medium">{t('deliveryDetail.yes')}</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400">
-                          <XCircleIcon className="w-4 h-4" />
-                          <span className="text-xs font-medium">{t('deliveryDetail.noLoss')}</span>
-                        </span>
-                      )}
+                    <td className="text-center">
+                      <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                        <span className={`metric-dot ${ret.returnable_to_stock ? 'metric-dot-green' : 'metric-dot-red'}`} aria-hidden />
+                        {ret.returnable_to_stock ? t('deliveryDetail.yes') : t('deliveryDetail.noLoss')}
+                      </span>
                     </td>
-                    <td className="px-4 py-3">
-                      {ret.loss_amount > 0 ? (
-                        <span className="text-red-600 dark:text-red-400 font-medium">{formatCurrency(ret.loss_amount)}</span>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
+                    <td className="text-center tnum">
+                      {ret.loss_amount > 0 ? formatCurrency(ret.loss_amount) : <span className="t-muted">—</span>}
                     </td>
-                    <td className="px-4 py-3 text-center">
-                      {ret.processed ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
-                          <CheckCircleIcon className="w-3.5 h-3.5" />
-                          {t('deliveryDetail.processed')}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
-                          <ClockIcon className="w-3.5 h-3.5" />
-                          {t('deliveryDetail.pendingStatus')}
-                        </span>
-                      )}
+                    <td className="text-center">
+                      <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                        <span className={`metric-dot ${ret.processed ? 'metric-dot-green' : 'metric-dot-orange'}`} aria-hidden />
+                        {ret.processed ? t('deliveryDetail.processed') : t('deliveryDetail.pendingStatus')}
+                      </span>
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="text-center">
                       {!ret.processed && (
                         <button
                           onClick={() => openProcessModal(ret.id)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors"
+                          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors"
                         >
                           <CheckCircleIcon className="w-3.5 h-3.5" />
                           {t('deliveryDetail.processReturn')}
@@ -773,9 +754,9 @@ export default function DeliveryDetail() {
               </tbody>
               {totalLoss > 0 && (
                 <tfoot>
-                  <tr className="bg-red-50/50 dark:bg-red-900/10">
-                    <td colSpan={4} className="px-4 py-3 font-bold text-red-600 dark:text-red-400">{t('deliveryDetail.totalLosses')}</td>
-                    <td className="px-4 py-3 font-bold text-red-600 dark:text-red-400">{formatCurrency(totalLoss)}</td>
+                  <tr>
+                    <td colSpan={4} className="t-strong">{t('deliveryDetail.totalLosses')}</td>
+                    <td className="tnum t-strong">{formatCurrency(totalLoss)}</td>
                     <td colSpan={2}></td>
                   </tr>
                 </tfoot>
@@ -787,213 +768,203 @@ export default function DeliveryDetail() {
 
       {/* ───── Additional Info ───── */}
       {delivery.notes && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm p-5">
-          <h2 className="font-bold text-gray-800 dark:text-gray-100 mb-3 flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-              <CubeIcon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-            </div>
-            {t('deliveryDetail.additionalInfo')}
-          </h2>
-          <div className="ps-11">
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-xs">{t('deliveryDetail.notes')}</p>
-            <p className="mt-1 text-gray-800 dark:text-gray-100">{delivery.notes}</p>
+        <div className="surface-pro p-4 mb-4">
+          <h2 className="surface-heading mb-2">{t('deliveryDetail.additionalInfo')}</h2>
+          <div>
+            <p className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{t('deliveryDetail.notes')}</p>
+            <p className="mt-1 text-[13px] text-gray-900 dark:text-gray-100 font-medium leading-snug whitespace-pre-wrap">{delivery.notes}</p>
           </div>
         </div>
       )}
 
       {/* ───── Payment Modal ───── */}
       {showPaymentModal && selectedOrder && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md mx-4 shadow-2xl overflow-hidden">
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
-                  <CurrencyDollarIcon className="w-5 h-5 text-white" />
-                </div>
-                <h3 className="text-lg font-bold text-white">{t('deliveryDetail.collectPaymentTitle')}</h3>
-              </div>
-              <button
-                onClick={() => setShowPaymentModal(false)}
-                className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-              >
-                <XMarkIcon className="w-5 h-5" />
-              </button>
-            </div>
+        <>
+          <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setShowPaymentModal(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 pointer-events-none">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl flex flex-col overflow-hidden w-full max-w-[680px] max-h-[calc(100vh-3rem)] pointer-events-auto border border-gray-200 dark:border-gray-700">
+              <header className="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <h3 className="text-[14px] font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                  <CurrencyDollarIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+                  {t('deliveryDetail.collectPaymentTitle')}
+                </h3>
+                <button
+                  onClick={() => setShowPaymentModal(false)}
+                  className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <XMarkIcon className="w-4 h-4" />
+                </button>
+              </header>
 
-            <div className="p-6">
-              {/* Order Info */}
-              <div className="mb-5 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600 space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">{t('deliveryDetail.client')}</span>
-                  <span className="font-medium text-gray-800 dark:text-gray-100">{selectedOrder.client?.name || t('deliveryDetail.noData')}</span>
+              <main className="flex-1 overflow-y-auto p-5 space-y-4">
+                <div className="surface-pro p-3 text-[13px]">
+                  <div className="flex justify-between mb-1.5">
+                    <span className="text-gray-600 dark:text-gray-400">{t('deliveryDetail.client')}</span>
+                    <span className="t-strong">{selectedOrder.client?.name || t('deliveryDetail.noData')}</span>
+                  </div>
+                  <div className="flex justify-between mb-1.5">
+                    <span className="text-gray-600 dark:text-gray-400">{t('deliveryDetail.order')}</span>
+                    <span className="t-strong">{selectedOrder.order?.reference || t('deliveryDetail.noData')}</span>
+                  </div>
+                  <div className="flex justify-between mb-1.5">
+                    <span className="text-gray-600 dark:text-gray-400">{t('deliveryDetail.due')}</span>
+                    <span className="tnum t-strong">{formatCurrency(selectedOrder.amount_due)}</span>
+                  </div>
+                  <div className="flex justify-between mb-1.5">
+                    <span className="text-gray-600 dark:text-gray-400">{t('deliveryDetail.alreadyCollected')}</span>
+                    <span className="tnum t-strong">{formatCurrency(selectedOrder.amount_collected)}</span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t border-gray-200 dark:border-gray-700 font-semibold">
+                    <span className="text-gray-700 dark:text-gray-200">{t('deliveryDetail.remainingToPay')}</span>
+                    <span className="tnum">{formatCurrency(selectedOrder.amount_due - selectedOrder.amount_collected)}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">{t('deliveryDetail.order')}</span>
-                  <span className="font-medium text-gray-800 dark:text-gray-100">{selectedOrder.order?.reference || t('deliveryDetail.noData')}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">{t('deliveryDetail.due')}</span>
-                  <span className="font-medium text-gray-800 dark:text-gray-100">{formatCurrency(selectedOrder.amount_due)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">{t('deliveryDetail.alreadyCollected')}</span>
-                  <span className="font-medium text-green-600 dark:text-green-400">{formatCurrency(selectedOrder.amount_collected)}</span>
-                </div>
-                <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-600">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('deliveryDetail.remainingToPay')}</span>
-                  <span className="text-lg font-bold text-red-600 dark:text-red-400">
-                    {formatCurrency(selectedOrder.amount_due - selectedOrder.amount_collected)}
-                  </span>
-                </div>
-              </div>
 
-              <form onSubmit={handlePayment}>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('deliveryDetail.collectedAmountLabel')}</label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={paymentAmount}
-                      onChange={(e) => setPaymentAmount(e.target.value)}
-                      className="w-full px-4 py-3 text-lg font-semibold border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                      required
-                      min="0.01"
-                      max={selectedOrder.amount_due - selectedOrder.amount_collected}
-                      placeholder="0.00"
+                <form onSubmit={handlePayment} className="space-y-4">
+                  <div>
+                    <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('deliveryDetail.collectedAmountLabel')}</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={paymentAmount}
+                        onChange={(e) => setPaymentAmount(e.target.value)}
+                        className="input w-full text-[14px] py-2 tnum"
+                        required
+                        min="0.01"
+                        max={selectedOrder.amount_due - selectedOrder.amount_collected}
+                        placeholder="0.00"
+                      />
+                      <span className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 text-[11px] text-gray-400 dark:text-gray-500 pointer-events-none`}>{t('deliveryDetail.currencySymbol')}</span>
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={() => setPaymentAmount(((selectedOrder.amount_due - selectedOrder.amount_collected) / 2).toFixed(0))}
+                        className="text-[11px] font-medium px-2 py-1 rounded border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        {t('deliveryDetail.halfAmount')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentAmount((selectedOrder.amount_due - selectedOrder.amount_collected).toString())}
+                        className="text-[11px] font-medium px-2 py-1 rounded border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        {t('deliveryDetail.fullAmountBtn')}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('deliveryDetail.notesOptional')}</label>
+                    <textarea
+                      value={paymentNotes}
+                      onChange={(e) => setPaymentNotes(e.target.value)}
+                      className="input w-full text-[14px] py-2"
+                      rows={2}
+                      placeholder={t('deliveryDetail.addNote')}
                     />
-                    <span className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 text-sm`}>{t('deliveryDetail.currencySymbol')}</span>
                   </div>
-                  <div className="flex gap-2 mt-2">
+
+                  <div className="flex justify-end gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
                     <button
                       type="button"
-                      onClick={() => setPaymentAmount(((selectedOrder.amount_due - selectedOrder.amount_collected) / 2).toFixed(0))}
-                      className="px-3 py-1.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                      onClick={() => setShowPaymentModal(false)}
+                      className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     >
-                      {t('deliveryDetail.halfAmount')}
+                      {t('deliveryDetail.cancel')}
                     </button>
                     <button
-                      type="button"
-                      onClick={() => setPaymentAmount((selectedOrder.amount_due - selectedOrder.amount_collected).toString())}
-                      className="px-3 py-1.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                      type="submit"
+                      disabled={isSubmittingPayment}
+                      className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors disabled:opacity-50"
                     >
-                      {t('deliveryDetail.fullAmountBtn')}
+                      <CheckCircleIcon className="w-4 h-4" />
+                      {isSubmittingPayment ? t('deliveryDetail.saving') : t('deliveryDetail.confirmCollection')}
                     </button>
                   </div>
-                </div>
-
-                <div className="mb-5">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('deliveryDetail.notesOptional')}</label>
-                  <textarea
-                    value={paymentNotes}
-                    onChange={(e) => setPaymentNotes(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none transition-all"
-                    rows={2}
-                    placeholder={t('deliveryDetail.addNote')}
-                  />
-                </div>
-
-                <div className="flex gap-3">
-                  <button
-                    type="submit"
-                    disabled={isSubmittingPayment}
-                    className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 transition-all active:scale-[0.98]"
-                  >
-                    <CheckCircleIcon className="w-5 h-5" />
-                    {isSubmittingPayment ? t('deliveryDetail.saving') : t('deliveryDetail.confirmCollection')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowPaymentModal(false)}
-                    className="px-4 py-2.5 text-sm font-medium rounded-xl border-2 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    {t('deliveryDetail.cancel')}
-                  </button>
-                </div>
-              </form>
+                </form>
+              </main>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* ───── Process Returns Modal ───── */}
       {showProcessModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md mx-4 shadow-2xl overflow-hidden">
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
-                  <ArrowPathIcon className="w-5 h-5 text-white" />
-                </div>
-                <h3 className="text-lg font-bold text-white">
+        <>
+          <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setShowProcessModal(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 pointer-events-none">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl flex flex-col overflow-hidden w-full max-w-[680px] max-h-[calc(100vh-3rem)] pointer-events-auto border border-gray-200 dark:border-gray-700">
+              <header className="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <h3 className="text-[14px] font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                  <ArrowPathIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
                   {processingReturnId ? t('deliveryDetail.processSingleReturnTitle') : t('deliveryDetail.processAllReturnsTitle')}
                 </h3>
-              </div>
-              <button
-                onClick={() => setShowProcessModal(false)}
-                className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-              >
-                <XMarkIcon className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6">
-              <div className="mb-5 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
-                  {processingReturnId
-                    ? t('deliveryDetail.willProcessSingle')
-                    : t('deliveryDetail.willProcessAll').replace('{count}', String(delivery?.returns?.filter(r => !r.processed).length || 0))
-                  }
-                </p>
-                <ul className="text-sm space-y-1.5">
-                  <li className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                    <CheckCircleIcon className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" />
-                    <span>{t('deliveryDetail.returnableGoBack')}</span>
-                  </li>
-                  <li className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                    <ExclamationTriangleIcon className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0" />
-                    <span>{t('deliveryDetail.recordLosses')}</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="mb-5">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('deliveryDetail.warehouseLabel')}</label>
-                <select
-                  value={selectedWarehouse || ''}
-                  onChange={(e) => setSelectedWarehouse(parseInt(e.target.value))}
-                  className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
-                  required
-                >
-                  <option value="">{t('deliveryDetail.selectWarehouseOption')}</option>
-                  {warehouses.map((wh) => (
-                    <option key={wh.id} value={wh.id}>{wh.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex gap-3">
                 <button
-                  onClick={handleProcessReturns}
-                  disabled={isProcessing || !selectedWarehouse}
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 transition-all active:scale-[0.98]"
-                >
-                  <CheckCircleIcon className="w-5 h-5" />
-                  {isProcessing ? t('deliveryDetail.processing') : t('deliveryDetail.confirmProcess')}
-                </button>
-                <button
-                  type="button"
                   onClick={() => setShowProcessModal(false)}
-                  className="px-4 py-2.5 text-sm font-medium rounded-xl border-2 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
-                  {t('deliveryDetail.cancel')}
+                  <XMarkIcon className="w-4 h-4" />
                 </button>
-              </div>
+              </header>
+
+              <main className="flex-1 overflow-y-auto p-5 space-y-4">
+                <div className="surface-pro p-3">
+                  <p className="text-[13px] text-gray-700 dark:text-gray-200 mb-2">
+                    {processingReturnId
+                      ? t('deliveryDetail.willProcessSingle')
+                      : t('deliveryDetail.willProcessAll').replace('{count}', String(delivery?.returns?.filter(r => !r.processed).length || 0))
+                    }
+                  </p>
+                  <ul className="text-[12px] space-y-1.5">
+                    <li className="flex items-center gap-2 text-gray-700 dark:text-gray-200">
+                      <span className="metric-dot metric-dot-green" aria-hidden />
+                      <span>{t('deliveryDetail.returnableGoBack')}</span>
+                    </li>
+                    <li className="flex items-center gap-2 text-gray-700 dark:text-gray-200">
+                      <span className="metric-dot metric-dot-red" aria-hidden />
+                      <span>{t('deliveryDetail.recordLosses')}</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div>
+                  <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('deliveryDetail.warehouseLabel')}</label>
+                  <select
+                    value={selectedWarehouse || ''}
+                    onChange={(e) => setSelectedWarehouse(parseInt(e.target.value))}
+                    className="select w-full text-[14px] py-2"
+                    required
+                  >
+                    <option value="">{t('deliveryDetail.selectWarehouseOption')}</option>
+                    {warehouses.map((wh) => (
+                      <option key={wh.id} value={wh.id}>{wh.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <button
+                    type="button"
+                    onClick={() => setShowProcessModal(false)}
+                    className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    {t('deliveryDetail.cancel')}
+                  </button>
+                  <button
+                    onClick={handleProcessReturns}
+                    disabled={isProcessing || !selectedWarehouse}
+                    className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-50"
+                  >
+                    <CheckCircleIcon className="w-4 h-4" />
+                    {isProcessing ? t('deliveryDetail.processing') : t('deliveryDetail.confirmProcess')}
+                  </button>
+                </div>
+              </main>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* ───── Guided Tour ───── */}

@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { stockTransfersApi, productsApi, warehousesApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { useLocale } from '@/lib/i18n/context';
+import { PageHeader } from '@/components/dashboard';
 
 interface AssignedUser {
   id: number;
@@ -361,19 +362,18 @@ export default function EditStockTransferPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('stockTransfersEdit.editTransfer')}</h1>
-          {reference && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('stockTransfersEdit.reference')}: {reference}</p>}
-        </div>
-        <button onClick={() => router.push('/dashboard/stock-transfers')} className="btn btn-secondary">{t('stockTransfersEdit.back')}</button>
-      </div>
+      <PageHeader
+        title={t('stockTransfersEdit.editTransfer')}
+        subtitle={reference ? `${t('stockTransfersEdit.reference')}: ${reference}` : undefined}
+      >
+        <button onClick={() => router.push('/dashboard/stock-transfers')} className="inline-flex items-center px-3 h-[34px] text-[13px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors">{t('stockTransfersEdit.back')}</button>
+      </PageHeader>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 space-y-4">
           {/* Warehouses */}
-          <div className="card">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('stockTransfersEdit.transferInfo')}</h2>
+          <div className="surface-pro p-4">
+            <h2 className="surface-heading mb-3">{t('stockTransfersEdit.transferInfo')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stockTransfersEdit.sourceWarehouse')} *</label>
@@ -414,10 +414,10 @@ export default function EditStockTransferPage() {
           </div>
 
           {/* Products */}
-          <div className="card">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('stockTransfersEdit.products')} ({items.length})</h2>
-              <button onClick={toggleSearchMode} className="btn btn-sm btn-outline">
+          <div className="surface-pro p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="surface-heading">{t('stockTransfersEdit.products')} ({items.length})</h2>
+              <button onClick={toggleSearchMode} className="inline-flex items-center px-2.5 h-[30px] text-[12px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors">
                 {searchMode === 'barcode' ? t('stockTransfersEdit.searchByName') : t('stockTransfersEdit.searchByBarcode')}
               </button>
             </div>
@@ -494,24 +494,24 @@ export default function EditStockTransferPage() {
             )}
 
             {/* Items Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="table-pro-wrap">
+              <table className="table-pro compact">
                 <thead>
-                  <tr className="bg-gray-100 dark:bg-gray-700/50">
-                    <th className="px-2 py-2 text-center w-12 text-gray-700 dark:text-gray-300">{t('stockTransfersEdit.colNum')}</th>
-                    <th className="px-2 py-2 text-start text-gray-700 dark:text-gray-300">{t('stockTransfersEdit.colDesignation')}</th>
-                    <th className="px-2 py-2 text-center w-28 text-gray-700 dark:text-gray-300">{t('stockTransfersEdit.colCartonPiece')}</th>
-                    <th className="px-2 py-2 text-center w-16 text-gray-700 dark:text-gray-300">{t('stockTransfersEdit.colUnit')}</th>
-                    <th className="px-2 py-2 text-center w-20 text-gray-700 dark:text-gray-300">{t('stockTransfersEdit.colCount')}</th>
-                    <th className="px-2 py-2 text-center w-20 text-gray-700 dark:text-gray-300">{t('stockTransfersEdit.colAvailable')}</th>
-                    <th className="px-2 py-2 text-center w-24 text-gray-700 dark:text-gray-300">{t('stockTransfersEdit.colUnitPrice')}</th>
-                    <th className="px-2 py-2 text-center w-24 text-gray-700 dark:text-gray-300">{t('stockTransfersEdit.colAmount')}</th>
-                    <th className="px-2 py-2 w-10"></th>
+                  <tr>
+                    <th className="text-center w-12">{t('stockTransfersEdit.colNum')}</th>
+                    <th>{t('stockTransfersEdit.colDesignation')}</th>
+                    <th className="text-center w-28">{t('stockTransfersEdit.colCartonPiece')}</th>
+                    <th className="text-center w-16">{t('stockTransfersEdit.colUnit')}</th>
+                    <th className="text-center w-20">{t('stockTransfersEdit.colCount')}</th>
+                    <th className="text-center w-20">{t('stockTransfersEdit.colAvailable')}</th>
+                    <th className="tnum w-24">{t('stockTransfersEdit.colUnitPrice')}</th>
+                    <th className="tnum w-24">{t('stockTransfersEdit.colAmount')}</th>
+                    <th className="w-10"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.length === 0 ? (
-                    <tr><td colSpan={9} className="text-center py-8 text-gray-500 dark:text-gray-400">{t('stockTransfersEdit.noProducts')}</td></tr>
+                    <tr><td colSpan={9} className="t-empty text-center py-8">{t('stockTransfersEdit.noProducts')}</td></tr>
                   ) : (
                     items.map((item, index) => {
                       const stock = getStock(item.product_id);
@@ -519,43 +519,44 @@ export default function EditStockTransferPage() {
                       const ppp = item.pieces_per_package;
                       const hasPieces = ppp > 1;
                       return (
-                        <tr key={item.product_id} className={`border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30 ${overStock ? 'bg-red-50 dark:bg-red-900/20' : ''}`}>
-                          <td className="px-2 py-2 text-center font-medium text-gray-500 dark:text-gray-400">{index + 1}</td>
-                          <td className="px-2 py-2">
-                            <div className="font-medium text-gray-900 dark:text-white">{item.product.name}</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">{item.product.barcode || item.product.sku || ''}</div>
+                        <tr key={item.product_id} className={overStock ? 'bg-red-50/40 dark:bg-red-900/10' : ''}>
+                          <td className="text-center text-[12px] text-gray-500 dark:text-gray-400 tnum">{index + 1}</td>
+                          <td>
+                            <div className="text-[13px] font-medium text-gray-900 dark:text-white">{item.product.name}</div>
+                            <div className="text-[11px] text-gray-500 dark:text-gray-400">{item.product.barcode || item.product.sku || ''}</div>
                           </td>
-                          <td className="px-2 py-2">
+                          <td>
                             <div className="space-y-1">
                               <div className="flex items-center gap-1">
-                                <button type="button" onClick={() => updateCartons(index, Math.max(0, item.quantity - 1))} className="w-6 h-6 flex items-center justify-center rounded border border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-xs font-bold">-</button>
-                                <input ref={(el) => { inputRefs.current[`${index}-quantity`] = el; }} type="number" value={item.quantity} onChange={(e) => updateCartons(index, Math.max(0, parseInt(e.target.value) || 0))} onKeyDown={(e) => handleKeyDown(e, index, 'quantity')} onFocus={(e) => e.target.select()} className="input w-12 text-center text-sm py-0.5 !border-blue-300 dark:!border-blue-600" min="0" />
-                                <button type="button" onClick={() => updateCartons(index, item.quantity + 1)} className="w-6 h-6 flex items-center justify-center rounded border border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-xs font-bold">+</button>
+                                <button type="button" onClick={() => updateCartons(index, Math.max(0, item.quantity - 1))} className="w-6 h-6 flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-xs font-medium">-</button>
+                                <input ref={(el) => { inputRefs.current[`${index}-quantity`] = el; }} type="number" value={item.quantity} onChange={(e) => updateCartons(index, Math.max(0, parseInt(e.target.value) || 0))} onKeyDown={(e) => handleKeyDown(e, index, 'quantity')} onFocus={(e) => e.target.select()} className="input w-12 text-center text-sm py-0.5" min="0" />
+                                <button type="button" onClick={() => updateCartons(index, item.quantity + 1)} className="w-6 h-6 flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-xs font-medium">+</button>
                               </div>
                               {hasPieces && (
                                 <div className="flex items-center gap-1">
-                                  <button type="button" onClick={() => updateExtraPieces(index, Math.max(0, item.extra_pieces - 1))} className="w-6 h-6 flex items-center justify-center rounded border border-orange-300 dark:border-orange-600 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/50 text-xs font-bold">-</button>
-                                  <input ref={(el) => { inputRefs.current[`${index}-extra_pieces`] = el; }} type="number" value={item.extra_pieces} onChange={(e) => updateExtraPieces(index, parseInt(e.target.value) || 0)} onKeyDown={(e) => handleKeyDown(e, index, 'extra_pieces')} onFocus={(e) => e.target.select()} className="input w-12 text-center text-sm py-0.5 !border-orange-300 dark:!border-orange-600" min="0" max={ppp - 1} />
-                                  <button type="button" onClick={() => updateExtraPieces(index, item.extra_pieces + 1)} className="w-6 h-6 flex items-center justify-center rounded border border-orange-300 dark:border-orange-600 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/50 text-xs font-bold">+</button>
+                                  <button type="button" onClick={() => updateExtraPieces(index, Math.max(0, item.extra_pieces - 1))} className="w-6 h-6 flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-xs font-medium">-</button>
+                                  <input ref={(el) => { inputRefs.current[`${index}-extra_pieces`] = el; }} type="number" value={item.extra_pieces} onChange={(e) => updateExtraPieces(index, parseInt(e.target.value) || 0)} onKeyDown={(e) => handleKeyDown(e, index, 'extra_pieces')} onFocus={(e) => e.target.select()} className="input w-12 text-center text-sm py-0.5" min="0" max={ppp - 1} />
+                                  <button type="button" onClick={() => updateExtraPieces(index, item.extra_pieces + 1)} className="w-6 h-6 flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-xs font-medium">+</button>
                                 </div>
                               )}
                             </div>
                           </td>
-                          <td className="px-2 py-2 text-center text-sm">
-                            <div className="text-blue-600 dark:text-blue-400 font-medium">{ppp}</div>
-                          </td>
-                          <td className="px-2 py-2 text-center">
+                          <td className="text-center text-[13px] tnum">{ppp}</td>
+                          <td className="text-center">
                             <input ref={(el) => { inputRefs.current[`${index}-total_pieces`] = el; }} type="number" value={item.total_pieces} onChange={(e) => updateTotalPieces(index, Math.max(0, parseInt(e.target.value) || 0))} onKeyDown={(e) => handleKeyDown(e, index, 'total_pieces')} onFocus={(e) => e.target.select()} className="input w-16 text-center text-sm py-0.5 font-medium" min="0" />
                           </td>
-                          <td className="px-2 py-2 text-center">
+                          <td className="text-center">
                             {fromWarehouseId ? (
-                              <span className={`font-bold text-sm ${overStock ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>{fmtStock(stock, ppp)}</span>
+                              <span className="inline-flex items-center gap-1.5 text-[13px] text-gray-700 dark:text-gray-300">
+                                <span className={`metric-dot ${overStock ? 'metric-dot-red' : 'metric-dot-green'}`} aria-hidden />
+                                {fmtStock(stock, ppp)}
+                              </span>
                             ) : '-'}
                           </td>
-                          <td className="px-2 py-2 text-center text-sm font-medium text-gray-900 dark:text-gray-200">{item.unit_cost.toFixed(2)}</td>
-                          <td className="px-2 py-2 text-center text-sm font-bold text-green-700 dark:text-green-400">{item.subtotal.toFixed(2)}</td>
-                          <td className="px-2 py-2">
-                            <button type="button" onClick={() => removeItem(index)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1">
+                          <td className="tnum">{item.unit_cost.toFixed(2)}</td>
+                          <td className="tnum t-strong">{item.subtotal.toFixed(2)}</td>
+                          <td>
+                            <button type="button" onClick={() => removeItem(index)} className="text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 p-1">
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
                           </td>
@@ -571,52 +572,53 @@ export default function EditStockTransferPage() {
 
         {/* Summary */}
         <div className="lg:col-span-1">
-          <div className="card sticky top-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('stockTransfersEdit.transferSummary')}</h2>
-            <div className="space-y-3 mb-6">
+          <div className="surface-pro p-4 sticky top-4">
+            <h2 className="surface-heading mb-3">{t('stockTransfersEdit.transferSummary')}</h2>
+            <div className="space-y-2 mb-4 text-[13px]">
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">{t('stockTransfersEdit.source')}:</span>
-                <span className="font-medium text-gray-900 dark:text-white">{fromWarehouseId ? warehouses.find(w => w.id === fromWarehouseId)?.name : '-'}</span>
+                <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersEdit.source')}:</span>
+                <span className="t-strong">{fromWarehouseId ? warehouses.find(w => w.id === fromWarehouseId)?.name : '-'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">{t('stockTransfersEdit.destination')}:</span>
-                <span className="font-medium text-gray-900 dark:text-white">{toWarehouseId ? warehouses.find(w => w.id === toWarehouseId)?.name : '-'}</span>
-              </div>
-              <hr className="border-gray-200 dark:border-gray-700" />
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">{t('stockTransfersEdit.productCount')}:</span>
-                <span className="font-medium text-gray-900 dark:text-white">{items.length}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">{t('stockTransfersEdit.totalCartons')}:</span>
-                <span className="font-bold text-blue-600 dark:text-blue-400">{getTotalCartons()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">{t('stockTransfersEdit.extraPieces')}:</span>
-                <span className="font-bold text-orange-600 dark:text-orange-400">{getTotalExtraPieces()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">{t('stockTransfersEdit.totalPieces')}:</span>
-                <span className="font-bold text-gray-900 dark:text-white">{getTotalPieces()}</span>
+                <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersEdit.destination')}:</span>
+                <span className="t-strong">{toWarehouseId ? warehouses.find(w => w.id === toWarehouseId)?.name : '-'}</span>
               </div>
               <hr className="border-gray-200 dark:border-gray-700" />
-              <div className="flex justify-between text-lg">
-                <span className="font-semibold text-gray-900 dark:text-white">{t('stockTransfersEdit.totalValue')}:</span>
-                <span className="font-bold text-green-700 dark:text-green-400">{formatCurrency(getTotalValue())}</span>
+              <div className="flex justify-between">
+                <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersEdit.productCount')}:</span>
+                <span className="t-strong tnum">{items.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersEdit.totalCartons')}:</span>
+                <span className="t-strong tnum">{getTotalCartons()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersEdit.extraPieces')}:</span>
+                <span className="t-strong tnum">{getTotalExtraPieces()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersEdit.totalPieces')}:</span>
+                <span className="t-strong tnum">{getTotalPieces()}</span>
+              </div>
+              <hr className="border-gray-200 dark:border-gray-700" />
+              <div className="flex justify-between text-[14px]">
+                <span className="font-medium text-gray-900 dark:text-white">{t('stockTransfersEdit.totalValue')}:</span>
+                <span className="font-semibold text-gray-900 dark:text-white tnum">{formatCurrency(getTotalValue())}</span>
               </div>
             </div>
 
             {hasStockErrors() && (
-              <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-lg text-sm border border-red-200 dark:border-red-800">
+              <div className="mb-3 text-[13px] inline-flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
+                <span className="metric-dot metric-dot-red" aria-hidden />
                 {t('stockTransfersEdit.stockExceeded')}
               </div>
             )}
 
-            <div className="space-y-3">
-              <button onClick={handleSubmit} disabled={isSaving || items.length === 0 || hasStockErrors()} className="btn btn-primary w-full">
+            <div className="space-y-2">
+              <button onClick={handleSubmit} disabled={isSaving || items.length === 0 || hasStockErrors()} className="w-full inline-flex items-center justify-center px-4 h-[36px] text-[13px] font-medium text-white bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white rounded-md transition-colors disabled:opacity-50">
                 {isSaving ? t('stockTransfersEdit.saving') : t('stockTransfersEdit.saveChanges')}
               </button>
-              <button onClick={() => router.push('/dashboard/stock-transfers')} className="btn btn-secondary w-full">{t('stockTransfersEdit.cancel')}</button>
+              <button onClick={() => router.push('/dashboard/stock-transfers')} className="w-full inline-flex items-center justify-center px-4 h-[36px] text-[13px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors">{t('stockTransfersEdit.cancel')}</button>
             </div>
           </div>
         </div>

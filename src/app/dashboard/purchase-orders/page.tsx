@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { purchaseOrdersApi, suppliersApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { useLocale } from '@/lib/i18n/context';
+import { PageHeader, FilterBar } from '@/components/dashboard';
 import {
   DocumentDuplicateIcon,
   EyeIcon,
@@ -16,6 +17,7 @@ import {
   CheckCircleIcon,
   PaperAirplaneIcon,
   ArrowPathIcon,
+  PlusIcon,
 } from '@heroicons/react/24/outline';
 
 interface PurchaseOrder {
@@ -147,14 +149,14 @@ export default function PurchaseOrdersPage() {
   };
 
   const getStatusBadge = (status: string) => {
-    const badges: Record<string, { class: string; text: string }> = {
-      draft: { class: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200', text: t('purchases.draft') },
-      sent: { class: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300', text: t('purchases.sent') },
-      confirmed: { class: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300', text: t('purchases.confirmed') },
-      received: { class: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300', text: t('purchases.received') },
-      cancelled: { class: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300', text: t('purchases.cancelled') },
+    const badges: Record<string, { dot: string; text: string }> = {
+      draft:     { dot: 'metric-dot-neutral', text: t('purchases.draft') },
+      sent:      { dot: 'metric-dot-blue',    text: t('purchases.sent') },
+      confirmed: { dot: 'metric-dot-green',   text: t('purchases.confirmed') },
+      received:  { dot: 'metric-dot-green',   text: t('purchases.received') },
+      cancelled: { dot: 'metric-dot-red',     text: t('purchases.cancelled') },
     };
-    return badges[status] || { class: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200', text: status };
+    return badges[status] || { dot: 'metric-dot-neutral', text: status };
   };
 
   const filteredOrders = orders.filter(o => {
@@ -170,198 +172,166 @@ export default function PurchaseOrdersPage() {
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <DocumentDuplicateIcon className="w-8 h-8 text-green-600" />
-          <div>
-            <h1 className="text-2xl font-bold dark:text-gray-200">{t('purchases.poTitle')}</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{t('purchases.poSubtitle')}</p>
-          </div>
-        </div>
+    <div className="space-y-4">
+      <PageHeader title={t('purchases.poTitle')} subtitle={t('purchases.poSubtitle')}>
         <Link
           href="/dashboard/purchase-orders/new"
-          className="btn btn-primary inline-flex items-center gap-2"
+          className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-bold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
+          <PlusIcon className="w-4 h-4" />
           {t('purchases.addNewPo')}
         </Link>
-      </div>
+      </PageHeader>
 
-      {/* Info Box */}
-      <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-6">
-        <div className="flex items-start gap-3">
-          <DocumentDuplicateIcon className="w-6 h-6 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
-          <div>
-            <h3 className="font-medium text-green-800 dark:text-green-200">{t('purchases.whatIsPo')}</h3>
-            <p className="text-sm text-green-700 dark:text-green-300 mt-1">
-              {t('purchases.poExplanation')}
-            </p>
-          </div>
-        </div>
-      </div>
+      <FilterBar
+        search={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder={t('purchases.searchRefOrSupplier')}
+      >
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <option value="">{t('purchases.allStatuses')}</option>
+          <option value="draft">{t('purchases.draft')}</option>
+          <option value="sent">{t('purchases.sent')}</option>
+          <option value="confirmed">{t('purchases.confirmed')}</option>
+          <option value="received">{t('purchases.received')}</option>
+          <option value="cancelled">{t('purchases.cancelled')}</option>
+        </select>
+        <select value={supplierFilter} onChange={(e) => setSupplierFilter(e.target.value)}>
+          <option value="">{t('purchases.allSuppliers')}</option>
+          {suppliers.map(supplier => (
+            <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+          ))}
+        </select>
+      </FilterBar>
 
-      <div className="card">
-        <div className="flex flex-wrap gap-4 mb-4">
-          <input
-            type="text"
-            placeholder={t('purchases.searchRefOrSupplier')}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="input max-w-xs"
-          />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="select max-w-xs"
-          >
-            <option value="">{t('purchases.allStatuses')}</option>
-            <option value="draft">{t('purchases.draft')}</option>
-            <option value="sent">{t('purchases.sent')}</option>
-            <option value="confirmed">{t('purchases.confirmed')}</option>
-            <option value="received">{t('purchases.received')}</option>
-            <option value="cancelled">{t('purchases.cancelled')}</option>
-          </select>
-          <select
-            value={supplierFilter}
-            onChange={(e) => setSupplierFilter(e.target.value)}
-            className="select max-w-xs"
-          >
-            <option value="">{t('purchases.allSuppliers')}</option>
-            {suppliers.map(supplier => (
-              <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table>
-            <thead>
+      <div className="table-pro-wrap">
+        <table className="table-pro">
+          <thead>
+            <tr>
+              <th>{t('purchases.reference')}</th>
+              <th>{t('purchases.supplier')}</th>
+              <th>{t('purchases.warehouse')}</th>
+              <th className="text-end">{t('purchases.date')}</th>
+              <th className="text-end">{t('purchases.total')}</th>
+              <th>{t('purchases.status')}</th>
+              <th>{t('purchases.actions')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredOrders.length === 0 ? (
               <tr>
-                <th>{t('purchases.reference')}</th>
-                <th>{t('purchases.supplier')}</th>
-                <th>{t('purchases.warehouse')}</th>
-                <th>{t('purchases.date')}</th>
-                <th>{t('purchases.total')}</th>
-                <th>{t('purchases.status')}</th>
-                <th>{t('purchases.actions')}</th>
+                <td colSpan={7} className="text-center py-16">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-12 h-12 rounded-md bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                      <DocumentDuplicateIcon className="w-6 h-6 text-gray-300 dark:text-gray-500" />
+                    </div>
+                    <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">{t('purchases.noPurchaseOrders')}</p>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {filteredOrders.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-8 text-gray-500 dark:text-gray-400">{t('purchases.noPurchaseOrders')}</td></tr>
-              ) : (
-                filteredOrders.map((order) => {
-                  const statusBadge = getStatusBadge(order.status);
-                  const canEdit = order.status === 'draft' || order.status === 'sent';
-                  const canDelete = order.status !== 'received';
-                  const canConvert = order.status === 'confirmed' || order.status === 'sent';
+            ) : (
+              filteredOrders.map((order) => {
+                const statusBadge = getStatusBadge(order.status);
+                const canEdit = order.status === 'draft' || order.status === 'sent';
+                const canDelete = order.status !== 'received';
+                const canConvert = order.status === 'confirmed' || order.status === 'sent';
 
-                  return (
-                    <tr key={order.id}>
-                      <td className="font-medium dark:text-gray-200">{order.reference}</td>
-                      <td className="dark:text-gray-300">{order.supplier?.name || '-'}</td>
-                      <td className="dark:text-gray-300">{order.warehouse?.name || '-'}</td>
-                      <td className="dark:text-gray-300">{formatDate(order.date)}</td>
-                      <td className="font-semibold dark:text-gray-200">{formatCurrency(order.grand_total)}</td>
-                      <td>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusBadge.class}`}>
-                          {statusBadge.text}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="flex gap-1">
-                          {/* View */}
+                return (
+                  <tr key={order.id} className="group">
+                    <td className="font-mono font-semibold text-gray-800 dark:text-gray-100">{order.reference}</td>
+                    <td className="font-medium text-gray-700 dark:text-gray-300">{order.supplier?.name || '-'}</td>
+                    <td className="text-gray-500">{order.warehouse?.name || '-'}</td>
+                    <td className="text-gray-500 tnum">{formatDate(order.date)}</td>
+                    <td className="font-semibold text-gray-800 dark:text-gray-100 tnum">{formatCurrency(order.grand_total)}</td>
+                    <td>
+                      <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                        <span className={`metric-dot ${statusBadge.dot}`} aria-hidden />
+                        {statusBadge.text}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-1">
+                        <Link
+                          href={`/dashboard/purchase-orders/${order.id}`}
+                          className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                          title={t('purchases.viewDetails')}
+                        >
+                          <EyeIcon className="w-4 h-4" />
+                        </Link>
+
+                        {canEdit && (
                           <Link
-                            href={`/dashboard/purchase-orders/${order.id}`}
-                            className="p-1.5 text-gray-600 hover:text-gray-800 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700 rounded"
-                            title={t('purchases.viewDetails')}
+                            href={`/dashboard/purchase-orders/${order.id}/edit`}
+                            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                            title={t('purchases.edit')}
                           >
-                            <EyeIcon className="w-4 h-4" />
+                            <PencilIcon className="w-4 h-4" />
                           </Link>
+                        )}
 
-                          {/* Edit */}
-                          {canEdit && (
-                            <Link
-                              href={`/dashboard/purchase-orders/${order.id}/edit`}
-                              className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-100 dark:text-blue-400 dark:hover:text-blue-200 dark:hover:bg-blue-900/40 rounded"
-                              title={t('purchases.edit')}
-                            >
-                              <PencilIcon className="w-4 h-4" />
-                            </Link>
-                          )}
+                        <button
+                          onClick={() => handleDownloadPdf(order.id, order.reference)}
+                          className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                          title={t('purchases.downloadPdf')}
+                        >
+                          <ArrowDownTrayIcon className="w-4 h-4" />
+                        </button>
 
-                          {/* Download PDF */}
+                        <button
+                          onClick={() => handlePrintPdf(order.id)}
+                          className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                          title={t('purchases.printBtn')}
+                        >
+                          <PrinterIcon className="w-4 h-4" />
+                        </button>
+
+                        {order.status === 'draft' && (
                           <button
-                            onClick={() => handleDownloadPdf(order.id, order.reference)}
-                            className="p-1.5 text-green-600 hover:text-green-800 hover:bg-green-100 dark:text-green-400 dark:hover:text-green-200 dark:hover:bg-green-900/40 rounded"
-                            title={t('purchases.downloadPdf')}
+                            onClick={() => handleUpdateStatus(order.id, 'sent')}
+                            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                            title={t('purchases.sendToSupplier')}
                           >
-                            <ArrowDownTrayIcon className="w-4 h-4" />
+                            <PaperAirplaneIcon className="w-4 h-4" />
                           </button>
+                        )}
 
-                          {/* Print */}
+                        {order.status === 'sent' && (
                           <button
-                            onClick={() => handlePrintPdf(order.id)}
-                            className="p-1.5 text-purple-600 hover:text-purple-800 hover:bg-purple-100 dark:text-purple-400 dark:hover:text-purple-200 dark:hover:bg-purple-900/40 rounded"
-                            title={t('purchases.printBtn')}
+                            onClick={() => handleUpdateStatus(order.id, 'confirmed')}
+                            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                            title={t('purchases.confirmOrder')}
                           >
-                            <PrinterIcon className="w-4 h-4" />
+                            <CheckCircleIcon className="w-4 h-4" />
                           </button>
+                        )}
 
-                          {/* Status Actions */}
-                          {order.status === 'draft' && (
-                            <button
-                              onClick={() => handleUpdateStatus(order.id, 'sent')}
-                              className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-100 dark:text-blue-400 dark:hover:text-blue-200 dark:hover:bg-blue-900/40 rounded"
-                              title={t('purchases.sendToSupplier')}
-                            >
-                              <PaperAirplaneIcon className="w-4 h-4" />
-                            </button>
-                          )}
+                        {canConvert && (
+                          <button
+                            onClick={() => handleConvertToPurchase(order.id)}
+                            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                            title={t('purchases.receiveAndConvert')}
+                          >
+                            <ArrowPathIcon className="w-4 h-4" />
+                          </button>
+                        )}
 
-                          {order.status === 'sent' && (
-                            <button
-                              onClick={() => handleUpdateStatus(order.id, 'confirmed')}
-                              className="p-1.5 text-green-600 hover:text-green-800 hover:bg-green-100 dark:text-green-400 dark:hover:text-green-200 dark:hover:bg-green-900/40 rounded"
-                              title={t('purchases.confirmOrder')}
-                            >
-                              <CheckCircleIcon className="w-4 h-4" />
-                            </button>
-                          )}
-
-                          {/* Convert to Purchase */}
-                          {canConvert && (
-                            <button
-                              onClick={() => handleConvertToPurchase(order.id)}
-                              className="p-1.5 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-100 dark:text-emerald-400 dark:hover:text-emerald-200 dark:hover:bg-emerald-900/40 rounded"
-                              title={t('purchases.receiveAndConvert')}
-                            >
-                              <ArrowPathIcon className="w-4 h-4" />
-                            </button>
-                          )}
-
-                          {/* Delete */}
-                          {canDelete && (
-                            <button
-                              onClick={() => handleDelete(order.id)}
-                              className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-200 dark:hover:bg-red-900/40 rounded"
-                              title={t('purchases.delete')}
-                            >
-                              <TrashIcon className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDelete(order.id)}
+                            className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
+                            title={t('purchases.delete')}
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );

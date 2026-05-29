@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { tenantApi, saasPaymentApi } from '@/lib/api';
 import Link from 'next/link';
+import { PageHeader } from '@/components/dashboard';
 
 const planOrder = ['free', 'starter', 'pro', 'pro_ai', 'business', 'enterprise'];
 
@@ -59,15 +60,6 @@ const planDetails: Record<string, { name: string; subtitle: string; features: st
   },
 };
 
-const planColors: Record<string, { bg: string; border: string; badge: string; text: string }> = {
-  free:       { bg: 'bg-gray-50', border: 'border-gray-200', badge: 'bg-gray-100 text-gray-600', text: 'text-gray-700' },
-  starter:    { bg: 'bg-gray-50', border: 'border-gray-200', badge: 'bg-gray-100 text-gray-600', text: 'text-gray-700' },
-  pro:        { bg: 'bg-blue-50', border: 'border-blue-200', badge: 'bg-blue-100 text-blue-700', text: 'text-blue-700' },
-  pro_ai:     { bg: 'bg-violet-50', border: 'border-violet-200', badge: 'bg-violet-100 text-violet-700', text: 'text-violet-700' },
-  business:   { bg: 'bg-blue-50', border: 'border-blue-200', badge: 'bg-blue-100 text-blue-700', text: 'text-blue-700' },
-  enterprise: { bg: 'bg-gray-900', border: 'border-gray-700', badge: 'bg-gray-700 text-gray-200', text: 'text-gray-200' },
-};
-
 // Only show these plans in the upgrade grid
 const displayPlans = ['pro', 'pro_ai', 'enterprise'];
 
@@ -115,36 +107,34 @@ export default function UpgradePage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 mb-4">
-          <svg className="w-4 h-4 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          العودة للوحة التحكم
-        </Link>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">ترقية الخطة</h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">
-          اختر الخطة المناسبة لحجم أعمالك. جميع الخطط تشمل تجربة مجانية 14 يوم.
-        </p>
-      </div>
+      <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-[12px] text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 mb-3">
+        <svg className="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        العودة للوحة التحكم
+      </Link>
+
+      <PageHeader
+        title="ترقية الخطة"
+        subtitle="اختر الخطة المناسبة لحجم أعمالك. جميع الخطط تشمل تجربة مجانية 14 يوم."
+      />
 
       {/* Error */}
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+        <div className="mb-4 surface-pro p-3 text-[13px] text-gray-700 dark:text-gray-300 inline-flex items-center gap-1.5">
+          <span className="metric-dot metric-dot-red" aria-hidden />
           {error}
         </div>
       )}
 
       {/* Plans Grid — 3 columns */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {displayPlans.map((planId) => {
           const idx = planOrder.indexOf(planId);
           const isCurrent = planId === currentPlan;
           const isLower = idx <= currentIdx;
           const isUpgradeable = idx > currentIdx;
           const info = planDetails[planId];
-          const colors = planColors[planId];
           const price = planData?.plans?.find((p: { id: string }) => p.id === planId)?.price ?? 0;
           const isEnterprise = planId === 'enterprise';
           const isPopular = planId === 'pro';
@@ -152,73 +142,73 @@ export default function UpgradePage() {
           return (
             <div
               key={planId}
-              className={`relative rounded-2xl border-2 p-6 flex flex-col transition-all ${
+              className={`relative rounded-md border p-5 flex flex-col transition-colors ${
                 isCurrent
-                  ? `${colors.border} ${colors.bg} ring-2 ring-offset-2 ${colors.border.replace('border-', 'ring-')}`
-                  : isEnterprise
-                  ? 'border-gray-800 bg-gray-900 text-white'
+                  ? 'border-gray-900 dark:border-gray-300 bg-gray-50/60 dark:bg-gray-700/30'
                   : isLower
-                  ? 'border-gray-100 bg-gray-50/50 opacity-60'
-                  : `border-gray-200 bg-white hover:border-gray-300 hover:shadow-lg`
+                  ? 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 opacity-60'
+                  : 'border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600'
               }`}
             >
               {/* Current badge */}
               {isCurrent && (
-                <div className={`absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 ${colors.badge} text-xs font-bold rounded-full whitespace-nowrap`}>
+                <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2.5 py-0.5 inline-flex items-center gap-1.5 text-[11px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full whitespace-nowrap">
+                  <span className="metric-dot metric-dot-blue" aria-hidden />
                   الخطة الحالية
                 </div>
               )}
 
               {/* Popular badge */}
               {isPopular && !isCurrent && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-yellow-400 text-yellow-900 text-xs font-bold rounded-full whitespace-nowrap">
+                <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2.5 py-0.5 inline-flex items-center gap-1.5 text-[11px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full whitespace-nowrap">
+                  <span className="metric-dot metric-dot-orange" aria-hidden />
                   الأكثر طلباً
                 </div>
               )}
 
               {/* Plan name */}
-              <div className="mb-4">
-                <h3 className={`text-lg font-bold ${isEnterprise && !isCurrent ? 'text-white' : 'text-gray-900'}`}>{info.name}</h3>
-                <p className={`text-sm ${isEnterprise && !isCurrent ? 'text-gray-400' : 'text-gray-500'}`}>{info.subtitle}</p>
+              <div className="mb-3">
+                <h3 className="text-[16px] font-semibold text-gray-900 dark:text-white">{info.name}</h3>
+                <p className="text-[12px] text-gray-500 dark:text-gray-400">{info.subtitle}</p>
               </div>
 
               {/* Price */}
-              <div className="mb-5">
+              <div className="mb-4">
                 {isEnterprise ? (
-                  <span className={`text-3xl font-extrabold ${isCurrent ? 'text-gray-900' : 'text-white'}`}>حسب الطلب</span>
+                  <span className="text-[24px] font-semibold text-gray-900 dark:text-white">حسب الطلب</span>
                 ) : (
                   <>
-                    <span className="text-3xl font-extrabold text-gray-900">
+                    <span className="text-[24px] font-semibold text-gray-900 dark:text-white tnum">
                       {price === 0 ? 'مجاناً' : price.toLocaleString()}
                     </span>
                     {price > 0 && (
-                      <span className="text-sm text-gray-500 mr-1">د.ج / شهرياً</span>
+                      <span className="text-[12px] text-gray-500 dark:text-gray-400 mr-1">د.ج / شهرياً</span>
                     )}
                   </>
                 )}
               </div>
 
               {/* Features */}
-              <ul className="space-y-2.5 flex-1 mb-6">
+              <ul className="space-y-2 flex-1 mb-4">
                 {info.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-sm">
-                    <svg className={`w-4 h-4 shrink-0 mt-0.5 ${isEnterprise && !isCurrent ? 'text-emerald-400' : 'text-green-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <li key={f} className="flex items-start gap-2 text-[13px]">
+                    <svg className="w-3.5 h-3.5 shrink-0 mt-0.5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span className={isEnterprise && !isCurrent ? 'text-gray-300' : 'text-gray-700'}>{f}</span>
+                    <span className="text-gray-700 dark:text-gray-300">{f}</span>
                   </li>
                 ))}
               </ul>
 
               {/* Action */}
               {isCurrent ? (
-                <div className={`w-full py-3 text-center text-sm font-bold rounded-xl ${colors.badge}`}>
+                <div className="w-full inline-flex items-center justify-center px-4 h-[38px] text-[13px] font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 rounded-md">
                   خطتك الحالية
                 </div>
               ) : isEnterprise ? (
                 <Link
                   href="/#contact"
-                  className="w-full py-3 text-center text-sm font-bold rounded-xl bg-white text-gray-900 hover:bg-gray-100 transition-colors block"
+                  className="w-full inline-flex items-center justify-center px-4 h-[38px] text-[13px] font-medium text-white bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white rounded-md transition-colors"
                 >
                   تواصل معنا
                 </Link>
@@ -226,10 +216,10 @@ export default function UpgradePage() {
                 <button
                   onClick={() => handleUpgrade(planId)}
                   disabled={upgrading !== null}
-                  className="w-full py-3 text-center text-sm font-bold rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full inline-flex items-center justify-center px-4 h-[38px] text-[13px] font-medium text-white bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {upgrading === planId ? (
-                    <span className="flex items-center justify-center gap-2">
+                    <span className="inline-flex items-center justify-center gap-2">
                       <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -241,7 +231,7 @@ export default function UpgradePage() {
                   )}
                 </button>
               ) : (
-                <div className="w-full py-3 text-center text-sm font-medium rounded-xl bg-gray-100 text-gray-400 cursor-not-allowed">
+                <div className="w-full inline-flex items-center justify-center px-4 h-[38px] text-[13px] font-medium text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md cursor-not-allowed">
                   غير متاح
                 </div>
               )}
@@ -251,14 +241,12 @@ export default function UpgradePage() {
       </div>
 
       {/* Payment info */}
-      <div className="mt-8 p-5 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700">
-        <div className="flex items-start gap-3">
-          <svg className="w-5 h-5 text-blue-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-          </svg>
+      <div className="mt-6 surface-pro p-4">
+        <div className="flex items-start gap-2">
+          <span className="metric-dot metric-dot-blue mt-1.5 shrink-0" aria-hidden />
           <div>
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">دفع آمن عبر SlickPay</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-[13px] font-medium text-gray-900 dark:text-white">دفع آمن عبر SlickPay</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-0.5">
               ستتم إعادة توجيهك إلى بوابة الدفع الآمنة لإتمام عملية الدفع. بعد الدفع الناجح، سيتم ترقية خطتك تلقائياً.
             </p>
           </div>

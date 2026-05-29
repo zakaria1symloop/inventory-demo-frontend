@@ -5,12 +5,36 @@ import { useState, useEffect } from 'react';
 import { adjustmentsApi } from '@/lib/api';
 import { formatQty } from '@/lib/utils';
 import toast from 'react-hot-toast';
-import Link from 'next/link';
+import { useLocale } from '@/lib/i18n/context';
+import { PageHeader } from '@/components/dashboard';
+
+interface AdjustmentItem {
+  id: number;
+  product_id: number;
+  quantity: number;
+  unit_price: number;
+  total: number;
+  reason?: string | null;
+  product?: { name: string; barcode?: string; pieces_per_package?: number };
+}
+
+interface AdjustmentRecord {
+  id: number;
+  reference?: string;
+  type: 'addition' | 'subtraction';
+  status: 'pending' | 'approved' | 'rejected';
+  warehouse?: { name: string };
+  total_amount: number;
+  reason?: string | null;
+  date?: string;
+  items?: AdjustmentItem[];
+}
 
 export default function AdjustmentDetail() {
   const params = useParams();
+  const { t, locale } = useLocale();
   const [id, setId] = useState<string | null>(null);
-  const [adjustment, setAdjustment] = useState<any>(null);
+  const [adjustment, setAdjustment] = useState<AdjustmentRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Extract ID from URL for static export compatibility
@@ -29,6 +53,7 @@ export default function AdjustmentDetail() {
 
   useEffect(() => {
     if (id) fetchAdjustment();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchAdjustment = async () => {
@@ -36,79 +61,146 @@ export default function AdjustmentDetail() {
     try {
       const response = await adjustmentsApi.getOne(parseInt(id));
       setAdjustment(response.data.data || response.data);
-    } catch (error) {
-      toast.error('خطأ في تحميل بيانات التعديل');
+    } catch {
+      toast.error(t('stock.loadDataError'));
     } finally {
       setIsLoading(false);
     }
   };
 
+  const intlLocale = locale === 'ar' ? 'ar-DZ' : locale === 'fr' ? 'fr-DZ' : 'en-US';
   const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
+    new Intl.NumberFormat(intlLocale, {
+      style: 'currency',
+      currency: 'DZD',
+      minimumFractionDigits: 0,
+    }).format(value);
 
-  if (isLoading) return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
-  if (!adjustment) return <div className="text-center py-8 text-gray-500">التعديل غير موجود</div>;
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="spinner" />
+      </div>
+    );
+  }
+  if (!adjustment) {
+    return (
+      <div className="text-center py-12 text-gray-500 dark:text-gray-400 text-[14px]">
+        {t('stock.adjNoResults')}
+      </div>
+    );
+  }
+
+  const isAddition = adjustment.type === 'addition';
+  const typeLabel = isAddition ? t('stock.addition') : t('stock.subtraction');
+  const typeDot = isAddition ? 'metric-dot-green' : 'metric-dot-red';
+
+  const statusDot =
+    adjustment.status === 'approved'
+      ? 'metric-dot-green'
+      : adjustment.status === 'rejected'
+      ? 'metric-dot-red'
+      : 'metric-dot-orange';
+  const statusLabel =
+    adjustment.status === 'approved'
+      ? t('stock.approved')
+      : adjustment.status === 'rejected'
+      ? t('stock.rejected')
+      : t('stock.pending');
 
   return (
     <div>
-      <div className="flex items-center gap-4 mb-6">
-        <Link href="/dashboard/adjustments" className="text-gray-500 hover:text-gray-700">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </Link>
-        <h1 className="text-2xl font-bold">{adjustment.reference}</h1>
+      <PageHeader
+        title={adjustment.reference ?? `#${adjustment.id}`}
+        breadcrumb={[
+          { label: t('sidebar.adjustments'), href: '/dashboard/adjustments' },
+          { label: adjustment.reference ?? `#${adjustment.id}` },
+        ]}
+      />
+
+      {/* Summary tiles — only dots carry color */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-4">
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className={`metric-dot ${typeDot}`} aria-hidden />
+            <p className="metric-label truncate">{t('stock.type')}</p>
+          </div>
+          <p className="metric-value truncate">{typeLabel}</p>
+        </div>
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-neutral" aria-hidden />
+            <p className="metric-label truncate">{t('stock.warehouse')}</p>
+          </div>
+          <p className="metric-value truncate">{adjustment.warehouse?.name || '—'}</p>
+        </div>
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className={`metric-dot ${statusDot}`} aria-hidden />
+            <p className="metric-label truncate">{t('stock.statusCol')}</p>
+          </div>
+          <p className="metric-value truncate">{statusLabel}</p>
+        </div>
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-violet" aria-hidden />
+            <p className="metric-label truncate">{t('stock.value')}</p>
+          </div>
+          <p className="metric-value-currency">{formatCurrency(adjustment.total_amount)}</p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="card"><div className="text-sm text-gray-500">النوع</div><div className="text-xl font-bold">{adjustment.type === 'addition' ? 'إضافة' : 'خصم'}</div></div>
-        <div className="card"><div className="text-sm text-gray-500">المستودع</div><div className="text-xl font-bold">{adjustment.warehouse?.name || '-'}</div></div>
-        <div className="card"><div className="text-sm text-gray-500">الحالة</div><div className="text-xl font-bold">{adjustment.status}</div></div>
-        <div className="card bg-green-50"><div className="text-sm text-green-600">القيمة</div><div className="text-xl font-bold text-green-700">{formatCurrency(adjustment.total_amount)}</div></div>
-      </div>
-
-      <div className="card">
-        <h3 className="font-bold mb-4">المنتجات</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>المنتج</th>
-              <th className="text-center">الكمية</th>
-              <th className="text-center">قطع/وحدة</th>
-              <th className="text-center">سعر الوحدة</th>
-              <th className="text-center">الإجمالي</th>
-            </tr>
-          </thead>
-          <tbody>
-            {adjustment.items?.map((item: any) => {
-              const piecesPerPackage = item.product?.pieces_per_package || 1;
-              return (
-                <tr key={item.id}>
-                  <td>
-                    <div className="font-medium">{item.product?.name}</div>
-                    {item.product?.barcode && (
-                      <div className="text-xs text-gray-400">{item.product.barcode}</div>
-                    )}
-                  </td>
-                  <td className="text-center font-semibold">{formatQty(item.quantity, piecesPerPackage)}</td>
-                  <td className="text-center">
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {piecesPerPackage}
-                    </span>
-                  </td>
-                  <td className="text-center">{formatCurrency(item.unit_price)}</td>
-                  <td className="text-center font-semibold">
-                    {formatCurrency(item.total)}
-                    <div className="text-xs text-gray-400">
-                      {item.unit_price} × {piecesPerPackage} × {formatQty(item.quantity, piecesPerPackage)}
-                    </div>
-                  </td>
+      {/* Items table */}
+      <div className="surface-pro !p-0">
+        <h3 className="surface-heading px-4 pt-3.5 pb-3">{t('stock.product')}</h3>
+        <div className="table-pro-wrap !border-0 !rounded-none">
+          <table className="table-pro">
+            <thead>
+              <tr>
+                <th>{t('stock.product')}</th>
+                <th className="text-center">{t('stock.qty')}</th>
+                <th className="text-center">{t('stock.unitCol')}</th>
+                <th className="text-end">{t('stock.unitPriceColAdj')}</th>
+                <th className="text-end">{t('stock.totalColAdj')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {adjustment.items && adjustment.items.length > 0 ? (
+                adjustment.items.map((item) => {
+                  const ppp = item.product?.pieces_per_package || 1;
+                  return (
+                    <tr key={item.id}>
+                      <td>
+                        <div className="t-strong">{item.product?.name ?? '—'}</div>
+                        {item.product?.barcode && (
+                          <div className="t-muted">{item.product.barcode}</div>
+                        )}
+                      </td>
+                      <td className="text-center tnum">{formatQty(item.quantity, ppp)}</td>
+                      <td className="text-center tnum">{ppp}</td>
+                      <td className="tnum">{formatCurrency(item.unit_price)}</td>
+                      <td className="tnum">{formatCurrency(item.total)}</td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan={5} className="t-empty">{t('stock.adjNoResults')}</td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      {adjustment.reason && (
+        <div className="surface-pro mt-4">
+          <h3 className="surface-heading mb-2">{t('stock.reason')}</h3>
+          <p className="text-[13px] text-gray-700 dark:text-gray-300 leading-relaxed">
+            {adjustment.reason}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

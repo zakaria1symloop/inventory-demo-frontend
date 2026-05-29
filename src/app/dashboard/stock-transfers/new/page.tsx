@@ -7,21 +7,15 @@ import { useLocale } from '@/lib/i18n/context';
 import GuidedTour from '@/components/GuidedTour';
 import type { TourStep } from '@/components/GuidedTour';
 import toast from 'react-hot-toast';
+import { PageHeader } from '@/components/dashboard';
 import {
-  ArrowLeftIcon,
   MagnifyingGlassIcon,
-  PlusIcon,
-  MinusIcon,
   XMarkIcon,
   CheckCircleIcon,
-  BuildingStorefrontIcon,
-  TruckIcon,
   CubeIcon,
   ExclamationTriangleIcon,
   QrCodeIcon,
-  DocumentTextIcon,
   ArrowPathIcon,
-  ChevronLeftIcon,
 } from '@heroicons/react/24/outline';
 
 interface AssignedUser {
@@ -101,36 +95,11 @@ export default function NewStockTransferPage() {
   const inputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
   const tourSteps: TourStep[] = useMemo(() => [
-    {
-      target: '[data-tour="nst-title"]',
-      title: t('stockTransfersNew.tourTitle1'),
-      desc: t('stockTransfersNew.tourDesc1'),
-      position: 'bottom' as const,
-    },
-    {
-      target: '[data-tour="nst-warehouses"]',
-      title: t('stockTransfersNew.tourTitle2'),
-      desc: t('stockTransfersNew.tourDesc2'),
-      position: 'bottom' as const,
-    },
-    {
-      target: '[data-tour="nst-search"]',
-      title: t('stockTransfersNew.tourTitle3'),
-      desc: t('stockTransfersNew.tourDesc3'),
-      position: 'bottom' as const,
-    },
-    {
-      target: '[data-tour="nst-items"]',
-      title: t('stockTransfersNew.tourTitle4'),
-      desc: t('stockTransfersNew.tourDesc4'),
-      position: 'top' as const,
-    },
-    {
-      target: '[data-tour="nst-summary"]',
-      title: t('stockTransfersNew.tourTitle5'),
-      desc: t('stockTransfersNew.tourDesc5'),
-      position: 'right' as const,
-    },
+    { target: '[data-tour="nst-title"]', title: t('stockTransfersNew.tourTitle1'), desc: t('stockTransfersNew.tourDesc1'), position: 'bottom' as const },
+    { target: '[data-tour="nst-warehouses"]', title: t('stockTransfersNew.tourTitle2'), desc: t('stockTransfersNew.tourDesc2'), position: 'bottom' as const },
+    { target: '[data-tour="nst-search"]', title: t('stockTransfersNew.tourTitle3'), desc: t('stockTransfersNew.tourDesc3'), position: 'bottom' as const },
+    { target: '[data-tour="nst-items"]', title: t('stockTransfersNew.tourTitle4'), desc: t('stockTransfersNew.tourDesc4'), position: 'top' as const },
+    { target: '[data-tour="nst-summary"]', title: t('stockTransfersNew.tourTitle5'), desc: t('stockTransfersNew.tourDesc5'), position: 'right' as const },
   ], [t]);
 
   useEffect(() => {
@@ -437,59 +406,49 @@ export default function NewStockTransferPage() {
   }
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" data-tour="nst-title">
-        <div>
-          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('stockTransfersNew.pageTitle')}</h1>
-          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('stockTransfersNew.pageSubtitle')}</p>
-        </div>
-        <div className="flex items-center gap-2">
+    <div>
+      <div data-tour="nst-title">
+        <PageHeader
+          title={t('stockTransfersNew.pageTitle')}
+          subtitle={t('stockTransfersNew.pageSubtitle')}
+          breadcrumb={[
+            { label: t('sidebar.stockTransfers'), href: '/dashboard/stock-transfers' },
+            { label: t('stockTransfersNew.pageTitle') },
+          ]}
+        >
           <button
             onClick={() => { localStorage.removeItem(storageKey); setShowTour(true); }}
-            className="text-sm font-medium text-gray-400 hover:text-teal-500 dark:hover:text-teal-400 transition-colors"
+            className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             title={t('stockTransfersNew.tourBtn')}
           >
             {t('stockTransfersNew.tourBtn')}
           </button>
-          <button
-            onClick={() => router.push('/dashboard/stock-transfers')}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-          >
-            <ArrowLeftIcon className={`w-4 h-4 ${isRTL ? 'rotate-180' : ''}`} />
-            {t('stockTransfersNew.back')}
-          </button>
-        </div>
+        </PageHeader>
       </div>
 
       {/* Keyboard shortcuts hint */}
-      <div className="flex items-center gap-4 text-xs text-gray-400 dark:text-gray-500">
+      <div className="flex items-center gap-4 text-[11px] text-gray-400 dark:text-gray-500 mb-4">
         <span className="flex items-center gap-1.5"><kbd className="bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded font-mono text-[10px]">F2</kbd> {t('stockTransfersNew.searchProduct')}</span>
         <span className="flex items-center gap-1.5"><kbd className="bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded font-mono text-[10px]">Enter</kbd> {t('stockTransfersNew.navigateFields')}</span>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Main Form */}
-        <div className="lg:col-span-2 space-y-5">
+        <div className="lg:col-span-2 space-y-4">
           {/* Warehouse Selection */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm p-5" data-tour="nst-warehouses">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-900/30 flex items-center justify-center">
-                <BuildingStorefrontIcon className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-              </div>
-              <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">{t('stockTransfersNew.transferInfo')}</h2>
-            </div>
+          <div className="surface-pro p-4" data-tour="nst-warehouses">
+            <h2 className="surface-heading mb-3">{t('stockTransfersNew.transferInfo')}</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">{t('stockTransfersNew.sourceWarehouse')} *</label>
+                <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stockTransfersNew.sourceWarehouse')} *</label>
                 <select
                   value={fromWarehouseId}
                   onChange={(e) => {
                     setFromWarehouseId(Number(e.target.value) || '');
                     setItems([]);
                   }}
-                  className="select w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                  className="select w-full text-[13px] py-2"
                 >
                   <option value="">{t('stockTransfersNew.selectSource')}</option>
                   {warehouses.map(w => (
@@ -499,7 +458,7 @@ export default function NewStockTransferPage() {
                   ))}
                 </select>
                 {loadingStock && (
-                  <p className="text-[10px] text-teal-600 dark:text-teal-400 mt-1 flex items-center gap-1">
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
                     <ArrowPathIcon className="w-3 h-3 animate-spin" />
                     {t('stockTransfersNew.loadingStock')}
                   </p>
@@ -507,11 +466,11 @@ export default function NewStockTransferPage() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">{t('stockTransfersNew.destWarehouse')} *</label>
+                <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stockTransfersNew.destWarehouse')} *</label>
                 <select
                   value={toWarehouseId}
                   onChange={(e) => setToWarehouseId(Number(e.target.value) || '')}
-                  className={`select w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 ${toWarehouseId && !isDestCashvan ? 'border-red-400 ring-1 ring-red-200 dark:border-red-500 dark:ring-red-500/30' : ''}`}
+                  className={`select w-full text-[13px] py-2 ${toWarehouseId && !isDestCashvan ? 'border-red-400 dark:border-red-500' : ''}`}
                 >
                   <option value="">{t('stockTransfersNew.selectDest')}</option>
                   {warehouses.map(w => {
@@ -524,49 +483,48 @@ export default function NewStockTransferPage() {
                   })}
                 </select>
                 {toWarehouseId && !isDestCashvan && (
-                  <div className="mt-2 p-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
-                    <div className="flex items-center gap-1.5 text-sm font-bold text-red-700 dark:text-red-400">
-                      <ExclamationTriangleIcon className="w-4 h-4" />
+                  <div className="mt-2 p-2.5 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                    <div className="flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-200">
+                      <span className="metric-dot metric-dot-red" aria-hidden />
+                      <ExclamationTriangleIcon className="w-3.5 h-3.5 text-gray-400" />
                       {t('stockTransfersNew.notCashvanWarning', { role: destUser?.role === 'livreur' ? t('stockTransfersNew.deliveryDriver') : t('stockTransfersNew.user') })}
                     </div>
-                    <p className="text-[10px] text-red-600 dark:text-red-400 mt-1 ms-5.5">
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 ms-5">
                       {t('stockTransfersNew.transferOnlyCashvanHint')}
                     </p>
                   </div>
                 )}
                 {isDestCashvan && getDriverName(toWarehouseId) && (
-                  <p className="text-[10px] text-teal-600 dark:text-teal-400 font-bold mt-1 flex items-center gap-1">
-                    <TruckIcon className="w-3 h-3" />
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1.5">
+                    <span className="metric-dot metric-dot-green" aria-hidden />
                     {t('stockTransfersNew.driver')}: {getDriverName(toWarehouseId)}
                   </p>
                 )}
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">{t('stockTransfersNew.notes')}</label>
+                <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('stockTransfersNew.notes')}</label>
                 <input
                   type="text"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder={t('stockTransfersNew.notesPlaceholder')}
-                  className="input w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500"
+                  className="input w-full text-[13px] py-2"
                 />
               </div>
             </div>
           </div>
 
           {/* Products Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700" data-tour="nst-search">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-cyan-50 dark:bg-cyan-900/30 flex items-center justify-center">
-                  <CubeIcon className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-                </div>
-                <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">{t('stockTransfersNew.products')} <span className="text-sm font-normal text-gray-400 dark:text-gray-500">({items.length})</span></h2>
+          <div className="surface-pro overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700" data-tour="nst-search">
+              <div className="flex items-center gap-2">
+                <h2 className="surface-heading">{t('stockTransfersNew.products')}</h2>
+                <span className="text-[12px] text-gray-500 dark:text-gray-400 tnum">({items.length})</span>
               </div>
               <button
                 onClick={toggleSearchMode}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 {searchMode === 'barcode' ? (
                   <><MagnifyingGlassIcon className="w-3.5 h-3.5" /> {t('stockTransfersNew.searchByName')}</>
@@ -577,14 +535,15 @@ export default function NewStockTransferPage() {
             </div>
 
             {!fromWarehouseId && (
-              <div className="mx-5 mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl text-sm text-amber-700 dark:text-amber-400 flex items-center gap-2">
-                <ExclamationTriangleIcon className="w-4 h-4 shrink-0" />
+              <div className="mx-4 mt-3 p-2.5 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-[12px] text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                <span className="metric-dot metric-dot-orange" aria-hidden />
+                <ExclamationTriangleIcon className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                 {t('stockTransfersNew.selectSourceFirst')}
               </div>
             )}
 
             {/* Search Input */}
-            <div className="px-5 py-3">
+            <div className="px-4 py-3">
               {searchMode === 'barcode' ? (
                 <div className="relative">
                   <QrCodeIcon className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500`} />
@@ -595,7 +554,7 @@ export default function NewStockTransferPage() {
                     onChange={(e) => setBarcodeInput(e.target.value)}
                     onKeyDown={handleBarcodeSubmit}
                     placeholder={t('stockTransfersNew.barcodePlaceholder')}
-                    className={`input w-full ${isRTL ? 'pr-9' : 'pl-9'} text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500`}
+                    className={`input w-full ${isRTL ? 'pr-9' : 'pl-9'} text-[13px] py-2`}
                     autoComplete="off"
                     autoFocus
                   />
@@ -651,17 +610,17 @@ export default function NewStockTransferPage() {
                       }
                     }}
                     placeholder={t('stockTransfersNew.searchPlaceholder')}
-                    className={`input w-full ${isRTL ? 'pr-9' : 'pl-9'} text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500`}
+                    className={`input w-full ${isRTL ? 'pr-9' : 'pl-9'} text-[13px] py-2`}
                     autoComplete="off"
                     autoFocus
                   />
                   {showDropdown && searchTerm && (
                     <div
                       ref={productListRef}
-                      className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg max-h-60 overflow-y-auto"
+                      className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto"
                     >
                       {filteredProducts.length === 0 ? (
-                        <div className="p-3 text-gray-500 dark:text-gray-400 text-center text-sm">{t('stockTransfersNew.noResults')}</div>
+                        <div className="p-3 text-gray-500 dark:text-gray-400 text-center text-[13px]">{t('stockTransfersNew.noResults')}</div>
                       ) : (
                         (() => {
                           let availableIndex = -1;
@@ -682,33 +641,37 @@ export default function NewStockTransferPage() {
                                 disabled={isOutOfStock}
                                 className={`w-full p-3 text-start border-b last:border-b-0 border-gray-100 dark:border-gray-700 ${
                                   isOutOfStock
-                                    ? 'bg-red-50/50 dark:bg-red-900/10 opacity-50 cursor-not-allowed'
+                                    ? 'opacity-50 cursor-not-allowed'
                                     : isHighlighted
-                                    ? 'bg-teal-50 dark:bg-teal-900/20'
+                                    ? 'bg-gray-100 dark:bg-gray-700'
                                     : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                                 }`}
                               >
                                 <div className="flex justify-between items-center">
                                   <div>
-                                    <span className="font-medium text-sm text-gray-800 dark:text-gray-100">{product.name}</span>
+                                    <span className="t-strong text-[13px]">{product.name}</span>
                                     {ppp > 1 && (
                                       <span className="text-[10px] text-gray-400 dark:text-gray-500 ms-2">({ppp} {t('stockTransfersNew.piecesPerCarton')})</span>
                                     )}
                                   </div>
                                   <div className="flex items-center gap-2">
                                     {alreadyAdded && (
-                                      <span className="text-[10px] px-1.5 py-0.5 bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 rounded font-bold">{t('stockTransfersNew.added')}</span>
+                                      <span className="inline-flex items-center gap-1 text-[11px] text-gray-700 dark:text-gray-300">
+                                        <span className="metric-dot metric-dot-green" aria-hidden />
+                                        {t('stockTransfersNew.added')}
+                                      </span>
                                     )}
                                     {fromWarehouseId ? (
-                                      <span className={`text-xs font-bold ${isOutOfStock ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                      <span className="inline-flex items-center gap-1 text-[11px] text-gray-700 dark:text-gray-300">
+                                        <span className={`metric-dot ${isOutOfStock ? 'metric-dot-red' : 'metric-dot-green'}`} aria-hidden />
                                         {stock > 0 ? `${t('stockTransfersNew.inStock')}: ${fmtStock(stock, ppp)}` : t('stockTransfersNew.outOfStock')}
                                       </span>
                                     ) : (
-                                      <span className="text-xs text-gray-400 dark:text-gray-500">{product.unit?.name || ''}</span>
+                                      <span className="text-[11px] text-gray-400 dark:text-gray-500">{product.unit?.name || ''}</span>
                                     )}
                                   </div>
                                 </div>
-                                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
+                                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 font-mono">
                                   {product.barcode || product.sku || ''}
                                 </div>
                               </button>
@@ -723,28 +686,28 @@ export default function NewStockTransferPage() {
             </div>
 
             {/* Items Table */}
-            <div className="overflow-x-auto" data-tour="nst-items">
-              <table className="w-full text-sm">
+            <div data-tour="nst-items" className="table-pro-wrap">
+              <table className="table-pro compact">
                 <thead>
-                  <tr className="bg-gray-50/80 dark:bg-gray-700/50 border-y border-gray-100 dark:border-gray-700">
-                    <th className="px-3 py-2.5 text-center w-10 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">#</th>
-                    <th className="px-3 py-2.5 text-start text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('stockTransfersNew.product')}</th>
-                    <th className="px-3 py-2.5 text-center w-28 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('stockTransfersNew.cartonPiece')}</th>
-                    <th className="px-3 py-2.5 text-center w-14 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('stockTransfersNew.unit')}</th>
-                    <th className="px-3 py-2.5 text-center w-20 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('stockTransfersNew.count')}</th>
-                    <th className="px-3 py-2.5 text-center w-20 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('stockTransfersNew.availableCol')}</th>
-                    <th className="px-3 py-2.5 text-center w-20 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('stockTransfersNew.unitPrice')}</th>
-                    <th className="px-3 py-2.5 text-center w-24 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('stockTransfersNew.amount')}</th>
-                    <th className="px-3 py-2.5 w-8"></th>
+                  <tr>
+                    <th className="text-center w-10">#</th>
+                    <th>{t('stockTransfersNew.product')}</th>
+                    <th className="text-center">{t('stockTransfersNew.cartonPiece')}</th>
+                    <th className="text-center">{t('stockTransfersNew.unit')}</th>
+                    <th className="text-center">{t('stockTransfersNew.count')}</th>
+                    <th className="text-center">{t('stockTransfersNew.availableCol')}</th>
+                    <th className="text-center">{t('stockTransfersNew.unitPrice')}</th>
+                    <th className="text-center">{t('stockTransfersNew.amount')}</th>
+                    <th className="w-8"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="text-center py-12 text-gray-400 dark:text-gray-500">
+                      <td colSpan={9} className="text-center py-10 text-gray-500 dark:text-gray-400">
                         <CubeIcon className="w-10 h-10 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
-                        <p className="text-sm font-medium">{t('stockTransfersNew.noProductsYet')}</p>
-                        <p className="text-xs mt-1">
+                        <p className="text-[13px] font-medium">{t('stockTransfersNew.noProductsYet')}</p>
+                        <p className="text-[11px] mt-1">
                           {searchMode === 'barcode' ? t('stockTransfersNew.scanOrTypeBarcode') : t('stockTransfersNew.searchByNameHint')}
                         </p>
                       </td>
@@ -756,23 +719,15 @@ export default function NewStockTransferPage() {
                       const ppp = item.pieces_per_package;
                       const hasPieces = ppp > 1;
                       return (
-                        <tr key={item.product_id} className={`border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50/50 dark:hover:bg-gray-700/30 ${overStock ? 'bg-red-50/50 dark:bg-red-900/10' : ''}`}>
-                          <td className="px-3 py-2.5 text-center text-xs font-medium text-gray-400 dark:text-gray-500">{index + 1}</td>
-                          <td className="px-3 py-2.5">
-                            <div className="font-medium text-sm text-gray-800 dark:text-gray-100">{item.product.name}</div>
-                            <div className="text-[10px] text-gray-400 dark:text-gray-500">{item.product.barcode || item.product.sku || ''}</div>
+                        <tr key={item.product_id} className={overStock ? 'bg-red-50/40 dark:bg-red-900/10' : ''}>
+                          <td className="text-center tnum text-gray-500">{index + 1}</td>
+                          <td>
+                            <div className="t-strong">{item.product.name}</div>
+                            <div className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">{item.product.barcode || item.product.sku || ''}</div>
                           </td>
-                          <td className="px-3 py-2.5">
-                            <div className="space-y-1">
-                              {/* Cartons row - blue */}
-                              <div className="flex items-center gap-1 justify-center">
-                                <button
-                                  type="button"
-                                  onClick={() => updateCartons(index, Math.max(0, item.quantity - 1))}
-                                  className="w-6 h-6 flex items-center justify-center rounded-lg border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
-                                >
-                                  <MinusIcon className="w-3 h-3" />
-                                </button>
+                          <td className="text-center">
+                            <div className="flex flex-col gap-1 items-center">
+                              <div className="flex items-center gap-1">
                                 <input
                                   ref={(el) => { inputRefs.current[`${index}-quantity`] = el; }}
                                   type="number"
@@ -780,27 +735,13 @@ export default function NewStockTransferPage() {
                                   onChange={(e) => updateCartons(index, Math.max(0, parseInt(e.target.value) || 0))}
                                   onKeyDown={(e) => handleKeyDown(e, index, 'quantity')}
                                   onFocus={(e) => e.target.select()}
-                                  className="input w-12 text-center text-sm py-0.5 border-blue-300 dark:border-blue-600 font-bold text-blue-700 dark:text-blue-400 dark:bg-gray-700"
+                                  className="input w-14 text-center !px-2 tnum text-[13px] py-1"
                                   min="0"
                                 />
-                                <button
-                                  type="button"
-                                  onClick={() => updateCartons(index, item.quantity + 1)}
-                                  className="w-6 h-6 flex items-center justify-center rounded-lg border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
-                                >
-                                  <PlusIcon className="w-3 h-3" />
-                                </button>
+                                <span className="text-[10px] text-gray-500">crt</span>
                               </div>
-                              {/* Pieces row - orange */}
                               {hasPieces && (
-                                <div className="flex items-center gap-1 justify-center">
-                                  <button
-                                    type="button"
-                                    onClick={() => updateExtraPieces(index, Math.max(0, item.extra_pieces - 1))}
-                                    className="w-6 h-6 flex items-center justify-center rounded-lg border border-orange-200 dark:border-orange-700 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors"
-                                  >
-                                    <MinusIcon className="w-3 h-3" />
-                                  </button>
+                                <div className="flex items-center gap-1">
                                   <input
                                     ref={(el) => { inputRefs.current[`${index}-extra_pieces`] = el; }}
                                     type="number"
@@ -808,26 +749,20 @@ export default function NewStockTransferPage() {
                                     onChange={(e) => updateExtraPieces(index, parseInt(e.target.value) || 0)}
                                     onKeyDown={(e) => handleKeyDown(e, index, 'extra_pieces')}
                                     onFocus={(e) => e.target.select()}
-                                    className="input w-12 text-center text-sm py-0.5 border-orange-300 dark:border-orange-600 font-bold text-orange-700 dark:text-orange-400 dark:bg-gray-700"
+                                    className="input w-14 text-center !px-2 tnum text-[13px] py-1"
                                     min="0"
                                     max={ppp - 1}
                                   />
-                                  <button
-                                    type="button"
-                                    onClick={() => updateExtraPieces(index, item.extra_pieces + 1)}
-                                    className="w-6 h-6 flex items-center justify-center rounded-lg border border-orange-200 dark:border-orange-700 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors"
-                                  >
-                                    <PlusIcon className="w-3 h-3" />
-                                  </button>
+                                  <span className="text-[10px] text-gray-500">pc</span>
                                 </div>
                               )}
                             </div>
                           </td>
-                          <td className="px-3 py-2.5 text-center">
-                            <div className="text-sm font-bold text-blue-600 dark:text-blue-400">{ppp}</div>
+                          <td className="text-center">
+                            <div className="tnum t-muted text-[12px]">{ppp}</div>
                             <div className="text-[10px] text-gray-400 dark:text-gray-500">{item.product.unit?.name || t('stockTransfersNew.unitDefault')}</div>
                           </td>
-                          <td className="px-3 py-2.5 text-center">
+                          <td className="text-center">
                             <input
                               ref={(el) => { inputRefs.current[`${index}-total_pieces`] = el; }}
                               type="number"
@@ -835,31 +770,32 @@ export default function NewStockTransferPage() {
                               onChange={(e) => updateTotalPieces(index, Math.max(0, parseInt(e.target.value) || 0))}
                               onKeyDown={(e) => handleKeyDown(e, index, 'total_pieces')}
                               onFocus={(e) => e.target.select()}
-                              className="input w-16 text-center text-sm py-0.5 font-bold dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                              className="input w-16 text-center !px-2 tnum text-[13px] py-1"
                               min="0"
                             />
                           </td>
-                          <td className="px-3 py-2.5 text-center">
+                          <td className="text-center">
                             {fromWarehouseId ? (
-                              <span className={`text-xs font-bold ${overStock ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                              <span className="inline-flex items-center gap-1 text-[11px] text-gray-700 dark:text-gray-300">
+                                <span className={`metric-dot ${overStock ? 'metric-dot-red' : 'metric-dot-green'}`} aria-hidden />
                                 {fmtStock(stock, ppp)}
                               </span>
-                            ) : <span className="text-gray-300 dark:text-gray-600">-</span>}
+                            ) : <span className="t-muted">—</span>}
                             {overStock && (
-                              <div className="text-[10px] text-red-600 dark:text-red-400 font-bold">{t('stockTransfersNew.exceeded')}</div>
+                              <div className="text-[10px] text-red-600 dark:text-red-400 font-semibold">{t('stockTransfersNew.exceeded')}</div>
                             )}
                           </td>
-                          <td className="px-3 py-2.5 text-center text-sm font-medium text-gray-600 dark:text-gray-400">
+                          <td className="text-center tnum">
                             {item.unit_cost.toFixed(2)}
                           </td>
-                          <td className="px-3 py-2.5 text-center text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                          <td className="text-center tnum t-strong">
                             {item.subtotal.toFixed(2)}
                           </td>
-                          <td className="px-3 py-2.5">
+                          <td>
                             <button
                               type="button"
                               onClick={() => removeItem(index)}
-                              className="p-1.5 rounded-lg text-gray-300 dark:text-gray-600 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                              className="p-1.5 rounded text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                             >
                               <XMarkIcon className="w-4 h-4" />
                             </button>
@@ -873,7 +809,7 @@ export default function NewStockTransferPage() {
             </div>
 
             {items.length > 0 && (
-              <div className="px-5 py-2 border-t border-gray-100 dark:border-gray-700 text-[10px] text-gray-400 dark:text-gray-500">
+              <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700 text-[10px] text-gray-400 dark:text-gray-500">
                 {t('stockTransfersNew.tipEnterNextField')}
               </div>
             )}
@@ -882,101 +818,107 @@ export default function NewStockTransferPage() {
 
         {/* Summary Sidebar */}
         <div className="lg:col-span-1" data-tour="nst-summary">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm p-5 sticky top-4">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-900/30 flex items-center justify-center">
-                <DocumentTextIcon className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-              </div>
-              <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">{t('stockTransfersNew.transferSummary')}</h2>
-            </div>
+          <div className="surface-pro p-4 sticky top-4">
+            <h2 className="surface-heading mb-3">{t('stockTransfersNew.transferSummary')}</h2>
 
-            <div className="space-y-3 mb-5">
+            <div className="space-y-2 mb-4 text-[13px]">
               <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-400 dark:text-gray-500">{t('stockTransfersNew.source')}:</span>
-                <span className="text-sm font-bold text-gray-700 dark:text-gray-300">
-                  {fromWarehouseId ? warehouses.find(w => w.id === fromWarehouseId)?.name : <span className="text-gray-300 dark:text-gray-600">-</span>}
+                <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersNew.source')}</span>
+                <span className="t-strong">
+                  {fromWarehouseId ? warehouses.find(w => w.id === fromWarehouseId)?.name : <span className="t-muted">—</span>}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-400 dark:text-gray-500">{t('stockTransfersNew.destination')}:</span>
-                <span className="text-sm font-bold text-gray-700 dark:text-gray-300">
-                  {toWarehouseId ? warehouses.find(w => w.id === toWarehouseId)?.name : <span className="text-gray-300 dark:text-gray-600">-</span>}
+                <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersNew.destination')}</span>
+                <span className="t-strong">
+                  {toWarehouseId ? warehouses.find(w => w.id === toWarehouseId)?.name : <span className="t-muted">—</span>}
                 </span>
               </div>
               {getDriverName(toWarehouseId) && (
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-400 dark:text-gray-500">{t('stockTransfersNew.driver')}:</span>
-                  <span className={`text-sm font-bold ${isDestCashvan ? 'text-teal-600 dark:text-teal-400' : 'text-red-600 dark:text-red-400'}`}>{getDriverName(toWarehouseId)}</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersNew.driver')}</span>
+                  <span className="inline-flex items-center gap-1.5 t-strong">
+                    <span className={`metric-dot ${isDestCashvan ? 'metric-dot-green' : 'metric-dot-red'}`} aria-hidden />
+                    {getDriverName(toWarehouseId)}
+                  </span>
                 </div>
               )}
               {toWarehouseId && !isDestCashvan && (
-                <div className="p-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-[10px] text-red-700 dark:text-red-400 font-medium">
+                <div className="p-2.5 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-[11px] text-gray-700 dark:text-gray-200">
                   {t('stockTransfersNew.notMobileSeller')}
                 </div>
               )}
 
-              <div className="border-t border-gray-100 dark:border-gray-700 pt-3 space-y-2.5">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-400 dark:text-gray-500">{t('stockTransfersNew.productCount')}:</span>
-                  <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{items.length}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-400 dark:text-gray-500">{t('stockTransfersNew.totalCartons')}:</span>
-                  <span className="text-sm font-black text-blue-600 dark:text-blue-400 tabular-nums">{getTotalCartons()}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-400 dark:text-gray-500">{t('stockTransfersNew.extraPieces')}:</span>
-                  <span className="text-sm font-black text-orange-600 dark:text-orange-400 tabular-nums">{getTotalExtraPieces()}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-400 dark:text-gray-500">{t('stockTransfersNew.totalPieces')}:</span>
-                  <span className="text-sm font-black text-gray-800 dark:text-gray-100 tabular-nums">{getTotalPieces()}</span>
-                </div>
+              <hr className="border-gray-200 dark:border-gray-700" />
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersNew.productCount')}</span>
+                <span className="tnum t-strong">{items.length}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersNew.totalCartons')}</span>
+                <span className="tnum t-strong">{getTotalCartons()}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersNew.extraPieces')}</span>
+                <span className="tnum t-strong">{getTotalExtraPieces()}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersNew.totalPieces')}</span>
+                <span className="tnum t-strong">{getTotalPieces()}</span>
               </div>
 
-              <div className="border-t border-gray-100 dark:border-gray-700 pt-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-bold text-gray-600 dark:text-gray-400">{t('stockTransfersNew.totalValue')}:</span>
-                  <span className="text-lg font-black text-emerald-700 dark:text-emerald-400">{formatCurrency(getTotalValue())}</span>
-                </div>
+              <hr className="border-gray-200 dark:border-gray-700" />
+              <div className="flex justify-between items-center text-[14px] font-semibold text-gray-900 dark:text-white">
+                <span>{t('stockTransfersNew.totalValue')}</span>
+                <span className="tnum">{formatCurrency(getTotalValue())}</span>
               </div>
             </div>
 
             {hasStockErrors() && (
-              <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-sm text-red-700 dark:text-red-400 flex items-center gap-2">
-                <ExclamationTriangleIcon className="w-4 h-4 shrink-0" />
+              <div className="mb-3 p-2.5 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-[12px] text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                <span className="metric-dot metric-dot-red" aria-hidden />
+                <ExclamationTriangleIcon className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                 {t('stockTransfersNew.someProductsExceedStock')}
               </div>
             )}
 
             {/* Status Flow */}
-            <div className="mb-5 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-              <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{t('stockTransfersNew.transferFlow')}:</p>
-              <div className="flex items-center gap-2 text-[10px]">
-                <span className="px-2.5 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-400 rounded-lg font-bold">1. {t('stockTransfersNew.flowRequest')}</span>
-                <ChevronLeftIcon className={`w-3 h-3 text-gray-300 dark:text-gray-600 ${isRTL ? '' : 'rotate-180'}`} />
-                <span className="px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 rounded-lg font-bold">2. {t('stockTransfersNew.flowLoading')}</span>
-                <ChevronLeftIcon className={`w-3 h-3 text-gray-300 dark:text-gray-600 ${isRTL ? '' : 'rotate-180'}`} />
-                <span className="px-2.5 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400 rounded-lg font-bold">3. {t('stockTransfersNew.flowDeparture')}</span>
+            <div className="mb-4 p-3 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+              <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">{t('stockTransfersNew.transferFlow')}</p>
+              <div className="flex items-center gap-1.5 text-[11px]">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200">
+                  <span className="metric-dot metric-dot-orange" aria-hidden />
+                  1. {t('stockTransfersNew.flowRequest')}
+                </span>
+                <span className="text-gray-300 dark:text-gray-600">›</span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200">
+                  <span className="metric-dot metric-dot-blue" aria-hidden />
+                  2. {t('stockTransfersNew.flowLoading')}
+                </span>
+                <span className="text-gray-300 dark:text-gray-600">›</span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200">
+                  <span className="metric-dot metric-dot-green" aria-hidden />
+                  3. {t('stockTransfersNew.flowDeparture')}
+                </span>
               </div>
             </div>
 
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               <button
                 onClick={handleSubmit}
                 disabled={isSaving || items.length === 0 || hasStockErrors() || (!!toWarehouseId && !isDestCashvan)}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold text-white bg-gradient-to-l from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 text-[13px] font-semibold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSaving ? (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                  <CheckCircleIcon className="w-5 h-5" />
+                  <CheckCircleIcon className="w-4 h-4" />
                 )}
                 {isSaving ? t('stockTransfersNew.saving') : t('stockTransfersNew.createTransfer')}
               </button>
               <button
                 onClick={() => router.push('/dashboard/stock-transfers')}
-                className="w-full px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
+                className="w-full inline-flex items-center justify-center px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 {t('stockTransfersNew.cancel')}
               </button>

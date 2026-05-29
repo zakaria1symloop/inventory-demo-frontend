@@ -10,6 +10,8 @@ import {
   MagnifyingGlassIcon,
   PlusIcon,
 } from '@heroicons/react/24/outline';
+import { PageHeader } from '@/components/dashboard';
+import { useLocale } from '@/lib/i18n/context';
 
 interface Client {
   id: number;
@@ -57,6 +59,7 @@ interface OrderItem {
 
 export default function NewOrderPage() {
   const router = useRouter();
+  const { t } = useLocale();
   const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -346,31 +349,25 @@ export default function NewOrderPage() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard/orders" className="text-gray-500 hover:text-gray-700">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold">إنشاء طلب جديد</h1>
-            <p className="text-gray-500">إضافة طلب جديد للعميل</p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="إنشاء طلب جديد"
+        subtitle="إضافة طلب جديد للعميل"
+        breadcrumb={[
+          { label: t('sidebar.orders'), href: '/dashboard/orders' },
+          { label: 'إنشاء طلب جديد' },
+        ]}
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4">
           {/* Client & Warehouse Selection */}
-          <div className="card">
-            <h3 className="font-bold mb-4">معلومات الطلب</h3>
+          <div className="surface-pro p-4">
+            <h3 className="surface-heading mb-3">معلومات الطلب</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Client Search */}
               <div className="relative">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">
                   العميل <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
@@ -384,20 +381,20 @@ export default function NewOrderPage() {
                     }}
                     onFocus={() => setShowClientDropdown(true)}
                     placeholder="ابحث عن عميل..."
-                    className="input pr-10"
+                    className="input w-full text-[13px] py-2 pr-10"
                   />
-                  <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 </div>
                 {showClientDropdown && clientSearch && filteredClients.length > 0 && (
-                  <div className="absolute z-20 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  <div className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                     {filteredClients.map((client) => (
                       <div
                         key={client.id}
                         onClick={() => selectClient(client)}
-                        className="p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
+                        className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0"
                       >
-                        <div className="font-medium">{client.name}</div>
-                        <div className="text-sm text-gray-500">
+                        <div className="t-strong text-[13px]">{client.name}</div>
+                        <div className="text-[12px] text-gray-500 dark:text-gray-400">
                           {client.phone || '-'} | {client.address || 'بدون عنوان'}
                         </div>
                       </div>
@@ -408,13 +405,13 @@ export default function NewOrderPage() {
 
               {/* Warehouse Selection */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">
                   المستودع <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={selectedWarehouse}
                   onChange={(e) => setSelectedWarehouse(Number(e.target.value))}
-                  className="select"
+                  className="select w-full text-[13px] py-2"
                 >
                   <option value={0}>اختر المستودع</option>
                   {warehouses.map((warehouse) => (
@@ -428,8 +425,8 @@ export default function NewOrderPage() {
           </div>
 
           {/* Product Search */}
-          <div className="card">
-            <h3 className="font-bold mb-4">المنتجات</h3>
+          <div className="surface-pro p-4">
+            <h3 className="surface-heading mb-3">المنتجات</h3>
 
             {/* Product Search Input */}
             <div className="relative mb-4">
@@ -442,14 +439,14 @@ export default function NewOrderPage() {
                 }}
                 onFocus={() => setShowProductDropdown(true)}
                 placeholder="ابحث عن منتج بالاسم أو الباركود..."
-                className="input pr-10"
+                className="input w-full text-[13px] py-2 pr-10"
               />
-              <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
 
               {showProductDropdown && productSearch && filteredProducts.length > 0 && (
-                <div className="absolute z-20 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-80 overflow-y-auto">
+                <div className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-80 overflow-y-auto">
                   {isLoadingStock && (
-                    <div className="p-3 text-center text-gray-500">جاري تحميل المخزون...</div>
+                    <div className="p-3 text-center text-gray-500 dark:text-gray-400 text-[12px]">جاري تحميل المخزون...</div>
                   )}
                   {filteredProducts.map((product) => {
                     // Use available stock from map (considers reserved quantities)
@@ -460,27 +457,28 @@ export default function NewOrderPage() {
                       <div
                         key={product.id}
                         onClick={() => addProductToOrder(product)}
-                        className={`p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0 ${availableStock < 1 ? 'opacity-50' : ''}`}
+                        className={`p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0 ${availableStock < 1 ? 'opacity-50' : ''}`}
                       >
                         <div className="flex justify-between">
-                          <span className="font-medium">{product.name}</span>
-                          <span className="text-green-600 font-bold">
+                          <span className="t-strong text-[13px]">{product.name}</span>
+                          <span className="tnum t-strong text-[13px]">
                             {formatCurrency(product.wholesale_price || product.retail_price)} /قطعة
                           </span>
                         </div>
                         {(product.pieces_per_package || 1) > 1 && (
-                          <div className="text-sm text-blue-600 font-medium text-left">
+                          <div className="text-[11px] text-gray-500 dark:text-gray-400 text-left">
                             {formatCurrency((product.wholesale_price || product.retail_price) * product.pieces_per_package)} /كرتون
                           </div>
                         )}
-                        <div className="flex justify-between text-sm text-gray-500 mt-1">
+                        <div className="flex justify-between text-[11px] text-gray-500 dark:text-gray-400 mt-1">
                           <span>باركود: {product.barcode || '-'}</span>
-                          <span className={availableStock > 0 ? 'text-green-600' : 'text-red-600'}>
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className={`metric-dot ${availableStock > 0 ? 'metric-dot-green' : 'metric-dot-red'}`} aria-hidden />
                             متاح: {availableStock}
-                            {reserved > 0 && <span className="text-orange-500 mr-1">(محجوز: {reserved})</span>}
+                            {reserved > 0 && <span className="t-muted">(محجوز: {reserved})</span>}
                           </span>
                         </div>
-                        <div className="text-xs text-gray-400 mt-1">
+                        <div className="text-[11px] text-gray-400 mt-1">
                           TVA: {product.tax_percent || globalTaxRate}% | الحد الأدنى: {formatCurrency(product.min_selling_price || 0)}
                         </div>
                       </div>
@@ -492,124 +490,97 @@ export default function NewOrderPage() {
 
             {/* Order Items Table */}
             {orderItems.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
+              <div className="table-pro-wrap">
+                <table className="table-pro compact">
+                  <thead>
                     <tr>
-                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">المنتج</th>
-                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">الكمية</th>
-                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">السعر/قطعة</th>
-                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">قطع/وحدة</th>
-                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">الخصم</th>
-                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">TVA</th>
-                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">المجموع</th>
-                      <th className="px-2 py-2 w-10"></th>
+                      <th>المنتج</th>
+                      <th className="text-center">كرتون</th>
+                      <th className="text-center">قطعة</th>
+                      <th className="text-center">السعر/قطعة</th>
+                      <th className="text-center">قطع/وحدة</th>
+                      <th className="text-center">الخصم</th>
+                      <th className="text-center">TVA</th>
+                      <th className="text-center">المجموع</th>
+                      <th className="w-10"></th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y">
+                  <tbody>
                     {orderItems.map((item, index) => (
                       <tr key={item.product_id}>
-                        <td className="px-2 py-2">
-                          <div className="font-medium text-sm">{item.product_name}</div>
-                          <div className="text-xs text-gray-500">
+                        <td>
+                          <div className="t-strong text-[13px]">{item.product_name}</div>
+                          <div className="text-[11px] text-gray-500 dark:text-gray-400">
                             متاح: {item.available_stock}
                           </div>
                         </td>
-                        <td className="px-2 py-2">
-                          <div className="space-y-1">
-                            {/* Cartons row - blue */}
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => updateOrderItem(index, 'quantity', Math.max(0, item.quantity - 1))}
-                                className="w-7 h-7 flex items-center justify-center rounded border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 text-sm font-bold"
-                              >-</button>
+                        <td className="text-center">
+                          <input
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) => updateOrderItem(index, 'quantity', Math.max(0, Number(e.target.value)))}
+                            min={0}
+                            className="input w-16 text-center !px-2 tnum text-[13px] py-1.5"
+                          />
+                          <div className="text-[10px] text-gray-500 mt-0.5">crt</div>
+                        </td>
+                        <td className="text-center">
+                          {item.pieces_per_package > 1 ? (
+                            <>
                               <input
                                 type="number"
-                                value={item.quantity}
-                                onChange={(e) => updateOrderItem(index, 'quantity', Math.max(0, Number(e.target.value)))}
+                                value={item.extra_pieces}
+                                onChange={(e) => updateOrderItem(index, 'extra_pieces', Number(e.target.value))}
                                 min={0}
-                                className="input w-14 text-center text-sm py-1 border-blue-300"
+                                max={item.pieces_per_package - 1}
+                                className="input w-16 text-center !px-2 tnum text-[13px] py-1.5"
                               />
-                              <button
-                                type="button"
-                                onClick={() => updateOrderItem(index, 'quantity', item.quantity + 1)}
-                                className="w-7 h-7 flex items-center justify-center rounded border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 text-sm font-bold"
-                              >+</button>
-                              <span className="text-xs text-blue-600 font-medium">كرتون</span>
-                            </div>
-                            {/* Pieces row - orange (only if ppp > 1) */}
-                            {item.pieces_per_package > 1 && (
-                              <div className="flex items-center gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => updateOrderItem(index, 'extra_pieces', Math.max(0, item.extra_pieces - 1))}
-                                  className="w-7 h-7 flex items-center justify-center rounded border border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 text-sm font-bold"
-                                >-</button>
-                                <input
-                                  type="number"
-                                  value={item.extra_pieces}
-                                  onChange={(e) => updateOrderItem(index, 'extra_pieces', Number(e.target.value))}
-                                  min={0}
-                                  max={item.pieces_per_package - 1}
-                                  className="input w-14 text-center text-sm py-1 border-orange-300"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => updateOrderItem(index, 'extra_pieces', item.extra_pieces + 1)}
-                                  className="w-7 h-7 flex items-center justify-center rounded border border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 text-sm font-bold"
-                                >+</button>
-                                <span className="text-xs text-orange-600 font-medium">قطعة</span>
+                              <div className="text-[10px] text-gray-500 mt-0.5">
+                                pc · {(item.quantity * item.pieces_per_package) + (item.extra_pieces || 0)}
                               </div>
-                            )}
-                            {item.pieces_per_package > 1 && (
-                              <div className="text-center text-xs text-green-700 bg-green-50 rounded px-1 py-0.5 font-medium">
-                                {(item.quantity * item.pieces_per_package) + (item.extra_pieces || 0)} قطعة
-                              </div>
-                            )}
-                          </div>
+                            </>
+                          ) : (
+                            <span className="t-muted">—</span>
+                          )}
                         </td>
-                        <td className="px-2 py-2">
+                        <td className="text-center">
                           <input
                             type="number"
                             value={item.unit_price}
                             onChange={(e) => updateOrderItem(index, 'unit_price', Number(e.target.value))}
                             min={0}
-                            className={`input w-full text-sm py-1.5 ${item.unit_price < item.min_price ? 'border-red-500 bg-red-50' : ''}`}
+                            className={`input w-24 text-center !px-2 tnum text-[13px] py-1.5 ${item.unit_price < item.min_price ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : ''}`}
                           />
-                          <div className="text-[10px] text-gray-500 text-center">/قطعة</div>
                           {item.pieces_per_package > 1 && (
-                            <div className="text-[10px] text-blue-500 text-center mt-0.5">
-                              {formatCurrency(item.unit_price * item.pieces_per_package)}/كرتون
+                            <div className="text-[10px] text-gray-500 dark:text-gray-400 text-center mt-0.5 tnum">
+                              {formatCurrency(item.unit_price * item.pieces_per_package)}/crt
                             </div>
                           )}
                         </td>
-                        <td className="px-2 py-2 text-center">
-                          <span className="text-sm font-medium">{item.pieces_per_package}</span>
-                        </td>
-                        <td className="px-2 py-2">
+                        <td className="text-center tnum t-muted">{item.pieces_per_package}</td>
+                        <td className="text-center">
                           <input
                             type="number"
                             value={item.discount}
                             onChange={(e) => updateOrderItem(index, 'discount', Number(e.target.value))}
                             min={0}
-                            className="input w-full text-sm py-1.5"
+                            className="input w-20 text-center !px-2 tnum text-[13px] py-1.5"
                           />
                         </td>
-                        <td className="px-2 py-2 text-center">
-                          <div className="text-sm font-medium text-blue-600">{item.tax_percent}%</div>
-                          <div className="text-xs text-gray-500">{formatCurrency(item.tax_amount)}</div>
+                        <td className="text-center">
+                          <div className="tnum text-[13px]">{item.tax_percent}%</div>
+                          <div className="text-[11px] text-gray-500 tnum">{formatCurrency(item.tax_amount)}</div>
                         </td>
-                        <td className="px-2 py-2 text-sm">
-                          <div className="font-medium">{formatCurrency(item.total_with_tax)}</div>
-                          <div className="text-xs text-gray-400">
+                        <td className="text-center tnum t-strong">
+                          {formatCurrency(item.total_with_tax)}
+                          <div className="text-[10px] text-gray-400 tnum">
                             {formatCurrency(item.subtotal)} + TVA
                           </div>
                         </td>
-                        <td className="px-2 py-2">
+                        <td>
                           <button
                             onClick={() => removeOrderItem(index)}
-                            className="p-1.5 hover:bg-red-50 text-red-600 rounded"
+                            className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 rounded transition-colors"
                           >
                             <TrashIcon className="w-4 h-4" />
                           </button>
@@ -620,20 +591,20 @@ export default function NewOrderPage() {
                 </table>
               </div>
             ) : (
-              <div className="text-center py-12 text-gray-500 border-2 border-dashed rounded-lg">
-                <PlusIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+              <div className="text-center py-10 text-gray-500 dark:text-gray-400 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg text-[13px]">
+                <PlusIcon className="w-10 h-10 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
                 <p>ابحث عن منتج لإضافته إلى الطلب</p>
               </div>
             )}
           </div>
 
           {/* Notes */}
-          <div className="card">
-            <h3 className="font-bold mb-4">ملاحظات</h3>
+          <div className="surface-pro p-4">
+            <h3 className="surface-heading mb-3">ملاحظات</h3>
             <textarea
               value={orderNotes}
               onChange={(e) => setOrderNotes(e.target.value)}
-              className="input"
+              className="input w-full text-[13px] py-2"
               rows={3}
               placeholder="ملاحظات إضافية على الطلب..."
             />
@@ -642,67 +613,69 @@ export default function NewOrderPage() {
 
         {/* Sidebar - Order Summary */}
         <div className="lg:col-span-1">
-          <div className="card sticky top-4">
-            <h3 className="font-bold mb-4">ملخص الطلب</h3>
+          <div className="surface-pro p-4 sticky top-4">
+            <h3 className="surface-heading mb-3">ملخص الطلب</h3>
 
             {selectedClient > 0 && (
-              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                <div className="text-sm text-blue-600">العميل المحدد</div>
-                <div className="font-bold">{clients.find(c => c.id === selectedClient)?.name}</div>
+              <div className="mb-4 p-3 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">العميل المحدد</div>
+                <div className="t-strong text-[13px] mt-0.5">{clients.find(c => c.id === selectedClient)?.name}</div>
               </div>
             )}
 
-            <div className="space-y-3 mb-4">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">عدد المنتجات</span>
-                <span className="font-medium">{orderItems.length}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">إجمالي الكميات</span>
-                <span className="font-medium">{orderItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)}</span>
+            <div className="space-y-2 mb-4 text-[13px]">
+              <div className="flex justify-between">
+                <span className="text-gray-500 dark:text-gray-400">عدد المنتجات</span>
+                <span className="tnum t-strong">{orderItems.length}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">المجموع الفرعي</span>
-                <span className="font-medium">{formatCurrency(subtotal)}</span>
+                <span className="text-gray-500 dark:text-gray-400">إجمالي الكميات</span>
+                <span className="tnum t-strong">{orderItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">TVA</span>
-                <span className="font-medium text-blue-600">{formatCurrency(totalTax)}</span>
+              <div className="flex justify-between">
+                <span className="text-gray-500 dark:text-gray-400">المجموع الفرعي</span>
+                <span className="tnum">{formatCurrency(subtotal)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500 dark:text-gray-400">TVA</span>
+                <span className="tnum">{formatCurrency(totalTax)}</span>
               </div>
 
               {/* Order Discount */}
               <div className="flex items-center justify-between">
-                <span className="text-gray-500">خصم إضافي</span>
+                <span className="text-gray-500 dark:text-gray-400">خصم إضافي</span>
                 <input
                   type="number"
                   value={orderDiscount}
                   onChange={(e) => setOrderDiscount(Number(e.target.value))}
                   min={0}
-                  className="input w-24 text-left"
+                  className="input w-24 text-left !px-2 tnum text-[13px] py-1.5"
                   placeholder="0"
                 />
               </div>
             </div>
 
-            <div className="border-t pt-4 mb-6">
-              <div className="flex justify-between text-lg font-bold">
-                <span>المجموع الكلي</span>
-                <span className="text-green-600">{formatCurrency(grandTotal)}</span>
-              </div>
-              <div className="text-xs text-gray-500 text-left mt-1">
-                شامل TVA
-              </div>
+            <hr className="border-gray-200 dark:border-gray-700 mb-4" />
+            <div className="flex justify-between text-[14px] font-semibold text-gray-900 dark:text-white mb-1">
+              <span>المجموع الكلي</span>
+              <span className="tnum">{formatCurrency(grandTotal)}</span>
+            </div>
+            <div className="text-[11px] text-gray-500 dark:text-gray-400 text-left mb-4">
+              شامل TVA
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting || orderItems.length === 0 || !selectedClient || !selectedWarehouse}
-                className="btn btn-primary w-full py-3"
+                className="inline-flex items-center justify-center gap-2 w-full px-3 py-2 text-[13px] font-semibold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors disabled:opacity-50"
               >
                 {isSubmitting ? 'جاري الإنشاء...' : 'إنشاء الطلب'}
               </button>
-              <Link href="/dashboard/orders" className="btn btn-secondary w-full py-3 text-center block">
+              <Link
+                href="/dashboard/orders"
+                className="inline-flex items-center justify-center gap-2 w-full px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
                 إلغاء
               </Link>
             </div>

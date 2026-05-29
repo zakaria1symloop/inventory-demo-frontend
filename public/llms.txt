@@ -51,9 +51,8 @@ TrackSera est la plateforme N°1 de gestion de distribution en Algérie. Elle of
 | Plan | Price / السعر | Products / المنتجات | Users / المستخدمين |
 |------|---------------|--------------------|--------------------|
 | Free / مجاني / Gratuit | 0 DZD | 25 | 1 |
-| Starter / المبتدئ | 2,900 DZD | 100 | 1 |
-| Pro / المحترف | 6,900 DZD | 500 | 5 (+1,500/extra) |
-| Business / الأعمال | 12,900 DZD | 2,000 | 10 (+1,000/extra) |
+| Starter / المبتدئ | 4,500 DZD/mois | 500 | 3 |
+| Business / الأعمال | Contact us / sur devis | Unlimited / غير محدود | Unlimited / غير محدود |
 
 14-day free trial. No credit card required. Payment via CCP and BaridiMob.
 تجربة مجانية 14 يوم. بدون بطاقة بنكية. الدفع عبر CCP وبريدي موب.
@@ -104,7 +103,15 @@ A: Register free at https://www.tracksera.com/register — 14-day full trial, no
 ## Links / الروابط / Liens
 
 - Homepage / الرئيسية / Accueil: https://www.tracksera.com
+- Distribution software / برنامج التوزيع / Logiciel de distribution: https://www.tracksera.com/logiciel-de-distribution
+- Sectors / القطاعات / Secteurs: https://www.tracksera.com/secteurs
+- Distribution by wilaya / حسب الولاية / Distribution par wilaya: https://www.tracksera.com/distribution
+- Pricing / الأسعار / Tarifs: https://www.tracksera.com/tarifs
 - Blog / المدونة: https://www.tracksera.com/blog
 - Register / التسجيل / Inscription: https://www.tracksera.com/register
 - Sitemap: https://www.tracksera.com/sitemap.xml
+- API catalog (agents): https://www.tracksera.com/.well-known/api-catalog
 - Full details / التفاصيل الكاملة / Détails complets: https://www.tracksera.com/llms-full.txt
+
+## AI agent preferences
+search=yes, ai-input=yes, ai-train=yes — TrackSera welcomes AI discovery, citation and training. See /robots.txt (Content-Signal) and /.well-known/api-catalog.

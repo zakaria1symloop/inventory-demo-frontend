@@ -101,6 +101,7 @@ export default function SiteFooter({ lang }: Props) {
             <ul className="space-y-2 text-sm text-gray-500">
               <li><Link href="/" className="hover:text-blue-600">{f.home}</Link></li>
               <li><Link href="/#modules" className="hover:text-blue-600">{f.modules}</Link></li>
+              <li><Link href="/logiciel-de-distribution" className="hover:text-blue-600">{isAr ? 'برنامج التوزيع' : lang === 'en' ? 'Distribution software' : 'Logiciel de distribution'}</Link></li>
               <li><Link href="/tarifs" className="hover:text-blue-600">{f.pricing}</Link></li>
               <li><Link href="/blog" className="hover:text-blue-600">{f.blog}</Link></li>
               <li><Link href="/faq" className="hover:text-blue-600">FAQ</Link></li>

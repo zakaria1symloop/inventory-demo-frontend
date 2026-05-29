@@ -5,6 +5,7 @@ import { settingsApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { SunIcon, MoonIcon, PhotoIcon, TrashIcon, LockClosedIcon, KeyIcon } from '@heroicons/react/24/outline';
 import { useLocale } from '@/lib/i18n/context';
+import { PageHeader } from '@/components/dashboard';
 
 export default function SettingsPage() {
   const { t, locale } = useLocale();
@@ -383,25 +384,25 @@ export default function SettingsPage() {
   if (!isUnlocked && hasPassword) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-8 w-full max-w-md">
-          <div className="text-center mb-6">
-            <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 dark:bg-blue-900/40 rounded-2xl flex items-center justify-center">
-              <LockClosedIcon className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+        <div className="surface-pro p-6 w-full max-w-md">
+          <div className="text-center mb-5">
+            <div className="w-12 h-12 mx-auto mb-3 bg-gray-100 dark:bg-gray-700 rounded-md flex items-center justify-center">
+              <LockClosedIcon className="w-6 h-6 text-gray-700 dark:text-gray-200" />
             </div>
-            <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">{t('settings.settingsProtected')}</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{t('settings.enterPasswordAccess')}</p>
+            <h1 className="text-[18px] font-semibold text-gray-900 dark:text-white">{t('settings.settingsProtected')}</h1>
+            <p className="text-[13px] text-gray-500 dark:text-gray-400 mt-1">{t('settings.enterPasswordAccess')}</p>
           </div>
 
           <form onSubmit={handleVerifyPassword}>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <div className="mb-3">
+              <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 {t('settings.passwordLabel')}
               </label>
               <input
                 type="password"
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
-                className="input"
+                className="input w-full"
                 placeholder={t('settings.passwordPlaceholder')}
                 autoFocus
               />
@@ -410,7 +411,7 @@ export default function SettingsPage() {
             <button
               type="submit"
               disabled={isVerifying}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
+              className="w-full inline-flex items-center justify-center gap-2 px-4 h-[36px] text-[13px] font-medium text-white bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white rounded-md transition-colors disabled:opacity-50"
             >
               {isVerifying ? (
                 <>
@@ -440,38 +441,37 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('settings.title')}</h1>
-          <p className="text-sm text-gray-400 mt-1">{isRTL ? 'ادارة اعدادات التطبيق والتفضيلات' : 'Gerez les parametres et preferences de votre application'}</p>
-        </div>
+      <PageHeader
+        title={t('settings.title')}
+        subtitle={isRTL ? 'ادارة اعدادات التطبيق والتفضيلات' : 'Gerez les parametres et preferences de votre application'}
+      >
         <button
           onClick={toggleDarkMode}
-          className="p-2 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          className="inline-flex items-center justify-center w-9 h-9 rounded-md border border-gray-200/80 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           title={darkMode ? t('settings.lightMode') : t('settings.darkMode')}
         >
           {darkMode ? (
-            <SunIcon className="w-6 h-6 text-yellow-500" />
+            <SunIcon className="w-5 h-5 text-gray-700 dark:text-gray-200" />
           ) : (
-            <MoonIcon className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+            <MoonIcon className="w-5 h-5 text-gray-700 dark:text-gray-200" />
           )}
         </button>
-      </div>
+      </PageHeader>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         {/* Tabs */}
         <div className="lg:col-span-1">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 overflow-hidden p-2">
+          <div className="surface-pro overflow-hidden p-1.5">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md transition-colors text-[13px] ${
                   isRTL ? 'text-right' : 'text-left'
                 } ${
                   activeTab === tab.id
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                    ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
+                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50'
                 }`}
               >
                 <span>{tab.icon}</span>
@@ -483,10 +483,10 @@ export default function SettingsPage() {
 
         {/* Content */}
         <div className="lg:col-span-3">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-6">
+          <div className="surface-pro p-5">
             {activeTab === 'company' && (
               <div>
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{t('settings.companyInfo')}</h2>
+                <h2 className="surface-heading mb-4">{t('settings.companyInfo')}</h2>
 
                 {/* Logo Upload */}
                 <div className="mb-6">
@@ -520,7 +520,7 @@ export default function SettingsPage() {
                       {logoPreview && (
                         <button
                           onClick={handleDeleteLogo}
-                          className="flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors"
+                          className="inline-flex items-center gap-2 px-3 h-[32px] text-[12px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors"
                         >
                           <TrashIcon className="w-4 h-4" />
                           {t('settings.deleteLogo')}
@@ -582,7 +582,7 @@ export default function SettingsPage() {
 
             {activeTab === 'legal' && (
               <div>
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{t('settings.legalInfo')}</h2>
+                <h2 className="surface-heading mb-4">{t('settings.legalInfo')}</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t('settings.legalInfoDesc')}</p>
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -660,7 +660,7 @@ export default function SettingsPage() {
 
             {activeTab === 'general' && (
               <div>
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{t('settings.generalSettings')}</h2>
+                <h2 className="surface-heading mb-4">{t('settings.generalSettings')}</h2>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('settings.currency')}</label>
@@ -695,25 +695,25 @@ export default function SettingsPage() {
 
                   {/* Auto-validate Orders Setting */}
                   <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <h3 className="text-md font-semibold mb-3 dark:text-white flex items-center gap-2">
+                    <h3 className="surface-heading mb-2 flex items-center gap-2">
                       {t('settings.autoValidateOrders')}
-                      <span className="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-500 text-white rounded-full leading-none">{t('settings.new')}</span>
+                      <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-600 dark:text-gray-300"><span className="metric-dot metric-dot-green" aria-hidden />{t('settings.new')}</span>
                     </h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{t('settings.autoValidateDesc')}</p>
                     <div className="flex gap-4">
                       <button
                         type="button"
                         onClick={() => setSettings({ ...settings, auto_validate_orders: 'false' })}
-                        className={`flex-1 p-4 rounded-xl border-2 transition-all cursor-pointer ${settings.auto_validate_orders === 'false' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500'}`}
+                        className={`flex-1 p-3 rounded-md border transition-colors cursor-pointer ${settings.auto_validate_orders === 'false' ? 'border-gray-900 dark:border-gray-300 bg-gray-50 dark:bg-gray-700/40' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.auto_validate_orders === 'false' ? 'bg-blue-100 dark:bg-blue-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                            <svg className={`w-5 h-5 ${settings.auto_validate_orders === 'false' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className="w-9 h-9 rounded-md flex items-center justify-center bg-gray-100 dark:bg-gray-700">
+                            <svg className="w-5 h-5 text-gray-700 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                           </div>
                           <div className={isRTL ? 'text-right' : 'text-left'}>
-                            <p className={`text-sm font-semibold ${settings.auto_validate_orders === 'false' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>{t('settings.manualApproval')}</p>
+                            <p className="text-[13px] font-medium text-gray-900 dark:text-white">{t('settings.manualApproval')}</p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">{t('settings.manualApprovalDesc')}</p>
                           </div>
                         </div>
@@ -721,16 +721,16 @@ export default function SettingsPage() {
                       <button
                         type="button"
                         onClick={() => setSettings({ ...settings, auto_validate_orders: 'true' })}
-                        className={`flex-1 p-4 rounded-xl border-2 transition-all cursor-pointer ${settings.auto_validate_orders === 'true' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500'}`}
+                        className={`flex-1 p-3 rounded-md border transition-colors cursor-pointer ${settings.auto_validate_orders === 'true' ? 'border-gray-900 dark:border-gray-300 bg-gray-50 dark:bg-gray-700/40' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.auto_validate_orders === 'true' ? 'bg-blue-100 dark:bg-blue-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                            <svg className={`w-5 h-5 ${settings.auto_validate_orders === 'true' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className="w-9 h-9 rounded-md flex items-center justify-center bg-gray-100 dark:bg-gray-700">
+                            <svg className="w-5 h-5 text-gray-700 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                             </svg>
                           </div>
                           <div className={isRTL ? 'text-right' : 'text-left'}>
-                            <p className={`text-sm font-semibold ${settings.auto_validate_orders === 'true' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>{t('settings.autoApproval')}</p>
+                            <p className="text-[13px] font-medium text-gray-900 dark:text-white">{t('settings.autoApproval')}</p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">{t('settings.autoApprovalDesc')}</p>
                           </div>
                         </div>
@@ -740,25 +740,25 @@ export default function SettingsPage() {
 
                   {/* Seller Client Visibility Setting */}
                   <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <h3 className="text-md font-semibold mb-3 dark:text-white flex items-center gap-2">
+                    <h3 className="surface-heading mb-2 flex items-center gap-2">
                       {t('settings.sellerVisibility')}
-                      <span className="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-500 text-white rounded-full leading-none">{t('settings.new')}</span>
+                      <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-600 dark:text-gray-300"><span className="metric-dot metric-dot-green" aria-hidden />{t('settings.new')}</span>
                     </h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{t('settings.sellerVisibilityDesc')}</p>
                     <div className="flex gap-4">
                       <button
                         type="button"
                         onClick={() => setSettings({ ...settings, seller_see_all_clients: 'false' })}
-                        className={`flex-1 p-4 rounded-xl border-2 transition-all cursor-pointer ${settings.seller_see_all_clients === 'false' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500'}`}
+                        className={`flex-1 p-3 rounded-md border transition-colors cursor-pointer ${settings.seller_see_all_clients === 'false' ? 'border-gray-900 dark:border-gray-300 bg-gray-50 dark:bg-gray-700/40' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.seller_see_all_clients === 'false' ? 'bg-blue-100 dark:bg-blue-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                            <svg className={`w-5 h-5 ${settings.seller_see_all_clients === 'false' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className="w-9 h-9 rounded-md flex items-center justify-center bg-gray-100 dark:bg-gray-700">
+                            <svg className="w-5 h-5 text-gray-700 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                             </svg>
                           </div>
                           <div className={isRTL ? 'text-right' : 'text-left'}>
-                            <p className={`text-sm font-semibold ${settings.seller_see_all_clients === 'false' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>{t('settings.ownClientsOnly')}</p>
+                            <p className="text-[13px] font-medium text-gray-900 dark:text-white">{t('settings.ownClientsOnly')}</p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">{t('settings.ownClientsOnlyDesc')}</p>
                           </div>
                         </div>
@@ -766,16 +766,16 @@ export default function SettingsPage() {
                       <button
                         type="button"
                         onClick={() => setSettings({ ...settings, seller_see_all_clients: 'true' })}
-                        className={`flex-1 p-4 rounded-xl border-2 transition-all cursor-pointer ${settings.seller_see_all_clients === 'true' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500'}`}
+                        className={`flex-1 p-3 rounded-md border transition-colors cursor-pointer ${settings.seller_see_all_clients === 'true' ? 'border-gray-900 dark:border-gray-300 bg-gray-50 dark:bg-gray-700/40' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.seller_see_all_clients === 'true' ? 'bg-blue-100 dark:bg-blue-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                            <svg className={`w-5 h-5 ${settings.seller_see_all_clients === 'true' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className="w-9 h-9 rounded-md flex items-center justify-center bg-gray-100 dark:bg-gray-700">
+                            <svg className="w-5 h-5 text-gray-700 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                           </div>
                           <div className={isRTL ? 'text-right' : 'text-left'}>
-                            <p className={`text-sm font-semibold ${settings.seller_see_all_clients === 'true' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>{t('settings.allClients')}</p>
+                            <p className="text-[13px] font-medium text-gray-900 dark:text-white">{t('settings.allClients')}</p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">{t('settings.allClientsDesc')}</p>
                           </div>
                         </div>
@@ -788,7 +788,7 @@ export default function SettingsPage() {
 
             {activeTab === 'invoice' && (
               <div>
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{t('settings.invoiceSettings')}</h2>
+                <h2 className="surface-heading mb-4">{t('settings.invoiceSettings')}</h2>
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -840,7 +840,7 @@ export default function SettingsPage() {
 
             {activeTab === 'appearance' && (
               <div>
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{t('settings.appearance')}</h2>
+                <h2 className="surface-heading mb-4">{t('settings.appearance')}</h2>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">{t('settings.chooseTheme')}</label>
@@ -852,11 +852,11 @@ export default function SettingsPage() {
                           localStorage.setItem('darkMode', 'false');
                           window.dispatchEvent(new StorageEvent('storage', { key: 'darkMode', newValue: 'false' }));
                         }}
-                        className={`flex-1 p-4 border-2 rounded-xl flex flex-col items-center gap-2 transition-colors ${
-                          !darkMode ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500'
+                        className={`flex-1 p-4 rounded-md border flex flex-col items-center gap-2 transition-colors ${
+                          !darkMode ? 'border-gray-900 dark:border-gray-300 bg-gray-50 dark:bg-gray-700/40' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30'
                         }`}
                       >
-                        <SunIcon className="w-8 h-8 text-yellow-500" />
+                        <SunIcon className="w-7 h-7 text-gray-700 dark:text-gray-200" />
                         <span className="font-medium text-gray-900 dark:text-white">{t('settings.lightMode')}</span>
                       </button>
                       <button
@@ -866,8 +866,8 @@ export default function SettingsPage() {
                           localStorage.setItem('darkMode', 'true');
                           window.dispatchEvent(new StorageEvent('storage', { key: 'darkMode', newValue: 'true' }));
                         }}
-                        className={`flex-1 p-4 border-2 rounded-xl flex flex-col items-center gap-2 transition-colors ${
-                          darkMode ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500'
+                        className={`flex-1 p-4 rounded-md border flex flex-col items-center gap-2 transition-colors ${
+                          darkMode ? 'border-gray-900 dark:border-gray-300 bg-gray-50 dark:bg-gray-700/40' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30'
                         }`}
                       >
                         <MoonIcon className="w-8 h-8 text-gray-600 dark:text-gray-300" />
@@ -881,15 +881,15 @@ export default function SettingsPage() {
 
             {activeTab === 'security' && (
               <div>
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{t('settings.securitySettings')}</h2>
+                <h2 className="surface-heading mb-4">{t('settings.securitySettings')}</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
                   {t('settings.securityDesc')}
                 </p>
 
-                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-6">
+                <div className="surface-pro p-5">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${hasPassword ? 'bg-green-100 dark:bg-green-900/40' : 'bg-gray-200 dark:bg-gray-700'}`}>
-                      <LockClosedIcon className={`w-5 h-5 ${hasPassword ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`} />
+                    <div className="w-10 h-10 rounded-md flex items-center justify-center bg-gray-100 dark:bg-gray-700">
+                      <LockClosedIcon className="w-5 h-5 text-gray-700 dark:text-gray-200" />
                     </div>
                     <div>
                       <h3 className="font-medium text-gray-900 dark:text-white">
@@ -949,7 +949,7 @@ export default function SettingsPage() {
                       <button
                         type="submit"
                         disabled={isSettingPassword || !newPassword || !confirmPassword}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
+                        className="inline-flex items-center gap-2 px-4 h-[36px] text-[13px] font-medium text-white bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white rounded-md transition-colors disabled:opacity-50"
                       >
                         {isSettingPassword ? (
                           <>
@@ -969,7 +969,7 @@ export default function SettingsPage() {
                           type="button"
                           onClick={handleRemovePassword}
                           disabled={isSettingPassword || !currentPassword}
-                          className="flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
+                          className="inline-flex items-center gap-2 px-4 h-[36px] text-[13px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors disabled:opacity-50"
                         >
                           <TrashIcon className="w-5 h-5" />
                           {t('settings.removeProtection')}
@@ -983,16 +983,16 @@ export default function SettingsPage() {
 
             {activeTab === 'backup' && (
               <div>
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{t('settings.backupAndRestore')}</h2>
+                <h2 className="surface-heading mb-4">{t('settings.backupAndRestore')}</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
                   {t('settings.backupDesc')}
                 </p>
 
                 {/* Create Backup Section */}
-                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-6 mb-6">
+                <div className="surface-pro p-5 mb-4">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
-                      <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-10 h-10 rounded-md bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-gray-700 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                       </svg>
                     </div>
@@ -1006,7 +1006,7 @@ export default function SettingsPage() {
                   <button
                     onClick={handleCreateBackup}
                     disabled={isCreatingBackup}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
+                    className="inline-flex items-center gap-2 px-4 h-[36px] text-[13px] font-medium text-white bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white rounded-md transition-colors disabled:opacity-50"
                   >
                     {isCreatingBackup ? (
                       <>
@@ -1025,10 +1025,10 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Export SQL Section */}
-                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-6 mb-6">
+                <div className="surface-pro p-5 mb-4">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
-                      <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-10 h-10 rounded-md bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-gray-700 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
                       </svg>
                     </div>
@@ -1042,7 +1042,7 @@ export default function SettingsPage() {
                   <button
                     onClick={handleExportSql}
                     disabled={isExportingSql}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
+                    className="inline-flex items-center gap-2 px-4 h-[36px] text-[13px] font-medium text-white bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white rounded-md transition-colors disabled:opacity-50"
                   >
                     {isExportingSql ? (
                       <>
@@ -1061,10 +1061,10 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Restore Backup Section */}
-                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-6">
+                <div className="surface-pro p-5">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
-                      <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-10 h-10 rounded-md bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-gray-700 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m4-8l-4-4m0 0L16 8m4-4v12" />
                       </svg>
                     </div>
@@ -1076,8 +1076,9 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-4">
-                    <p className="text-sm text-red-700 dark:text-red-400 font-medium">
+                  <div className="rounded-md border border-gray-200/80 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/20 p-3 mb-4">
+                    <p className="text-[13px] text-gray-700 dark:text-gray-300 font-medium inline-flex items-center gap-1.5">
+                      <span className="metric-dot metric-dot-red" aria-hidden />
                       {t('settings.restoreWarning')}
                     </p>
                   </div>
@@ -1116,11 +1117,11 @@ export default function SettingsPage() {
 
                 {/* Restore Confirmation Modal */}
                 {showRestoreConfirm && backupInfo && (
-                  <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-6 max-w-md w-full mx-4">
-                      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{t('settings.confirmRestore')}</h3>
+                  <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-md border border-gray-200/80 dark:border-gray-700 p-5 max-w-md w-full">
+                      <h3 className="surface-heading mb-3">{t('settings.confirmRestore')}</h3>
 
-                      <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 mb-4 text-sm space-y-1">
+                      <div className="rounded-md border border-gray-200/80 dark:border-gray-700 p-3 mb-3 text-[13px] space-y-1">
                         <p className="text-gray-700 dark:text-gray-300"><strong>{t('settings.backupDate')}</strong> {new Date(backupInfo.created_at).toLocaleString(isRTL ? 'ar-DZ' : 'fr-DZ')}</p>
                         <p className="text-gray-700 dark:text-gray-300"><strong>{t('settings.createdBy')}</strong> {backupInfo.created_by}</p>
                         <p className="text-gray-700 dark:text-gray-300"><strong>{t('settings.version')}</strong> {backupInfo.version}</p>
@@ -1131,17 +1132,18 @@ export default function SettingsPage() {
                         )}
                       </div>
 
-                      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3 mb-4">
-                        <p className="text-sm text-red-700 dark:text-red-400">
+                      <div className="rounded-md border border-gray-200/80 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/20 p-3 mb-4">
+                        <p className="text-[13px] text-gray-700 dark:text-gray-300 inline-flex items-center gap-1.5">
+                          <span className="metric-dot metric-dot-red" aria-hidden />
                           {t('settings.confirmRestoreWarning')}
                         </p>
                       </div>
 
-                      <div className="flex gap-3 justify-end">
-                        <button onClick={handleCancelRestore} className="px-4 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl font-medium transition-colors">
+                      <div className="flex gap-2 justify-end">
+                        <button onClick={handleCancelRestore} className="px-4 h-[34px] text-[13px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors">
                           {t('settings.cancel')}
                         </button>
-                        <button onClick={handleConfirmRestore} className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors">
+                        <button onClick={handleConfirmRestore} className="px-4 h-[34px] text-[13px] font-medium text-white bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white rounded-md transition-colors">
                           {t('settings.confirmRestoreButton')}
                         </button>
                       </div>

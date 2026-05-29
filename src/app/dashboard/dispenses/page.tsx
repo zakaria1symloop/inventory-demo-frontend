@@ -8,13 +8,12 @@ import DateInput from '@/components/ui/DateInput';
 import GuidedTour from '@/components/GuidedTour';
 import type { TourStep } from '@/components/GuidedTour';
 import toast from 'react-hot-toast';
+import { PageHeader, FilterBar } from '@/components/dashboard';
 import {
   BanknotesIcon,
-  FunnelIcon,
   XMarkIcon,
   TrashIcon,
   PencilSquareIcon,
-  MagnifyingGlassIcon,
   PlusIcon,
 } from '@heroicons/react/24/outline';
 
@@ -54,17 +53,6 @@ const CATEGORY_KEYS: Record<string, string> = {
   utilities: 'dispenses.utilities',
   rent: 'dispenses.rent',
   other: 'dispenses.otherCategory',
-};
-
-const CATEGORY_COLORS: Record<string, { bg: string; text: string; darkBg: string; darkText: string }> = {
-  salary: { bg: 'bg-blue-50', text: 'text-blue-700', darkBg: 'dark:bg-blue-900/30', darkText: 'dark:text-blue-300' },
-  advance: { bg: 'bg-violet-50', text: 'text-violet-700', darkBg: 'dark:bg-violet-900/30', darkText: 'dark:text-violet-300' },
-  transport: { bg: 'bg-amber-50', text: 'text-amber-700', darkBg: 'dark:bg-amber-900/30', darkText: 'dark:text-amber-300' },
-  maintenance: { bg: 'bg-orange-50', text: 'text-orange-700', darkBg: 'dark:bg-orange-900/30', darkText: 'dark:text-orange-300' },
-  supplies: { bg: 'bg-cyan-50', text: 'text-cyan-700', darkBg: 'dark:bg-cyan-900/30', darkText: 'dark:text-cyan-300' },
-  utilities: { bg: 'bg-emerald-50', text: 'text-emerald-700', darkBg: 'dark:bg-emerald-900/30', darkText: 'dark:text-emerald-300' },
-  rent: { bg: 'bg-pink-50', text: 'text-pink-700', darkBg: 'dark:bg-pink-900/30', darkText: 'dark:text-pink-300' },
-  other: { bg: 'bg-gray-100', text: 'text-gray-700', darkBg: 'dark:bg-gray-700/30', darkText: 'dark:text-gray-300' },
 };
 
 const ROLE_KEYS: Record<string, string> = {
@@ -107,7 +95,6 @@ export default function DispensesPage() {
   const [employeeFilter, setEmployeeFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
   const [showTour, setShowTour] = useState(false);
 
   // Modal
@@ -162,12 +149,6 @@ export default function DispensesPage() {
       target: '[data-tour="dispenses-search"]',
       title: t('dispenses.tourSearch'),
       desc: t('dispenses.tourSearchDesc'),
-      position: 'bottom' as const,
-    },
-    {
-      target: '[data-tour="dispenses-filter-btn"]',
-      title: t('dispenses.tourFilterBtn'),
-      desc: t('dispenses.tourFilterBtnDesc'),
       position: 'bottom' as const,
     },
     {
@@ -352,280 +333,223 @@ export default function DispensesPage() {
   }, [filteredTotal, total, summary, CATEGORIES]);
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" data-tour="dispenses-title">
-        <div>
-          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('dispenses.title')}</h1>
-          <p className="text-sm text-gray-400 dark:text-gray-400 mt-1">{t('dispenses.subtitle')}</p>
-        </div>
-        <div className="flex items-center gap-2">
+    <div>
+      <div data-tour="dispenses-title">
+        <PageHeader title={t('dispenses.title')} subtitle={t('dispenses.subtitle')}>
           <button
             onClick={() => { localStorage.removeItem('dispenses_tour_step'); setShowTour(true); }}
-            className="flex items-center gap-1.5 text-sm text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 font-medium transition-colors"
+            className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             title={t('dispenses.tourTitle')}
           >
-            <span>{t('dispenses.tourTitle')}</span>
+            {t('dispenses.tourTitle')}
           </button>
           <button
             onClick={() => { setCleanBeforeDate(''); setShowCleanModal(true); }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-xl transition-colors"
+            className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             title="حذف المصاريف القديمة"
           >
-            <TrashIcon className="w-4 h-4" />
+            <TrashIcon className="w-4 h-4" strokeWidth={1.8} />
             <span className="hidden sm:inline">تنظيف القديمة</span>
           </button>
           <button
             data-tour="dispenses-add"
             onClick={() => { setEditingId(null); setFormData(initialFormData); setShowModal(true); }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-l from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 rounded-xl transition-all"
+            className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors"
           >
-            <PlusIcon className="w-4 h-4" />
+            <PlusIcon className="w-4 h-4" strokeWidth={2} />
             <span className="hidden sm:inline">{t('dispenses.addDispense')}</span>
             <span className="sm:hidden">{t('dispenses.addShort')}</span>
           </button>
+        </PageHeader>
+      </div>
+
+      {/* ─── Metric tiles ─── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-4" data-tour="dispenses-kpis">
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-red" aria-hidden />
+            <p className="metric-label truncate">{t('dispenses.totalAmount')}</p>
+          </div>
+          <p className="metric-value-currency">{formatCurrency(kpis.total)}</p>
+        </div>
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-blue" aria-hidden />
+            <p className="metric-label truncate">{t('dispenses.operationsCount')}</p>
+          </div>
+          <p className="metric-value truncate">{kpis.count}</p>
+        </div>
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-orange" aria-hidden />
+            <p className="metric-label truncate">{t('dispenses.topCategory')}</p>
+          </div>
+          <p className="metric-value truncate">{kpis.topCategory}</p>
+        </div>
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-violet" aria-hidden />
+            <p className="metric-label truncate">{t('dispenses.topCategoryAmount')}</p>
+          </div>
+          <p className="metric-value-currency">{formatCurrency(kpis.topCategoryAmount)}</p>
         </div>
       </div>
 
-      {/* KPI Strip */}
-      <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden" data-tour="dispenses-kpis">
-        <div className={`grid grid-cols-2 md:grid-cols-4 sm:divide-x ${isRTL ? 'sm:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
-          <div className="group relative p-5 hover:bg-red-50/40 dark:hover:bg-red-900/10 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-red-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-lg font-black text-red-600 dark:text-red-400 tabular-nums leading-none">{formatCurrency(kpis.total)}</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('dispenses.totalAmount')}</div>
-            </div>
-          </div>
-          <div className="group relative p-5 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-3xl font-black text-blue-600 dark:text-blue-400 tabular-nums leading-none">{kpis.count}</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('dispenses.operationsCount')}</div>
-            </div>
-          </div>
-          <div className="group relative p-5 hover:bg-amber-50/40 dark:hover:bg-amber-900/10 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-amber-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-lg font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.topCategory}</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('dispenses.topCategory')}</div>
-            </div>
-          </div>
-          <div className="group relative p-5 hover:bg-orange-50/40 dark:hover:bg-orange-900/10 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-orange-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-lg font-black text-orange-600 dark:text-orange-400 tabular-nums leading-none">{formatCurrency(kpis.topCategoryAmount)}</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('dispenses.topCategoryAmount')}</div>
-            </div>
-          </div>
-        </div>
+      {/* ─── Filters ─── */}
+      <div data-tour="dispenses-search">
+        <FilterBar
+          search={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder={t('dispenses.search')}
+          trailing={activeFilterCount > 0 ? (
+            <button
+              onClick={clearFilters}
+              className="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+            >
+              <XMarkIcon className="w-3.5 h-3.5" />
+              {t('dispenses.clear')}
+            </button>
+          ) : undefined}
+        >
+          <select value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}>
+            <option value="">{t('dispenses.allCategories')}</option>
+            {Object.entries(CATEGORIES).map(([key, label]) => (
+              <option key={key} value={key}>{label}</option>
+            ))}
+          </select>
+          <select value={userFilter} onChange={(e) => { setUserFilter(e.target.value); setPage(1); }}>
+            <option value="">{t('dispenses.allUsers')}</option>
+            {users.map(u => (
+              <option key={u.id} value={u.id}>{u.name} ({roleLabel(u.role)})</option>
+            ))}
+          </select>
+          <select value={employeeFilter} onChange={(e) => { setEmployeeFilter(e.target.value); setPage(1); }}>
+            <option value="">{t('dispenses.allEmployees')}</option>
+            {employees.map(emp => (
+              <option key={emp.id} value={emp.id}>{emp.name}{emp.position ? ` (${emp.position})` : ''}</option>
+            ))}
+          </select>
+          <DateInput value={dateFrom} onChange={(v) => { setDateFrom(v); setPage(1); }} placeholder={t('dispenses.fromDate')} />
+          <DateInput value={dateTo} onChange={(v) => { setDateTo(v); setPage(1); }} placeholder={t('dispenses.toDate')} />
+        </FilterBar>
       </div>
 
-      {/* Search + Filters + Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm">
-        {/* Search bar */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-          <div className="relative flex-1" data-tour="dispenses-search">
-            <MagnifyingGlassIcon className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400`} />
-            <input
-              type="text"
-              placeholder={t('dispenses.search')}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className={`input w-full text-sm ${isRTL ? 'pr-9' : 'pl-9'}`}
-            />
-          </div>
+      {/* Quick Category Filters */}
+      <div className="flex items-center gap-1.5 mb-3 overflow-x-auto" data-tour="dispenses-quick-filters">
+        <button
+          onClick={() => { setCategoryFilter(''); setPage(1); }}
+          className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium whitespace-nowrap transition-colors ${
+            !categoryFilter
+              ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+              : 'border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+          }`}
+        >
+          {t('dispenses.all')}
+        </button>
+        {Object.entries(CATEGORIES).map(([key, label]) => (
           <button
-            data-tour="dispenses-filter-btn"
-            onClick={() => setShowFilters(!showFilters)}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl border transition-all ${
-              showFilters || activeFilterCount > 0
-                ? 'border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-600 dark:bg-orange-900/20 dark:text-orange-400'
-                : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+            key={key}
+            onClick={() => { setCategoryFilter(categoryFilter === key ? '' : key); setPage(1); }}
+            className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium whitespace-nowrap transition-colors ${
+              categoryFilter === key
+                ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                : 'border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
           >
-            <FunnelIcon className="w-4 h-4" />
-            <span className="hidden sm:inline">{t('dispenses.filter')}</span>
-            {activeFilterCount > 0 && (
-              <span className="w-5 h-5 rounded-full bg-orange-600 text-white text-[10px] font-bold flex items-center justify-center">
-                {activeFilterCount}
-              </span>
-            )}
+            {label}
           </button>
-          {activeFilterCount > 0 && (
-            <button onClick={clearFilters} className="text-sm text-red-500 hover:text-red-700 font-medium flex items-center gap-1">
-              <XMarkIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('dispenses.clear')}</span>
-            </button>
-          )}
-        </div>
+        ))}
+      </div>
 
-        {/* Expanded Filters */}
-        {showFilters && (
-          <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-              <select
-                value={categoryFilter}
-                onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
-                className="select"
-              >
-                <option value="">{t('dispenses.allCategories')}</option>
-                {Object.entries(CATEGORIES).map(([key, label]) => (
-                  <option key={key} value={key}>{label}</option>
+      {/* Table */}
+      <div data-tour="dispenses-table">
+        {isLoading ? (
+          <div className="surface-pro flex items-center justify-center py-20">
+            <div className="spinner w-8 h-8"></div>
+          </div>
+        ) : dispenses.length === 0 ? (
+          <div className="surface-pro flex flex-col items-center justify-center py-16 text-gray-500 dark:text-gray-400">
+            <BanknotesIcon className="w-12 h-12 mb-3 text-gray-300 dark:text-gray-600" strokeWidth={1.5} />
+            <p className="text-[14px] font-medium">{t('dispenses.noDispenses')}</p>
+            <p className="text-[12px] mt-1 t-muted">{t('dispenses.noDispensesHint')}</p>
+          </div>
+        ) : (
+          <div className="table-pro-wrap">
+            <table className="table-pro">
+              <thead>
+                <tr>
+                  <th>{t('dispenses.reference')}</th>
+                  <th>{t('dispenses.date')}</th>
+                  <th>{t('dispenses.category')}</th>
+                  <th>{t('dispenses.employee')}</th>
+                  <th>{t('dispenses.description')}</th>
+                  <th className="text-end">{t('dispenses.amount')}</th>
+                  <th>{t('dispenses.by')}</th>
+                  <th className="text-end w-20"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {dispenses.map((disp) => (
+                  <tr key={disp.id} className="group">
+                    <td>
+                      <span className="font-mono font-semibold text-gray-800 dark:text-gray-100">{disp.reference}</span>
+                    </td>
+                    <td className="tnum t-muted">{formatDate(disp.date)}</td>
+                    <td>
+                      <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                        <span className="metric-dot metric-dot-neutral" aria-hidden />
+                        {CATEGORIES[disp.category] || disp.category}
+                      </span>
+                    </td>
+                    <td>{disp.employee?.name || <span className="t-empty">-</span>}</td>
+                    <td className="t-muted max-w-[200px] truncate">
+                      {disp.description || <span className="t-empty">-</span>}
+                    </td>
+                    <td className="tnum t-strong">{formatCurrency(Number(disp.amount))}</td>
+                    <td className="t-muted">{disp.user?.name || '-'}</td>
+                    <td className="text-end">
+                      <div className="inline-flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => handleEdit(disp)}
+                          className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+                          title={t('dispenses.editDispense')}
+                        >
+                          <PencilSquareIcon className="w-4 h-4" strokeWidth={1.8} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(disp.id)}
+                          className="p-1.5 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+                          title={t('dispenses.deleteConfirm')}
+                        >
+                          <TrashIcon className="w-4 h-4" strokeWidth={1.8} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
                 ))}
-              </select>
-              <select
-                value={userFilter}
-                onChange={(e) => { setUserFilter(e.target.value); setPage(1); }}
-                className="select"
-              >
-                <option value="">{t('dispenses.allUsers')}</option>
-                {users.map(u => (
-                  <option key={u.id} value={u.id}>{u.name} ({roleLabel(u.role)})</option>
-                ))}
-              </select>
-              <select
-                value={employeeFilter}
-                onChange={(e) => { setEmployeeFilter(e.target.value); setPage(1); }}
-                className="select"
-              >
-                <option value="">{t('dispenses.allEmployees')}</option>
-                {employees.map(emp => (
-                  <option key={emp.id} value={emp.id}>{emp.name}{emp.position ? ` (${emp.position})` : ''}</option>
-                ))}
-              </select>
-              <div>{/* spacer for alignment */}</div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-              <DateInput value={dateFrom} onChange={(v) => { setDateFrom(v); setPage(1); }} placeholder={t('dispenses.fromDate')} />
-              <DateInput value={dateTo} onChange={(v) => { setDateTo(v); setPage(1); }} placeholder={t('dispenses.toDate')} />
-            </div>
+              </tbody>
+            </table>
           </div>
         )}
 
-        {/* Quick Category Filters */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 dark:border-gray-700 overflow-x-auto" data-tour="dispenses-quick-filters">
-          <button
-            onClick={() => { setCategoryFilter(''); setPage(1); }}
-            className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-              !categoryFilter ? 'bg-orange-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-            }`}
-          >
-            {t('dispenses.all')}
-          </button>
-          {Object.entries(CATEGORIES).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => { setCategoryFilter(categoryFilter === key ? '' : key); setPage(1); }}
-              className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                categoryFilter === key ? 'bg-orange-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* Table */}
-        <div className="overflow-x-auto" data-tour="dispenses-table">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="spinner w-8 h-8"></div>
-            </div>
-          ) : dispenses.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500">
-              <BanknotesIcon className="w-12 h-12 mb-3" />
-              <p className="text-lg font-semibold">{t('dispenses.noDispenses')}</p>
-              <p className="text-sm mt-1">{t('dispenses.noDispensesHint')}</p>
-            </div>
-          ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-700">
-                  <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">{t('dispenses.reference')}</th>
-                  <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">{t('dispenses.date')}</th>
-                  <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">{t('dispenses.category')}</th>
-                  <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">{t('dispenses.employee')}</th>
-                  <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">{t('dispenses.description')}</th>
-                  <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">{t('dispenses.amount')}</th>
-                  <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">{t('dispenses.by')}</th>
-                  <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3 w-20"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
-                {dispenses.map((disp) => {
-                  const catColor = CATEGORY_COLORS[disp.category] || CATEGORY_COLORS.other;
-                  return (
-                    <tr key={disp.id} className="group hover:bg-orange-50/30 dark:hover:bg-orange-900/10 transition-colors">
-                      <td className="px-4 py-3.5">
-                        <span className="font-mono text-sm font-semibold text-gray-700 dark:text-gray-300">{disp.reference}</span>
-                      </td>
-                      <td className="px-4 py-3.5 text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                        {formatDate(disp.date)}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold ${catColor.bg} ${catColor.text} ${catColor.darkBg} ${catColor.darkText}`}>
-                          {CATEGORIES[disp.category] || disp.category}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5 text-sm text-gray-700 dark:text-gray-300">
-                        {disp.employee?.name || <span className="text-gray-400 dark:text-gray-500">-</span>}
-                      </td>
-                      <td className="px-4 py-3.5 text-sm text-gray-600 dark:text-gray-400 max-w-[200px] truncate">
-                        {disp.description || <span className="text-gray-400 dark:text-gray-500">-</span>}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <span className="text-sm font-black tabular-nums text-red-600">
-                          {formatCurrency(Number(disp.amount))}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">{disp.user?.name || '-'}</span>
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => handleEdit(disp)}
-                            className="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                            title={t('dispenses.editDispense')}
-                          >
-                            <PencilSquareIcon className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(disp.id)}
-                            className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                            title={t('dispenses.deleteConfirm')}
-                          >
-                            <TrashIcon className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
-
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-gray-700">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+          <div className="flex items-center justify-between mt-3">
+            <p className="text-[12px] text-gray-500 dark:text-gray-400">
               {t('dispenses.page')} {page} {t('dispenses.of')} {totalPages} — {total} {t('dispenses.dispense')}
             </p>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:text-gray-300"
+                className="px-2.5 py-1 text-[12px] font-medium rounded-md border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:text-gray-300"
               >
                 {t('dispenses.previous')}
               </button>
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:text-gray-300"
+                className="px-2.5 py-1 text-[12px] font-medium rounded-md border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:text-gray-300"
               >
                 {t('dispenses.next')}
               </button>
@@ -636,143 +560,157 @@ export default function DispensesPage() {
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowModal(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full sm:w-[480px] mx-4 max-h-[90vh] overflow-y-auto border border-transparent dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                {editingId ? t('dispenses.editDispense') : t('dispenses.addNew')}
-              </h2>
-              <button onClick={() => setShowModal(false)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
-                <XMarkIcon className="w-5 h-5 text-gray-400" />
-              </button>
+        <>
+          <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setShowModal(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 pointer-events-none">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl flex flex-col overflow-hidden w-full max-w-[640px] max-h-[calc(100vh-3rem)] pointer-events-auto border border-gray-200/80 dark:border-gray-700">
+              <header className="flex items-center justify-between px-5 py-3 border-b border-gray-200/80 dark:border-gray-700">
+                <h2 className="text-[15px] font-semibold text-gray-900 dark:text-white">
+                  {editingId ? t('dispenses.editDispense') : t('dispenses.addNew')}
+                </h2>
+                <button onClick={() => setShowModal(false)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                  <XMarkIcon className="w-4 h-4 text-gray-500" />
+                </button>
+              </header>
+              <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+                <main className="flex-1 overflow-y-auto p-5 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('dispenses.dateLabel')} *</label>
+                      <DateInput
+                        value={formData.date}
+                        onChange={(v) => setFormData({ ...formData, date: v })}
+                        className="w-full"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('dispenses.categoryLabel')} *</label>
+                      <select
+                        value={formData.category}
+                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                        className="select w-full text-[14px] py-2"
+                        required
+                      >
+                        {Object.entries(CATEGORIES).map(([key, label]) => (
+                          <option key={key} value={key}>{label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('dispenses.employeeLabel')}</label>
+                      <select
+                        value={formData.employee_id}
+                        onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
+                        className="select w-full text-[14px] py-2"
+                      >
+                        <option value="">{t('dispenses.noEmployee')}</option>
+                        {employees.map((emp) => (
+                          <option key={emp.id} value={emp.id}>{emp.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('dispenses.amountLabel')} *</label>
+                      <input
+                        type="number"
+                        value={formData.amount}
+                        onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                        className="input w-full text-[14px] py-2 tnum"
+                        min="0.01"
+                        step="0.01"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('dispenses.descriptionLabel')}</label>
+                    <input
+                      type="text"
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      className="input w-full text-[14px] py-2"
+                      placeholder={t('dispenses.descriptionPlaceholder')}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('dispenses.notes')}</label>
+                    <textarea
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      className="input w-full text-[14px] py-2 resize-none"
+                      rows={2}
+                    />
+                  </div>
+                </main>
+                <footer className="flex gap-2 justify-end px-5 py-3 border-t border-gray-200/80 dark:border-gray-700 bg-gray-50/40 dark:bg-gray-800/40">
+                  <button
+                    type="button"
+                    onClick={() => setShowModal(false)}
+                    className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    {t('dispenses.cancel')}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSaving ? t('dispenses.saving') : editingId ? t('dispenses.update') : t('dispenses.save')}
+                  </button>
+                </footer>
+              </form>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{t('dispenses.dateLabel')} *</label>
-                  <DateInput
-                    value={formData.date}
-                    onChange={(v) => setFormData({ ...formData, date: v })}
-                    className="input w-full text-sm"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{t('dispenses.categoryLabel')} *</label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="select w-full text-sm"
-                    required
-                  >
-                    {Object.entries(CATEGORIES).map(([key, label]) => (
-                      <option key={key} value={key}>{label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{t('dispenses.employeeLabel')}</label>
-                  <select
-                    value={formData.employee_id}
-                    onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
-                    className="select w-full text-sm"
-                  >
-                    <option value="">{t('dispenses.noEmployee')}</option>
-                    {employees.map((emp) => (
-                      <option key={emp.id} value={emp.id}>{emp.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{t('dispenses.amountLabel')} *</label>
-                  <input
-                    type="number"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
-                    className="input w-full text-sm"
-                    min="0.01"
-                    step="0.01"
-                    required
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{t('dispenses.descriptionLabel')}</label>
-                <input
-                  type="text"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="input w-full text-sm"
-                  placeholder={t('dispenses.descriptionPlaceholder')}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{t('dispenses.notes')}</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="input w-full text-sm"
-                  rows={2}
-                />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button type="submit" disabled={isSaving} className="flex-1 px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-l from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 rounded-xl transition-all disabled:opacity-50">
-                  {isSaving ? t('dispenses.saving') : editingId ? t('dispenses.update') : t('dispenses.save')}
-                </button>
-                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl transition-colors">
-                  {t('dispenses.cancel')}
-                </button>
-              </div>
-            </form>
           </div>
-        </div>
+        </>
       )}
 
       {/* Clean Old Dispenses Modal */}
       {showCleanModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/40 flex items-center justify-center flex-shrink-0">
-                  <TrashIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
+        <>
+          <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setShowCleanModal(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 pointer-events-none">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl flex flex-col overflow-hidden w-full max-w-[480px] pointer-events-auto border border-gray-200/80 dark:border-gray-700">
+              <header className="flex items-center gap-3 px-5 py-3 border-b border-gray-200/80 dark:border-gray-700">
+                <span className="metric-dot metric-dot-red" aria-hidden />
+                <h3 className="text-[15px] font-semibold text-gray-900 dark:text-gray-100">حذف المصاريف القديمة</h3>
+              </header>
+              <main className="p-5 space-y-4">
+                <p className="text-[13px] text-gray-600 dark:text-gray-400">
+                  سيتم حذف جميع المصاريف قبل التاريخ المحدد بشكل نهائي. هذا الإجراء لا يمكن التراجع عنه.
+                </p>
+                <div>
+                  <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1">حذف كل المصاريف قبل</label>
+                  <DateInput
+                    value={cleanBeforeDate}
+                    onChange={setCleanBeforeDate}
+                    className="w-full"
+                  />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">حذف المصاريف القديمة</h3>
-              </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-5">
-                سيتم حذف جميع المصاريف قبل التاريخ المحدد بشكل نهائي. هذا الإجراء لا يمكن التراجع عنه.
-              </p>
-              <div className="mb-5">
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">حذف كل المصاريف قبل</label>
-                <DateInput
-                  value={cleanBeforeDate}
-                  onChange={setCleanBeforeDate}
-                  className="w-full"
-                />
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={handleCleanOld}
-                  disabled={!cleanBeforeDate || isCleaning}
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-l from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 rounded-xl transition-all disabled:opacity-50"
-                >
-                  {isCleaning
-                    ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    : <><TrashIcon className="w-4 h-4" /> حذف نهائي</>
-                  }
-                </button>
+              </main>
+              <footer className="flex gap-2 justify-end px-5 py-3 border-t border-gray-200/80 dark:border-gray-700 bg-gray-50/40 dark:bg-gray-800/40">
                 <button
                   onClick={() => setShowCleanModal(false)}
-                  className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
+                  className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   إلغاء
                 </button>
-              </div>
+                <button
+                  onClick={handleCleanOld}
+                  disabled={!cleanBeforeDate || isCleaning}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isCleaning
+                    ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    : <><TrashIcon className="w-3.5 h-3.5" strokeWidth={1.8} /> حذف نهائي</>
+                  }
+                </button>
+              </footer>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Guided Tour */}

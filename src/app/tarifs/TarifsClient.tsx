@@ -16,6 +16,7 @@ const UI = {
     subtitle: 'ابدأ مجاناً لمدة 14 يوم. بدون بطاقة ائتمان. ألغِ في أي وقت.',
     currency: '/ شهر',
     free: 'مجاناً',
+    custom: 'حسب الطلب',
     popular: 'الأكثر شيوعاً',
     ctaFree: 'ابدأ التجربة المجانية',
     ctaPaid: 'اشترك الآن',
@@ -24,9 +25,9 @@ const UI = {
     allIncludeSub: 'بغضّ النظر عن الخطة التي تختارها، كل عملائنا يستفيدون من:',
     compareTitle: 'مقارنة تفصيلية بين الخطط',
     compareSub: 'كل ما تحتاج معرفته لاختيار الخطة المناسبة',
-    enterpriseTitle: 'تحتاج أكثر من ذلك؟',
+    enterpriseTitle: 'تحتاج كل قوة TrackSera؟',
     enterpriseSub:
-      'إذا كانت شركتك تحتاج إلى مستخدمين غير محدودين، منتجات أكثر، أو تكاملات مخصصة — تواصل معنا لحل Enterprise مصمم خصيصاً لك.',
+      'خطة الأعمال تمنحك منتجات ومستخدمين بلا حدود، البيع المتنقل، المستودعات المتعددة، التطبيقات الكاملة والتكاملات المخصصة — تواصل معنا للحصول على عرض مفصّل.',
     faqTitle: 'أسئلة شائعة حول الأسعار',
     backHome: 'العودة للرئيسية',
   },
@@ -36,6 +37,7 @@ const UI = {
     subtitle: "Commencez gratuitement pendant 14 jours. Sans carte bancaire. Annulez à tout moment.",
     currency: '/ mois',
     free: 'Gratuit',
+    custom: 'Sur devis',
     popular: 'Le plus choisi',
     ctaFree: "Démarrer l'essai gratuit",
     ctaPaid: "S'abonner",
@@ -44,9 +46,9 @@ const UI = {
     allIncludeSub: "Peu importe la formule choisie, tous nos clients bénéficient de :",
     compareTitle: 'Comparaison détaillée des formules',
     compareSub: 'Tout ce qu\'il faut savoir pour choisir la bonne formule',
-    enterpriseTitle: "Besoin de plus ?",
+    enterpriseTitle: "Besoin de toute la puissance de TrackSera ?",
     enterpriseSub:
-      "Utilisateurs illimités, catalogue plus large, intégrations sur mesure — contactez-nous pour une offre Enterprise adaptée à votre entreprise.",
+      "La formule Business vous offre produits et utilisateurs illimités, vente mobile, multi-entrepôts, applications complètes et intégrations sur mesure — contactez-nous pour une offre adaptée.",
     faqTitle: 'Questions fréquentes sur les tarifs',
     backHome: "Retour à l'accueil",
   },
@@ -56,6 +58,7 @@ const UI = {
     subtitle: 'Start free for 14 days. No credit card. Cancel anytime.',
     currency: '/mo',
     free: 'Free',
+    custom: 'Custom',
     popular: 'Most popular',
     ctaFree: 'Start free trial',
     ctaPaid: 'Subscribe',
@@ -64,21 +67,25 @@ const UI = {
     allIncludeSub: 'Whichever plan you choose, all our customers benefit from:',
     compareTitle: 'Detailed plan comparison',
     compareSub: 'Everything you need to know to pick the right plan',
-    enterpriseTitle: 'Need more?',
+    enterpriseTitle: 'Need the full power of TrackSera?',
     enterpriseSub:
-      'If your company needs unlimited users, a larger catalog, or custom integrations — get in touch for an Enterprise plan tailored to you.',
+      'The Business plan gives you unlimited products and users, mobile sales, multi-warehouse, full apps and custom integrations — get in touch for a tailored quote.',
     faqTitle: 'Frequently asked questions about pricing',
     backHome: 'Back to home',
   },
 };
 
+// Plans: Free, Starter (4 500 DZD/mo), Business (contact us — unlimited).
+// priceText is the numeric price as a display string (DZD); null = Free.
+// contact:true renders "Sur devis" and a contact CTA.
 const plansData = {
   ar: [
     {
       id: 'free',
       name: 'مجاني',
       subtitle: 'للتجربة',
-      price: 0,
+      priceText: null as string | null,
+      contact: false,
       popular: false,
       description: 'جرّب كل الميزات الأساسية لمدة 14 يوم.',
       features: [
@@ -93,53 +100,39 @@ const plansData = {
     {
       id: 'starter',
       name: 'المبتدئ',
-      subtitle: 'للمحلات الصغيرة',
-      price: 19,
-      popular: false,
-      description: 'مثالي للمحلات الصغيرة التي تحتاج كاشير وفوترة.',
-      features: [
-        'حتى 100 منتج',
-        'مستخدم واحد',
-        'إدارة الطلبات والمبيعات',
-        'إدارة العملاء والموردين',
-        'تقارير المبيعات والديون',
-        'دعم عبر البريد والهاتف',
-      ],
-    },
-    {
-      id: 'pro',
-      name: 'المحترف',
-      subtitle: 'للشركات المتوسطة',
-      price: 49,
+      subtitle: 'للمحلات والموزعين الصغار',
+      priceText: '4 500',
+      contact: false,
       popular: true,
-      description: 'الخطة الأكثر اختياراً من طرف الموزعين.',
+      description: 'كل ما تحتاجه لإدارة نشاطك اليومي.',
       features: [
         'حتى 500 منتج',
-        'حتى 5 مستخدمين',
-        'مستخدمون إضافيون متاحون',
-        'التوصيل وتتبع GPS',
+        'حتى 3 مستخدمين',
+        'إدارة الطلبات والمبيعات',
+        'إدارة العملاء والموردين',
         'إدارة الصندوق (POS)',
-        'مستودعات متعددة',
-        'تطبيق موبايل للسائق',
-        'دعم فني سريع',
+        'التوصيل وتتبع GPS',
+        'تقارير المبيعات والديون',
+        'دعم بالبريد والهاتف',
       ],
     },
     {
       id: 'business',
       name: 'الأعمال',
-      subtitle: 'للشركات الكبيرة',
-      price: 99,
+      subtitle: 'بلا حدود',
+      priceText: null,
+      contact: true,
       popular: false,
-      description: 'للشركات التي تحتاج البيع المتنقل وتطبيقات الموبايل.',
+      description: 'كامل قوة TrackSera بدون أي حدود.',
       features: [
-        'حتى 2,000 منتج',
-        'حتى 10 مستخدمين',
-        'مستخدمون إضافيون متاحون',
-        'كل ميزات المحترف',
+        'منتجات غير محدودة',
+        'مستخدمون غير محدودون',
+        'كل ميزات المبتدئ',
         'البيع المتنقل (Cashvan)',
+        'مستودعات متعددة',
         'تطبيقات موبايل كاملة',
-        'أولوية الدعم الفني',
-        'تدريب مخصص',
+        'تكاملات مخصصة',
+        'أولوية الدعم وتدريب مخصص',
       ],
     },
   ],
@@ -148,7 +141,8 @@ const plansData = {
       id: 'free',
       name: 'Gratuit',
       subtitle: 'Pour essayer',
-      price: 0,
+      priceText: null as string | null,
+      contact: false,
       popular: false,
       description: 'Essayez toutes les fonctions de base pendant 14 jours.',
       features: [
@@ -163,53 +157,39 @@ const plansData = {
     {
       id: 'starter',
       name: 'Starter',
-      subtitle: 'Petits commerces',
-      price: 19,
-      popular: false,
-      description: 'Idéal pour les petits commerces qui veulent caisse et facturation.',
+      subtitle: 'Commerces & petits distributeurs',
+      priceText: '4 500',
+      contact: false,
+      popular: true,
+      description: 'Tout ce qu’il faut pour gérer votre activité au quotidien.',
       features: [
-        "Jusqu'à 100 produits",
-        '1 utilisateur',
+        "Jusqu'à 500 produits",
+        "Jusqu'à 3 utilisateurs",
         'Commandes & ventes',
         'Clients & fournisseurs',
+        'Caisse (POS)',
+        'Livraison & suivi GPS',
         'Rapports ventes & dettes',
         'Support email & téléphone',
       ],
     },
     {
-      id: 'pro',
-      name: 'Pro',
-      subtitle: 'Entreprises moyennes',
-      price: 49,
-      popular: true,
-      description: 'La formule la plus choisie par les distributeurs.',
-      features: [
-        "Jusqu'à 500 produits",
-        "Jusqu'à 5 utilisateurs",
-        'Utilisateurs supplémentaires disponibles',
-        'Livraison & suivi GPS',
-        'Caisse (POS)',
-        'Multi-entrepôts',
-        'App mobile livreur',
-        'Support rapide',
-      ],
-    },
-    {
       id: 'business',
       name: 'Business',
-      subtitle: 'Grandes entreprises',
-      price: 99,
+      subtitle: 'Sans limite',
+      priceText: null,
+      contact: true,
       popular: false,
-      description: 'Pour les entreprises qui ont besoin de la vente mobile et des apps.',
+      description: 'Toute la puissance de TrackSera, sans aucune limite.',
       features: [
-        "Jusqu'à 2 000 produits",
-        "Jusqu'à 10 utilisateurs",
-        'Utilisateurs supplémentaires disponibles',
-        'Toutes les fonctions Pro',
+        'Produits illimités',
+        'Utilisateurs illimités',
+        'Toutes les fonctions Starter',
         'Vente mobile (Cashvan)',
+        'Multi-entrepôts',
         'Applications mobiles complètes',
-        'Support prioritaire',
-        'Formation dédiée',
+        'Intégrations sur mesure',
+        'Support prioritaire & formation dédiée',
       ],
     },
   ],
@@ -218,7 +198,8 @@ const plansData = {
       id: 'free',
       name: 'Free',
       subtitle: 'To try it out',
-      price: 0,
+      priceText: null as string | null,
+      contact: false,
       popular: false,
       description: 'Try all the core features for 14 days.',
       features: [
@@ -233,53 +214,39 @@ const plansData = {
     {
       id: 'starter',
       name: 'Starter',
-      subtitle: 'Small shops',
-      price: 19,
-      popular: false,
-      description: 'Ideal for small shops that need a cash register and invoicing.',
+      subtitle: 'Shops & small distributors',
+      priceText: '4 500',
+      contact: false,
+      popular: true,
+      description: 'Everything you need to run your daily business.',
       features: [
-        'Up to 100 products',
-        '1 user',
+        'Up to 500 products',
+        'Up to 3 users',
         'Orders & sales',
         'Customers & suppliers',
+        'Cash register (POS)',
+        'Delivery & GPS tracking',
         'Sales & debt reports',
         'Email & phone support',
       ],
     },
     {
-      id: 'pro',
-      name: 'Pro',
-      subtitle: 'Mid-sized companies',
-      price: 49,
-      popular: true,
-      description: 'The plan most chosen by distributors.',
-      features: [
-        'Up to 500 products',
-        'Up to 5 users',
-        'Additional users available',
-        'Delivery & GPS tracking',
-        'Cash register (POS)',
-        'Multi-warehouse',
-        'Driver mobile app',
-        'Fast support',
-      ],
-    },
-    {
       id: 'business',
       name: 'Business',
-      subtitle: 'Large companies',
-      price: 99,
+      subtitle: 'No limits',
+      priceText: null,
+      contact: true,
       popular: false,
-      description: 'For companies that need mobile sales and mobile apps.',
+      description: 'The full power of TrackSera with no limits.',
       features: [
-        'Up to 2,000 products',
-        'Up to 10 users',
-        'Additional users available',
-        'All Pro features',
+        'Unlimited products',
+        'Unlimited users',
+        'All Starter features',
         'Mobile sales (CashVan)',
+        'Multi-warehouse',
         'Full mobile apps',
-        'Priority support',
-        'Dedicated training',
+        'Custom integrations',
+        'Priority support & dedicated training',
       ],
     },
   ],
@@ -317,46 +284,46 @@ const allPlansInclude = {
 
 const compareRows = {
   ar: [
-    { label: 'عدد المنتجات', values: ['25', '100', '500', '2,000'] },
-    { label: 'عدد المستخدمين', values: ['1', '1', '5', '10'] },
-    { label: 'مستخدمون إضافيون', values: ['—', '—', 'متاح', 'متاح'] },
-    { label: 'إدارة الطلبات والتوصيل', values: ['✓', '✓', '✓', '✓'] },
-    { label: 'فوترة PDF', values: ['✓', '✓', '✓', '✓'] },
-    { label: 'إدارة العملاء والموردين', values: ['✓', '✓', '✓', '✓'] },
-    { label: 'إدارة الصندوق (POS)', values: ['—', '—', '✓', '✓'] },
-    { label: 'مستودعات متعددة', values: ['—', '—', '✓', '✓'] },
-    { label: 'تتبع GPS للسائقين', values: ['—', '—', '✓', '✓'] },
-    { label: 'البيع المتنقل (Cashvan)', values: ['—', '—', '—', '✓'] },
-    { label: 'تطبيقات موبايل كاملة', values: ['—', '—', 'جزئي', '✓'] },
-    { label: 'أولوية الدعم', values: ['—', '—', '—', '✓'] },
+    { label: 'عدد المنتجات', values: ['25', '500', 'غير محدود'] },
+    { label: 'عدد المستخدمين', values: ['1', '3', 'غير محدود'] },
+    { label: 'إدارة الطلبات والتوصيل', values: ['✓', '✓', '✓'] },
+    { label: 'فوترة PDF', values: ['✓', '✓', '✓'] },
+    { label: 'إدارة العملاء والموردين', values: ['✓', '✓', '✓'] },
+    { label: 'إدارة الصندوق (POS)', values: ['—', '✓', '✓'] },
+    { label: 'تتبع GPS للسائقين', values: ['—', '✓', '✓'] },
+    { label: 'مستودعات متعددة', values: ['—', '—', '✓'] },
+    { label: 'البيع المتنقل (Cashvan)', values: ['—', '—', '✓'] },
+    { label: 'تطبيقات موبايل كاملة', values: ['—', '—', '✓'] },
+    { label: 'تكاملات مخصصة', values: ['—', '—', '✓'] },
+    { label: 'أولوية الدعم', values: ['—', '—', '✓'] },
   ],
   fr: [
-    { label: 'Nombre de produits', values: ['25', '100', '500', '2 000'] },
-    { label: "Nombre d'utilisateurs", values: ['1', '1', '5', '10'] },
-    { label: 'Utilisateurs supplémentaires', values: ['—', '—', 'Disponible', 'Disponible'] },
-    { label: 'Commandes & livraison', values: ['✓', '✓', '✓', '✓'] },
-    { label: 'Facturation PDF', values: ['✓', '✓', '✓', '✓'] },
-    { label: 'Clients & fournisseurs', values: ['✓', '✓', '✓', '✓'] },
-    { label: 'Caisse (POS)', values: ['—', '—', '✓', '✓'] },
-    { label: 'Multi-entrepôts', values: ['—', '—', '✓', '✓'] },
-    { label: 'Suivi GPS des livreurs', values: ['—', '—', '✓', '✓'] },
-    { label: 'Vente mobile (Cashvan)', values: ['—', '—', '—', '✓'] },
-    { label: 'Applications mobiles complètes', values: ['—', '—', 'Partiel', '✓'] },
-    { label: 'Support prioritaire', values: ['—', '—', '—', '✓'] },
+    { label: 'Nombre de produits', values: ['25', '500', 'Illimité'] },
+    { label: "Nombre d'utilisateurs", values: ['1', '3', 'Illimité'] },
+    { label: 'Commandes & livraison', values: ['✓', '✓', '✓'] },
+    { label: 'Facturation PDF', values: ['✓', '✓', '✓'] },
+    { label: 'Clients & fournisseurs', values: ['✓', '✓', '✓'] },
+    { label: 'Caisse (POS)', values: ['—', '✓', '✓'] },
+    { label: 'Suivi GPS des livreurs', values: ['—', '✓', '✓'] },
+    { label: 'Multi-entrepôts', values: ['—', '—', '✓'] },
+    { label: 'Vente mobile (Cashvan)', values: ['—', '—', '✓'] },
+    { label: 'Applications mobiles complètes', values: ['—', '—', '✓'] },
+    { label: 'Intégrations sur mesure', values: ['—', '—', '✓'] },
+    { label: 'Support prioritaire', values: ['—', '—', '✓'] },
   ],
   en: [
-    { label: 'Number of products', values: ['25', '100', '500', '2,000'] },
-    { label: 'Number of users', values: ['1', '1', '5', '10'] },
-    { label: 'Additional users', values: ['—', '—', 'Available', 'Available'] },
-    { label: 'Orders & delivery', values: ['✓', '✓', '✓', '✓'] },
-    { label: 'PDF invoicing', values: ['✓', '✓', '✓', '✓'] },
-    { label: 'Customers & suppliers', values: ['✓', '✓', '✓', '✓'] },
-    { label: 'Cash register (POS)', values: ['—', '—', '✓', '✓'] },
-    { label: 'Multi-warehouse', values: ['—', '—', '✓', '✓'] },
-    { label: 'Driver GPS tracking', values: ['—', '—', '✓', '✓'] },
-    { label: 'Mobile sales (CashVan)', values: ['—', '—', '—', '✓'] },
-    { label: 'Full mobile apps', values: ['—', '—', 'Partial', '✓'] },
-    { label: 'Priority support', values: ['—', '—', '—', '✓'] },
+    { label: 'Number of products', values: ['25', '500', 'Unlimited'] },
+    { label: 'Number of users', values: ['1', '3', 'Unlimited'] },
+    { label: 'Orders & delivery', values: ['✓', '✓', '✓'] },
+    { label: 'PDF invoicing', values: ['✓', '✓', '✓'] },
+    { label: 'Customers & suppliers', values: ['✓', '✓', '✓'] },
+    { label: 'Cash register (POS)', values: ['—', '✓', '✓'] },
+    { label: 'Driver GPS tracking', values: ['—', '✓', '✓'] },
+    { label: 'Multi-warehouse', values: ['—', '—', '✓'] },
+    { label: 'Mobile sales (CashVan)', values: ['—', '—', '✓'] },
+    { label: 'Full mobile apps', values: ['—', '—', '✓'] },
+    { label: 'Custom integrations', values: ['—', '—', '✓'] },
+    { label: 'Priority support', values: ['—', '—', '✓'] },
   ],
 };
 
@@ -368,11 +335,11 @@ const faqData = {
     },
     {
       q: 'كيف يمكنني الدفع؟',
-      a: 'الدفع بالبطاقة البنكية عبر شريكنا Paddle. تتم الفوترة شهرياً أو سنوياً، ويمكنك تغيير وسيلة الدفع في أي وقت.',
+      a: 'الدفع بالبطاقة البنكية، CCP أو بريدي موب (BaridiMob). تتم الفوترة شهرياً أو سنوياً، ويمكنك تغيير وسيلة الدفع في أي وقت.',
     },
     {
       q: 'هل الأسعار تشمل الضرائب؟',
-      a: 'الأسعار المعروضة بالدولار الأمريكي وقد تُضاف الضرائب المحلية (TVA / Sales Tax) عند الدفع حسب الدولة، يتم احتسابها وتحصيلها من قبل Paddle بصفته Merchant of Record.',
+      a: 'الأسعار معروضة بالدينار الجزائري (DZD) شاملةً كل الرسوم. بدون أي رسوم خفية أو رسوم إعداد.',
     },
     {
       q: 'هل يمكنني تغيير خطتي لاحقاً؟',
@@ -402,11 +369,11 @@ const faqData = {
     },
     {
       q: 'Comment puis-je payer ?',
-      a: "Paiement par carte bancaire via notre partenaire Paddle. La facturation est mensuelle ou annuelle, et vous pouvez changer de moyen de paiement à tout moment depuis votre tableau de bord.",
+      a: "Paiement par carte bancaire, CCP ou BaridiMob. La facturation est mensuelle ou annuelle, et vous pouvez changer de moyen de paiement à tout moment.",
     },
     {
       q: 'Les prix incluent-ils les taxes ?',
-      a: "Les prix affichés sont en USD. Les taxes locales (TVA / Sales Tax) peuvent être ajoutées au paiement selon votre pays, calculées et collectées par Paddle en tant que Merchant of Record.",
+      a: "Les prix sont affichés en dinar algérien (DZD), toutes taxes comprises. Aucun frais caché ni frais d'installation.",
     },
     {
       q: 'Puis-je changer de formule plus tard ?',
@@ -436,11 +403,11 @@ const faqData = {
     },
     {
       q: 'How can I pay?',
-      a: 'Card payment via our partner Paddle. Billing is monthly or yearly, and you can change your payment method at any time from your dashboard.',
+      a: 'Pay by bank card, CCP or BaridiMob. Billing is monthly or yearly, and you can change your payment method at any time.',
     },
     {
       q: 'Do prices include taxes?',
-      a: 'Prices are shown in USD. Local taxes (VAT / Sales Tax) may be added at checkout depending on your country. They are calculated and collected by Paddle, our Merchant of Record, which handles tax compliance for us.',
+      a: 'Prices are shown in Algerian dinar (DZD), all taxes included. No hidden fees and no setup fees.',
     },
     {
       q: 'Can I change my plan later?',
@@ -490,6 +457,9 @@ export default function TarifsClient() {
               <Link href="/#modules" className="hover:text-gray-900 transition-colors">
                 {locale === 'ar' ? 'الوحدات' : locale === 'en' ? 'Modules' : 'Modules'}
               </Link>
+              <Link href="/logiciel-de-distribution" className="hover:text-gray-900 transition-colors">
+                {locale === 'ar' ? 'برنامج التوزيع' : locale === 'en' ? 'Distribution software' : 'Logiciel de distribution'}
+              </Link>
               <Link href="/tarifs" className="text-gray-900 font-medium">
                 {locale === 'ar' ? 'الأسعار' : locale === 'en' ? 'Pricing' : 'Tarifs'}
               </Link>
@@ -530,8 +500,8 @@ export default function TarifsClient() {
 
       {/* ── Plans ── */}
       <section className="py-16 sm:py-20 border-b border-gray-100">
-        <div className="max-w-[1200px] mx-auto px-5 sm:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px bg-gray-100 rounded-2xl overflow-hidden border border-gray-100">
+        <div className="max-w-[1100px] mx-auto px-5 sm:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-gray-100 rounded-2xl overflow-hidden border border-gray-100">
             {plans.map((plan) => (
               <div
                 key={plan.id}
@@ -555,13 +525,30 @@ export default function TarifsClient() {
                 </div>
 
                 <div className="flex items-baseline gap-1.5 mb-4">
-                  <span
-                    className={`text-[34px] font-bold tracking-tight ${plan.popular ? 'text-white' : 'text-gray-900'}`}
-                    dir="ltr"
-                  >
-                    {plan.price === 0 ? ui.free : `$${plan.price}`}
-                  </span>
-                  {plan.price > 0 && <span className="text-[12px] text-gray-400">{ui.currency}</span>}
+                  {plan.contact ? (
+                    <span
+                      className={`text-[28px] font-bold tracking-tight ${plan.popular ? 'text-white' : 'text-gray-900'}`}
+                    >
+                      {ui.custom}
+                    </span>
+                  ) : plan.priceText ? (
+                    <>
+                      <span
+                        className={`text-[34px] font-bold tracking-tight ${plan.popular ? 'text-white' : 'text-gray-900'}`}
+                        dir="ltr"
+                      >
+                        {plan.priceText}
+                        <span className="text-[15px] font-semibold"> DZD</span>
+                      </span>
+                      <span className="text-[12px] text-gray-400">{ui.currency}</span>
+                    </>
+                  ) : (
+                    <span
+                      className={`text-[34px] font-bold tracking-tight ${plan.popular ? 'text-white' : 'text-gray-900'}`}
+                    >
+                      {ui.free}
+                    </span>
+                  )}
                 </div>
 
                 <p className={`text-[12px] leading-relaxed mb-5 ${plan.popular ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -594,6 +581,17 @@ export default function TarifsClient() {
                     }`}
                   >
                     {ui.ctaFree}
+                  </Link>
+                ) : plan.contact ? (
+                  <Link
+                    href="/#contact"
+                    className={`block w-full py-2.5 text-center text-[13px] font-medium rounded-lg transition-colors ${
+                      plan.popular
+                        ? 'bg-white text-gray-900 hover:bg-gray-100'
+                        : 'bg-gray-900 text-white hover:bg-gray-800'
+                    }`}
+                  >
+                    {ui.ctaContact}
                   </Link>
                 ) : (
                   <button
@@ -654,7 +652,7 @@ export default function TarifsClient() {
 
       {/* ── Comparison table ── */}
       <section className="py-16 sm:py-20 border-b border-gray-100">
-        <div className="max-w-[1200px] mx-auto px-5 sm:px-8">
+        <div className="max-w-[1100px] mx-auto px-5 sm:px-8">
           <div className="text-center mb-10">
             <h2 className="text-[26px] sm:text-[32px] font-bold tracking-[-0.02em] text-gray-900">{ui.compareTitle}</h2>
             <p className="mt-3 text-[15px] text-gray-500">{ui.compareSub}</p>
@@ -698,7 +696,7 @@ export default function TarifsClient() {
         </div>
       </section>
 
-      {/* ── Enterprise CTA ── */}
+      {/* ── Enterprise / Business CTA ── */}
       <section className="py-16 sm:py-20 border-b border-gray-100">
         <div className="max-w-[1200px] mx-auto px-5 sm:px-8">
           <div className="relative rounded-2xl bg-gray-900 text-white p-10 sm:p-14 overflow-hidden">

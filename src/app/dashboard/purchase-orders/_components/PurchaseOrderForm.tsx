@@ -7,6 +7,8 @@ import DateInput from '@/components/ui/DateInput';
 import { purchaseOrdersApi, productsApi, suppliersApi, warehousesApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { useLocale } from '@/lib/i18n/context';
+import { PageHeader } from '@/components/dashboard';
+import { ArrowLeftIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 interface Product {
   id: number;
@@ -418,22 +420,24 @@ export default function PurchaseOrderForm({ purchaseOrderId }: PurchaseOrderForm
   return (
     <div>
       {/* Keyboard Shortcuts Bar — desktop only (no physical keyboard on mobile) */}
-      <div className="hidden md:flex bg-green-800 text-white px-4 py-2 rounded-lg mb-4 items-center gap-6 text-sm">
-        <span className="font-bold">{t('purchases.shortcuts')}:</span>
-        <span><kbd className="bg-green-600 px-2 py-0.5 rounded">F1</kbd> {t('purchases.supplierLabel')}</span>
-        <span><kbd className="bg-green-600 px-2 py-0.5 rounded">F2</kbd> {t('purchases.product')}</span>
-        <span><kbd className="bg-green-600 px-2 py-0.5 rounded">F4</kbd> {t('common.save')}</span>
-        <span><kbd className="bg-green-600 px-2 py-0.5 rounded">↑↓</kbd> {t('purchases.navigate')}</span>
-        <span><kbd className="bg-green-600 px-2 py-0.5 rounded">Enter</kbd> {t('purchases.confirm')}</span>
-        <span><kbd className="bg-green-600 px-2 py-0.5 rounded">Esc</kbd> {t('purchases.close')}</span>
+      <div className="hidden md:flex bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-md mb-3 items-center gap-4 text-[12px]">
+        <span className="font-semibold text-gray-700 dark:text-gray-200">{t('purchases.shortcuts')}:</span>
+        <span><kbd className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-1.5 py-0.5 rounded text-[10px] font-mono">F1</kbd> {t('purchases.supplierLabel')}</span>
+        <span><kbd className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-1.5 py-0.5 rounded text-[10px] font-mono">F2</kbd> {t('purchases.product')}</span>
+        <span><kbd className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-1.5 py-0.5 rounded text-[10px] font-mono">F4</kbd> {t('common.save')}</span>
+        <span><kbd className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-1.5 py-0.5 rounded text-[10px] font-mono">↑↓</kbd> {t('purchases.navigate')}</span>
+        <span><kbd className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-1.5 py-0.5 rounded text-[10px] font-mono">Enter</kbd> {t('purchases.confirm')}</span>
+        <span><kbd className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-1.5 py-0.5 rounded text-[10px] font-mono">Esc</kbd> {t('purchases.close')}</span>
       </div>
 
       {/* Quick Entry Modal */}
       {quickEntryModal.show && quickEntryModal.product && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-96 max-w-full mx-4">
-            <h3 className="text-lg font-bold mb-4 text-center text-gray-900 dark:text-gray-100">{quickEntryModal.product.name}</h3>
-            <div className="space-y-4">
+        <>
+          <div className="fixed inset-0 bg-black/40 z-40" onClick={() => { setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0 }); barcodeInputRef.current?.focus(); }} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 pointer-events-none">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl flex flex-col overflow-hidden w-full max-w-[420px] max-h-[calc(100vh-3rem)] pointer-events-auto p-5">
+            <h3 className="text-base font-semibold mb-3 text-center text-gray-900 dark:text-gray-100">{quickEntryModal.product.name}</h3>
+            <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('purchases.quantity')}</label>
                 <input
@@ -476,9 +480,9 @@ export default function PurchaseOrderForm({ purchaseOrderId }: PurchaseOrderForm
                   min="0"
                 />
               </div>
-              <div className="text-center text-lg font-bold text-green-600 dark:text-green-400">
+              <div className="text-center text-base font-semibold text-gray-900 dark:text-gray-100 tnum">
                 {t('purchases.subtotal')}: {formatCurrency(quickEntryModal.unitPrice * (quickEntryModal.product?.pieces_per_package || 1) * quickEntryModal.quantity)}
-                <div className="text-xs text-gray-500 dark:text-gray-400 font-normal">
+                <div className="text-[11px] text-gray-500 dark:text-gray-400 font-normal mt-0.5">
                   ({quickEntryModal.unitPrice} × {quickEntryModal.product?.pieces_per_package || 1} {t('purchases.piece')} × {quickEntryModal.quantity})
                 </div>
               </div>
@@ -486,7 +490,7 @@ export default function PurchaseOrderForm({ purchaseOrderId }: PurchaseOrderForm
                 <button
                   type="button"
                   onClick={confirmQuickEntry}
-                  className="btn btn-primary flex-1"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] font-bold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors"
                 >
                   {t('purchases.add')} (Enter)
                 </button>
@@ -496,47 +500,47 @@ export default function PurchaseOrderForm({ purchaseOrderId }: PurchaseOrderForm
                     setQuickEntryModal({ show: false, product: null, quantity: 1, unitPrice: 0 });
                     barcodeInputRef.current?.focus();
                   }}
-                  className="btn btn-secondary flex-1"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   {t('purchases.cancel')} (Esc)
                 </button>
               </div>
             </div>
           </div>
-        </div>
+          </div>
+        </>
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard/purchase-orders" className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {isEditMode ? (t('purchases.editPoTitle') || 'Edit Purchase Order') : t('purchases.newPoTitle')}
-            </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{t('purchases.newPoSubtitleFr')}</p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title={isEditMode ? (t('purchases.editPoTitle') || 'Edit Purchase Order') : t('purchases.newPoTitle')}
+        subtitle={t('purchases.newPoSubtitleFr')}
+        breadcrumb={[
+          { label: t('purchases.poTitle'), href: '/dashboard/purchase-orders' },
+          { label: isEditMode ? (t('purchases.editPoTitle') || 'Edit') : t('purchases.newPoTitle') },
+        ]}
+      >
+        <Link
+          href="/dashboard/purchase-orders"
+          className="inline-flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+        >
+          <ArrowLeftIcon className="w-4 h-4 rtl:rotate-180" />
+          {t('purchases.cancel')}
+        </Link>
+      </PageHeader>
 
-      {/* Info Box */}
-      <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 mb-4">
-        <p className="text-sm text-green-700 dark:text-green-300">
-          {t('purchases.poNoStockEffect')}
-        </p>
-      </div>
+      {/* Info note */}
+      <p className="text-[12px] text-gray-500 dark:text-gray-400 mb-3">
+        {t('purchases.poNoStockEffect')}
+      </p>
 
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Basic Info */}
-            <div className="card">
-              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">{t('purchases.orderInfo')}</h2>
+            <div className="surface-pro">
+              <h2 className="surface-heading mb-3">{t('purchases.orderInfo')}</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="relative">
                   <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('purchases.supplierLabel')}</label>
@@ -597,7 +601,7 @@ export default function PurchaseOrderForm({ purchaseOrderId }: PurchaseOrderForm
                   {showSupplierDropdown && (
                     <div ref={supplierListRef} className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                       <div
-                        className={`px-3 py-2 cursor-pointer border-b border-gray-200 dark:border-gray-700 ${supplierHighlightIndex === 0 ? 'bg-green-100 dark:bg-green-900' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                        className={`px-3 py-2 cursor-pointer border-b border-gray-200 dark:border-gray-700 ${supplierHighlightIndex === 0 ? 'bg-gray-100 dark:bg-gray-700' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                         onClick={() => {
                           setSupplierId('');
                           setSupplierSearch('');
@@ -616,7 +620,7 @@ export default function PurchaseOrderForm({ purchaseOrderId }: PurchaseOrderForm
                         .map((supplier, index) => (
                           <div
                             key={supplier.id}
-                            className={`px-3 py-2 cursor-pointer ${supplierHighlightIndex === index + 1 ? 'bg-green-100 dark:bg-green-900' : 'hover:bg-green-50 dark:hover:bg-gray-700'}`}
+                            className={`px-3 py-2 cursor-pointer ${supplierHighlightIndex === index + 1 ? 'bg-gray-100 dark:bg-gray-700' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                             onClick={() => {
                               setSupplierId(supplier.id.toString());
                               setSupplierSearch(supplier.name);
@@ -672,8 +676,8 @@ export default function PurchaseOrderForm({ purchaseOrderId }: PurchaseOrderForm
             </div>
 
             {/* Product Search */}
-            <div className="card">
-              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">{t('purchases.addProducts')}</h2>
+            <div className="surface-pro">
+              <h2 className="surface-heading mb-3">{t('purchases.addProducts')}</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('purchases.barcodeSearch')}</label>
@@ -745,14 +749,14 @@ export default function PurchaseOrderForm({ purchaseOrderId }: PurchaseOrderForm
                               key={product.id}
                               type="button"
                               onClick={() => openQuickEntryModal(product)}
-                              className={`w-full p-3 text-start border-b last:border-b-0 border-gray-200 dark:border-gray-700 ${isHighlighted ? 'bg-green-100 dark:bg-green-900' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                              className={`w-full p-3 text-start border-b last:border-b-0 border-gray-200 dark:border-gray-700 ${isHighlighted ? 'bg-gray-100 dark:bg-gray-700' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                             >
                               <div className="font-medium text-gray-900 dark:text-gray-100">{product.name}</div>
                               <div className="text-sm text-gray-500 dark:text-gray-400 flex justify-between">
                                 <span>{product.barcode}</span>
                                 <span>
                                   {formatCurrency(unitPrice)} / {unitName}
-                                  {piecesPerPkg > 1 && <span className="text-green-500 dark:text-green-400 ms-1">({piecesPerPkg} {t('purchases.piece')})</span>}
+                                  {piecesPerPkg > 1 && <span className="text-gray-400 dark:text-gray-500 ms-1">({piecesPerPkg} {t('purchases.piece')})</span>}
                                 </span>
                               </div>
                             </button>
@@ -765,86 +769,85 @@ export default function PurchaseOrderForm({ purchaseOrderId }: PurchaseOrderForm
               </div>
 
               {/* Items Table */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+              <div className="table-pro-wrap">
+                <table className="table-pro compact">
                   <thead>
-                    <tr className="bg-green-100 dark:bg-green-900/30">
-                      <th className="px-2 py-2 text-center w-12 text-gray-700 dark:text-gray-300">{t('purchases.number')}</th>
-                      <th className="px-2 py-2 text-start text-gray-700 dark:text-gray-300">{t('purchases.designation')}</th>
-                      <th className="px-2 py-2 text-center w-20 text-gray-700 dark:text-gray-300">{t('purchases.qty')}</th>
-                      <th className="px-2 py-2 text-center w-16 text-gray-700 dark:text-gray-300">{t('purchases.unit')}</th>
-                      <th className="px-2 py-2 text-center w-24 text-gray-700 dark:text-gray-300">{t('purchases.unitPrice')}</th>
-                      <th className="px-2 py-2 text-center w-20 text-gray-700 dark:text-gray-300">{t('purchases.discountLabel')}</th>
-                      <th className="px-2 py-2 text-center w-24 text-gray-700 dark:text-gray-300">{t('purchases.subtotal')}</th>
-                      <th className="px-2 py-2 w-10"></th>
+                    <tr>
+                      <th className="text-center w-12">{t('purchases.number')}</th>
+                      <th>{t('purchases.designation')}</th>
+                      <th className="text-end w-20">{t('purchases.qty')}</th>
+                      <th className="text-center w-16">{t('purchases.unit')}</th>
+                      <th className="text-end w-28">{t('purchases.unitPrice')}</th>
+                      <th className="text-end w-24">{t('purchases.discountLabel')}</th>
+                      <th className="text-end w-28">{t('purchases.subtotal')}</th>
+                      <th className="w-10"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {items.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="text-center py-8 text-gray-500 dark:text-gray-400">
+                        <td colSpan={8} className="text-center py-8 t-empty">
                           {t('purchases.noProductsYet')}
                         </td>
                       </tr>
                     ) : (
                       items.map((item, index) => (
-                        <tr key={index} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                          <td className="px-2 py-2 text-center font-medium text-gray-500 dark:text-gray-400">{index + 1}</td>
-                          <td className="px-2 py-2">
-                            <div className="font-medium text-gray-900 dark:text-gray-100">{item.product_name}</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">{item.barcode}</div>
+                        <tr key={index}>
+                          <td className="text-center text-gray-500 dark:text-gray-400 tnum">{index + 1}</td>
+                          <td>
+                            <div className="font-medium text-gray-800 dark:text-gray-100">{item.product_name}</div>
+                            <div className="text-[11px] text-gray-500 dark:text-gray-400">{item.barcode}</div>
                           </td>
-                          <td className="px-2 py-2">
+                          <td>
                             <input
                               ref={(el) => { inputRefs.current[`${index}-quantity`] = el; }}
                               type="number"
                               value={item.quantity}
                               onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
                               onKeyDown={(e) => handleKeyDown(e, index, 'quantity')}
-                              className="input w-full text-center"
+                              className="input w-full text-end !px-2 tnum"
                               min="0.01"
                               step="0.01"
                             />
                           </td>
-                          <td className="px-2 py-2 text-center text-sm">
-                            <div className="text-green-600 dark:text-green-400 font-medium">{item.unit_name}</div>
+                          <td className="text-center text-[12px] text-gray-600 dark:text-gray-300">
+                            {item.unit_name}
                           </td>
-                          <td className="px-2 py-2">
+                          <td>
                             <input
                               ref={(el) => { inputRefs.current[`${index}-unit_price`] = el; }}
                               type="number"
                               value={item.unit_price}
                               onChange={(e) => updateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
                               onKeyDown={(e) => handleKeyDown(e, index, 'unit_price')}
-                              className="input w-full text-center"
+                              className="input w-full text-end !px-2 tnum"
                               min="0"
                               step="0.01"
                             />
                           </td>
-                          <td className="px-2 py-2">
+                          <td>
                             <input
                               ref={(el) => { inputRefs.current[`${index}-discount`] = el; }}
                               type="number"
                               value={item.discount}
                               onChange={(e) => updateItem(index, 'discount', parseFloat(e.target.value) || 0)}
                               onKeyDown={(e) => handleKeyDown(e, index, 'discount')}
-                              className="input w-full text-center"
+                              className="input w-full text-end !px-2 tnum"
                               min="0"
                               step="0.01"
                             />
                           </td>
-                          <td className="px-2 py-2 text-center font-bold text-green-600 dark:text-green-400">
+                          <td className="text-end font-semibold text-gray-800 dark:text-gray-100 tnum">
                             {formatCurrency(Number(item.subtotal) || 0)}
                           </td>
-                          <td className="px-2 py-2">
+                          <td>
                             <button
                               type="button"
                               onClick={() => removeItem(index)}
-                              className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-1"
+                              className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
+                              title={t('purchases.delete')}
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
+                              <XMarkIcon className="w-4 h-4" />
                             </button>
                           </td>
                         </tr>
@@ -860,8 +863,8 @@ export default function PurchaseOrderForm({ purchaseOrderId }: PurchaseOrderForm
             </div>
 
             {/* Notes and Terms */}
-            <div className="card">
-              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">{t('purchases.notesAndTerms')}</h2>
+            <div className="surface-pro">
+              <h2 className="surface-heading mb-3">{t('purchases.notesAndTerms')}</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('purchases.notesLabel')}</label>
@@ -889,82 +892,82 @@ export default function PurchaseOrderForm({ purchaseOrderId }: PurchaseOrderForm
 
           {/* Sidebar - Summary */}
           <div>
-            <div className="card sticky top-24">
-              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">{t('purchases.orderSummary')}</h2>
+            <div className="surface-pro sticky top-24">
+              <h2 className="surface-heading mb-3">{t('purchases.orderSummary')}</h2>
 
               <div className="space-y-3">
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center text-[13px]">
                   <span className="text-gray-500 dark:text-gray-400">{t('purchases.totalProducts', { count: items.length })}</span>
-                  <span className="font-medium text-gray-900 dark:text-gray-100">{formatCurrency(totalAmount)}</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100 tnum">{formatCurrency(totalAmount)}</span>
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">{t('purchases.discountLabel')}</label>
+                  <label className="block text-[12px] font-medium text-gray-600 dark:text-gray-400 mb-1">{t('purchases.discountLabel')}</label>
                   <div className="flex gap-1">
                     <input
                       type="number"
                       value={discount}
                       onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
-                      className="input flex-1"
+                      className="input flex-1 tnum"
                       min="0"
                       step="0.01"
                     />
-                    <div className="inline-flex rounded border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <div className="inline-flex rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
                       <button
                         type="button"
                         onClick={() => setDiscountMode('fixed')}
-                        className={`px-2 text-xs ${discountMode === 'fixed' ? 'bg-green-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}
+                        className={`px-2.5 text-[11px] font-medium ${discountMode === 'fixed' ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}
                         aria-label="Fixed amount"
                       >DZD</button>
                       <button
                         type="button"
                         onClick={() => setDiscountMode('percent')}
-                        className={`px-2 text-xs ${discountMode === 'percent' ? 'bg-green-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}
+                        className={`px-2.5 text-[11px] font-medium ${discountMode === 'percent' ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}
                         aria-label="Percentage"
                       >%</button>
                     </div>
                   </div>
                   {discountMode === 'percent' && (
-                    <div className="text-[11px] text-gray-400 mt-1 text-end">= {formatCurrency(computedDiscount)}</div>
+                    <div className="text-[11px] text-gray-400 mt-1 text-end tnum">= {formatCurrency(computedDiscount)}</div>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">{t('purchases.taxLabel')}</label>
+                  <label className="block text-[12px] font-medium text-gray-600 dark:text-gray-400 mb-1">{t('purchases.taxLabel')}</label>
                   <div className="flex gap-1">
                     <input
                       type="number"
                       value={tax}
                       onChange={(e) => setTax(parseFloat(e.target.value) || 0)}
-                      className="input flex-1"
+                      className="input flex-1 tnum"
                       min="0"
                       step="0.01"
                     />
-                    <div className="inline-flex rounded border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <div className="inline-flex rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
                       <button
                         type="button"
                         onClick={() => setTaxMode('fixed')}
-                        className={`px-2 text-xs ${taxMode === 'fixed' ? 'bg-green-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}
+                        className={`px-2.5 text-[11px] font-medium ${taxMode === 'fixed' ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}
                       >DZD</button>
                       <button
                         type="button"
                         onClick={() => setTaxMode('percent')}
-                        className={`px-2 text-xs ${taxMode === 'percent' ? 'bg-green-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}
+                        className={`px-2.5 text-[11px] font-medium ${taxMode === 'percent' ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}
                       >%</button>
                     </div>
                   </div>
                   {taxMode === 'percent' && (
-                    <div className="text-[11px] text-gray-400 mt-1 text-end">= {formatCurrency(computedTax)}</div>
+                    <div className="text-[11px] text-gray-400 mt-1 text-end tnum">= {formatCurrency(computedTax)}</div>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">{t('purchases.shippingLabel')}</label>
+                  <label className="block text-[12px] font-medium text-gray-600 dark:text-gray-400 mb-1">{t('purchases.shippingLabel')}</label>
                   <input
                     type="number"
                     value={shipping}
                     onChange={(e) => setShipping(parseFloat(e.target.value) || 0)}
-                    className="input w-full"
+                    className="input w-full tnum"
                     min="0"
                     step="0.01"
                   />
@@ -972,21 +975,21 @@ export default function PurchaseOrderForm({ purchaseOrderId }: PurchaseOrderForm
 
                 <hr className="border-gray-200 dark:border-gray-700" />
 
-                <div className="flex justify-between items-center text-lg font-bold">
+                <div className="flex justify-between items-center text-[15px] font-semibold">
                   <span className="text-gray-900 dark:text-gray-100">{t('purchases.finalTotal')}</span>
-                  <span className="text-green-600 dark:text-green-400">{formatCurrency(grandTotal)}</span>
+                  <span className="text-gray-900 dark:text-gray-100 tnum">{formatCurrency(grandTotal)}</span>
                 </div>
 
                 <button
                   ref={submitBtnRef}
                   type="submit"
                   disabled={isSaving || items.length === 0}
-                  className="btn btn-primary w-full bg-green-600 hover:bg-green-700"
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-bold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors disabled:opacity-50"
                 >
                   {isSaving ? t('purchases.saving') : (isEditMode ? (t('purchases.updatePo') || t('common.save')) : t('purchases.createPo'))}
                 </button>
 
-                <Link href="/dashboard/purchase-orders" className="btn btn-secondary w-full text-center block">
+                <Link href="/dashboard/purchase-orders" className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                   {t('purchases.cancel')}
                 </Link>
               </div>

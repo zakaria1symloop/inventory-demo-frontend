@@ -5,24 +5,18 @@ import { productRequestsApi, warehousesApi, usersApi } from '@/lib/api';
 import { useLocale } from '@/lib/i18n/context';
 import DateInput from '@/components/ui/DateInput';
 import toast from 'react-hot-toast';
+import { PageHeader, FilterBar } from '@/components/dashboard';
 import {
   ClipboardDocumentListIcon,
-  MagnifyingGlassIcon,
-  FunnelIcon,
-  XMarkIcon,
   ArrowPathIcon,
-  ClockIcon,
   CheckCircleIcon,
-  CheckBadgeIcon,
   XCircleIcon,
-  QuestionMarkCircleIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronDownIcon,
   UserIcon,
   CalendarDaysIcon,
   BuildingStorefrontIcon,
-  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 
 interface RequestItem {
@@ -56,10 +50,10 @@ export default function LivreurProductRequestsPage() {
   const isRTL = locale === 'ar';
 
   const STATUS_CONFIG = useMemo(() => ({
-    pending:   { label: t('productRequests.statusPending'),   bg: 'bg-amber-50',   darkBg: 'dark:bg-amber-900/30',   text: 'text-amber-700',   darkText: 'dark:text-amber-400' },
-    approved:  { label: t('productRequests.statusApproved'),  bg: 'bg-blue-50',    darkBg: 'dark:bg-blue-900/30',    text: 'text-blue-700',    darkText: 'dark:text-blue-400' },
-    rejected:  { label: t('productRequests.statusRejected'),  bg: 'bg-red-50',     darkBg: 'dark:bg-red-900/30',     text: 'text-red-700',     darkText: 'dark:text-red-400' },
-    fulfilled: { label: t('productRequests.statusFulfilled'), bg: 'bg-emerald-50', darkBg: 'dark:bg-emerald-900/30', text: 'text-emerald-700', darkText: 'dark:text-emerald-400' },
+    pending:   { label: t('productRequests.statusPending'),   dot: 'orange'  as const },
+    approved:  { label: t('productRequests.statusApproved'),  dot: 'blue'    as const },
+    rejected:  { label: t('productRequests.statusRejected'),  dot: 'red'     as const },
+    fulfilled: { label: t('productRequests.statusFulfilled'), dot: 'green'   as const },
   }), [t]);
 
   // Filters
@@ -242,139 +236,73 @@ export default function LivreurProductRequestsPage() {
   const NextChevron = isRTL ? ChevronLeftIcon : ChevronRightIcon;
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-gray-100 tracking-tight leading-none">{t('productRequests.livreurTitle')}</h1>
-          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('productRequests.livreurSubtitle')}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => { fetchRequests(); fetchAllForKpis(); }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
-          >
-            <ArrowPathIcon className="w-4 h-4" />
-            <span className="hidden sm:inline">{t('productRequests.refresh')}</span>
-          </button>
-        </div>
-      </div>
+    <div>
+      <PageHeader title={t('productRequests.livreurTitle')} subtitle={t('productRequests.livreurSubtitle')}>
+        <button
+          onClick={() => { fetchRequests(); fetchAllForKpis(); }}
+          className="inline-flex items-center gap-1.5 px-3 h-[34px] text-[13px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors"
+        >
+          <ArrowPathIcon className="w-4 h-4" />
+          <span className="hidden sm:inline">{t('productRequests.refresh')}</span>
+        </button>
+      </PageHeader>
 
       {/* KPI Strip */}
-      <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
-        <div className={`grid grid-cols-2 sm:grid-cols-4 sm:divide-x ${isRTL ? 'sm:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
-          <div className="group relative p-5 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.total}</div>
-              <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('productRequests.lrTotal')}</div>
-            </div>
-          </div>
-          <div className="group relative p-5 hover:bg-amber-50/40 dark:hover:bg-amber-900/10 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-amber-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.pendingCount}</div>
-              <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('productRequests.statusPending')}</div>
-            </div>
-          </div>
-          <div className="group relative p-5 hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-emerald-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.fulfilledCount}</div>
-              <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('productRequests.statusFulfilled')}</div>
-            </div>
-          </div>
-          <div className="group relative p-5 hover:bg-red-50/40 dark:hover:bg-red-900/10 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-red-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.rejectedCount}</div>
-              <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('productRequests.statusRejected')}</div>
-            </div>
-          </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <div className="metric-tile">
+          <div className="metric-label">{t('productRequests.lrTotal')}</div>
+          <div className="metric-value tnum">{kpis.total}</div>
+        </div>
+        <div className="metric-tile">
+          <div className="metric-label flex items-center gap-1.5"><span className="metric-dot metric-dot-orange" aria-hidden />{t('productRequests.statusPending')}</div>
+          <div className="metric-value tnum">{kpis.pendingCount}</div>
+        </div>
+        <div className="metric-tile">
+          <div className="metric-label flex items-center gap-1.5"><span className="metric-dot metric-dot-green" aria-hidden />{t('productRequests.statusFulfilled')}</div>
+          <div className="metric-value tnum">{kpis.fulfilledCount}</div>
+        </div>
+        <div className="metric-tile">
+          <div className="metric-label flex items-center gap-1.5"><span className="metric-dot metric-dot-red" aria-hidden />{t('productRequests.statusRejected')}</div>
+          <div className="metric-value tnum">{kpis.rejectedCount}</div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm">
-        {/* Search bar */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-          <div className="relative flex-1">
-            <MagnifyingGlassIcon className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500`} />
-            <input
-              type="text"
-              placeholder={t('productRequests.searchPlaceholder')}
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className={`input w-full ${isRTL ? 'pr-9' : 'pl-9'} text-sm`}
-            />
-          </div>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl border transition-all ${
-              showFilters || activeFilterCount > 0
-                ? 'border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
-                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
-          >
-            <FunnelIcon className="w-4 h-4" />
-            <span className="hidden sm:inline">{t('productRequests.filter')}</span>
-            {activeFilterCount > 0 && (
-              <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">{activeFilterCount}</span>
-            )}
-          </button>
-          {activeFilterCount > 0 && (
-            <button onClick={clearFilters} className="text-sm text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium flex items-center gap-1">
-              <XMarkIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('productRequests.clear')}</span>
+      <FilterBar
+        search={search}
+        onSearchChange={(v) => { setSearch(v); setPage(1); }}
+        searchPlaceholder={t('productRequests.searchPlaceholder')}
+        trailing={
+          activeFilterCount > 0 ? (
+            <button onClick={clearFilters} className="text-[13px] text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white font-medium">
+              {t('productRequests.clear')}
             </button>
-          )}
-          <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:inline">{total} {t('productRequests.lrCount')}</span>
-        </div>
+          ) : (
+            <span className="text-[12px] text-gray-400 dark:text-gray-500 hidden sm:inline tnum">{total} {t('productRequests.lrCount')}</span>
+          )
+        }
+      >
+        <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
+          <option value="">{t('productRequests.allStatuses')}</option>
+          <option value="pending">{t('productRequests.statusPending')}</option>
+          <option value="approved">{t('productRequests.statusApproved')}</option>
+          <option value="rejected">{t('productRequests.statusRejected')}</option>
+          <option value="fulfilled">{t('productRequests.statusFulfilled')}</option>
+        </select>
+        <select value={livreurFilter} onChange={(e) => { setLivreurFilter(e.target.value); setPage(1); }}>
+          <option value="">{t('productRequests.lrAllLivreurs')}</option>
+          {livreurs.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+        </select>
+        <select value={warehouseFilter} onChange={(e) => { setWarehouseFilter(e.target.value); setPage(1); }}>
+          <option value="">{t('productRequests.lrAllWarehouses')}</option>
+          {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+        </select>
+        <DateInput value={dateFrom} onChange={(v) => { setDateFrom(v); setPage(1); }} placeholder={t('productRequests.fromDate')} />
+        <DateInput value={dateTo} onChange={(v) => { setDateTo(v); setPage(1); }} placeholder={t('productRequests.toDate')} />
+      </FilterBar>
 
-        {/* Expanded Filters */}
-        {showFilters && (
-          <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
-              <div>
-                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('productRequests.filterStatus')}</label>
-                <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className="select w-full">
-                  <option value="">{t('productRequests.allStatuses')}</option>
-                  <option value="pending">{t('productRequests.statusPending')}</option>
-                  <option value="approved">{t('productRequests.statusApproved')}</option>
-                  <option value="rejected">{t('productRequests.statusRejected')}</option>
-                  <option value="fulfilled">{t('productRequests.statusFulfilled')}</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('productRequests.lrFilterLivreur')}</label>
-                <select value={livreurFilter} onChange={(e) => { setLivreurFilter(e.target.value); setPage(1); }} className="select w-full">
-                  <option value="">{t('productRequests.lrAllLivreurs')}</option>
-                  {livreurs.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('productRequests.warehouse')}</label>
-                <select value={warehouseFilter} onChange={(e) => { setWarehouseFilter(e.target.value); setPage(1); }} className="select w-full">
-                  <option value="">{t('productRequests.lrAllWarehouses')}</option>
-                  {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-                </select>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('productRequests.fromDate')}</label>
-                <DateInput value={dateFrom} onChange={(v) => { setDateFrom(v); setPage(1); }} placeholder={t('productRequests.fromDate')} className="w-full" />
-              </div>
-              <div>
-                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('productRequests.toDate')}</label>
-                <DateInput value={dateTo} onChange={(v) => { setDateTo(v); setPage(1); }} placeholder={t('productRequests.toDate')} className="w-full" />
-              </div>
-            </div>
-          </div>
-        )}
-
+      <div className="surface-pro">
         {/* Quick Chips */}
-        <div className={`flex items-center gap-2 px-4 py-3 border-b border-gray-100 dark:border-gray-700 overflow-x-auto`}>
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100 dark:border-gray-700 overflow-x-auto">
           {([
             { value: '', label: t('productRequests.all'), count: kpis.total },
             { value: 'pending', label: t('productRequests.statusPending'), count: kpis.pendingCount },
@@ -385,64 +313,54 @@ export default function LivreurProductRequestsPage() {
             <button
               key={opt.value}
               onClick={() => { setStatusFilter(opt.value); setPage(1); }}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium whitespace-nowrap transition-colors ${
                 statusFilter === opt.value
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
               }`}
             >
               {opt.label}
               {opt.count > 0 && (
-                <span className={`text-[10px] ${statusFilter === opt.value ? 'text-blue-200' : 'text-gray-400 dark:text-gray-500'}`}>({opt.count})</span>
+                <span className={`text-[10px] tnum ${statusFilter === opt.value ? 'opacity-70' : 'opacity-60'}`}>({opt.count})</span>
               )}
             </button>
           ))}
         </div>
 
         {/* Cards */}
-        <div className="p-4 space-y-3">
+        <div className="p-3 space-y-2">
           {isLoading ? (
             <div className="flex items-center justify-center py-16"><div className="spinner w-8 h-8"></div></div>
           ) : requests.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500">
-              <ClipboardDocumentListIcon className="w-12 h-12 mb-3" />
-              <p className="text-lg font-semibold">{t('productRequests.noRequests')}</p>
-              <p className="text-sm mt-1">{t('productRequests.noRequestsDesc')}</p>
+            <div className="flex flex-col items-center justify-center py-16 t-empty">
+              <ClipboardDocumentListIcon className="w-10 h-10 mb-3" />
+              <p className="text-[14px] font-medium">{t('productRequests.noRequests')}</p>
+              <p className="text-[13px] mt-1">{t('productRequests.noRequestsDesc')}</p>
             </div>
           ) : requests.map((req) => {
-            const statusCfg = STATUS_CONFIG[req.status] || { label: req.status, bg: 'bg-gray-100', darkBg: 'dark:bg-gray-700', text: 'text-gray-600', darkText: 'dark:text-gray-300' };
+            const statusCfg = STATUS_CONFIG[req.status] || { label: req.status, dot: 'neutral' as const };
             const isExpanded = expandedId === req.id;
             const detail = requestDetails[req.id];
             const items: RequestItem[] = detail?.items || [];
             const hasStockData = req.warehouse_id ? !!warehouseStock[req.warehouse_id] : false;
 
             return (
-              <div key={req.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden hover:border-gray-300 dark:hover:border-gray-600 transition-all">
+              <div key={req.id} className="bg-white dark:bg-gray-800 rounded-md border border-gray-200/80 dark:border-gray-700 overflow-hidden">
                 {/* Card Header */}
                 <div
-                  className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors"
+                  className="flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors"
                   onClick={() => handleExpand(req)}
                 >
-                  <div className="flex items-center gap-4 min-w-0 flex-1">
-                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
-                      req.status === 'pending' ? 'bg-amber-100 dark:bg-amber-900/30' :
-                      req.status === 'approved' ? 'bg-blue-100 dark:bg-blue-900/30' :
-                      req.status === 'fulfilled' ? 'bg-emerald-100 dark:bg-emerald-900/30' :
-                      'bg-red-100 dark:bg-red-900/30'
-                    }`}>
-                      {req.status === 'pending' && <ClockIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />}
-                      {req.status === 'approved' && <CheckCircleIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
-                      {req.status === 'fulfilled' && <CheckBadgeIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />}
-                      {req.status === 'rejected' && <XCircleIcon className="w-5 h-5 text-red-600 dark:text-red-400" />}
-                    </div>
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono text-sm font-bold text-gray-800 dark:text-gray-100">{req.reference}</span>
-                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${statusCfg.bg} ${statusCfg.darkBg} ${statusCfg.text} ${statusCfg.darkText}`}>
+                        <span className="font-mono text-[13px] font-medium text-gray-900 dark:text-gray-100">{req.reference}</span>
+                        <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                          <span className={`metric-dot metric-dot-${statusCfg.dot}`} aria-hidden />
                           {statusCfg.label}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 mt-1.5 flex-wrap text-xs text-gray-400 dark:text-gray-500">
+                      <div className="flex items-center gap-2 mt-1 flex-wrap text-[12px] text-gray-500 dark:text-gray-400">
                         {req.requester?.name && (
                           <span className="flex items-center gap-1">
                             <UserIcon className="w-3.5 h-3.5" />
@@ -466,34 +384,34 @@ export default function LivreurProductRequestsPage() {
                       </div>
                     </div>
                   </div>
-                  <div className={`flex items-center gap-3 shrink-0 ${isRTL ? 'mr-4' : 'ml-4'}`}>
-                    <ChevronDownIcon className={`w-5 h-5 text-gray-400 dark:text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                  <div className={`flex items-center gap-3 shrink-0 ${isRTL ? 'mr-3' : 'ml-3'}`}>
+                    <ChevronDownIcon className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                   </div>
                 </div>
 
                 {/* Expanded Detail */}
                 {isExpanded && (
-                  <div className="border-t border-gray-100 dark:border-gray-700 bg-gray-50/30 dark:bg-gray-900/20">
+                  <div className="border-t border-gray-100 dark:border-gray-700">
                     {loadingDetail ? (
                       <div className="flex items-center justify-center py-8">
                         <div className="spinner w-6 h-6"></div>
-                        <span className={`text-sm text-gray-500 dark:text-gray-400 ${isRTL ? 'mr-2' : 'ml-2'}`}>{t('productRequests.lrLoadingDetails')}</span>
+                        <span className={`text-[13px] text-gray-500 dark:text-gray-400 ${isRTL ? 'mr-2' : 'ml-2'}`}>{t('productRequests.lrLoadingDetails')}</span>
                       </div>
                     ) : (
                       <>
                         {/* Info Grid */}
-                        <div className="px-5 py-3 grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm border-b border-gray-100 dark:border-gray-700">
+                        <div className="px-4 py-3 grid grid-cols-2 sm:grid-cols-3 gap-3 border-b border-gray-100 dark:border-gray-700">
                           <div>
                             <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('productRequests.requester')}</span>
-                            <div className="font-bold text-gray-800 dark:text-gray-100 mt-0.5">{req.requester?.name || '-'}</div>
+                            <div className="text-[13px] t-strong mt-0.5">{req.requester?.name || '-'}</div>
                           </div>
                           <div>
                             <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('productRequests.warehouse')}</span>
-                            <div className="font-bold text-gray-800 dark:text-gray-100 mt-0.5">{req.warehouse?.name || '-'}</div>
+                            <div className="text-[13px] t-strong mt-0.5">{req.warehouse?.name || '-'}</div>
                           </div>
                           <div>
                             <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('productRequests.date')}</span>
-                            <div className="font-bold text-gray-800 dark:text-gray-100 mt-0.5">{formatDate(req.created_at)}</div>
+                            <div className="text-[13px] t-strong mt-0.5">{formatDate(req.created_at)}</div>
                           </div>
                         </div>
 
@@ -505,17 +423,17 @@ export default function LivreurProductRequestsPage() {
                             return av !== null && av < need;
                           });
                           if (shorts.length === 0) return (
-                            <div className="px-5 py-2.5 border-b border-gray-100 dark:border-gray-700 bg-emerald-50/80 dark:bg-emerald-900/20">
-                              <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 text-sm font-medium">
-                                <CheckCircleIcon className="w-4 h-4" />
+                            <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700">
+                              <div className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                                <span className="metric-dot metric-dot-green" aria-hidden />
                                 {t('productRequests.allStockAvailable')}
                               </div>
                             </div>
                           );
                           return (
-                            <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 bg-red-50/80 dark:bg-red-900/20">
-                              <div className="flex items-center gap-2 text-red-700 dark:text-red-400 font-bold text-sm mb-2">
-                                <ExclamationTriangleIcon className="w-5 h-5" />
+                            <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+                              <div className="inline-flex items-center gap-1.5 text-[13px] font-medium text-gray-900 dark:text-gray-100 mb-2">
+                                <span className="metric-dot metric-dot-red" aria-hidden />
                                 {t('productRequests.stockInsufficient')}
                               </div>
                               <div className="space-y-1">
@@ -524,10 +442,10 @@ export default function LivreurProductRequestsPage() {
                                   const need = approveQtys[item.id] ?? item.quantity_requested;
                                   const ppp = item.product?.pieces_per_package || 1;
                                   return (
-                                    <div key={item.id} className="flex flex-col sm:flex-row sm:justify-between text-sm gap-0.5">
-                                      <span className="text-red-600 dark:text-red-400 font-medium">{item.product?.name}</span>
-                                      <span className="text-red-600 dark:text-red-400 text-xs">
-                                        {t('productRequests.available')} <strong>{fmtQty(av, ppp)}</strong> | {t('productRequests.needed')} <strong>{fmtQty(need, ppp)}</strong>
+                                    <div key={item.id} className="flex flex-col sm:flex-row sm:justify-between text-[13px] gap-0.5">
+                                      <span className="text-gray-700 dark:text-gray-300 font-medium">{item.product?.name}</span>
+                                      <span className="text-gray-500 dark:text-gray-400 text-[12px] tnum">
+                                        {t('productRequests.available')} <strong className="text-gray-700 dark:text-gray-300">{fmtQty(av, ppp)}</strong> | {t('productRequests.needed')} <strong className="text-gray-700 dark:text-gray-300">{fmtQty(need, ppp)}</strong>
                                       </span>
                                     </div>
                                   );
@@ -539,48 +457,51 @@ export default function LivreurProductRequestsPage() {
 
                         {/* Items Table */}
                         {items.length > 0 && (
-                          <div className="px-5 py-3">
-                            <div className="overflow-x-auto">
-                              <table className="w-full">
+                          <div className="px-4 py-2">
+                            <div className="table-pro-wrap">
+                              <table className="table-pro compact">
                                 <thead>
-                                  <tr className="border-b border-gray-100 dark:border-gray-700">
-                                    <th className={`${isRTL ? 'text-right' : 'text-left'} text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2`}>{t('productRequests.product')}</th>
-                                    <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('productRequests.quantityRequested')}</th>
+                                  <tr>
+                                    <th>{t('productRequests.product')}</th>
+                                    <th className="tnum">{t('productRequests.quantityRequested')}</th>
                                     {req.status === 'pending' && hasStockData && (
-                                      <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('productRequests.quantityAvailable')}</th>
+                                      <th className="tnum">{t('productRequests.quantityAvailable')}</th>
                                     )}
                                     {req.status === 'pending' && (
-                                      <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('productRequests.quantityApproved')}</th>
+                                      <th className="text-center">{t('productRequests.quantityApproved')}</th>
                                     )}
                                     {(req.status === 'approved' || req.status === 'fulfilled') && (
-                                      <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('productRequests.quantityApproved')}</th>
+                                      <th className="tnum">{t('productRequests.quantityApproved')}</th>
                                     )}
                                   </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
+                                <tbody>
                                   {items.map(item => {
                                     const available = getAvailableStock(req.warehouse_id, item.product_id);
                                     const needed = approveQtys[item.id] ?? item.quantity_requested;
                                     const isShort = req.status === 'pending' && available !== null && available < needed;
                                     const ppp = item.product?.pieces_per_package || 1;
                                     return (
-                                      <tr key={item.id} className={isShort ? 'bg-red-50/50 dark:bg-red-900/10' : ''}>
-                                        <td className="py-2.5">
-                                          <span className="text-sm font-medium text-gray-800 dark:text-gray-100">{item.product?.name || `#${item.product_id}`}</span>
-                                          {item.product?.barcode && <span className={`text-[10px] text-gray-400 dark:text-gray-500 ${isRTL ? 'mr-1' : 'ml-1'}`}>({item.product.barcode})</span>}
+                                      <tr key={item.id} className={isShort ? 'bg-red-50/40 dark:bg-red-900/10' : ''}>
+                                        <td>
+                                          <span className="text-[13px] font-medium text-gray-800 dark:text-gray-200">{item.product?.name || `#${item.product_id}`}</span>
+                                          {item.product?.barcode && <span className={`text-[11px] text-gray-400 dark:text-gray-500 ${isRTL ? 'mr-1' : 'ml-1'}`}>({item.product.barcode})</span>}
                                         </td>
-                                        <td className="text-center text-sm font-bold text-gray-700 dark:text-gray-300 py-2.5">
+                                        <td className="tnum">
                                           {fmtQty(item.quantity_requested, ppp)}
                                         </td>
                                         {req.status === 'pending' && hasStockData && (
-                                          <td className={`text-center text-sm font-bold py-2.5 ${isShort ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                                            {available !== null ? fmtQty(available, ppp) : '-'}
+                                          <td className="tnum">
+                                            <span className="inline-flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
+                                              <span className={`metric-dot ${isShort ? 'metric-dot-red' : 'metric-dot-green'}`} aria-hidden />
+                                              {available !== null ? fmtQty(available, ppp) : '-'}
+                                            </span>
                                           </td>
                                         )}
                                         {req.status === 'pending' && (() => {
                                           const { cartons, pieces } = splitQty(needed, ppp);
                                           return (
-                                            <td className="py-2.5 text-center">
+                                            <td className="text-center">
                                               <div className="flex items-center justify-center gap-1">
                                                 <div className="flex flex-col items-center">
                                                   <input type="number" min="0" value={cartons}
@@ -590,7 +511,7 @@ export default function LivreurProductRequestsPage() {
                                                     }}
                                                     className="input w-14 text-center text-sm"
                                                   />
-                                                  <span className="text-[10px] text-blue-600 dark:text-blue-400">{ppp > 1 ? t('productRequests.carton') : t('productRequests.piece')}</span>
+                                                  <span className="text-[10px] text-gray-500 dark:text-gray-400">{ppp > 1 ? t('productRequests.carton') : t('productRequests.piece')}</span>
                                                 </div>
                                                 {ppp > 1 && (
                                                   <div className="flex flex-col items-center">
@@ -601,7 +522,7 @@ export default function LivreurProductRequestsPage() {
                                                       }}
                                                       className="input w-14 text-center text-sm"
                                                     />
-                                                    <span className="text-[10px] text-orange-600 dark:text-orange-400">{t('productRequests.piece')}</span>
+                                                    <span className="text-[10px] text-gray-500 dark:text-gray-400">{t('productRequests.piece')}</span>
                                                   </div>
                                                 )}
                                               </div>
@@ -609,7 +530,7 @@ export default function LivreurProductRequestsPage() {
                                           );
                                         })()}
                                         {(req.status === 'approved' || req.status === 'fulfilled') && (
-                                          <td className="text-center text-sm font-bold text-blue-600 dark:text-blue-400 py-2.5">
+                                          <td className="tnum t-strong">
                                             {fmtQty(item.quantity_approved, ppp)}
                                           </td>
                                         )}
@@ -624,19 +545,19 @@ export default function LivreurProductRequestsPage() {
 
                         {/* Admin notes + actions for pending */}
                         {req.status === 'pending' && (
-                          <div className="px-5 py-4 border-t border-gray-100 dark:border-gray-700 space-y-3">
+                          <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700 space-y-2.5">
                             <textarea
                               value={adminNotes}
                               onChange={(e) => setAdminNotes(e.target.value)}
                               placeholder={t('productRequests.adminNotesPlaceholder')}
                               rows={2}
-                              className="input w-full resize-none text-sm"
+                              className="input w-full resize-none text-[13px]"
                             />
                             <div className="flex gap-2">
                               <button
                                 onClick={() => handleApprove(req)}
                                 disabled={isActioning}
-                                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors disabled:opacity-50"
+                                className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 h-[34px] text-[13px] font-medium text-white bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white rounded-md transition-colors disabled:opacity-50"
                               >
                                 {isActioning ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (
                                   <><CheckCircleIcon className="w-4 h-4" />{t('productRequests.approve')}</>
@@ -645,7 +566,7 @@ export default function LivreurProductRequestsPage() {
                               <button
                                 onClick={() => handleReject(req)}
                                 disabled={isActioning}
-                                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors disabled:opacity-50"
+                                className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 h-[34px] text-[13px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors disabled:opacity-50"
                               >
                                 <XCircleIcon className="w-4 h-4" />
                                 {t('productRequests.reject')}
@@ -656,8 +577,8 @@ export default function LivreurProductRequestsPage() {
 
                         {/* Processor info */}
                         {req.processor && (
-                          <div className="px-5 py-2.5 border-t border-gray-100 dark:border-gray-700 text-xs text-gray-400 dark:text-gray-500">
-                            {t('productRequests.lrProcessedBy')} <span className="font-semibold">{req.processor.name}</span>
+                          <div className="px-4 py-2 border-t border-gray-100 dark:border-gray-700 text-[12px] text-gray-500 dark:text-gray-400">
+                            {t('productRequests.lrProcessedBy')} <span className="font-medium">{req.processor.name}</span>
                             {req.processed_at && <> · {formatDate(req.processed_at)}</>}
                           </div>
                         )}
@@ -672,19 +593,19 @@ export default function LivreurProductRequestsPage() {
 
         {/* Pagination */}
         {lastPage > 1 && (
-          <div className={`flex items-center justify-between px-5 py-4 border-t border-gray-100 dark:border-gray-700`}>
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-gray-700">
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl disabled:opacity-40 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 h-[32px] text-[13px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md disabled:opacity-40 transition-colors"
             >
               <PrevChevron className="w-4 h-4" />
             </button>
-            <span className="text-sm text-gray-500 dark:text-gray-400">{page} / {lastPage}</span>
+            <span className="text-[13px] text-gray-500 dark:text-gray-400 tnum">{page} / {lastPage}</span>
             <button
               onClick={() => setPage(p => Math.min(lastPage, p + 1))}
               disabled={page === lastPage}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl disabled:opacity-40 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 h-[32px] text-[13px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md disabled:opacity-40 transition-colors"
             >
               <NextChevron className="w-4 h-4" />
             </button>

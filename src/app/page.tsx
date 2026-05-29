@@ -150,22 +150,19 @@ const targetAudience = [
 
 const plansData = {
   ar: [
-    { id: 'free', name: 'مجاني', subtitle: 'للتجربة', price: 0, popular: false, features: ['حتى 25 منتج', 'مستخدم واحد', 'إدارة الطلبات والتوصيل', 'فوترة وتقارير أساسية', 'تجربة 14 يوم كاملة'] },
-    { id: 'starter', name: 'المبتدئ', subtitle: 'للشركات الصغيرة', price: 19, popular: false, features: ['حتى 100 منتج', 'مستخدم واحد', 'إدارة الطلبات والمبيعات', 'إدارة العملاء والموردين', 'تقارير المبيعات والديون'] },
-    { id: 'pro', name: 'المحترف', subtitle: 'للشركات المتوسطة', price: 49, popular: true, features: ['حتى 500 منتج', 'حتى 5 مستخدمين', 'مستخدمون إضافيون متاحون', 'التوصيل وتتبع GPS', 'إدارة الصندوق', 'مستودعات متعددة'] },
-    { id: 'business', name: 'الأعمال', subtitle: 'للشركات الكبيرة', price: 99, popular: false, features: ['حتى 2,000 منتج', 'حتى 10 مستخدمين', 'مستخدمون إضافيون متاحون', 'البيع المتنقل (Cashvan)', 'تطبيقات الموبايل', 'دعم فني أولوي'] },
+    { id: 'free', name: 'مجاني', subtitle: 'للتجربة', priceText: null as string | null, contact: false, popular: false, features: ['حتى 25 منتج', 'مستخدم واحد', 'إدارة الطلبات والتوصيل', 'فوترة وتقارير أساسية', 'تجربة 14 يوم كاملة'] },
+    { id: 'starter', name: 'المبتدئ', subtitle: 'للمحلات والموزعين الصغار', priceText: '4 500', contact: false, popular: true, features: ['حتى 500 منتج', 'حتى 3 مستخدمين', 'إدارة الصندوق (POS)', 'التوصيل وتتبع GPS', 'إدارة العملاء والموردين', 'تقارير المبيعات والديون'] },
+    { id: 'business', name: 'الأعمال', subtitle: 'بلا حدود', priceText: null, contact: true, popular: false, features: ['منتجات ومستخدمون بلا حدود', 'البيع المتنقل (Cashvan)', 'مستودعات متعددة', 'تطبيقات موبايل كاملة', 'تكاملات مخصصة', 'أولوية الدعم وتدريب'] },
   ],
   fr: [
-    { id: 'free', name: 'Gratuit', subtitle: 'Pour essayer', price: 0, popular: false, features: ["Jusqu'à 25 produits", '1 utilisateur', 'Commandes & livraison', 'Facturation & rapports de base', 'Essai 14 jours complet'] },
-    { id: 'starter', name: 'Starter', subtitle: 'Petites entreprises', price: 19, popular: false, features: ["Jusqu'à 100 produits", '1 utilisateur', 'Commandes & ventes', 'Clients & fournisseurs', 'Rapports ventes & dettes'] },
-    { id: 'pro', name: 'Pro', subtitle: 'Entreprises moyennes', price: 49, popular: true, features: ["Jusqu'à 500 produits", "Jusqu'à 5 utilisateurs", 'Utilisateurs supplémentaires disponibles', 'Livraison & suivi GPS', 'Caisse', 'Multi-entrepôts'] },
-    { id: 'business', name: 'Business', subtitle: 'Grandes entreprises', price: 99, popular: false, features: ["Jusqu'à 2 000 produits", "Jusqu'à 10 utilisateurs", 'Utilisateurs supplémentaires disponibles', 'Vente mobile (Cashvan)', 'Applications mobiles', 'Support prioritaire'] },
+    { id: 'free', name: 'Gratuit', subtitle: 'Pour essayer', priceText: null as string | null, contact: false, popular: false, features: ["Jusqu'à 25 produits", '1 utilisateur', 'Commandes & livraison', 'Facturation & rapports de base', 'Essai 14 jours complet'] },
+    { id: 'starter', name: 'Starter', subtitle: 'Commerces & petits distributeurs', priceText: '4 500', contact: false, popular: true, features: ["Jusqu'à 500 produits", "Jusqu'à 3 utilisateurs", 'Caisse (POS)', 'Livraison & suivi GPS', 'Clients & fournisseurs', 'Rapports ventes & dettes'] },
+    { id: 'business', name: 'Business', subtitle: 'Sans limite', priceText: null, contact: true, popular: false, features: ['Produits & utilisateurs illimités', 'Vente mobile (Cashvan)', 'Multi-entrepôts', 'Applications mobiles complètes', 'Intégrations sur mesure', 'Support prioritaire & formation'] },
   ],
   en: [
-    { id: 'free', name: 'Free', subtitle: 'To try it out', price: 0, popular: false, features: ['Up to 25 products', '1 user', 'Orders & delivery', 'Basic invoicing & reports', 'Full 14-day trial'] },
-    { id: 'starter', name: 'Starter', subtitle: 'Small businesses', price: 19, popular: false, features: ['Up to 100 products', '1 user', 'Orders & sales', 'Customers & suppliers', 'Sales & receivables reports'] },
-    { id: 'pro', name: 'Pro', subtitle: 'Mid-sized businesses', price: 49, popular: true, features: ['Up to 500 products', 'Up to 5 users', 'Add-on users available', 'Delivery & GPS tracking', 'Cash drawer', 'Multi-warehouse'] },
-    { id: 'business', name: 'Business', subtitle: 'Larger businesses', price: 99, popular: false, features: ['Up to 2,000 products', 'Up to 10 users', 'Add-on users available', 'Mobile sales (CashVan)', 'Mobile apps', 'Priority support'] },
+    { id: 'free', name: 'Free', subtitle: 'To try it out', priceText: null as string | null, contact: false, popular: false, features: ['Up to 25 products', '1 user', 'Orders & delivery', 'Basic invoicing & reports', 'Full 14-day trial'] },
+    { id: 'starter', name: 'Starter', subtitle: 'Shops & small distributors', priceText: '4 500', contact: false, popular: true, features: ['Up to 500 products', 'Up to 3 users', 'Cash register (POS)', 'Delivery & GPS tracking', 'Customers & suppliers', 'Sales & debt reports'] },
+    { id: 'business', name: 'Business', subtitle: 'No limits', priceText: null, contact: true, popular: false, features: ['Unlimited products & users', 'Mobile sales (CashVan)', 'Multi-warehouse', 'Full mobile apps', 'Custom integrations', 'Priority support & training'] },
   ],
 };
 
@@ -274,6 +271,7 @@ export default function Home() {
               {[
                 { label: locale === 'ar' ? 'كيف يعمل' : locale === 'en' ? 'How it works' : 'Comment ça marche', href: '/#how-it-works' },
                 { label: locale === 'ar' ? 'الوحدات' : locale === 'en' ? 'Modules' : 'Modules', href: '/#modules' },
+                { label: locale === 'ar' ? 'برنامج التوزيع' : locale === 'en' ? 'Distribution software' : 'Logiciel de distribution', href: '/logiciel-de-distribution' },
                 { label: locale === 'ar' ? 'الأسعار' : locale === 'en' ? 'Pricing' : 'Tarifs', href: '/#pricing' },
                 { label: locale === 'ar' ? 'المدونة' : locale === 'en' ? 'Blog' : 'Blog', href: '/blog' },
                 { label: locale === 'ar' ? 'تواصل معنا' : locale === 'en' ? 'Contact' : 'Contact', href: '/#contact' },
@@ -605,7 +603,7 @@ export default function Home() {
             <h2 className="text-[28px] sm:text-[36px] font-bold tracking-[-0.02em] text-gray-900">{locale === 'ar' ? 'أسعار بسيطة وشفافة' : locale === 'en' ? 'Simple, transparent pricing' : 'Des tarifs simples et transparents'}</h2>
             <p className="mt-4 text-[16px] text-gray-500">{locale === 'ar' ? 'ابدأ مجاناً. بدون بطاقة ائتمان.' : locale === 'en' ? 'Start free. No credit card required.' : 'Commencez gratuitement. Sans carte bancaire.'}</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px bg-gray-100 rounded-xl overflow-hidden border border-gray-100">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-gray-100 rounded-xl overflow-hidden border border-gray-100 max-w-[980px] mx-auto">
             {(locale === 'ar' ? plansData.ar : locale === 'en' ? plansData.en : plansData.fr).map((plan) => (
               <div key={plan.id} className={`flex flex-col p-6 ${plan.popular ? 'bg-gray-900 text-white' : 'bg-white'}`}>
                 <div className="flex items-center justify-between mb-4">
@@ -621,15 +619,26 @@ export default function Home() {
                 </div>
 
                 <div className="flex items-baseline gap-1 mb-6">
-                  <span
-                    className={`text-[32px] font-bold tracking-tight ${plan.popular ? 'text-white' : 'text-gray-900'}`}
-                    dir="ltr"
-                  >
-                    {plan.price === 0 ? (locale === 'ar' ? 'مجاناً' : locale === 'en' ? 'Free' : 'Gratuit') : `$${plan.price}`}
-                  </span>
-                  {plan.price > 0 && (
-                    <span className={`text-[13px] ${plan.popular ? 'text-gray-400' : 'text-gray-400'}`}>
-                      {locale === 'ar' ? '/شهر' : locale === 'en' ? '/month' : '/mois'}
+                  {plan.contact ? (
+                    <span className={`text-[26px] font-bold tracking-tight ${plan.popular ? 'text-white' : 'text-gray-900'}`}>
+                      {locale === 'ar' ? 'حسب الطلب' : locale === 'en' ? 'Custom' : 'Sur devis'}
+                    </span>
+                  ) : plan.priceText ? (
+                    <>
+                      <span
+                        className={`text-[32px] font-bold tracking-tight ${plan.popular ? 'text-white' : 'text-gray-900'}`}
+                        dir="ltr"
+                      >
+                        {plan.priceText}
+                        <span className="text-[14px] font-semibold"> DZD</span>
+                      </span>
+                      <span className={`text-[13px] ${plan.popular ? 'text-gray-400' : 'text-gray-400'}`}>
+                        {locale === 'ar' ? '/شهر' : locale === 'en' ? '/month' : '/mois'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className={`text-[32px] font-bold tracking-tight ${plan.popular ? 'text-white' : 'text-gray-900'}`}>
+                      {locale === 'ar' ? 'مجاناً' : locale === 'en' ? 'Free' : 'Gratuit'}
                     </span>
                   )}
                 </div>
@@ -646,16 +655,18 @@ export default function Home() {
                 </ul>
 
                 <Link
-                  href="/register"
+                  href={plan.contact ? '/#contact' : '/register'}
                   className={`block w-full py-2.5 text-center text-[13px] font-medium rounded-lg transition-colors ${
                     plan.popular
                       ? 'bg-white text-gray-900 hover:bg-gray-100'
                       : 'bg-gray-900 text-white hover:bg-gray-800'
                   }`}
                 >
-                  {plan.price === 0
-                    ? (locale === 'ar' ? 'ابدأ مجاناً' : locale === 'en' ? 'Get started' : 'Commencer')
-                    : (locale === 'ar' ? 'اشترك الآن' : locale === 'en' ? 'Subscribe' : "S'abonner")}
+                  {plan.contact
+                    ? (locale === 'ar' ? 'اتصل بنا' : locale === 'en' ? 'Contact us' : 'Nous contacter')
+                    : plan.priceText
+                      ? (locale === 'ar' ? 'اشترك الآن' : locale === 'en' ? 'Subscribe' : "S'abonner")
+                      : (locale === 'ar' ? 'ابدأ مجاناً' : locale === 'en' ? 'Get started' : 'Commencer')}
                 </Link>
               </div>
             ))}
@@ -797,6 +808,7 @@ export default function Home() {
             </div>
             <div className="flex items-center gap-6 text-[13px] text-gray-400">
               <a href="#modules" className="hover:text-gray-600 transition-colors">{locale === 'ar' ? 'الوحدات' : locale === 'en' ? 'Modules' : 'Modules'}</a>
+              <Link href="/logiciel-de-distribution" className="hover:text-gray-600 transition-colors">{locale === 'ar' ? 'برنامج التوزيع' : locale === 'en' ? 'Distribution software' : 'Logiciel de distribution'}</Link>
               <a href="#pricing" className="hover:text-gray-600 transition-colors">{locale === 'ar' ? 'الأسعار' : locale === 'en' ? 'Pricing' : 'Tarifs'}</a>
               <Link href="/blog" className="hover:text-gray-600 transition-colors">{locale === 'ar' ? 'المدونة' : locale === 'en' ? 'Blog' : 'Blog'}</Link>
               <a href="#about" className="hover:text-gray-600 transition-colors">{locale === 'ar' ? 'من نحن' : locale === 'en' ? 'About' : 'À propos'}</a>

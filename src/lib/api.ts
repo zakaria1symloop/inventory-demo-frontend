@@ -583,6 +583,33 @@ export const stockTransfersApi = {
   collect: (id: number, data?: { caisse_id?: number }) => api.post(`/stock-transfers/${id}/collect`, data),
 };
 
+// Roles API
+export const rolesApi = {
+  getAll: () => api.get('/roles'),
+  getOne: (id: number) => api.get(`/roles/${id}`),
+  create: (data: { name: string; description?: string; permission_keys: string[] }) =>
+    api.post('/roles', data),
+  update: (id: number, data: { name?: string; description?: string; permission_keys?: string[] }) =>
+    api.patch(`/roles/${id}`, data),
+  delete: (id: number) => api.delete(`/roles/${id}`),
+};
+
+// Permissions API
+export const permissionsApi = {
+  getAll: () => api.get('/permissions'),
+};
+
+// User invitation API
+export const invitationApi = {
+  create: (data: Record<string, unknown>) => api.post('/users/invite', data),
+};
+
+// Public invite-accept API (no auth, no tenant header)
+export const inviteAcceptApi = {
+  accept: (data: { token: string; tenant_id: number; password: string; password_confirmation: string }) =>
+    axios.post(`${apiBaseUrl}/saas/accept-invite`, data),
+};
+
 // Dispenses (Expenses) API
 export const dispensesApi = {
   getAll: (params?: Record<string, unknown>) => api.get('/dispenses', { params }),

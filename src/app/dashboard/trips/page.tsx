@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { tripsApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { useLocale } from '@/lib/i18n/context';
+import { PageHeader, FilterBar } from '@/components/dashboard';
+import { EyeIcon } from '@heroicons/react/24/outline';
 
 interface Trip {
   id: number;
@@ -59,13 +61,13 @@ export default function TripsPage() {
     return new Date(date).toLocaleString(locale === 'fr' ? 'fr-FR' : 'ar-DZ');
   };
 
-  const getStatusBadge = (status: string) => {
-    const badges: Record<string, { class: string; text: string }> = {
-      active: { class: 'badge-success', text: t('trips.statusActive') },
-      completed: { class: 'badge-info', text: t('trips.statusCompleted') },
-      cancelled: { class: 'badge-danger', text: t('trips.statusCancelled') },
+  const getStatusInfo = (status: string): { dot: string; text: string } => {
+    const map: Record<string, { dot: string; text: string }> = {
+      active: { dot: 'metric-dot-green', text: t('trips.statusActive') },
+      completed: { dot: 'metric-dot-blue', text: t('trips.statusCompleted') },
+      cancelled: { dot: 'metric-dot-red', text: t('trips.statusCancelled') },
     };
-    return badges[status] || { class: 'badge-secondary', text: status };
+    return map[status] || { dot: 'metric-dot-neutral', text: status };
   };
 
   const filteredTrips = trips.filter(trip => {
@@ -80,35 +82,23 @@ export default function TripsPage() {
 
   return (
     <div>
-      {/* Shortcuts hint — desktop only */}
-      <div className="hidden md:flex bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg mb-4 items-center gap-6 text-sm">
-        <span className="font-medium">{t('trips.shortcuts')}</span>
-        <span><kbd className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">Insert</kbd> {t('trips.addNew')}</span>
-      </div>
+      <PageHeader title={t('trips.title')} />
 
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold">{t('trips.title')}</h1>
-      </div>
+      <FilterBar
+        search={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder={t('trips.searchBySeller')}
+      >
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <option value="">{t('trips.allStatuses')}</option>
+          <option value="active">{t('trips.statusActive')}</option>
+          <option value="completed">{t('trips.statusCompleted')}</option>
+          <option value="cancelled">{t('trips.statusCancelled')}</option>
+        </select>
+      </FilterBar>
 
-      <div className="card">
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-4">
-          <input
-            type="text"
-            placeholder={t('trips.searchBySeller')}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="input w-full sm:max-w-xs"
-          />
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select w-full sm:max-w-xs">
-            <option value="">{t('trips.allStatuses')}</option>
-            <option value="active">{t('trips.statusActive')}</option>
-            <option value="completed">{t('trips.statusCompleted')}</option>
-            <option value="cancelled">{t('trips.statusCancelled')}</option>
-          </select>
-        </div>
-
-        <div className="overflow-x-auto -mx-4 sm:mx-0">
-        <table className="min-w-[800px] sm:min-w-0 w-full">
+      <div className="table-pro-wrap">
+        <table className="table-pro">
           <thead>
             <tr>
               <th>{t('trips.colId')}</th>
@@ -116,34 +106,40 @@ export default function TripsPage() {
               <th>{t('trips.colVehicle')}</th>
               <th>{t('trips.colStartTime')}</th>
               <th>{t('trips.colEndTime')}</th>
-              <th>{t('trips.colStores')}</th>
-              <th>{t('trips.colOrders')}</th>
+              <th className="text-end">{t('trips.colStores')}</th>
+              <th className="text-end">{t('trips.colOrders')}</th>
               <th>{t('trips.colStatus')}</th>
-              <th>{t('trips.colActions')}</th>
+              <th className="text-end">{t('trips.colActions')}</th>
             </tr>
           </thead>
           <tbody>
             {filteredTrips.length === 0 ? (
-              <tr><td colSpan={9} className="text-center py-8 text-gray-500">{t('trips.noTrips')}</td></tr>
+              <tr><td colSpan={9} className="text-center py-8 t-muted">{t('trips.noTrips')}</td></tr>
             ) : (
               filteredTrips.map((trip, index) => {
-                const statusBadge = getStatusBadge(trip.status);
+                const status = getStatusInfo(trip.status);
                 return (
                   <tr key={trip.id}>
-                    <td>{index + 1}</td>
-                    <td className="font-medium">{trip.seller?.name || '-'}</td>
+                    <td className="tnum t-muted">{index + 1}</td>
+                    <td className="t-strong">{trip.seller?.name || '-'}</td>
                     <td>{trip.vehicle?.name || '-'}</td>
-                    <td>{formatDateTime(trip.start_time)}</td>
-                    <td>{trip.end_time ? formatDateTime(trip.end_time) : '-'}</td>
-                    <td>{trip.stores_count || 0}</td>
-                    <td>{trip.orders_count || 0}</td>
-                    <td><span className={`badge ${statusBadge.class}`}>{statusBadge.text}</span></td>
+                    <td className="tnum t-muted">{formatDateTime(trip.start_time)}</td>
+                    <td className="tnum t-muted">{trip.end_time ? formatDateTime(trip.end_time) : '-'}</td>
+                    <td className="tnum">{trip.stores_count || 0}</td>
+                    <td className="tnum">{trip.orders_count || 0}</td>
                     <td>
-                      <button onClick={() => toast(t('trips.comingSoonDetails'))} className="text-gray-600 hover:text-gray-800">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
+                      <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                        <span className={`metric-dot ${status.dot}`} aria-hidden />
+                        {status.text}
+                      </span>
+                    </td>
+                    <td className="text-end">
+                      <button
+                        onClick={() => toast(t('trips.comingSoonDetails'))}
+                        className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+                        title={t('trips.comingSoonDetails')}
+                      >
+                        <EyeIcon className="w-4 h-4" strokeWidth={1.8} />
                       </button>
                     </td>
                   </tr>
@@ -152,7 +148,6 @@ export default function TripsPage() {
             )}
           </tbody>
         </table>
-        </div>
       </div>
     </div>
   );

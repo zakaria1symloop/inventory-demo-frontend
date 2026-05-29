@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { WILAYAS } from '@/lib/wilayas';
 import { SITE_URL } from '@/lib/site';
+import MarketingShell from '@/components/MarketingShell';
+import DistributionIndexContent from './DistributionIndexContent';
 
 export const metadata: Metadata = {
   title: 'Logiciel de distribution dans les 58 wilayas d\'Algérie | TrackSera',
@@ -29,13 +30,6 @@ export const metadata: Metadata = {
 };
 
 export default function DistributionIndexPage() {
-  // Group by region
-  const byRegion: Record<string, typeof WILAYAS> = {};
-  WILAYAS.forEach((w) => {
-    if (!byRegion[w.region.fr]) byRegion[w.region.fr] = [];
-    byRegion[w.region.fr].push(w);
-  });
-
   const jsonLd = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -64,57 +58,9 @@ export default function DistributionIndexPage() {
   };
 
   return (
-    <main className="min-h-screen bg-white">
+    <MarketingShell>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-
-      <section className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white py-16">
-        <div className="max-w-6xl mx-auto px-6">
-          <nav className="text-sm text-blue-200 mb-4">
-            <Link href="/" className="hover:text-white">Accueil</Link>
-            <span className="mx-2">›</span>
-            <span className="text-white">Distribution par wilaya</span>
-          </nav>
-          <h1 className="text-4xl md:text-5xl font-extrabold mb-4">
-            TrackSera dans les 58 wilayas d&apos;Algérie
-          </h1>
-          <p className="text-2xl text-blue-100 mb-2" dir="rtl" lang="ar">
-            تراكسيرا في 58 ولاية في الجزائر
-          </p>
-          <p className="text-lg text-blue-100/90 max-w-3xl mt-6">
-            Une plateforme unique de gestion, caisse POS et distribution — adaptée aux entreprises de chaque wilaya,
-            du Nord côtier aux oasis du Sud.
-          </p>
-        </div>
-      </section>
-
-      <section className="max-w-6xl mx-auto px-6 py-12 space-y-12">
-        {Object.entries(byRegion).map(([region, wilayas]) => (
-          <div key={region}>
-            <h2 className="text-2xl font-extrabold text-gray-900 mb-1">{region}</h2>
-            <p className="text-sm text-gray-500 mb-5">{wilayas.length} wilaya{wilayas.length > 1 ? 's' : ''}</p>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {wilayas.sort((a, b) => a.code - b.code).map((w) => (
-                <Link
-                  key={w.slug}
-                  href={`/distribution/${w.slug}`}
-                  className="group p-4 rounded-xl border border-gray-200 hover:border-blue-400 hover:shadow-md transition-all"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-xs text-gray-400 font-mono">#{w.code}</div>
-                      <div className="font-bold text-gray-900 group-hover:text-blue-700">{w.name.fr}</div>
-                      <div className="text-sm text-gray-500" dir="rtl" lang="ar">{w.name.ar}</div>
-                    </div>
-                    <svg className="w-5 h-5 text-gray-300 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        ))}
-      </section>
-    </main>
+      <DistributionIndexContent />
+    </MarketingShell>
   );
 }

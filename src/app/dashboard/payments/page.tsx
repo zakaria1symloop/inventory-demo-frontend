@@ -9,13 +9,12 @@ import DateInput from '@/components/ui/DateInput';
 import GuidedTour from '@/components/GuidedTour';
 import type { TourStep } from '@/components/GuidedTour';
 import toast from 'react-hot-toast';
+import { PageHeader, FilterBar } from '@/components/dashboard';
 import {
   BanknotesIcon,
-  FunnelIcon,
   XMarkIcon,
   TrashIcon,
   ArrowTopRightOnSquareIcon,
-  MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline';
 
 interface Payment {
@@ -42,8 +41,7 @@ interface Payment {
 export default function PaymentsPage() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const { t, locale, dir } = useLocale();
-  const isRTL = dir === 'rtl';
+  const { t, locale } = useLocale();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -58,7 +56,6 @@ export default function PaymentsPage() {
   const [sourceFilter, setSourceFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [users, setUsers] = useState<{ id: number; name: string; role: string }[]>([]);
@@ -71,10 +68,10 @@ export default function PaymentsPage() {
 
   const METHODS = useMemo(() => [
     { value: '', label: t('payments.all') },
-    { value: 'cash', label: t('payments.cash'), color: 'emerald' },
-    { value: 'bank', label: t('payments.bank'), color: 'blue' },
-    { value: 'check', label: t('payments.check'), color: 'amber' },
-    { value: 'other', label: t('payments.other'), color: 'gray' },
+    { value: 'cash', label: t('payments.cash') },
+    { value: 'bank', label: t('payments.bank') },
+    { value: 'check', label: t('payments.check') },
+    { value: 'other', label: t('payments.other') },
   ] as const, [t]);
 
   const TYPES = useMemo(() => [
@@ -101,12 +98,6 @@ export default function PaymentsPage() {
       target: '[data-tour="payments-search"]',
       title: t('payments.tourSearch'),
       desc: t('payments.tourSearchDesc'),
-      position: 'bottom',
-    },
-    {
-      target: '[data-tour="payments-filter-btn"]',
-      title: t('payments.tourFilterBtn'),
-      desc: t('payments.tourFilterBtnDesc'),
       position: 'bottom',
     },
     {
@@ -213,21 +204,31 @@ export default function PaymentsPage() {
     return type;
   };
 
-  const getPayableTypeColor = (type: string | null | undefined) => {
-    if (!type) return 'text-violet-600 bg-violet-50 dark:text-violet-400 dark:bg-violet-900/30';
-    if (type.includes('Purchase')) return 'text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/30';
-    if (type.includes('Sale')) return 'text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/30';
-    return 'text-gray-600 bg-gray-50 dark:text-gray-400 dark:bg-gray-800';
+  const getPayableTypeDot = (type: string | null | undefined): string => {
+    if (!type) return 'metric-dot-violet';
+    if (type.includes('Purchase')) return 'metric-dot-red';
+    if (type.includes('Sale')) return 'metric-dot-green';
+    return 'metric-dot-neutral';
   };
 
-  const getMethodStyle = (method: string) => {
-    const styles: Record<string, { bg: string; text: string; label: string }> = {
-      cash: { bg: 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-700', text: 'text-emerald-700 dark:text-emerald-400', label: t('payments.cash') },
-      bank: { bg: 'bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-700', text: 'text-blue-700 dark:text-blue-400', label: t('payments.bank') },
-      check: { bg: 'bg-amber-50 border-amber-200 dark:bg-amber-900/30 dark:border-amber-700', text: 'text-amber-700 dark:text-amber-400', label: t('payments.check') },
-      other: { bg: 'bg-gray-50 border-gray-200 dark:bg-gray-800 dark:border-gray-600', text: 'text-gray-700 dark:text-gray-400', label: t('payments.other') },
+  const getMethodDot = (method: string): string => {
+    const dots: Record<string, string> = {
+      cash: 'metric-dot-green',
+      bank: 'metric-dot-blue',
+      check: 'metric-dot-orange',
+      other: 'metric-dot-neutral',
     };
-    return styles[method] || styles.other;
+    return dots[method] || 'metric-dot-neutral';
+  };
+
+  const getMethodLabel = (method: string) => {
+    const labels: Record<string, string> = {
+      cash: t('payments.cash'),
+      bank: t('payments.bank'),
+      check: t('payments.check'),
+      other: t('payments.other'),
+    };
+    return labels[method] || method;
   };
 
   const getPayableLink = (payment: Payment): string | null => {
@@ -283,7 +284,7 @@ export default function PaymentsPage() {
     return { totalAmount, salesTotal, purchasesTotal, uniqueUsers, count: filteredPayments.length };
   }, [filteredPayments]);
 
-  const activeFilterCount = [methodFilter, typeFilter, userFilter, sourceFilter, dateFrom, dateTo].filter(Boolean).length;
+  const activeFilterCount = [methodFilter, typeFilter, userFilter, sourceFilter, dateFrom, dateTo, clientFilter, supplierFilter].filter(Boolean).length;
 
   const clearFilters = () => {
     setSearchTerm('');
@@ -291,300 +292,221 @@ export default function PaymentsPage() {
     setTypeFilter('');
     setUserFilter('');
     setSourceFilter('');
+    setClientFilter('');
+    setSupplierFilter('');
     setDateFrom('');
     setDateTo('');
     setPage(1);
   };
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" data-tour="payments-title">
-        <div>
-          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('payments.title')}</h1>
-          <p className="text-sm text-gray-400 dark:text-gray-400 mt-1">{t('payments.subtitle')}</p>
-        </div>
-        <button
-          onClick={() => { localStorage.removeItem('payments_tour_step'); setShowTour(true); }}
-          className="text-sm text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-medium transition-colors"
-          title={t('payments.tourTitle')}
-        >
-          {t('payments.tourTitle')}
-        </button>
-      </div>
-
-      {/* KPI Strip */}
-      <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden" data-tour="payments-kpis">
-        <div className={`grid grid-cols-2 md:grid-cols-4 sm:divide-x ${isRTL ? 'sm:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
-          <div className="group relative p-5 hover:bg-cyan-50/40 dark:hover:bg-cyan-900/10 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-cyan-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-lg font-black text-gray-900 dark:text-white tabular-nums leading-none">{formatCurrency(kpis.totalAmount)}</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('payments.totalAmount')}</div>
-            </div>
-          </div>
-          <div className="group relative p-5 hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-emerald-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-lg font-black text-emerald-600 dark:text-emerald-400 tabular-nums leading-none">{formatCurrency(kpis.salesTotal)}</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('payments.salesCollections')}</div>
-            </div>
-          </div>
-          <div className="group relative p-5 hover:bg-red-50/40 dark:hover:bg-red-900/10 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-red-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-lg font-black text-red-600 dark:text-red-400 tabular-nums leading-none">{formatCurrency(kpis.purchasesTotal)}</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('payments.purchasePayments')}</div>
-            </div>
-          </div>
-          <div className="group relative p-5 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors duration-200">
-            <div className="absolute top-0 inset-x-0 h-[3px] bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-            <div className="text-center">
-              <div className="text-3xl font-black text-blue-600 dark:text-blue-400 tabular-nums leading-none">{kpis.count}</div>
-              <div className="text-[11px] font-semibold text-gray-400 mt-2">{t('payments.operationsCount')}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Search + Filter Toggle */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm">
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-          <div className="relative flex-1" data-tour="payments-search">
-            <MagnifyingGlassIcon className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500`} />
-            <input
-              type="text"
-              placeholder={t('payments.search')}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className={`input w-full ${isRTL ? 'pr-9' : 'pl-9'} text-sm`}
-            />
-          </div>
+    <div>
+      <div data-tour="payments-title">
+        <PageHeader title={t('payments.title')} subtitle={t('payments.subtitle')}>
           <button
-            data-tour="payments-filter-btn"
-            onClick={() => setShowFilters(!showFilters)}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl border transition-all ${
-              showFilters || activeFilterCount > 0
-                ? 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
-                : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+            onClick={() => { localStorage.removeItem('payments_tour_step'); setShowTour(true); }}
+            className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            title={t('payments.tourTitle')}
+          >
+            {t('payments.tourTitle')}
+          </button>
+        </PageHeader>
+      </div>
+
+      {/* ─── Metric tiles ─── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-4" data-tour="payments-kpis">
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-neutral" aria-hidden />
+            <p className="metric-label truncate">{t('payments.totalAmount')}</p>
+          </div>
+          <p className="metric-value-currency">{formatCurrency(kpis.totalAmount)}</p>
+        </div>
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-green" aria-hidden />
+            <p className="metric-label truncate">{t('payments.salesCollections')}</p>
+          </div>
+          <p className="metric-value-currency">{formatCurrency(kpis.salesTotal)}</p>
+        </div>
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-red" aria-hidden />
+            <p className="metric-label truncate">{t('payments.purchasePayments')}</p>
+          </div>
+          <p className="metric-value-currency">{formatCurrency(kpis.purchasesTotal)}</p>
+        </div>
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-blue" aria-hidden />
+            <p className="metric-label truncate">{t('payments.operationsCount')}</p>
+          </div>
+          <p className="metric-value truncate">{kpis.count}</p>
+        </div>
+      </div>
+
+      {/* ─── Filters ─── */}
+      <div data-tour="payments-search">
+        <FilterBar
+          search={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder={t('payments.search')}
+          trailing={activeFilterCount > 0 ? (
+            <button
+              onClick={clearFilters}
+              className="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+            >
+              <XMarkIcon className="w-3.5 h-3.5" />
+              {t('payments.clear')}
+            </button>
+          ) : undefined}
+        >
+          <select value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}>
+            <option value="">{t('payments.allTypes')}</option>
+            {TYPES.slice(1).map(tp => (
+              <option key={tp.value} value={tp.value}>{tp.label}</option>
+            ))}
+          </select>
+          <select value={methodFilter} onChange={(e) => { setMethodFilter(e.target.value); setPage(1); }}>
+            <option value="">{t('payments.allMethods')}</option>
+            {METHODS.slice(1).map(m => (
+              <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
+          </select>
+          <select value={userFilter} onChange={(e) => { setUserFilter(e.target.value); setPage(1); }}>
+            <option value="">{t('payments.allUsers')}</option>
+            {users.map(u => (
+              <option key={u.id} value={u.id}>{u.name} ({roleLabel(u.role)})</option>
+            ))}
+          </select>
+          <select value={sourceFilter} onChange={(e) => { setSourceFilter(e.target.value); setPage(1); }}>
+            <option value="">{t('payments.allSources')}</option>
+            <option value="web">{t('payments.fromPlatform')}</option>
+            <option value="app">{t('payments.fromApp')}</option>
+            <option value="delivery">{t('payments.fromDelivery')}</option>
+          </select>
+          <select value={clientFilter} onChange={(e) => { setClientFilter(e.target.value); setSupplierFilter(''); setPage(1); }}>
+            <option value="">{locale === 'ar' ? 'كل العملاء' : 'Tous les clients'}</option>
+            {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <select value={supplierFilter} onChange={(e) => { setSupplierFilter(e.target.value); setClientFilter(''); setPage(1); }}>
+            <option value="">{locale === 'ar' ? 'كل الموردين' : 'Tous les fournisseurs'}</option>
+            {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+          <DateInput value={dateFrom} onChange={(v) => { setDateFrom(v); setPage(1); }} placeholder={t('payments.fromDate')} />
+          <DateInput value={dateTo} onChange={(v) => { setDateTo(v); setPage(1); }} placeholder={t('payments.toDate')} />
+        </FilterBar>
+      </div>
+
+      {/* Quick Filters */}
+      <div className="flex items-center gap-1.5 mb-3 overflow-x-auto" data-tour="payments-quick-filters">
+        {METHODS.map(m => (
+          <button
+            key={m.value}
+            onClick={() => { setMethodFilter(methodFilter === m.value ? '' : m.value); setPage(1); }}
+            className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium whitespace-nowrap transition-colors ${
+              methodFilter === m.value || (m.value === '' && !methodFilter)
+                ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                : 'border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
           >
-            <FunnelIcon className="w-4 h-4" />
-            <span className="hidden sm:inline">{t('payments.filter')}</span>
-            {activeFilterCount > 0 && (
-              <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">
-                {activeFilterCount}
-              </span>
-            )}
+            {m.label}
           </button>
-          {activeFilterCount > 0 && (
-            <button onClick={clearFilters} className="text-sm text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium flex items-center gap-1">
-              <XMarkIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('payments.clear')}</span>
-            </button>
-          )}
-        </div>
+        ))}
+        <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1 flex-shrink-0" />
+        {TYPES.slice(1).map(tp => (
+          <button
+            key={tp.value}
+            onClick={() => { setTypeFilter(typeFilter === tp.value ? '' : tp.value); setPage(1); }}
+            className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium whitespace-nowrap transition-colors ${
+              typeFilter === tp.value
+                ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                : 'border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+            }`}
+          >
+            {tp.label}
+          </button>
+        ))}
+      </div>
 
-        {/* Expanded Filters */}
-        {showFilters && (
-          <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-              <select
-                value={typeFilter}
-                onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
-                className="select"
-              >
-                <option value="">{t('payments.allTypes')}</option>
-                {TYPES.slice(1).map(tp => (
-                  <option key={tp.value} value={tp.value}>{tp.label}</option>
-                ))}
-              </select>
-              <select
-                value={methodFilter}
-                onChange={(e) => { setMethodFilter(e.target.value); setPage(1); }}
-                className="select"
-              >
-                <option value="">{t('payments.allMethods')}</option>
-                {METHODS.slice(1).map(m => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
-                ))}
-              </select>
-              <select
-                value={userFilter}
-                onChange={(e) => { setUserFilter(e.target.value); setPage(1); }}
-                className="select"
-              >
-                <option value="">{t('payments.allUsers')}</option>
-                {users.map(u => (
-                  <option key={u.id} value={u.id}>{u.name} ({roleLabel(u.role)})</option>
-                ))}
-              </select>
-              <select
-                value={sourceFilter}
-                onChange={(e) => { setSourceFilter(e.target.value); setPage(1); }}
-                className="select"
-              >
-                <option value="">{t('payments.allSources')}</option>
-                <option value="web">{t('payments.fromPlatform')}</option>
-                <option value="app">{t('payments.fromApp')}</option>
-                <option value="delivery">{t('payments.fromDelivery')}</option>
-              </select>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-              <select
-                value={clientFilter}
-                onChange={(e) => { setClientFilter(e.target.value); setSupplierFilter(''); setPage(1); }}
-                className="select"
-              >
-                <option value="">{locale === 'ar' ? 'كل العملاء' : 'Tous les clients'}</option>
-                {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-              <select
-                value={supplierFilter}
-                onChange={(e) => { setSupplierFilter(e.target.value); setClientFilter(''); setPage(1); }}
-                className="select"
-              >
-                <option value="">{locale === 'ar' ? 'كل الموردين' : 'Tous les fournisseurs'}</option>
-                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-              <DateInput value={dateFrom} onChange={(v) => { setDateFrom(v); setPage(1); }} placeholder={t('payments.fromDate')} />
-              <DateInput value={dateTo} onChange={(v) => { setDateTo(v); setPage(1); }} placeholder={t('payments.toDate')} />
-            </div>
+      {/* Table */}
+      <div data-tour="payments-table">
+        {isLoading ? (
+          <div className="surface-pro flex items-center justify-center py-20">
+            <div className="spinner w-8 h-8"></div>
           </div>
-        )}
-
-        {/* Payment Method Quick Filters */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 dark:border-gray-700 overflow-x-auto" data-tour="payments-quick-filters">
-          {METHODS.map(m => (
-            <button
-              key={m.value}
-              onClick={() => { setMethodFilter(methodFilter === m.value ? '' : m.value); setPage(1); }}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                methodFilter === m.value
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-              }`}
-            >
-              {m.label}
-            </button>
-          ))}
-          <div className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-1" />
-          {TYPES.slice(1).map(tp => (
-            <button
-              key={tp.value}
-              onClick={() => { setTypeFilter(typeFilter === tp.value ? '' : tp.value); setPage(1); }}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                typeFilter === tp.value
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-              }`}
-            >
-              {tp.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Table */}
-        <div className="overflow-x-auto" data-tour="payments-table">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="spinner w-8 h-8"></div>
-            </div>
-          ) : filteredPayments.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500">
-              <BanknotesIcon className="w-12 h-12 mb-3" />
-              <p className="text-lg font-semibold">{t('payments.noPayments')}</p>
-              <p className="text-sm mt-1">{t('payments.noPaymentsHint')}</p>
-            </div>
-          ) : (
-            <table className="w-full">
+        ) : filteredPayments.length === 0 ? (
+          <div className="surface-pro flex flex-col items-center justify-center py-16 text-gray-500 dark:text-gray-400">
+            <BanknotesIcon className="w-12 h-12 mb-3 text-gray-300 dark:text-gray-600" strokeWidth={1.5} />
+            <p className="text-[14px] font-medium">{t('payments.noPayments')}</p>
+            <p className="text-[12px] mt-1 t-muted">{t('payments.noPaymentsHint')}</p>
+          </div>
+        ) : (
+          <div className="table-pro-wrap">
+            <table className="table-pro">
               <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-700">
-                  <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">{t('payments.reference')}</th>
-                  <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">{t('payments.type')}</th>
-                  <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">{t('payments.party')}</th>
-                  <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">{t('payments.amount')}</th>
-                  <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">{t('payments.paymentMethod')}</th>
-                  <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">{t('payments.date')}</th>
-                  <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3">{t('payments.user')}</th>
-                  <th className="text-start text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-3 w-20"></th>
+                <tr>
+                  <th>{t('payments.reference')}</th>
+                  <th>{t('payments.type')}</th>
+                  <th>{t('payments.party')}</th>
+                  <th className="text-end">{t('payments.amount')}</th>
+                  <th>{t('payments.paymentMethod')}</th>
+                  <th>{t('payments.date')}</th>
+                  <th>{t('payments.user')}</th>
+                  <th className="text-end w-16"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
+              <tbody>
                 {filteredPayments.map((payment) => {
-                  const methodStyle = getMethodStyle(payment.payment_method);
                   const link = getPayableLink(payment);
                   const partyName = getPartyName(payment);
                   const partyType = getPartyType(payment);
 
                   return (
-                    <tr key={payment.id} className="group hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors">
-                      {/* Reference */}
-                      <td className="px-4 py-3.5">
+                    <tr key={payment.id} className="group">
+                      <td>
                         {link ? (
                           <button
                             onClick={() => router.push(link)}
-                            className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-mono text-sm font-semibold"
+                            className="inline-flex items-center gap-1.5 font-mono font-semibold text-gray-800 dark:text-gray-100 hover:underline underline-offset-2"
                           >
                             {payment.reference}
                             <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                           </button>
                         ) : (
-                          <span className="font-mono text-sm text-gray-700 dark:text-gray-300">{payment.reference}</span>
+                          <span className="font-mono font-semibold text-gray-800 dark:text-gray-100">{payment.reference}</span>
                         )}
                       </td>
-
-                      {/* Type */}
-                      <td className="px-4 py-3.5">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold ${getPayableTypeColor(payment.payable_type)}`}>
+                      <td>
+                        <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                          <span className={`metric-dot ${getPayableTypeDot(payment.payable_type)}`} aria-hidden />
                           {getPayableType(payment.payable_type)}
                         </span>
                       </td>
-
-                      {/* Party */}
-                      <td className="px-4 py-3.5">
+                      <td>
                         <div>
-                          <p className="text-sm font-semibold text-gray-800 dark:text-gray-300 truncate max-w-[160px]">{partyName}</p>
-                          <p className="text-[11px] text-gray-400 dark:text-gray-500">{partyType}</p>
+                          <p className="text-[13px] font-medium text-gray-800 dark:text-gray-100 truncate max-w-[160px]">{partyName}</p>
+                          <p className="text-[11px] t-muted">{partyType}</p>
                         </div>
                       </td>
-
-                      {/* Amount */}
-                      <td className="px-4 py-3.5">
-                        <span className={`text-sm font-black tabular-nums ${
-                          payment.payable_type?.includes('Purchase') ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'
-                        }`}>
-                          {formatCurrency(Number(payment.amount))}
+                      <td className="tnum t-strong">{formatCurrency(Number(payment.amount))}</td>
+                      <td>
+                        <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                          <span className={`metric-dot ${getMethodDot(payment.payment_method)}`} aria-hidden />
+                          {getMethodLabel(payment.payment_method)}
                         </span>
                       </td>
-
-                      {/* Method */}
-                      <td className="px-4 py-3.5">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold border ${methodStyle.bg} ${methodStyle.text}`}>
-                          {methodStyle.label}
-                        </span>
-                      </td>
-
-                      {/* Date */}
-                      <td className="px-4 py-3.5 text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                        {formatDate(payment.date)}
-                      </td>
-
-                      {/* User */}
-                      <td className="px-4 py-3.5">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">{payment.user?.name || '-'}</span>
-                      </td>
-
-                      {/* Actions */}
-                      <td className="px-4 py-3.5">
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <td className="tnum t-muted">{formatDate(payment.date)}</td>
+                      <td className="t-muted">{payment.user?.name || '-'}</td>
+                      <td className="text-end">
+                        <div className="inline-flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           {isAdmin && (
                             <button
                               onClick={() => handleDelete(payment.id)}
-                              className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                              className="p-1.5 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
                               title={t('payments.delete')}
                             >
-                              <TrashIcon className="w-4 h-4" />
+                              <TrashIcon className="w-4 h-4" strokeWidth={1.8} />
                             </button>
                           )}
                         </div>
@@ -594,27 +516,27 @@ export default function PaymentsPage() {
                 })}
               </tbody>
             </table>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-gray-700">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+          <div className="flex items-center justify-between mt-3">
+            <p className="text-[12px] text-gray-500 dark:text-gray-400">
               {t('payments.page')} {page} {t('payments.of')} {totalPages} — {total} {t('payments.operation')}
             </p>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="px-2.5 py-1 text-[12px] font-medium rounded-md border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:text-gray-300"
               >
                 {t('payments.previous')}
               </button>
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="px-2.5 py-1 text-[12px] font-medium rounded-md border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:text-gray-300"
               >
                 {t('payments.next')}
               </button>

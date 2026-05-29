@@ -28,6 +28,7 @@ import {
 import GuidedTour from '@/components/GuidedTour';
 import type { TourStep } from '@/components/GuidedTour';
 import { useLocale } from '@/lib/i18n/context';
+import { PageHeader, FilterBar } from '@/components/dashboard';
 
 interface Sale {
   id: number;
@@ -154,86 +155,92 @@ function SaleRetourForm({ saleId, onSuccess, onCancel }: { saleId: number; onSuc
   if (isLoading) return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
 
   return (
-    <div className="space-y-5 w-full">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center shadow-md">
-          <ArrowUturnLeftIcon className="w-5 h-5 text-white" />
+    <div className="space-y-4 w-full">
+      <div className="flex items-center gap-2.5">
+        <ArrowUturnLeftIcon className="w-5 h-5 text-gray-500" strokeWidth={1.8} />
+        <div className="min-w-0">
+          <h2 className="text-[15px] font-semibold text-gray-900 dark:text-white tracking-tight">{t('sales.retourTitle')}</h2>
+          <p className="text-[12px] text-gray-500 dark:text-gray-400 tnum">{saleRef}</p>
         </div>
-        <div>
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t('sales.retourTitle')}</h2>
-          <p className="text-sm text-gray-400">{saleRef}</p>
-        </div>
-        <span className="ms-auto inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+        <span className="ms-auto inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+          <span className="metric-dot metric-dot-green" aria-hidden />
           {t('sales.approvedInvoice')}
         </span>
       </div>
 
-      <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-800">
-              <tr>
-                <th className="text-start px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('sales.product')}</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('sales.retourSoldQty')}</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('sales.retourCartons')}</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('sales.retourPcs')}</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('sales.retourTotal')}</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('sales.retourReason')}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-              {items.map((item, idx) => {
-                const qty = getQty(item);
-                const isOver = qty > item.max_qty;
-                const totalValue = qty * item.unit_price;
-                return (
-                  <tr key={item.product_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{item.product_name}</td>
-                    <td className="px-4 py-3 text-center text-gray-500 tabular-nums text-sm">
-                      {formatQtyDisplay(item.max_qty, item.pieces_per_package)}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {item.pieces_per_package > 1 ? (
-                        <input type="number" min="0" value={item.cartons}
-                          onChange={e => setItems(prev => prev.map((it, i) => i === idx ? { ...it, cartons: e.target.value } : it))}
-                          className="w-20 text-center input py-1" placeholder="0" />
-                      ) : <span className="text-gray-300 text-sm">—</span>}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <input type="number" min="0" value={item.pcs}
-                        onChange={e => setItems(prev => prev.map((it, i) => i === idx ? { ...it, pcs: e.target.value } : it))}
-                        className={`w-20 text-center input py-1 ${isOver ? 'border-red-400 bg-red-50 dark:bg-red-900/20' : ''}`} placeholder="0" />
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <div className={`font-semibold tabular-nums ${isOver ? 'text-red-600' : qty > 0 ? 'text-orange-600' : 'text-gray-300'}`}>
-                        {qty > 0 ? formatCurrency(totalValue) : '—'}
-                        {isOver && <div className="text-[10px] font-normal text-red-500">{t('sales.retourExceedsMax')}</div>}
+      <div className="table-pro-wrap">
+        <table className="table-pro compact">
+          <thead>
+            <tr>
+              <th className="text-start">{t('sales.product')}</th>
+              <th className="text-center">{t('sales.retourSoldQty')}</th>
+              <th className="text-center">{t('sales.retourCartons')}</th>
+              <th className="text-center">{t('sales.retourPcs')}</th>
+              <th className="text-end">{t('sales.retourTotal')}</th>
+              <th className="text-start">{t('sales.retourReason')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, idx) => {
+              const qty = getQty(item);
+              const isOver = qty > item.max_qty;
+              const totalValue = qty * item.unit_price;
+              return (
+                <tr key={item.product_id}>
+                  <td className="t-strong">{item.product_name}</td>
+                  <td className="text-center t-muted tnum">
+                    {formatQtyDisplay(item.max_qty, item.pieces_per_package)}
+                  </td>
+                  <td className="text-center">
+                    {item.pieces_per_package > 1 ? (
+                      <input type="number" min="0" value={item.cartons}
+                        onChange={e => setItems(prev => prev.map((it, i) => i === idx ? { ...it, cartons: e.target.value } : it))}
+                        className="w-20 text-center input py-1" placeholder="0" />
+                    ) : <span className="text-gray-300 text-sm">—</span>}
+                  </td>
+                  <td className="text-center">
+                    <input type="number" min="0" value={item.pcs}
+                      onChange={e => setItems(prev => prev.map((it, i) => i === idx ? { ...it, pcs: e.target.value } : it))}
+                      className={`w-20 text-center input py-1 ${isOver ? 'border-red-400 ring-1 ring-red-200' : ''}`} placeholder="0" />
+                  </td>
+                  <td className="text-end tnum">
+                    {isOver ? (
+                      <div className="inline-flex flex-col items-end">
+                        <span className="inline-flex items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
+                          <span className="metric-dot metric-dot-red" aria-hidden />
+                          {formatCurrency(totalValue)}
+                        </span>
+                        <span className="text-[10px] font-normal text-gray-500 dark:text-gray-400">{t('sales.retourExceedsMax')}</span>
                       </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <input type="text" value={item.reason}
-                        onChange={e => setItems(prev => prev.map((it, i) => i === idx ? { ...it, reason: e.target.value } : it))}
-                        className="input py-1 w-full" placeholder={t('sales.retourReasonPlaceholder')} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                    ) : qty > 0 ? (
+                      <span className="font-medium">{formatCurrency(totalValue)}</span>
+                    ) : (
+                      <span className="text-gray-300">—</span>
+                    )}
+                  </td>
+                  <td>
+                    <input type="text" value={item.reason}
+                      onChange={e => setItems(prev => prev.map((it, i) => i === idx ? { ...it, reason: e.target.value } : it))}
+                      className="input py-1 w-full" placeholder={t('sales.retourReasonPlaceholder')} />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
 
       <div>
-        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">{t('sales.retourNote')}</label>
+        <label className="block text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">{t('sales.retourNote')}</label>
         <textarea value={note} onChange={e => setNote(e.target.value)} rows={2}
           className="input w-full resize-none" placeholder={t('sales.retourNotePlaceholder')} />
       </div>
 
-      <div className="flex justify-end gap-3">
-        <button onClick={onCancel} className="btn btn-secondary">{t('sales.cancel')}</button>
+      <div className="flex justify-end gap-2">
+        <button onClick={onCancel} className="btn btn-secondary text-[13px] h-8 px-3">{t('sales.cancel')}</button>
         <button onClick={handleSubmit} disabled={isSubmitting}
-          className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-orange-500 hover:bg-orange-600 active:scale-[0.98] transition-all disabled:opacity-50">
-          <ArrowUturnLeftIcon className="w-4 h-4" />
+          className="btn btn-primary text-[13px] h-8 px-3 disabled:opacity-50">
+          <ArrowUturnLeftIcon className="w-4 h-4" strokeWidth={1.8} />
           {isSubmitting ? '...' : t('sales.retourSubmit')}
         </button>
       </div>
@@ -523,22 +530,28 @@ export default function SalesPage() {
   };
 
   const getStatusBadge = (status: string) => {
-    const badges: Record<string, { class: string; text: string }> = {
-      draft: { class: 'badge-info', text: t('sales.draft') },
-      pending: { class: 'badge-warning', text: t('sales.pending') },
-      completed: { class: 'badge-success', text: t('sales.completed') },
-      cancelled: { class: 'badge-danger', text: t('sales.cancelled') },
+    const badges: Record<string, { dot: string; text: string }> = {
+      draft:     { dot: 'metric-dot-blue',    text: t('sales.draft') },
+      pending:   { dot: 'metric-dot-orange',  text: t('sales.pending') },
+      completed: { dot: 'metric-dot-green',   text: t('sales.completed') },
+      cancelled: { dot: 'metric-dot-red',     text: t('sales.cancelled') },
     };
-    return badges[status] || { class: 'badge-secondary', text: status };
+    return badges[status] || { dot: 'metric-dot-neutral', text: status };
   };
 
   const getPaymentBadge = (status: string) => {
-    const badges: Record<string, { class: string; text: string }> = {
-      unpaid: { class: 'badge-danger', text: t('sales.unpaid') },
-      partial: { class: 'badge-warning', text: t('sales.partial') },
-      paid: { class: 'badge-success', text: t('sales.paidBadge') },
+    const badges: Record<string, { dot: string; text: string }> = {
+      unpaid:  { dot: 'metric-dot-red',    text: t('sales.unpaid') },
+      partial: { dot: 'metric-dot-orange', text: t('sales.partial') },
+      paid:    { dot: 'metric-dot-green',  text: t('sales.paidBadge') },
     };
-    return badges[status] || { class: 'badge-secondary', text: status };
+    return badges[status] || { dot: 'metric-dot-neutral', text: status };
+  };
+
+  const getSourceMeta = (source?: string) => {
+    if (source === 'app') return { dot: 'metric-dot-violet', text: t('sales.sourceApp'), Icon: DevicePhoneMobileIcon };
+    if (source === 'delivery') return { dot: 'metric-dot-orange', text: t('sales.sourceDelivery'), Icon: TruckIcon };
+    return { dot: 'metric-dot-blue', text: t('sales.sourcePlatform'), Icon: ComputerDesktopIcon };
   };
 
   // Filtered sales
@@ -625,7 +638,7 @@ export default function SalesPage() {
       case 'edit':
         return <PencilSquareIcon className="w-4 h-4" />;
       case 'retour':
-        return <ArrowUturnLeftIcon className="w-4 h-4 text-orange-500" />;
+        return <ArrowUturnLeftIcon className="w-4 h-4 text-gray-500" />;
       default:
         return null;
     }
@@ -636,232 +649,161 @@ export default function SalesPage() {
     switch (tab.type) {
       case 'list':
         return (
-          <div className="space-y-5">
+          <div className="space-y-4">
             {/* --- Header --- */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-3">
-              <div data-tour="sales-title">
-                <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('sales.title')}</h1>
-                <p className="text-sm text-gray-400 dark:text-gray-500 mt-1.5">{t('sales.subtitle')}</p>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
+            <div data-tour="sales-title">
+              <PageHeader title={t('sales.title')} subtitle={t('sales.subtitle')}>
                 <Link
                   href="/dashboard/sales/debtors"
-                  className="group inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold rounded-xl border-2 border-amber-200 dark:border-amber-700 text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 hover:border-amber-300 dark:hover:border-amber-600 transition-all duration-200"
+                  className="btn btn-secondary text-[13px] h-8 px-3"
                   data-tour="sales-debtors"
                 >
-                  <BanknotesIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                  {t('sales.outstandingDebts')}
+                  <BanknotesIcon className="w-4 h-4" strokeWidth={1.8} />
+                  <span className="hidden md:inline">{t('sales.outstandingDebts')}</span>
                 </Link>
                 <button
                   onClick={openNewTab}
-                  className="group inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] transition-all duration-200"
+                  className="btn btn-primary text-[13px] h-8 px-3"
                   data-tour="sales-add"
                 >
-                  <PlusIcon className="w-5 h-5 group-hover:rotate-90 transition-transform duration-200" />
+                  <PlusIcon className="w-4 h-4" strokeWidth={2} />
                   <span className="hidden sm:inline">{t('sales.addSaleInvoice')}</span>
                   <span className="sm:hidden">{t('sales.add')}</span>
-                  <kbd className="hidden sm:inline bg-white/20 px-1.5 py-0.5 rounded-md text-[10px] font-mono">Insert</kbd>
                 </button>
-              </div>
+              </PageHeader>
             </div>
 
-            {/* --- Profit Strip --- */}
-            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden" data-tour="sales-profit">
-              <div className={`grid grid-cols-1 md:grid-cols-3 md:divide-x ${dir === 'rtl' ? 'md:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
-                <div className="group relative p-5 hover:bg-orange-50/40 dark:hover:bg-orange-900/10 transition-colors duration-200">
-                  <div className="absolute top-0 inset-x-0 h-[3px] bg-orange-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-                  <div className="text-center">
-                    <div className="text-lg font-black text-gray-900 dark:text-white tabular-nums leading-none">{formatCurrency(kpis.totalCost)}</div>
-                    <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.totalCostPrice')}</div>
+            {/* --- Stats: profit + KPIs unified --- */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5" data-tour="sales-profit">
+              {[
+                { label: t('sales.totalCostPrice'),    value: formatCurrency(kpis.totalCost),    dot: 'metric-dot-orange',  currency: true },
+                { label: t('sales.totalSellingPrice'), value: formatCurrency(kpis.totalAmount),  dot: 'metric-dot-green',   currency: true },
+                { label: t('sales.profitMargin'),      value: formatCurrency(kpis.profit),       dot: kpis.profit >= 0 ? 'metric-dot-blue' : 'metric-dot-red', currency: true },
+                { label: t('sales.collected'),         value: formatCurrency(kpis.paidAmount),   dot: 'metric-dot-green',   currency: true },
+                { label: t('sales.debts'),             value: formatCurrency(kpis.dueAmount),    dot: 'metric-dot-red',     currency: true },
+                { label: t('sales.unpaidCount'),       value: kpis.unpaidCount,                  dot: 'metric-dot-orange',  currency: false },
+              ].map((s, i) => (
+                <div key={i} className="metric-tile">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`metric-dot ${s.dot}`} aria-hidden />
+                    <p className="metric-label truncate">{s.label}</p>
                   </div>
+                  {s.currency ? (
+                    <p className="metric-value-currency">{s.value}</p>
+                  ) : (
+                    <p className="metric-value tnum truncate">{s.value}</p>
+                  )}
                 </div>
-                <div className="group relative p-5 hover:bg-green-50/40 dark:hover:bg-green-900/10 transition-colors duration-200">
-                  <div className="absolute top-0 inset-x-0 h-[3px] bg-green-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-                  <div className="text-center">
-                    <div className="text-lg font-black text-gray-900 dark:text-white tabular-nums leading-none">{formatCurrency(kpis.totalAmount)}</div>
-                    <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.totalSellingPrice')}</div>
-                  </div>
-                </div>
-                <div className="group relative p-5 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors duration-200">
-                  <div className="absolute top-0 inset-x-0 h-[3px] bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-                  <div className="text-center">
-                    <div className={`text-lg font-black tabular-nums leading-none ${kpis.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(kpis.profit)}</div>
-                    <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.profitMargin')}</div>
-                  </div>
-                </div>
-              </div>
+              ))}
             </div>
 
-            {/* --- KPI Strip --- */}
-            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden" data-tour="sales-kpis">
-              <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 sm:divide-x ${dir === 'rtl' ? 'sm:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
-                <div className="group relative p-5 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors duration-200">
-                  <div className="absolute top-0 inset-x-0 h-[3px] bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-                  <div className="text-center">
-                    <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums leading-none">{kpis.totalSales}</div>
-                    <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.totalInvoices')}</div>
+            {/* --- Counts row --- */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5" data-tour="sales-kpis">
+              {[
+                { label: t('sales.totalInvoices'), value: kpis.totalSales, dot: 'metric-dot-neutral' },
+                { label: t('sales.totalSales'),    value: formatCurrency(kpis.totalAmount), dot: 'metric-dot-violet', currency: true },
+                { label: t('sales.todaySales'),    value: kpis.todaySales, dot: 'metric-dot-blue', sub: formatCurrency(kpis.todayAmount) },
+                { label: t('sales.draft'),         value: kpis.draftCount, dot: 'metric-dot-blue' },
+              ].map((s, i) => (
+                <div key={i} className="metric-tile">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`metric-dot ${s.dot}`} aria-hidden />
+                    <p className="metric-label truncate">{s.label}</p>
                   </div>
+                  {s.currency ? (
+                    <p className="metric-value-currency">{s.value}</p>
+                  ) : (
+                    <p className="metric-value tnum truncate">{s.value}</p>
+                  )}
+                  {s.sub && <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 tnum">{s.sub}</p>}
                 </div>
-
-                <div className="group relative p-5 hover:bg-purple-50/40 dark:hover:bg-purple-900/10 transition-colors duration-200">
-                  <div className="absolute top-0 inset-x-0 h-[3px] bg-purple-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-                  <div className="text-center">
-                    <div className="text-lg font-black text-gray-900 dark:text-white tabular-nums leading-none">{formatCurrency(kpis.totalAmount)}</div>
-                    <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.totalSales')}</div>
-                  </div>
-                </div>
-
-                <div className="group relative p-5 hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10 transition-colors duration-200">
-                  <div className="absolute top-0 inset-x-0 h-[3px] bg-emerald-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-                  <div className="text-center">
-                    <div className="text-lg font-black text-emerald-600 tabular-nums leading-none">{formatCurrency(kpis.paidAmount)}</div>
-                    <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.collected')}</div>
-                  </div>
-                </div>
-
-                <div className="group relative p-5 hover:bg-red-50/40 dark:hover:bg-red-900/10 transition-colors duration-200">
-                  <div className="absolute top-0 inset-x-0 h-[3px] bg-red-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-                  <div className="text-center">
-                    <div className="text-lg font-black text-red-600 tabular-nums leading-none">{formatCurrency(kpis.dueAmount)}</div>
-                    <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.debts')}</div>
-                  </div>
-                </div>
-
-                <div className="group relative p-5 hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 transition-colors duration-200">
-                  <div className="absolute top-0 inset-x-0 h-[3px] bg-indigo-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-                  <div className="text-center">
-                    <div className="text-3xl font-black text-indigo-600 tabular-nums leading-none">{kpis.todaySales}</div>
-                    <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.todaySales')}</div>
-                    <div className="text-[10px] text-indigo-400 mt-0.5">{formatCurrency(kpis.todayAmount)}</div>
-                  </div>
-                </div>
-
-                <div className="group relative p-5 hover:bg-amber-50/40 dark:hover:bg-amber-900/10 transition-colors duration-200">
-                  <div className="absolute top-0 inset-x-0 h-[3px] bg-amber-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b" />
-                  <div className="text-center">
-                    <div className="text-3xl font-black text-amber-600 tabular-nums leading-none">{kpis.unpaidCount}</div>
-                    <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-2">{t('sales.unpaidCount')}</div>
-                  </div>
-                </div>
-              </div>
+              ))}
             </div>
 
             {/* --- Filters --- */}
-            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden" data-tour="sales-filters">
-              <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-750">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-gray-200/70 dark:bg-gray-600 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                    </svg>
-                  </div>
-                  <span className="text-sm font-bold text-gray-700 dark:text-gray-200">{t('sales.filters')}</span>
-                  {hasActiveFilters && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">{t('sales.active')}</span>
-                  )}
-                </div>
-                {hasActiveFilters && (
-                  <button onClick={clearFilters} className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 px-2.5 py-1.5 rounded-lg transition-colors">
+            <div data-tour="sales-filters">
+              <FilterBar
+                search={searchTerm}
+                onSearchChange={setSearchTerm}
+                searchPlaceholder={t('sales.searchPlaceholder')}
+                trailing={hasActiveFilters ? (
+                  <button
+                    onClick={clearFilters}
+                    className="inline-flex items-center gap-1 text-[12px] font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                  >
                     <XMarkIcon className="w-3.5 h-3.5" />
                     {t('sales.clearAll')}
                   </button>
-                )}
-              </div>
-
-              <div className="p-5 space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder={t('sales.searchPlaceholder')}
-                    className="input"
-                  />
-                  <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select">
-                    <option value="">{t('sales.allStatuses')}</option>
-                    <option value="draft">{t('sales.draft')}</option>
-                    <option value="pending">{t('sales.pending')}</option>
-                    <option value="completed">{t('sales.completed')}</option>
-                    <option value="cancelled">{t('sales.cancelled')}</option>
-                  </select>
-                  <select value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value)} className="select">
-                    <option value="">{t('sales.paymentStatus')}</option>
-                    <option value="unpaid">{t('sales.unpaid')}</option>
-                    <option value="partial">{t('sales.partial')}</option>
-                    <option value="paid">{t('sales.paidBadge')}</option>
-                  </select>
-                  <select value={clientFilter} onChange={(e) => setClientFilter(e.target.value)} className="select">
-                    <option value="">{t('sales.allClients')}</option>
-                    {clients.map(client => (
-                      <option key={client.id} value={client.id}>{client.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <select value={warehouseFilter} onChange={(e) => setWarehouseFilter(e.target.value)} className="select">
-                    <option value="">{t('sales.allWarehouses')}</option>
-                    {warehouses.map(warehouse => (
-                      <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
-                    ))}
-                  </select>
-                  <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} className="select">
-                    <option value="">{t('sales.allSources')}</option>
-                    <option value="web">{t('sales.fromPlatform')}</option>
-                    <option value="app">{t('sales.fromApp')}</option>
-                    <option value="delivery">{t('sales.fromDelivery')}</option>
-                  </select>
-                  <DateInput value={dateFrom} onChange={(v) => setDateFrom(v)} placeholder={t('sales.fromDate')} />
-                  <DateInput value={dateTo} onChange={(v) => setDateTo(v)} placeholder={t('sales.toDate')} />
-                </div>
-              </div>
+                ) : undefined}
+              >
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select text-[14px] py-2">
+                  <option value="">{t('sales.allStatuses')}</option>
+                  <option value="draft">{t('sales.draft')}</option>
+                  <option value="pending">{t('sales.pending')}</option>
+                  <option value="completed">{t('sales.completed')}</option>
+                  <option value="cancelled">{t('sales.cancelled')}</option>
+                </select>
+                <select value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value)} className="select text-[14px] py-2">
+                  <option value="">{t('sales.paymentStatus')}</option>
+                  <option value="unpaid">{t('sales.unpaid')}</option>
+                  <option value="partial">{t('sales.partial')}</option>
+                  <option value="paid">{t('sales.paidBadge')}</option>
+                </select>
+                <select value={clientFilter} onChange={(e) => setClientFilter(e.target.value)} className="select text-[14px] py-2">
+                  <option value="">{t('sales.allClients')}</option>
+                  {clients.map(client => (
+                    <option key={client.id} value={client.id}>{client.name}</option>
+                  ))}
+                </select>
+                <select value={warehouseFilter} onChange={(e) => setWarehouseFilter(e.target.value)} className="select text-[14px] py-2">
+                  <option value="">{t('sales.allWarehouses')}</option>
+                  {warehouses.map(warehouse => (
+                    <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
+                  ))}
+                </select>
+                <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} className="select text-[14px] py-2">
+                  <option value="">{t('sales.allSources')}</option>
+                  <option value="web">{t('sales.fromPlatform')}</option>
+                  <option value="app">{t('sales.fromApp')}</option>
+                  <option value="delivery">{t('sales.fromDelivery')}</option>
+                </select>
+                <DateInput value={dateFrom} onChange={(v) => setDateFrom(v)} placeholder={t('sales.fromDate')} />
+                <DateInput value={dateTo} onChange={(v) => setDateTo(v)} placeholder={t('sales.toDate')} />
+              </FilterBar>
             </div>
 
             {/* --- Table --- */}
-            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden" data-tour="sales-table">
-              <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-750">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-gray-700 dark:text-gray-200">{t('sales.invoicesList')}</h3>
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 tabular-nums">
-                    {filteredSales.length}
-                  </span>
-                </div>
-              </div>
-
+            <div data-tour="sales-table">
               {isLoading ? (
                 <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
+                <div className="table-pro-wrap">
+                  <table className="table-pro compact">
                     <thead>
                       <tr>
-                        <th>{t('sales.reference')}</th>
-                        <th>{t('sales.client')}</th>
-                        <th>{t('sales.warehouse')}</th>
-                        <th>{t('sales.date')}</th>
-                        <th>{t('sales.cost')}</th>
-                        <th>{t('sales.total')}</th>
-                        <th>{t('sales.profit')}</th>
-                        <th>{t('sales.paid')}</th>
-                        <th>{t('sales.remaining')}</th>
-                        <th>{t('sales.status')}</th>
-                        <th>{t('sales.payment')}</th>
-                        <th>{t('sales.source')}</th>
-                        <th>{t('sales.actions')}</th>
+                        <th className="text-start">{t('sales.reference')}</th>
+                        <th className="text-start">{t('sales.client')}</th>
+                        <th className="text-start">{t('sales.warehouse')}</th>
+                        <th className="text-end">{t('sales.date')}</th>
+                        <th className="text-end">{t('sales.cost')}</th>
+                        <th className="text-end">{t('sales.total')}</th>
+                        <th className="text-end">{t('sales.profit')}</th>
+                        <th className="text-end">{t('sales.paid')}</th>
+                        <th className="text-end">{t('sales.remaining')}</th>
+                        <th className="text-start">{t('sales.status')}</th>
+                        <th className="text-start">{t('sales.payment')}</th>
+                        <th className="text-start">{t('sales.source')}</th>
+                        <th className="text-end">{t('sales.actions')}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredSales.length === 0 ? (
                         <tr>
-                          <td colSpan={13} className="text-center py-16">
-                            <div className="flex flex-col items-center gap-3">
-                              <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                                <DocumentTextIcon className="w-8 h-8 text-gray-300 dark:text-gray-500" />
-                              </div>
-                              <div>
-                                <p className="text-sm font-semibold text-gray-400 dark:text-gray-500">{t('sales.noSaleInvoices')}</p>
-                                <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">{t('sales.tryChangeFilters')}</p>
-                              </div>
+                          <td colSpan={13} className="t-empty">
+                            <div className="flex flex-col items-center gap-2 py-6">
+                              <DocumentTextIcon className="w-8 h-8 text-gray-300 dark:text-gray-600" strokeWidth={1.5} />
+                              <p className="text-[13px] font-medium text-gray-500 dark:text-gray-400">{t('sales.noSaleInvoices')}</p>
+                              <p className="text-[12px] text-gray-400 dark:text-gray-500">{t('sales.tryChangeFilters')}</p>
                             </div>
                           </td>
                         </tr>
@@ -869,103 +811,130 @@ export default function SalesPage() {
                         filteredSales.map((sale) => {
                           const statusBadge = getStatusBadge(sale.status);
                           const paymentBadge = getPaymentBadge(sale.payment_status);
+                          const sourceMeta = getSourceMeta(sale.source);
+                          const profit = Number(sale.grand_total) - Number(sale.total_cost ?? 0);
+                          const SourceIcon = sourceMeta.Icon;
                           return (
-                            <tr key={sale.id} className="group hover:bg-emerald-50/30 dark:hover:bg-emerald-900/10 transition-colors duration-150">
-                              <td className="font-bold text-emerald-600">
+                            <tr key={sale.id}>
+                              <td>
                                 <div className="flex items-center gap-1.5">
-                                  <span>{sale.reference}</span>
+                                  <span className="font-medium text-gray-900 dark:text-gray-100">{sale.reference}</span>
                                   {(sale.returns_count ?? 0) > 0 && (
                                     <span
                                       title={t('sales.hasReturn')}
-                                      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300"
+                                      className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-600 dark:text-gray-300"
                                     >
+                                      <span className="metric-dot metric-dot-orange" aria-hidden />
                                       <ArrowUturnLeftIcon className="w-3 h-3" />
                                       {sale.returns_count}
                                     </span>
                                   )}
                                 </div>
                               </td>
-                              <td className="font-medium text-gray-700 dark:text-gray-200">{sale.client?.name || t('sales.cashClient')}</td>
-                              <td>{sale.warehouse?.name || '-'}</td>
-                              <td className="tabular-nums">{formatDate(sale.date)}</td>
-                              <td className="text-orange-600 tabular-nums">{formatCurrency(sale.total_cost ?? 0)}</td>
-                              <td className="font-medium tabular-nums">{formatCurrency(sale.grand_total)}</td>
-                              <td className={`font-bold tabular-nums ${(Number(sale.grand_total) - Number(sale.total_cost ?? 0)) >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                                {formatCurrency(Number(sale.grand_total) - Number(sale.total_cost ?? 0))}
+                              <td className="t-strong">{sale.client?.name || t('sales.cashClient')}</td>
+                              <td className="t-muted">{sale.warehouse?.name || '-'}</td>
+                              <td className="tnum">{formatDate(sale.date)}</td>
+                              <td className="tnum text-end">{formatCurrency(sale.total_cost ?? 0)}</td>
+                              <td className="tnum text-end font-medium">{formatCurrency(sale.grand_total)}</td>
+                              <td className="tnum text-end">
+                                {profit < 0 ? (
+                                  <span className="inline-flex items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
+                                    <span className="metric-dot metric-dot-red" aria-hidden />
+                                    {formatCurrency(profit)}
+                                  </span>
+                                ) : (
+                                  <span className="font-medium">{formatCurrency(profit)}</span>
+                                )}
                               </td>
-                              <td className="text-emerald-600 font-medium tabular-nums">{formatCurrency(sale.paid_amount)}</td>
-                              <td className="text-red-600 tabular-nums">{formatCurrency(sale.due_amount)}</td>
-                              <td><span className={`badge ${statusBadge.class}`}>{statusBadge.text}</span></td>
-                              <td><span className={`badge ${paymentBadge.class}`}>{paymentBadge.text}</span></td>
-                              <td className="text-center">
-                                <div className="flex flex-col items-center gap-0.5">
-                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                                    sale.source === 'app'
-                                      ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400'
-                                      : sale.source === 'delivery'
-                                      ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
-                                      : 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400'
-                                  }`}>
-                                    {sale.source === 'app' ? (
-                                      <>
-                                        <DevicePhoneMobileIcon className="w-3 h-3" />
-                                        {t('sales.sourceApp')}
-                                      </>
-                                    ) : sale.source === 'delivery' ? (
-                                      <>
-                                        <TruckIcon className="w-3 h-3" />
-                                        {t('sales.sourceDelivery')}
-                                      </>
-                                    ) : (
-                                      <>
-                                        <ComputerDesktopIcon className="w-3 h-3" />
-                                        {t('sales.sourcePlatform')}
-                                      </>
-                                    )}
+                              <td className="tnum text-end">{formatCurrency(sale.paid_amount)}</td>
+                              <td className="tnum text-end">
+                                {Number(sale.due_amount) > 0 ? (
+                                  <span className="inline-flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
+                                    <span className="metric-dot metric-dot-red" aria-hidden />
+                                    {formatCurrency(sale.due_amount)}
+                                  </span>
+                                ) : (
+                                  formatCurrency(sale.due_amount)
+                                )}
+                              </td>
+                              <td>
+                                <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                                  <span className={`metric-dot ${statusBadge.dot}`} aria-hidden />
+                                  {statusBadge.text}
+                                </span>
+                              </td>
+                              <td>
+                                <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                                  <span className={`metric-dot ${paymentBadge.dot}`} aria-hidden />
+                                  {paymentBadge.text}
+                                </span>
+                              </td>
+                              <td>
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                                    <span className={`metric-dot ${sourceMeta.dot}`} aria-hidden />
+                                    <SourceIcon className="w-3.5 h-3.5" strokeWidth={1.7} />
+                                    {sourceMeta.text}
                                   </span>
                                   {sale.user && (
-                                    <span className="text-[10px] text-gray-500 dark:text-gray-400">{sale.user.name}</span>
+                                    <span className="text-[10.5px] text-gray-500 dark:text-gray-400 ms-3.5">{sale.user.name}</span>
                                   )}
                                 </div>
                               </td>
                               <td>
-                                <div className="flex gap-1.5">
+                                <div className="flex justify-end gap-1">
                                   {sale.status === 'completed' && (
                                     <button
                                       onClick={() => openRetourTab(sale.id, sale.reference)}
-                                      className="p-1.5 rounded-lg text-orange-500 hover:text-orange-700 hover:bg-orange-100 dark:hover:bg-orange-900/20 transition-colors"
+                                      className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                       title={t('sales.retourButton')}
                                     >
-                                      <ArrowUturnLeftIcon className="w-5 h-5" />
+                                      <ArrowUturnLeftIcon className="w-4 h-4" strokeWidth={1.7} />
                                     </button>
                                   )}
                                   {sale.status === 'draft' && (
                                     <button
                                       onClick={() => handleConfirmDraft(sale.id)}
-                                      className="p-1.5 rounded-lg text-green-600 hover:text-green-800 hover:bg-green-100 dark:hover:bg-green-900/20 transition-colors"
+                                      className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                       title={t('sales.confirmInvoice')}
                                     >
-                                      <CheckCircleIcon className="w-5 h-5" />
+                                      <CheckCircleIcon className="w-4 h-4" strokeWidth={1.7} />
                                     </button>
                                   )}
                                   <button
                                     onClick={() => openEditTab(sale.id, sale.reference)}
-                                    className="p-1.5 rounded-lg text-amber-600 hover:text-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/20 transition-colors"
+                                    className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                     title={t('sales.edit')}
                                   >
-                                    <PencilIcon className="w-5 h-5" />
+                                    <PencilIcon className="w-4 h-4" strokeWidth={1.7} />
                                   </button>
-                                  <button onClick={() => handleDelete(sale.id, sale.status === 'draft')} className="p-1.5 rounded-lg text-red-600 hover:text-red-800 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors" title={sale.status === 'draft' ? t('sales.delete') : t('sales.cancelInvoice')}>
-                                    <TrashIcon className="w-5 h-5" />
+                                  <button
+                                    onClick={() => handleDelete(sale.id, sale.status === 'draft')}
+                                    className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    title={sale.status === 'draft' ? t('sales.delete') : t('sales.cancelInvoice')}
+                                  >
+                                    <TrashIcon className="w-4 h-4" strokeWidth={1.7} />
                                   </button>
-                                  <Link href={`/dashboard/sales/${sale.id}`} className="p-1.5 rounded-lg text-blue-600 hover:text-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-colors" title={t('sales.viewInvoice')}>
-                                    <EyeIcon className="w-5 h-5" />
+                                  <Link
+                                    href={`/dashboard/sales/${sale.id}`}
+                                    className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    title={t('sales.viewInvoice')}
+                                  >
+                                    <EyeIcon className="w-4 h-4" strokeWidth={1.7} />
                                   </Link>
-                                  <button onClick={() => handleDownloadFacture(sale.id)} className="p-1.5 rounded-lg text-red-600 hover:text-red-800 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors" title={t('sales.downloadInvoicePdf')}>
-                                    <ArrowDownTrayIcon className="w-5 h-5" />
+                                  <button
+                                    onClick={() => handleDownloadFacture(sale.id)}
+                                    className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    title={t('sales.downloadInvoicePdf')}
+                                  >
+                                    <ArrowDownTrayIcon className="w-4 h-4" strokeWidth={1.7} />
                                   </button>
-                                  <button onClick={() => handleDownloadBonLivraison(sale.id)} className="p-1.5 rounded-lg text-green-600 hover:text-green-800 hover:bg-green-100 dark:hover:bg-green-900/20 transition-colors" title="Bon de Livraison">
-                                    <TruckIcon className="w-5 h-5" />
+                                  <button
+                                    onClick={() => handleDownloadBonLivraison(sale.id)}
+                                    className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    title="Bon de Livraison"
+                                  >
+                                    <TruckIcon className="w-4 h-4" strokeWidth={1.7} />
                                   </button>
                                 </div>
                               </td>
@@ -1017,17 +986,17 @@ export default function SalesPage() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Shortcuts hint */}
-      <div className="bg-gradient-to-l from-slate-800 to-slate-900 text-slate-300 px-4 py-2 rounded-xl mb-2 hidden sm:flex items-center gap-6 text-sm shadow-sm">
-        <span className="font-bold text-white text-xs tracking-wide">{t('sales.shortcuts')}</span>
-        <span><kbd className="bg-emerald-600/30 text-emerald-300 px-2 py-0.5 rounded-md text-[10px] font-mono">Insert</kbd> {t('sales.newInvoiceShortcut')}</span>
-        <span><kbd className="bg-red-600/30 text-red-300 px-2 py-0.5 rounded-md text-[10px] font-mono">Ctrl+W</kbd> {t('sales.closeTabShortcut')}</span>
+      {/* Shortcuts hint — quiet, neutral */}
+      <div className="hidden sm:flex items-center gap-5 text-[12px] text-gray-500 dark:text-gray-400 px-3 py-1.5 mb-2 border border-gray-200/80 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800">
+        <span className="font-medium text-gray-600 dark:text-gray-300">{t('sales.shortcuts')}</span>
+        <span><kbd className="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded text-[10px] font-mono text-gray-600 dark:text-gray-300">Insert</kbd> {t('sales.newInvoiceShortcut')}</span>
+        <span><kbd className="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded text-[10px] font-mono text-gray-600 dark:text-gray-300">Ctrl+W</kbd> {t('sales.closeTabShortcut')}</span>
         <button
           onClick={() => setShowTour(true)}
-          className={`${dir === 'rtl' ? 'mr-auto' : 'ml-auto'} flex items-center gap-1.5 text-sm text-emerald-400 hover:text-emerald-300 transition-colors`}
+          className={`${dir === 'rtl' ? 'mr-auto' : 'ml-auto'} inline-flex items-center gap-1.5 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors`}
           title={t('sales.guidedTour')}
         >
-          <QuestionMarkCircleIcon className="w-5 h-5" />
+          <QuestionMarkCircleIcon className="w-4 h-4" strokeWidth={1.8} />
           {t('sales.guidedTour')}
         </button>
       </div>

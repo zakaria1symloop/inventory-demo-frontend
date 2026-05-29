@@ -8,10 +8,8 @@ import type { TourStep } from '@/components/GuidedTour';
 import DateInput from '@/components/ui/DateInput';
 import toast from 'react-hot-toast';
 import { useLocale } from '@/lib/i18n/context';
+import { PageHeader, FilterBar } from '@/components/dashboard';
 import {
-  MagnifyingGlassIcon,
-  FunnelIcon,
-  XMarkIcon,
   ArrowPathIcon,
   CubeIcon,
   ExclamationTriangleIcon,
@@ -66,23 +64,23 @@ export interface ProductRequestsPageProps {
   subtitle?: string;
 }
 
-const getTheme = (type?: string) => {
-  if (type === 'livreur') return { from: 'from-blue-500', to: 'to-indigo-600', shadow: 'shadow-blue-500/20', chip: 'bg-blue-600', chipHover: 'hover:bg-blue-700' };
-  if (type === 'cashvan') return { from: 'from-violet-500', to: 'to-purple-600', shadow: 'shadow-violet-500/20', chip: 'bg-violet-600', chipHover: 'hover:bg-violet-700' };
-  return { from: 'from-blue-500', to: 'to-indigo-600', shadow: 'shadow-indigo-500/20', chip: 'bg-indigo-600', chipHover: 'hover:bg-indigo-700' };
+const STATUS_DOT: Record<string, 'orange' | 'blue' | 'red' | 'green' | 'neutral'> = {
+  pending: 'orange',
+  approved: 'blue',
+  rejected: 'red',
+  fulfilled: 'green',
 };
 
 export function ProductRequestsContent({ requestType, title, subtitle }: ProductRequestsPageProps) {
   const router = useRouter();
   const { t, locale, dir } = useLocale();
   const isRTL = dir === 'rtl';
-  const theme = getTheme(requestType);
 
-  const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; icon: string }> = {
-    pending: { label: t('productRequests.statusPending'), bg: 'bg-amber-50 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300', icon: 'clock' },
-    approved: { label: t('productRequests.statusApproved'), bg: 'bg-blue-50 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300', icon: 'check' },
-    rejected: { label: t('productRequests.statusRejected'), bg: 'bg-red-50 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300', icon: 'x' },
-    fulfilled: { label: t('productRequests.statusFulfilled'), bg: 'bg-emerald-50 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300', icon: 'badge' },
+  const STATUS_LABEL: Record<string, string> = {
+    pending: t('productRequests.statusPending'),
+    approved: t('productRequests.statusApproved'),
+    rejected: t('productRequests.statusRejected'),
+    fulfilled: t('productRequests.statusFulfilled'),
   };
 
   const [requests, setRequests] = useState<ProductRequest[]>([]);
@@ -483,146 +481,89 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
   }
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" data-tour="pr-title">
-        <div>
-          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-gray-100 tracking-tight leading-none">{resolvedTitle}</h1>
-          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{resolvedSubtitle}</p>
-        </div>
-        <div className="flex items-center gap-2">
+    <div>
+      <div data-tour="pr-title">
+        <PageHeader title={resolvedTitle} subtitle={resolvedSubtitle}>
           <button
             onClick={() => { localStorage.removeItem(storageKey); setShowTour(true); }}
-            className="flex items-center gap-1.5 text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 text-[13px] text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white font-medium transition-colors"
             title={t('productRequests.tourButton')}
           >
-            <QuestionMarkCircleIcon className="w-5 h-5" />
+            <QuestionMarkCircleIcon className="w-4 h-4" />
             <span className="hidden sm:inline">{t('productRequests.tourButton')}</span>
           </button>
           <button
             onClick={() => { setIsLoading(true); fetchRequests(); }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 h-[34px] text-[13px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors"
           >
             <ArrowPathIcon className="w-4 h-4" />
             <span className="hidden sm:inline">{t('productRequests.refresh')}</span>
           </button>
           {pendingCount > 0 && (
-            <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 text-amber-700 dark:text-amber-300 text-sm font-bold">
-              <ClockIcon className="w-4 h-4" />
+            <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+              <span className="metric-dot metric-dot-orange" aria-hidden />
               {pendingCount} {t('productRequests.pendingBadge')}
-            </div>
+            </span>
           )}
-        </div>
+        </PageHeader>
       </div>
 
       {/* KPI Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3" data-tour="pr-kpis">
-        <button onClick={() => setStatusFilter('')} className={`bg-white dark:bg-gray-800 rounded-2xl border p-4 text-start transition-all ${statusFilter === '' ? 'border-indigo-300 dark:border-indigo-600 ring-1 ring-indigo-200 dark:ring-indigo-700' : 'border-gray-200/80 dark:border-gray-700'}`}>
-          <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">{t('productRequests.all')}</p>
-          <p className="text-lg font-black text-indigo-600 dark:text-indigo-400 tabular-nums">{requests.length}</p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4" data-tour="pr-kpis">
+        <button onClick={() => setStatusFilter('')} className="metric-tile text-start">
+          <div className="metric-label">{t('productRequests.all')}</div>
+          <div className="metric-value tnum">{requests.length}</div>
         </button>
-        <button onClick={() => setStatusFilter('pending')} className={`bg-white dark:bg-gray-800 rounded-2xl border p-4 text-start transition-all ${statusFilter === 'pending' ? 'border-amber-300 dark:border-amber-600 ring-1 ring-amber-200 dark:ring-amber-700' : 'border-gray-200/80 dark:border-gray-700'}`}>
-          <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">{t('productRequests.statusPending')}</p>
-          <p className="text-lg font-black text-amber-600 dark:text-amber-400 tabular-nums">{pendingCount}</p>
+        <button onClick={() => setStatusFilter('pending')} className="metric-tile text-start">
+          <div className="metric-label flex items-center gap-1.5"><span className="metric-dot metric-dot-orange" aria-hidden />{t('productRequests.statusPending')}</div>
+          <div className="metric-value tnum">{pendingCount}</div>
         </button>
-        <button onClick={() => setStatusFilter('approved')} className={`bg-white dark:bg-gray-800 rounded-2xl border p-4 text-start transition-all ${statusFilter === 'approved' ? 'border-blue-300 dark:border-blue-600 ring-1 ring-blue-200 dark:ring-blue-700' : 'border-gray-200/80 dark:border-gray-700'}`}>
-          <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">{t('productRequests.statusApproved')}</p>
-          <p className="text-lg font-black text-blue-600 dark:text-blue-400 tabular-nums">{approvedCount}</p>
+        <button onClick={() => setStatusFilter('approved')} className="metric-tile text-start">
+          <div className="metric-label flex items-center gap-1.5"><span className="metric-dot metric-dot-blue" aria-hidden />{t('productRequests.statusApproved')}</div>
+          <div className="metric-value tnum">{approvedCount}</div>
         </button>
-        <button onClick={() => setStatusFilter('fulfilled')} className={`bg-white dark:bg-gray-800 rounded-2xl border p-4 text-start transition-all ${statusFilter === 'fulfilled' ? 'border-emerald-300 dark:border-emerald-600 ring-1 ring-emerald-200 dark:ring-emerald-700' : 'border-gray-200/80 dark:border-gray-700'}`}>
-          <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">{t('productRequests.statusFulfilled')}</p>
-          <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 tabular-nums">{fulfilledCount}</p>
+        <button onClick={() => setStatusFilter('fulfilled')} className="metric-tile text-start">
+          <div className="metric-label flex items-center gap-1.5"><span className="metric-dot metric-dot-green" aria-hidden />{t('productRequests.statusFulfilled')}</div>
+          <div className="metric-value tnum">{fulfilledCount}</div>
         </button>
-        <button onClick={() => setStatusFilter('rejected')} className={`bg-white dark:bg-gray-800 rounded-2xl border p-4 text-start transition-all ${statusFilter === 'rejected' ? 'border-red-300 dark:border-red-600 ring-1 ring-red-200 dark:ring-red-700' : 'border-gray-200/80 dark:border-gray-700'}`}>
-          <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">{t('productRequests.statusRejected')}</p>
-          <p className="text-lg font-black text-red-600 dark:text-red-400 tabular-nums">{rejectedCount}</p>
+        <button onClick={() => setStatusFilter('rejected')} className="metric-tile text-start">
+          <div className="metric-label flex items-center gap-1.5"><span className="metric-dot metric-dot-red" aria-hidden />{t('productRequests.statusRejected')}</div>
+          <div className="metric-value tnum">{rejectedCount}</div>
         </button>
       </div>
 
-      {/* Search + Filters + Cards */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm">
-        {/* Search bar */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-700" data-tour="pr-search">
-          <div className="relative flex-1">
-            <MagnifyingGlassIcon className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500`} />
-            <input
-              type="text"
-              placeholder={t('productRequests.searchPlaceholder')}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className={`input w-full ${isRTL ? 'pr-9' : 'pl-9'} text-sm`}
-            />
-          </div>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            data-tour="pr-filter-btn"
-            className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl border transition-all ${
-              showFilters || activeFilterCount > 0
-                ? 'border-indigo-300 dark:border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
-                : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
-          >
-            <FunnelIcon className="w-4 h-4" />
-            <span className="hidden sm:inline">{t('productRequests.filter')}</span>
-            {activeFilterCount > 0 && (
-              <span className="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center">
-                {activeFilterCount}
+      <div data-tour="pr-search">
+        <FilterBar
+          search={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder={t('productRequests.searchPlaceholder')}
+          trailing={
+            (searchTerm || activeFilterCount > 0) ? (
+              <button onClick={clearAllFilters} className="text-[13px] text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white font-medium">
+                {t('productRequests.clear')}
+              </button>
+            ) : (
+              <span className="text-[12px] text-gray-400 dark:text-gray-500 hidden sm:inline">
+                {filteredRequests.length} / {requests.length}
               </span>
-            )}
-          </button>
-          {(searchTerm || activeFilterCount > 0) && (
-            <button onClick={clearAllFilters} className="text-sm text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium flex items-center gap-1">
-              <XMarkIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('productRequests.clear')}</span>
-            </button>
-          )}
-          <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:inline">
-            {filteredRequests.length} / {requests.length}
-          </span>
-        </div>
+            )
+          }
+        >
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option value="">{t('productRequests.allStatuses')}</option>
+            <option value="pending">{t('productRequests.statusPending')}</option>
+            <option value="approved">{t('productRequests.statusApproved')}</option>
+            <option value="fulfilled">{t('productRequests.statusFulfilled')}</option>
+            <option value="rejected">{t('productRequests.statusRejected')}</option>
+          </select>
+          <DateInput value={dateFrom} onChange={setDateFrom} placeholder={t('productRequests.fromDate')} />
+          <DateInput value={dateTo} onChange={setDateTo} placeholder={t('productRequests.toDate')} />
+        </FilterBar>
+      </div>
 
-        {/* Expanded Filters */}
-        {showFilters && (
-          <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-700/30">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('productRequests.filterStatus')}</label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="select w-full"
-                >
-                  <option value="">{t('productRequests.allStatuses')}</option>
-                  <option value="pending">{t('productRequests.statusPending')}</option>
-                  <option value="approved">{t('productRequests.statusApproved')}</option>
-                  <option value="fulfilled">{t('productRequests.statusFulfilled')}</option>
-                  <option value="rejected">{t('productRequests.statusRejected')}</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('productRequests.fromDate')}</label>
-                <DateInput
-                  value={dateFrom}
-                  onChange={setDateFrom}
-                  placeholder={t('productRequests.fromDate')}
-                  className="w-full"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('productRequests.toDate')}</label>
-                <DateInput
-                  value={dateTo}
-                  onChange={setDateTo}
-                  placeholder={t('productRequests.toDate')}
-                  className="w-full"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
+      <div className="surface-pro">
         {/* Quick Filters */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 dark:border-gray-700 overflow-x-auto" data-tour="pr-quick-filters">
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100 dark:border-gray-700 overflow-x-auto" data-tour="pr-quick-filters">
           {([
             { value: '', label: t('productRequests.all') },
             { value: 'pending', label: t('productRequests.statusPending') },
@@ -633,10 +574,10 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
             <button
               key={opt.value}
               onClick={() => setStatusFilter(opt.value)}
-              className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+              className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium whitespace-nowrap transition-colors ${
                 statusFilter === opt.value
-                  ? `${theme.chip} text-white`
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
               }`}
             >
               {opt.label}
@@ -654,7 +595,8 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
             </div>
           ) : (
             filteredRequests.map(req => {
-              const statusCfg = STATUS_CONFIG[req.status] || { label: req.status, bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-600 dark:text-gray-300', icon: 'clock' };
+              const statusLabel = STATUS_LABEL[req.status] || req.status;
+              const statusDot = STATUS_DOT[req.status] || 'neutral';
               const isExpanded = expandedId === req.id;
               const cashvan = isCashvanRequest(req);
               const isEditing = editingRequestId === req.id;
@@ -663,10 +605,10 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
               const isLoadingThisStock = loadingStock === req.warehouse_id;
 
               return (
-                <div key={req.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
+                <div key={req.id} className="bg-white dark:bg-gray-800 rounded-md border border-gray-200/80 dark:border-gray-700 overflow-hidden">
                   {/* Request Header */}
                   <div
-                    className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors"
+                    className="flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors"
                     onClick={() => {
                       setExpandedId(isExpanded ? null : req.id);
                       setAdminNotes('');
@@ -674,103 +616,90 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
                       if (isEditing) cancelEditing();
                     }}
                   >
-                    <div className="flex items-center gap-4">
-                      <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${
-                        req.status === 'pending' ? 'bg-amber-100 dark:bg-amber-900/40' :
-                        req.status === 'approved' ? 'bg-blue-100 dark:bg-blue-900/40' :
-                        req.status === 'fulfilled' ? 'bg-emerald-100 dark:bg-emerald-900/40' :
-                        'bg-red-100 dark:bg-red-900/40'
-                      }`}>
-                        {req.status === 'pending' && <ClockIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />}
-                        {req.status === 'approved' && <CheckCircleIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
-                        {req.status === 'fulfilled' && <CheckBadgeIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />}
-                        {req.status === 'rejected' && <XCircleIcon className="w-5 h-5 text-red-600 dark:text-red-400" />}
-                      </div>
+                    <div className="flex items-center gap-3">
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-sm font-bold text-gray-800 dark:text-gray-200">{req.reference}</span>
-                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${statusCfg.bg} ${statusCfg.text}`}>
-                            {statusCfg.label}
+                          <span className="font-mono text-[13px] font-medium text-gray-900 dark:text-gray-100">{req.reference}</span>
+                          <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                            <span className={`metric-dot metric-dot-${statusDot}`} aria-hidden />
+                            {statusLabel}
                           </span>
                           {cashvan && (
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300">{t('productRequests.mobileWarehouse')}</span>
+                            <span className="inline-flex items-center gap-1.5 text-[12px] text-gray-600 dark:text-gray-400">
+                              <span className="metric-dot metric-dot-violet" aria-hidden />
+                              {t('productRequests.mobileWarehouse')}
+                            </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap text-xs text-gray-400 dark:text-gray-500">
+                        <div className="flex items-center gap-2 mt-1 flex-wrap text-[12px] text-gray-500 dark:text-gray-400">
                           <span>{req.requester?.name || '-'}</span>
                           <span>·</span>
                           <span>{cashvan ? (req.warehouse?.name || t('productRequests.mobileWarehouse')) : `${t('productRequests.session')} ${req.van_session?.reference || `#${req.van_session_id}`}`}</span>
                           <span>·</span>
-                          <span>{req.items.length} {t('productRequests.productCount')}</span>
+                          <span className="tnum">{req.items.length} {t('productRequests.productCount')}</span>
                           <span>·</span>
-                          <span>{req.items.reduce((sum, i) => sum + Math.round(Number(i.quantity_requested) || 0), 0)} {t('productRequests.pieceCount')}</span>
+                          <span className="tnum">{req.items.reduce((sum, i) => sum + Math.round(Number(i.quantity_requested) || 0), 0)} {t('productRequests.pieceCount')}</span>
                         </div>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:inline">{formatDate(req.created_at)}</span>
+                      <span className="text-[12px] text-gray-500 dark:text-gray-400 hidden sm:inline">{formatDate(req.created_at)}</span>
                       {/* Quick action buttons */}
-                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                        {/* View/Expand */}
+                      <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => { setExpandedId(isExpanded ? null : req.id); setAdminNotes(''); setEditedQuantities({}); if (isEditing) cancelEditing(); }}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/30 transition-colors"
+                          className="p-1.5 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
                           title={t('productRequests.view') || 'عرض'}
                         >
                           <EyeIcon className="w-4 h-4" />
                         </button>
-                        {/* Print */}
                         <button
                           onClick={() => handlePrint(req)}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/30 transition-colors"
+                          className="p-1.5 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
                           title={t('productRequests.print') || 'طباعة'}
                         >
                           <PrinterIcon className="w-4 h-4" />
                         </button>
-                        {/* Approve - pending only */}
                         {req.status === 'pending' && (
                           <button
                             onClick={() => { setExpandedId(req.id); }}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:text-emerald-400 dark:hover:bg-emerald-900/30 transition-colors"
+                            className="p-1.5 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
                             title={t('productRequests.approve')}
                           >
                             <CheckCircleIcon className="w-4 h-4" />
                           </button>
                         )}
-                        {/* Reject - pending only */}
                         {req.status === 'pending' && (
                           <button
                             onClick={() => handleReject(req)}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/30 transition-colors"
+                            className="p-1.5 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
                             title={t('productRequests.reject')}
                           >
                             <XCircleIcon className="w-4 h-4" />
                           </button>
                         )}
-                        {/* Fulfill - approved non-cashvan only */}
                         {req.status === 'approved' && !cashvan && (
                           <button
                             onClick={() => handleFulfill(req)}
                             disabled={isActioning}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:text-emerald-400 dark:hover:bg-emerald-900/30 transition-colors disabled:opacity-50"
+                            className="p-1.5 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
                             title={t('productRequests.fulfillProducts')}
                           >
                             <CubeIcon className="w-4 h-4" />
                           </button>
                         )}
-                        {/* Delete - pending only */}
                         {req.status === 'pending' && (
                           <button
                             onClick={() => handleDelete(req)}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/30 transition-colors"
+                            className="p-1.5 rounded-md text-gray-500 hover:text-red-600 hover:bg-red-50 dark:text-gray-400 dark:hover:text-red-400 dark:hover:bg-red-900/20 transition-colors"
                             title={t('productRequests.delete')}
                           >
                             <TrashIcon className="w-4 h-4" />
                           </button>
                         )}
                       </div>
-                      <ChevronDownIcon className={`w-5 h-5 text-gray-400 dark:text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                      <ChevronDownIcon className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                     </div>
                   </div>
 
@@ -804,24 +733,24 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
                         </div>
                       )}
                       {req.status === 'pending' && hasStock && stockStatus && !stockStatus.allAvailable && (
-                        <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 bg-red-50/80 dark:bg-red-900/20">
-                          <div className="flex items-center gap-2 text-red-700 dark:text-red-300 font-bold text-sm mb-2">
-                            <ExclamationTriangleIcon className="w-5 h-5" />
+                        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+                          <div className="inline-flex items-center gap-1.5 text-[13px] font-medium text-gray-900 dark:text-gray-100 mb-2">
+                            <span className="metric-dot metric-dot-red" aria-hidden />
                             {t('productRequests.stockInsufficient')}
                           </div>
                           <div className="space-y-1 mb-3">
                             {stockStatus.shortItems.map(si => (
-                              <div key={si.item.id} className="flex flex-col sm:flex-row sm:justify-between text-sm gap-0.5">
-                                <span className="text-red-600 dark:text-red-400 font-medium">{si.item.product?.name || `${t('productRequests.productHash')} #${si.item.product_id}`}</span>
-                                <span className="text-red-600 dark:text-red-400 text-xs sm:text-sm">
-                                  {t('productRequests.available')}: <strong>{fmtQty(si.available, si.item.product?.pieces_per_package)}</strong> | {t('productRequests.needed')}: <strong>{fmtQty(si.needed, si.item.product?.pieces_per_package)}</strong> | {t('productRequests.missing')}: <strong>{fmtQty(si.needed - si.available, si.item.product?.pieces_per_package)}</strong>
+                              <div key={si.item.id} className="flex flex-col sm:flex-row sm:justify-between text-[13px] gap-0.5">
+                                <span className="text-gray-700 dark:text-gray-300 font-medium">{si.item.product?.name || `${t('productRequests.productHash')} #${si.item.product_id}`}</span>
+                                <span className="text-gray-500 dark:text-gray-400 text-[12px] tnum">
+                                  {t('productRequests.available')}: <strong className="text-gray-700 dark:text-gray-300">{fmtQty(si.available, si.item.product?.pieces_per_package)}</strong> | {t('productRequests.needed')}: <strong className="text-gray-700 dark:text-gray-300">{fmtQty(si.needed, si.item.product?.pieces_per_package)}</strong> | {t('productRequests.missing')}: <strong className="text-gray-700 dark:text-gray-300">{fmtQty(si.needed - si.available, si.item.product?.pieces_per_package)}</strong>
                                 </span>
                               </div>
                             ))}
                           </div>
                           <button
                             onClick={() => handleCreatePurchase(req)}
-                            className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-l from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 rounded-xl transition-all"
+                            className="inline-flex items-center justify-center gap-1.5 w-full px-4 h-[34px] text-[13px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors"
                           >
                             <ShoppingCartIcon className="w-4 h-4" />
                             {t('productRequests.createPurchaseForShortage')}
@@ -829,26 +758,26 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
                         </div>
                       )}
                       {req.status === 'pending' && hasStock && stockStatus && stockStatus.allAvailable && (
-                        <div className="px-5 py-2.5 border-b border-gray-100 dark:border-gray-700 bg-emerald-50/80 dark:bg-emerald-900/20">
-                          <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 text-sm font-medium">
-                            <CheckCircleIcon className="w-4 h-4" />
+                        <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700">
+                          <div className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                            <span className="metric-dot metric-dot-green" aria-hidden />
                             {t('productRequests.allStockAvailable')}
                           </div>
                         </div>
                       )}
 
                       {/* Items Table */}
-                      <div className="px-5 py-3">
-                        <div className="overflow-x-auto">
-                          <table className="w-full">
+                      <div className="px-4 py-2">
+                        <div className="table-pro-wrap">
+                          <table className="table-pro compact">
                             <thead>
-                              <tr className="border-b border-gray-100 dark:border-gray-700">
-                                <th className="text-start text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('productRequests.product')}</th>
-                                <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('productRequests.quantityRequested')}</th>
-                                {req.status === 'pending' && hasStock && <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('productRequests.quantityAvailable')}</th>}
-                                {req.status === 'pending' && !isEditing && <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('productRequests.quantityApproved')}</th>}
-                                {isEditing && <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('productRequests.editQuantity')}</th>}
-                                {(req.status === 'approved' || req.status === 'fulfilled') && <th className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-2">{t('productRequests.quantityApproved')}</th>}
+                              <tr>
+                                <th>{t('productRequests.product')}</th>
+                                <th className="tnum">{t('productRequests.quantityRequested')}</th>
+                                {req.status === 'pending' && hasStock && <th className="tnum">{t('productRequests.quantityAvailable')}</th>}
+                                {req.status === 'pending' && !isEditing && <th className="text-center">{t('productRequests.quantityApproved')}</th>}
+                                {isEditing && <th className="text-center">{t('productRequests.editQuantity')}</th>}
+                                {(req.status === 'approved' || req.status === 'fulfilled') && <th className="tnum">{t('productRequests.quantityApproved')}</th>}
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
@@ -858,17 +787,20 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
                                 const isShort = available !== null && available < needed;
 
                                 return (
-                                  <tr key={item.id} className={isShort ? 'bg-red-50/50 dark:bg-red-900/10' : ''}>
-                                    <td className="py-2.5">
-                                      <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{item.product?.name || `${t('productRequests.productHash')} #${item.product_id}`}</span>
-                                      {item.product?.barcode && <span className={`text-[10px] text-gray-400 dark:text-gray-500 ${isRTL ? 'mr-1' : 'ml-1'}`}>({item.product.barcode})</span>}
+                                  <tr key={item.id} className={isShort ? 'bg-red-50/40 dark:bg-red-900/10' : ''}>
+                                    <td>
+                                      <span className="text-[13px] font-medium text-gray-800 dark:text-gray-200">{item.product?.name || `${t('productRequests.productHash')} #${item.product_id}`}</span>
+                                      {item.product?.barcode && <span className={`text-[11px] text-gray-400 dark:text-gray-500 ${isRTL ? 'mr-1' : 'ml-1'}`}>({item.product.barcode})</span>}
                                     </td>
-                                    <td className="text-center text-sm font-bold text-gray-700 dark:text-gray-300 py-2.5">{fmtQty(item.quantity_requested, item.product?.pieces_per_package)}</td>
+                                    <td className="tnum">{fmtQty(item.quantity_requested, item.product?.pieces_per_package)}</td>
                                     {req.status === 'pending' && hasStock && (
-                                      <td className={`text-center text-sm font-bold py-2.5 ${isShort ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                                        {available !== null ? fmtQty(available, item.product?.pieces_per_package) : '-'}
+                                      <td className="tnum">
+                                        <span className={isShort ? 'inline-flex items-center gap-1.5 text-gray-700 dark:text-gray-300' : 'inline-flex items-center gap-1.5 text-gray-700 dark:text-gray-300'}>
+                                          <span className={`metric-dot ${isShort ? 'metric-dot-red' : 'metric-dot-green'}`} aria-hidden />
+                                          {available !== null ? fmtQty(available, item.product?.pieces_per_package) : '-'}
+                                        </span>
                                         {isShort && (
-                                          <div className="text-[10px] text-red-500 dark:text-red-400">{t('productRequests.missing')} {fmtQty(needed - (available ?? 0), item.product?.pieces_per_package)}</div>
+                                          <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{t('productRequests.missing')} {fmtQty(needed - (available ?? 0), item.product?.pieces_per_package)}</div>
                                         )}
                                       </td>
                                     )}
@@ -961,7 +893,7 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
                                       );
                                     })()}
                                     {(req.status === 'approved' || req.status === 'fulfilled') && (
-                                      <td className="py-2.5 text-center font-bold text-emerald-600 dark:text-emerald-400">
+                                      <td className="tnum t-strong">
                                         {fmtQty(item.quantity_approved, item.product?.pieces_per_package)}
                                       </td>
                                     )}
@@ -983,11 +915,11 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
 
                       {/* Edit mode save/cancel */}
                       {isEditing && (
-                        <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-700 flex gap-2">
+                        <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700 flex gap-2">
                           <button
                             onClick={() => handleSaveEdit(req)}
                             disabled={isActioning}
-                            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-l from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl transition-all disabled:opacity-50"
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 h-[34px] text-[13px] font-medium text-white bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white rounded-md transition-colors disabled:opacity-50"
                           >
                             {isActioning ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (
                               <>
@@ -998,7 +930,7 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
                           </button>
                           <button
                             onClick={cancelEditing}
-                            className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
+                            className="flex-1 px-4 h-[34px] text-[13px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors"
                           >
                             {t('productRequests.cancel')}
                           </button>
@@ -1007,19 +939,19 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
 
                       {/* Admin Actions for pending */}
                       {req.status === 'pending' && !isEditing && (
-                        <div className="px-5 py-4 border-t border-gray-100 dark:border-gray-700 space-y-3" data-tour="pr-actions">
+                        <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700 space-y-2.5" data-tour="pr-actions">
                           <textarea
                             value={adminNotes}
                             onChange={(e) => setAdminNotes(e.target.value)}
                             placeholder={t('productRequests.adminNotesPlaceholder')}
-                            className="input w-full text-sm"
+                            className="input w-full text-[13px]"
                             rows={2}
                           />
                           <div className="flex gap-2">
                             <button
                               onClick={() => handleApprove(req)}
                               disabled={isActioning}
-                              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-l from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 rounded-xl transition-all disabled:opacity-50"
+                              className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 h-[34px] text-[13px] font-medium text-white bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white rounded-md transition-colors disabled:opacity-50"
                             >
                               {isActioning ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (
                                 <>
@@ -1031,7 +963,7 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
                             <button
                               onClick={() => handleReject(req)}
                               disabled={isActioning}
-                              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-l from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 rounded-xl transition-all disabled:opacity-50"
+                              className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 h-[34px] text-[13px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors disabled:opacity-50"
                             >
                               <XCircleIcon className="w-4 h-4" />
                               {t('productRequests.reject')}
@@ -1041,7 +973,7 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
                             <button
                               onClick={() => startEditing(req)}
                               disabled={isActioning}
-                              className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded-xl transition-colors"
+                              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 h-[30px] text-[12px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors"
                             >
                               <PencilSquareIcon className="w-3.5 h-3.5" />
                               {t('productRequests.edit')}
@@ -1049,7 +981,7 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
                             <button
                               onClick={() => handleDelete(req)}
                               disabled={isActioning}
-                              className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-xl transition-colors"
+                              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 h-[30px] text-[12px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors"
                             >
                               <TrashIcon className="w-3.5 h-3.5" />
                               {t('productRequests.delete')}
@@ -1060,11 +992,11 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
 
                       {/* Fulfill button for approved (van session requests only) */}
                       {req.status === 'approved' && !cashvan && (
-                        <div className="px-5 py-4 border-t border-gray-100 dark:border-gray-700">
+                        <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700">
                           <button
                             onClick={() => handleFulfill(req)}
                             disabled={isActioning}
-                            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-l from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 rounded-xl transition-all disabled:opacity-50"
+                            className="w-full inline-flex items-center justify-center gap-1.5 px-4 h-[34px] text-[13px] font-medium text-white bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white rounded-md transition-colors disabled:opacity-50"
                           >
                             {isActioning ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (
                               <>
@@ -1074,16 +1006,16 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
                             )}
                           </button>
                           {req.admin_notes && (
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{t('productRequests.notes')}: {req.admin_notes}</p>
+                            <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-2">{t('productRequests.notes')}: {req.admin_notes}</p>
                           )}
                         </div>
                       )}
 
                       {/* Cashvan approved info */}
                       {req.status === 'fulfilled' && cashvan && (
-                        <div className="px-5 py-2.5 border-t border-gray-100 dark:border-gray-700 bg-emerald-50/50 dark:bg-emerald-900/20">
-                          <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300 font-medium">
-                            <CheckBadgeIcon className="w-4 h-4" />
+                        <div className="px-4 py-2 border-t border-gray-100 dark:border-gray-700">
+                          <div className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                            <span className="metric-dot metric-dot-green" aria-hidden />
                             {t('productRequests.transferCreatedAuto')}
                           </div>
                         </div>
@@ -1107,33 +1039,31 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
 
       {/* No-Warehouse Assignment Modal */}
       {noWarehouseModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
-                  <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                </div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">مستخدم بدون مستودع</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-md border border-gray-200/80 dark:border-gray-700 shadow-xl w-full max-w-md">
+            <div className="p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="metric-dot metric-dot-orange" aria-hidden />
+                <h3 className="text-[15px] font-semibold text-gray-900 dark:text-gray-100">مستخدم بدون مستودع</h3>
               </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-5">
+              <p className="text-[13px] text-gray-600 dark:text-gray-400 mb-4">
                 المستخدم <strong className="text-gray-900 dark:text-gray-100">{noWarehouseModal.requesterName}</strong> لا يملك مستودعاً مخصصاً. اختر مستودعاً لتعيينه والموافقة على الطلب.
               </p>
               <select
                 value={selectedWarehouseId}
                 onChange={e => setSelectedWarehouseId(e.target.value)}
-                className="input w-full mb-5"
+                className="input w-full mb-4"
               >
                 <option value="">-- اختر مستودع --</option>
                 {warehouses.map(w => (
                   <option key={w.id} value={w.id}>{w.name}</option>
                 ))}
               </select>
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 <button
                   onClick={handleAssignWarehouseAndApprove}
                   disabled={!selectedWarehouseId || isAssigningWarehouse}
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-l from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 rounded-xl transition-all disabled:opacity-50"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 h-[34px] text-[13px] font-medium text-white bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white rounded-md transition-colors disabled:opacity-50"
                 >
                   {isAssigningWarehouse
                     ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -1142,7 +1072,7 @@ export function ProductRequestsContent({ requestType, title, subtitle }: Product
                 </button>
                 <button
                   onClick={() => setNoWarehouseModal(null)}
-                  className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
+                  className="flex-1 px-4 h-[34px] text-[13px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors"
                 >
                   إلغاء
                 </button>

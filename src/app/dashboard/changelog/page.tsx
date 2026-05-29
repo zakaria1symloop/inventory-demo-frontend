@@ -1,5 +1,7 @@
 'use client';
 
+import { PageHeader } from '@/components/dashboard';
+
 const changelog = [
   {
     version: 'v1.0.6',
@@ -121,42 +123,43 @@ const changelog = [
   },
 ];
 
-const typeBadge = {
-  feature: { label: 'جديد', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
-  improvement: { label: 'تحسين', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-  fix: { label: 'إصلاح', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
+const typeBadge: Record<string, { label: string; dot: 'green' | 'blue' | 'orange' }> = {
+  feature: { label: 'جديد', dot: 'green' },
+  improvement: { label: 'تحسين', dot: 'blue' },
+  fix: { label: 'إصلاح', dot: 'orange' },
 };
 
 export default function ChangelogPage() {
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">سجل التحديثات</h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-1">آخر التحديثات والتحسينات على النظام</p>
-      </div>
+      <PageHeader title="سجل التحديثات" subtitle="آخر التحديثات والتحسينات على النظام" />
 
-      <div className="space-y-8">
+      <div className="space-y-4">
         {changelog.map((release) => (
-          <div key={release.version} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <div key={release.version} className="surface-pro overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{release.version}</span>
+                <span className="text-[15px] font-semibold text-gray-900 dark:text-white tnum">{release.version}</span>
                 {release.version === 'v1.0.6' && (
-                  <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-emerald-500 text-white">الأحدث</span>
+                  <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                    <span className="metric-dot metric-dot-green" aria-hidden />
+                    الأحدث
+                  </span>
                 )}
               </div>
-              <span className="text-sm text-gray-500 dark:text-gray-400">{release.date}</span>
+              <span className="text-[12px] text-gray-500 dark:text-gray-400 tnum">{release.date}</span>
             </div>
-            <div className="px-6 py-4">
-              <ul className="space-y-3">
+            <div className="px-5 py-4">
+              <ul className="space-y-2.5">
                 {release.changes.map((change, idx) => {
-                  const badge = typeBadge[change.type as keyof typeof typeBadge];
+                  const badge = typeBadge[change.type] || { label: change.type, dot: 'neutral' as const };
                   return (
-                    <li key={idx} className="flex items-start gap-3">
-                      <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full mt-0.5 flex-shrink-0 ${badge.color}`}>
+                    <li key={idx} className="flex items-start gap-2.5">
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-gray-600 dark:text-gray-300 mt-0.5 flex-shrink-0 min-w-[50px]">
+                        <span className={`metric-dot metric-dot-${badge.dot}`} aria-hidden />
                         {badge.label}
                       </span>
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{change.text}</span>
+                      <span className="text-[13px] text-gray-700 dark:text-gray-300 leading-relaxed">{change.text}</span>
                     </li>
                   );
                 })}
@@ -166,8 +169,8 @@ export default function ChangelogPage() {
         ))}
       </div>
 
-      <div className="mt-8 text-center text-sm text-gray-400 dark:text-gray-500">
-        <a href="https://www.symloop.com" target="_blank" rel="noopener noreferrer" className="hover:text-blue-500 transition-colors">
+      <div className="mt-6 text-center text-[12px] text-gray-400 dark:text-gray-500">
+        <a href="https://www.symloop.com" target="_blank" rel="noopener noreferrer" className="hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
           Built by Symloop
         </a>
       </div>

@@ -5,6 +5,13 @@ import { useRouter, useParams } from 'next/navigation';
 import { stockTransfersApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { useLocale } from '@/lib/i18n/context';
+import { PageHeader } from '@/components/dashboard';
+import {
+  PrinterIcon,
+  TrashIcon,
+  CheckCircleIcon,
+  TruckIcon,
+} from '@heroicons/react/24/outline';
 
 interface Warehouse {
   id: number;
@@ -58,30 +65,13 @@ export default function StockTransferDetail() {
   const router = useRouter();
   const params = useParams();
   const id = Number(params.id);
-  const { t, locale, dir } = useLocale();
-  const isRTL = dir === 'rtl';
+  const { t, locale } = useLocale();
 
   const [transfer, setTransfer] = useState<StockTransfer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isActioning, setIsActioning] = useState(false);
 
   const intlLocale = locale === 'fr' ? 'fr-DZ' : 'ar-DZ';
-
-  function formatQty(totalPiecesQty: number, piecesPerPackage: number): string {
-    const ppp = piecesPerPackage || 1;
-    const totalPieces = Math.round(totalPiecesQty);
-    const pieceLabel = t('stockTransfersDetail.piece');
-    const cartonLabel = t('stockTransfersDetail.carton');
-    const pieceShort = t('stockTransfersDetail.pieceShort');
-    if (ppp <= 1) {
-      return `${totalPieces} ${pieceLabel}`;
-    }
-    const cartons = Math.floor(totalPieces / ppp);
-    const pieces = totalPieces % ppp;
-    if (pieces === 0) return `${cartons} ${cartonLabel} (${totalPieces} ${pieceShort})`;
-    if (cartons === 0) return `${totalPieces} ${pieceLabel}`;
-    return `${cartons} ${cartonLabel} + ${pieces} ${pieceLabel} (${totalPieces} ${pieceShort})`;
-  }
 
   function formatCurrency(value: number): string {
     return new Intl.NumberFormat(intlLocale, { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
@@ -324,12 +314,12 @@ export default function StockTransferDetail() {
   };
 
   const getStatusInfo = (status: string) => {
-    const statuses: Record<string, { class: string; text: string; icon: string }> = {
-      pending: { class: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400', text: t('stockTransfersDetail.statusPending'), icon: '⏳' },
-      loading: { class: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400', text: t('stockTransfersDetail.statusLoading'), icon: '📦' },
-      collected: { class: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400', text: t('stockTransfersDetail.statusCollected'), icon: '✅' },
+    const map: Record<string, { dot: string; label: string }> = {
+      pending: { dot: 'metric-dot-orange', label: t('stockTransfersDetail.statusPending') },
+      loading: { dot: 'metric-dot-blue', label: t('stockTransfersDetail.statusLoading') },
+      collected: { dot: 'metric-dot-green', label: t('stockTransfersDetail.statusCollected') },
     };
-    return statuses[status] || { class: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300', text: status, icon: '❓' };
+    return map[status] || { dot: 'metric-dot-neutral', label: status };
   };
 
   const getItemDetails = (item: StockTransferItem) => {
@@ -368,221 +358,176 @@ export default function StockTransferDetail() {
   }
 
   if (!transfer) {
-    return <div className="text-center py-8 text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.notFound')}</div>;
+    return (
+      <div>
+        <PageHeader
+          title={t('stockTransfersDetail.notFound')}
+          breadcrumb={[
+            { label: t('sidebar.stockTransfers'), href: '/dashboard/stock-transfers' },
+            { label: '—' },
+          ]}
+        />
+      </div>
+    );
   }
 
   const statusInfo = getStatusInfo(transfer.status);
   const summary = getSummary();
+  const stepOneDone = true;
+  const stepTwoDone = transfer.status !== 'pending';
+  const stepThreeDone = transfer.status === 'collected';
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.push('/dashboard/stock-transfers')}
-            className="btn btn-secondary btn-sm"
-          >
-            <svg className={`w-4 h-4 ${isRTL ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            {t('stockTransfersDetail.back')}
-          </button>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            {t('stockTransfersDetail.transferTitle')} {transfer.reference}
-          </h1>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handlePrint}
-            className="btn btn-secondary btn-sm"
-            title={t('stockTransfersDetail.print')}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-            </svg>
-            {t('stockTransfersDetail.print')}
-          </button>
-          <div className={`px-4 py-2 rounded-lg font-medium text-sm ${statusInfo.class}`}>
-            {statusInfo.icon} {statusInfo.text}
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title={`${t('stockTransfersDetail.transferTitle')} ${transfer.reference}`}
+        breadcrumb={[
+          { label: t('sidebar.stockTransfers'), href: '/dashboard/stock-transfers' },
+          { label: transfer.reference },
+        ]}
+        pill={
+          <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300">
+            <span className={`metric-dot ${statusInfo.dot}`} aria-hidden />
+            {statusInfo.label}
+          </span>
+        }
+      >
+        <button
+          onClick={handlePrint}
+          className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          title={t('stockTransfersDetail.print')}
+        >
+          <PrinterIcon className="w-4 h-4" />
+          {t('stockTransfersDetail.print')}
+        </button>
+      </PageHeader>
 
-      {/* Status Progress Bar */}
-      <div className="card mb-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${
-              transfer.status === 'pending' ? 'bg-amber-500' : 'bg-green-500'
-            }`}>
+      {/* Status Progress */}
+      <div className="surface-pro p-4 mb-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className={`w-8 h-8 rounded-md border flex items-center justify-center tnum text-[13px] flex-shrink-0 ${stepOneDone ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-500'}`}>
               1
             </div>
-            <div>
-              <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{t('stockTransfersDetail.stepRequest')}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(transfer.created_at)}</p>
+            <div className="min-w-0">
+              <p className="t-strong text-[12px]">{t('stockTransfersDetail.stepRequest')}</p>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 tnum">{formatDate(transfer.created_at)}</p>
             </div>
           </div>
-          <div className={`flex-1 h-1 mx-4 rounded ${
-            transfer.status !== 'pending' ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'
-          }`} />
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
-              transfer.status === 'loading' ? 'bg-blue-500 text-white' :
-              transfer.status === 'collected' ? 'bg-green-500 text-white' :
-              'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
-            }`}>
+          <div className={`flex-1 h-px ${stepTwoDone ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'}`} />
+          <div className="flex items-center gap-2 min-w-0">
+            <div className={`w-8 h-8 rounded-md border flex items-center justify-center tnum text-[13px] flex-shrink-0 ${stepTwoDone ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' : transfer.status === 'pending' ? 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-400' : 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'}`}>
               2
             </div>
-            <div>
-              <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{t('stockTransfersDetail.stepLoading')}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {transfer.approved_at ? formatDate(transfer.approved_at) : '-'}
-              </p>
+            <div className="min-w-0">
+              <p className="t-strong text-[12px]">{t('stockTransfersDetail.stepLoading')}</p>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 tnum">{transfer.approved_at ? formatDate(transfer.approved_at) : '—'}</p>
             </div>
           </div>
-          <div className={`flex-1 h-1 mx-4 rounded ${
-            transfer.status === 'collected' ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'
-          }`} />
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
-              transfer.status === 'collected' ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
-            }`}>
+          <div className={`flex-1 h-px ${stepThreeDone ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'}`} />
+          <div className="flex items-center gap-2 min-w-0">
+            <div className={`w-8 h-8 rounded-md border flex items-center justify-center tnum text-[13px] flex-shrink-0 ${stepThreeDone ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-400'}`}>
               3
             </div>
-            <div>
-              <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{t('stockTransfersDetail.stepDepart')}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {transfer.collected_at ? formatDate(transfer.collected_at) : '-'}
-              </p>
+            <div className="min-w-0">
+              <p className="t-strong text-[12px]">{t('stockTransfersDetail.stepDepart')}</p>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 tnum">{transfer.collected_at ? formatDate(transfer.collected_at) : '—'}</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Transfer Info */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="card">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">{t('stockTransfersDetail.transferInfo')}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.reference')}</label>
-                <p className="font-mono font-medium text-gray-900 dark:text-gray-100">{transfer.reference}</p>
-              </div>
-              <div>
-                <label className="text-sm text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.createdAt')}</label>
-                <p className="font-medium text-gray-900 dark:text-gray-100">{formatDate(transfer.created_at)}</p>
-              </div>
-              <div>
-                <label className="text-sm text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.sourceWarehouse')}</label>
-                <p className="font-medium text-gray-900 dark:text-gray-100">{transfer.from_warehouse?.name || '-'}</p>
-                {transfer.from_warehouse?.assigned_user && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.manager')}: {transfer.from_warehouse.assigned_user.name}</p>
-                )}
-              </div>
-              <div>
-                <label className="text-sm text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.destinationWarehouse')}</label>
-                <p className="font-medium text-gray-900 dark:text-gray-100">{transfer.to_warehouse?.name || '-'}</p>
-                {transfer.to_warehouse?.assigned_user && (
-                  <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">{t('stockTransfersDetail.driver')}: {transfer.to_warehouse.assigned_user.name}</p>
-                )}
-              </div>
-              <div>
-                <label className="text-sm text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.createdBy')}</label>
-                <p className="font-medium text-gray-900 dark:text-gray-100">{transfer.creator?.name || '-'}</p>
-              </div>
+        <div className="lg:col-span-2 space-y-4">
+          <div className="surface-pro p-4">
+            <h2 className="surface-heading mb-3">{t('stockTransfersDetail.transferInfo')}</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
+              <Field label={t('stockTransfersDetail.reference')} value={transfer.reference} mono />
+              <Field label={t('stockTransfersDetail.createdAt')} value={formatDate(transfer.created_at)} mono />
+              <Field label={t('stockTransfersDetail.sourceWarehouse')} value={transfer.from_warehouse?.name || '-'} sub={transfer.from_warehouse?.assigned_user ? `${t('stockTransfersDetail.manager')}: ${transfer.from_warehouse.assigned_user.name}` : undefined} />
+              <Field label={t('stockTransfersDetail.destinationWarehouse')} value={transfer.to_warehouse?.name || '-'} sub={transfer.to_warehouse?.assigned_user ? `${t('stockTransfersDetail.driver')}: ${transfer.to_warehouse.assigned_user.name}` : undefined} />
+              <Field label={t('stockTransfersDetail.createdBy')} value={transfer.creator?.name || '-'} />
               {transfer.approver && (
-                <div>
-                  <label className="text-sm text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.approvedBy')}</label>
-                  <p className="font-medium text-gray-900 dark:text-gray-100">{transfer.approver.name}</p>
-                  {transfer.approved_at && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(transfer.approved_at)}</p>
-                  )}
-                </div>
+                <Field
+                  label={t('stockTransfersDetail.approvedBy')}
+                  value={transfer.approver.name}
+                  sub={transfer.approved_at ? formatDate(transfer.approved_at) : undefined}
+                />
               )}
               {transfer.collector && (
-                <div>
-                  <label className="text-sm text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.collectedBy')}</label>
-                  <p className="font-medium text-gray-900 dark:text-gray-100">{transfer.collector.name}</p>
-                  {transfer.collected_at && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(transfer.collected_at)}</p>
-                  )}
-                </div>
+                <Field
+                  label={t('stockTransfersDetail.collectedBy')}
+                  value={transfer.collector.name}
+                  sub={transfer.collected_at ? formatDate(transfer.collected_at) : undefined}
+                />
               )}
               {transfer.notes && (
-                <div className="md:col-span-2">
-                  <label className="text-sm text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.notes')}</label>
-                  <p className="font-medium text-gray-900 dark:text-gray-100">{transfer.notes}</p>
+                <div className="col-span-2 sm:col-span-3">
+                  <p className="text-[10.5px] uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.notes')}</p>
+                  <p className="text-[13.5px] text-gray-900 dark:text-gray-100 font-medium leading-snug">{transfer.notes}</p>
                 </div>
               )}
             </div>
           </div>
 
           {/* Items Card */}
-          <div className="card">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
+          <div className="surface-pro p-4">
+            <h2 className="surface-heading mb-3">
               {t('stockTransfersDetail.products')} ({transfer.items?.length || 0})
             </h2>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="table-pro-wrap">
+              <table className="table-pro compact">
                 <thead>
-                  <tr className="bg-gray-100 dark:bg-gray-700/50">
-                    <th className="px-3 py-2 text-center w-12 text-gray-700 dark:text-gray-300">#</th>
-                    <th className="px-3 py-2 text-start text-gray-700 dark:text-gray-300">{t('stockTransfersDetail.product')}</th>
-                    <th className="px-3 py-2 text-center w-16 text-gray-700 dark:text-gray-300">{t('stockTransfersDetail.unit')}</th>
-                    <th className="px-3 py-2 text-center w-24 text-gray-700 dark:text-gray-300">{t('stockTransfersDetail.cartons')}</th>
-                    <th className="px-3 py-2 text-center w-20 text-gray-700 dark:text-gray-300">{t('stockTransfersDetail.extraPieces')}</th>
-                    <th className="px-3 py-2 text-center w-20 text-gray-700 dark:text-gray-300">{t('stockTransfersDetail.totalPieces')}</th>
-                    <th className="px-3 py-2 text-center w-24 text-gray-700 dark:text-gray-300">{t('stockTransfersDetail.unitPrice')}</th>
-                    <th className="px-3 py-2 text-center w-24 text-gray-700 dark:text-gray-300">{t('stockTransfersDetail.amount')}</th>
+                  <tr>
+                    <th className="text-center w-12">#</th>
+                    <th>{t('stockTransfersDetail.product')}</th>
+                    <th className="text-center">{t('stockTransfersDetail.unit')}</th>
+                    <th className="text-center">{t('stockTransfersDetail.cartons')}</th>
+                    <th className="text-center">{t('stockTransfersDetail.extraPieces')}</th>
+                    <th className="text-center">{t('stockTransfersDetail.totalPieces')}</th>
+                    <th className="text-center">{t('stockTransfersDetail.unitPrice')}</th>
+                    <th className="text-center">{t('stockTransfersDetail.amount')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {transfer.items?.map((item, index) => {
                     const d = getItemDetails(item);
                     return (
-                      <tr key={item.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                        <td className="px-3 py-3 text-center text-gray-500 dark:text-gray-400">{index + 1}</td>
-                        <td className="px-3 py-3">
-                          <div className="font-medium text-gray-900 dark:text-gray-100">{item.product?.name || '-'}</div>
+                      <tr key={item.id}>
+                        <td className="text-center text-gray-500 tnum">{index + 1}</td>
+                        <td>
+                          <div className="t-strong">{item.product?.name || '-'}</div>
                           {(item.product?.barcode || item.product?.sku) && (
-                            <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">{item.product.barcode || item.product.sku}</div>
+                            <div className="text-[11px] text-gray-400 font-mono">{item.product.barcode || item.product.sku}</div>
                           )}
                           {d.ppp > 1 && (
-                            <div className="text-xs text-blue-600 dark:text-blue-400">{d.ppp} {t('stockTransfersDetail.piecesPerCarton')}</div>
+                            <div className="text-[11px] text-gray-500 dark:text-gray-400">{d.ppp} {t('stockTransfersDetail.piecesPerCarton')}</div>
                           )}
                         </td>
-                        <td className="px-3 py-3 text-center text-sm text-gray-700 dark:text-gray-300">{item.product?.unit?.name || item.product?.unit_sale?.name || '-'}</td>
-                        <td className="px-3 py-3 text-center">
-                          <span className="font-bold text-blue-700 dark:text-blue-400">{d.cartons}</span>
-                        </td>
-                        <td className="px-3 py-3 text-center">
-                          {d.extraPieces > 0 ? (
-                            <span className="font-bold text-orange-600 dark:text-orange-400">{d.extraPieces}</span>
-                          ) : (
-                            <span className="text-gray-400 dark:text-gray-500">0</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-3 text-center font-bold text-gray-900 dark:text-gray-100">{d.totalPieces}</td>
-                        <td className="px-3 py-3 text-center text-sm text-gray-700 dark:text-gray-300">{d.unitCost.toFixed(2)}</td>
-                        <td className="px-3 py-3 text-center font-bold text-green-700 dark:text-green-400">{d.subtotal.toFixed(2)}</td>
+                        <td className="text-center tnum t-muted">{item.product?.unit?.name || item.product?.unit_sale?.name || '-'}</td>
+                        <td className="text-center tnum t-strong">{d.cartons}</td>
+                        <td className="text-center tnum t-muted">{d.extraPieces > 0 ? d.extraPieces : '0'}</td>
+                        <td className="text-center tnum t-strong">{d.totalPieces}</td>
+                        <td className="text-center tnum">{d.unitCost.toFixed(2)}</td>
+                        <td className="text-center tnum t-strong">{d.subtotal.toFixed(2)}</td>
                       </tr>
                     );
                   })}
                   {(!transfer.items || transfer.items.length === 0) && (
                     <tr>
-                      <td colSpan={8} className="text-center py-8 text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.noProducts')}</td>
+                      <td colSpan={8} className="text-center py-6 text-gray-500 dark:text-gray-400 text-[13px]">{t('stockTransfersDetail.noProducts')}</td>
                     </tr>
                   )}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-gray-50 dark:bg-gray-700/50 font-bold">
-                    <td colSpan={3} className="px-3 py-3 text-start text-gray-900 dark:text-gray-100">{t('stockTransfersDetail.total')}</td>
-                    <td className="px-3 py-3 text-center text-blue-700 dark:text-blue-400">{summary.totalCartons}</td>
-                    <td className="px-3 py-3 text-center text-orange-600 dark:text-orange-400">{summary.totalExtraPieces}</td>
-                    <td className="px-3 py-3 text-center text-gray-900 dark:text-gray-100">{summary.totalPieces}</td>
-                    <td className="px-3 py-3 text-center text-gray-700 dark:text-gray-300">-</td>
-                    <td className="px-3 py-3 text-center text-green-700 dark:text-green-400">{formatCurrency(summary.totalCostValue)}</td>
+                  <tr>
+                    <td colSpan={3} className="text-start t-strong">{t('stockTransfersDetail.total')}</td>
+                    <td className="text-center tnum t-strong">{summary.totalCartons}</td>
+                    <td className="text-center tnum t-strong">{summary.totalExtraPieces}</td>
+                    <td className="text-center tnum t-strong">{summary.totalPieces}</td>
+                    <td className="text-center t-muted">—</td>
+                    <td className="text-center tnum t-strong">{formatCurrency(summary.totalCostValue)}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -591,38 +536,30 @@ export default function StockTransferDetail() {
         </div>
 
         {/* Actions Sidebar */}
-        <div className="lg:col-span-1 space-y-6">
-          <div className="card sticky top-4">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">{t('stockTransfersDetail.actions')}</h2>
+        <div className="lg:col-span-1 space-y-4">
+          <div className="surface-pro p-4 sticky top-4">
+            <h2 className="surface-heading mb-3">{t('stockTransfersDetail.actions')}</h2>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               {transfer.status === 'pending' && (
                 <>
                   <button
                     onClick={handleApprove}
                     disabled={isActioning}
-                    className="btn btn-primary w-full"
+                    className="inline-flex items-center justify-center gap-2 w-full px-3 py-2 text-[13px] font-semibold rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors disabled:opacity-50"
                   >
-                    {isActioning ? (
-                      <div className="spinner w-4 h-4 border-2"></div>
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
+                    {isActioning ? <div className="spinner w-4 h-4 border-2"></div> : <CheckCircleIcon className="w-4 h-4" />}
                     {t('stockTransfersDetail.approveStartLoading')}
                   </button>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 text-center">
                     {t('stockTransfersDetail.approveHint')}
                   </p>
                   <hr className="border-gray-200 dark:border-gray-700" />
                   <button
                     onClick={handleDelete}
-                    className="btn btn-danger w-full"
+                    className="inline-flex items-center justify-center gap-2 w-full px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-red-600 dark:text-red-400 bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
+                    <TrashIcon className="w-4 h-4" />
                     {t('stockTransfersDetail.deleteRequest')}
                   </button>
                 </>
@@ -630,32 +567,29 @@ export default function StockTransferDetail() {
 
               {transfer.status === 'loading' && (
                 <>
-                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm text-blue-700 dark:text-blue-400">
-                    <p className="font-medium mb-1">{t('stockTransfersDetail.statusLoading')}</p>
-                    <p>{t('stockTransfersDetail.loadingHint')}</p>
+                  <div className="surface-pro p-3 text-[12px]">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="metric-dot metric-dot-blue" aria-hidden />
+                      <p className="t-strong">{t('stockTransfersDetail.statusLoading')}</p>
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-400 ps-4">{t('stockTransfersDetail.loadingHint')}</p>
                   </div>
 
                   <button
                     onClick={handleCollect}
                     disabled={isActioning}
-                    className="btn btn-success w-full"
+                    className="inline-flex items-center justify-center gap-2 w-full px-3 py-2 text-[13px] font-semibold rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-50"
                   >
-                    {isActioning ? (
-                      <div className="spinner w-4 h-4 border-2"></div>
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                    )}
+                    {isActioning ? <div className="spinner w-4 h-4 border-2"></div> : <TruckIcon className="w-4 h-4" />}
                     {t('stockTransfersDetail.collectDepart')}
                   </button>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 text-center">
                     {t('stockTransfersDetail.collectHint')}
                   </p>
                   <hr className="border-gray-200 dark:border-gray-700" />
                   <button
                     onClick={handleDelete}
-                    className="btn btn-danger w-full btn-outline"
+                    className="inline-flex items-center justify-center gap-2 w-full px-3 py-2 text-[13px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-red-600 dark:text-red-400 bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                   >
                     {t('stockTransfersDetail.cancelTransfer')}
                   </button>
@@ -663,16 +597,17 @@ export default function StockTransferDetail() {
               )}
 
               {transfer.status === 'collected' && (
-                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
-                  <svg className="w-12 h-12 mx-auto mb-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <p className="font-medium text-green-700 dark:text-green-400">{t('stockTransfersDetail.collectedSuccessTitle')}</p>
-                  <p className="text-sm text-green-600 dark:text-green-500 mt-1">
+                <div className="surface-pro p-4 text-center">
+                  <div className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <span className="metric-dot metric-dot-green" aria-hidden />
+                    <CheckCircleIcon className="w-4 h-4 text-gray-400" />
+                  </div>
+                  <p className="t-strong text-[13px]">{t('stockTransfersDetail.collectedSuccessTitle')}</p>
+                  <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-1">
                     {t('stockTransfersDetail.collectedSuccessDesc')}
                   </p>
                   {transfer.collected_at && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-2 tnum">
                       {formatDate(transfer.collected_at)}
                     </p>
                   )}
@@ -681,40 +616,40 @@ export default function StockTransferDetail() {
             </div>
 
             {/* Summary */}
-            <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <h3 className="font-semibold mb-3 text-sm text-gray-900 dark:text-gray-100">{t('stockTransfersDetail.transferSummary')}</h3>
-              <div className="space-y-2 text-sm">
+            <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+              <h3 className="surface-heading mb-2">{t('stockTransfersDetail.transferSummary')}</h3>
+              <div className="space-y-2 text-[13px]">
                 <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.productCount')}:</span>
-                  <span className="font-medium text-gray-900 dark:text-gray-100">{summary.productCount}</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.productCount')}</span>
+                  <span className="tnum t-strong">{summary.productCount}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.totalCartonsLabel')}:</span>
-                  <span className="font-bold text-blue-600 dark:text-blue-400">{summary.totalCartons}</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.totalCartonsLabel')}</span>
+                  <span className="tnum t-strong">{summary.totalCartons}</span>
                 </div>
                 {summary.totalExtraPieces > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.extraPieces')}:</span>
-                    <span className="font-bold text-orange-600 dark:text-orange-400">{summary.totalExtraPieces}</span>
+                    <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.extraPieces')}</span>
+                    <span className="tnum t-strong">{summary.totalExtraPieces}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.totalPiecesLabel')}:</span>
-                  <span className="font-bold text-gray-900 dark:text-gray-100">{summary.totalPieces}</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.totalPiecesLabel')}</span>
+                  <span className="tnum t-strong">{summary.totalPieces}</span>
                 </div>
                 <hr className="border-gray-200 dark:border-gray-700" />
                 <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.costValue')}:</span>
-                  <span className="font-bold text-green-700 dark:text-green-400">{formatCurrency(summary.totalCostValue)}</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.costValue')}</span>
+                  <span className="tnum t-strong">{formatCurrency(summary.totalCostValue)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.retailValue')}:</span>
-                  <span className="font-bold text-blue-700 dark:text-blue-400">{formatCurrency(summary.totalRetailValue)}</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.retailValue')}</span>
+                  <span className="tnum t-strong">{formatCurrency(summary.totalRetailValue)}</span>
                 </div>
                 {summary.totalRetailValue > summary.totalCostValue && (
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.profitMargin')}:</span>
-                    <span className="font-medium text-purple-600 dark:text-purple-400">
+                  <div className="flex justify-between text-[12px]">
+                    <span className="text-gray-500 dark:text-gray-400">{t('stockTransfersDetail.profitMargin')}</span>
+                    <span className="tnum">
                       {formatCurrency(summary.totalRetailValue - summary.totalCostValue)}
                       {' '}({((summary.totalRetailValue - summary.totalCostValue) / summary.totalCostValue * 100).toFixed(1)}%)
                     </span>
@@ -725,6 +660,16 @@ export default function StockTransferDetail() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Field({ label, value, mono = false, sub }: { label: string; value: string; mono?: boolean; sub?: string }) {
+  return (
+    <div>
+      <p className="text-[10.5px] uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400">{label}</p>
+      <p className={`text-[13.5px] text-gray-900 dark:text-gray-100 font-medium leading-snug ${mono ? 'tnum' : ''}`}>{value}</p>
+      {sub && <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{sub}</p>}
     </div>
   );
 }

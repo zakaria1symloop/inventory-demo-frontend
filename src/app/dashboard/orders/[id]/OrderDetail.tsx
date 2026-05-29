@@ -6,9 +6,12 @@ import { ordersApi } from '@/lib/api';
 import { formatQty } from '@/lib/utils';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
+import { PageHeader } from '@/components/dashboard';
+import { useLocale } from '@/lib/i18n/context';
 
 export default function OrderDetail() {
   const params = useParams();
+  const { t, locale } = useLocale();
   const [id, setId] = useState<string | null>(null);
   const [order, setOrder] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,87 +40,158 @@ export default function OrderDetail() {
       const response = await ordersApi.getOne(Number(id));
       setOrder(response.data.data || response.data);
     } catch (error) {
-      toast.error('خطأ في تحميل بيانات الطلب');
+      toast.error(t('orders.toastDetailLoadError'));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('ar-DZ', { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
+  const formatCurrency = (value: number) => {
+    const loc = locale === 'ar' ? 'ar-DZ' : 'fr-DZ';
+    return new Intl.NumberFormat(loc, { style: 'currency', currency: 'DZD', minimumFractionDigits: 0 }).format(value);
+  };
 
-  if (isLoading) return <div className="flex items-center justify-center h-64"><div className="spinner"></div></div>;
-  if (!order) return <div className="text-center py-8 text-gray-500">لم يتم العثور على الطلب</div>;
+  const formatDate = (dateString: string) => {
+    const loc = locale === 'ar' ? 'ar-DZ' : 'fr-DZ';
+    return new Date(dateString).toLocaleDateString(loc, { year: 'numeric', month: 'long', day: 'numeric' });
+  };
+
+  const getStatusDotAndLabel = (status: string) => {
+    const map: Record<string, { dot: string; label: string }> = {
+      pending: { dot: 'metric-dot-orange', label: t('orders.statusPending') },
+      confirmed: { dot: 'metric-dot-blue', label: t('orders.statusConfirmed') },
+      assigned: { dot: 'metric-dot-violet', label: t('orders.statusAssigned') },
+      delivered: { dot: 'metric-dot-green', label: t('orders.statusDelivered') },
+      partial: { dot: 'metric-dot-orange', label: t('orders.statusPartial') },
+      cancelled: { dot: 'metric-dot-red', label: t('orders.statusCancelled') },
+    };
+    return map[status] || { dot: 'metric-dot-neutral', label: status };
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="spinner"></div>
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div>
+        <PageHeader
+          title={t('orders.title')}
+          breadcrumb={[
+            { label: t('sidebar.orders'), href: '/dashboard/orders' },
+            { label: '—' },
+          ]}
+        />
+        <div className="text-center py-12 text-gray-500 dark:text-gray-400 text-[14px]">
+          <Link href="/dashboard/orders" className="hover:text-gray-700 dark:hover:text-gray-200 underline-offset-2 hover:underline">
+            {t('orders.title')}
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const status = getStatusDotAndLabel(order.status);
 
   return (
     <div>
-      <div className="flex items-center gap-4 mb-6">
-        <Link href="/dashboard/orders" className="text-gray-500 hover:text-gray-700">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold">{order.reference}</h1>
-          <p className="text-gray-500">العميل: {order.client?.name}</p>
+      <PageHeader
+        title={order.reference}
+        subtitle={order.client?.name ? `${t('orders.detailClient')} · ${order.client.name}` : undefined}
+        breadcrumb={[
+          { label: t('sidebar.orders'), href: '/dashboard/orders' },
+          { label: order.reference },
+        ]}
+      />
+
+      {/* ─── Metric tiles ─── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-4">
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className={`metric-dot ${status.dot}`} aria-hidden />
+            <p className="metric-label truncate">{t('orders.filterStatus')}</p>
+          </div>
+          <p className="metric-value truncate">{status.label}</p>
+        </div>
+
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-neutral" aria-hidden />
+            <p className="metric-label truncate">{t('saleDetail.date')}</p>
+          </div>
+          <p className="metric-value truncate">{formatDate(order.date)}</p>
+        </div>
+
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-neutral" aria-hidden />
+            <p className="metric-label truncate">{t('orders.detailWarehouse')}</p>
+          </div>
+          <p className="metric-value truncate">{order.warehouse?.name || '-'}</p>
+        </div>
+
+        <div className="metric-tile">
+          <div className="flex items-center gap-1.5">
+            <span className="metric-dot metric-dot-green" aria-hidden />
+            <p className="metric-label truncate">{t('orders.detailTotal')}</p>
+          </div>
+          <p className="metric-value metric-value-currency">{formatCurrency(order.grand_total)}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="card"><div className="text-sm text-gray-500">الحالة</div><div className="text-xl font-bold">{order.status}</div></div>
-        <div className="card"><div className="text-sm text-gray-500">التاريخ</div><div className="text-xl font-bold">{new Date(order.date).toLocaleDateString('ar-DZ')}</div></div>
-        <div className="card"><div className="text-sm text-gray-500">المستودع</div><div className="text-xl font-bold">{order.warehouse?.name || '-'}</div></div>
-        <div className="card bg-green-50"><div className="text-sm text-green-600">المجموع</div><div className="text-xl font-bold text-green-700">{formatCurrency(order.grand_total)}</div></div>
-      </div>
-
-      <div className="card mb-6">
-        <h3 className="font-bold mb-4">المنتجات</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>المنتج</th>
-              <th className="text-center">الكمية</th>
-              <th className="text-center">السعر</th>
-              <th className="text-center">قطع/وحدة</th>
-              <th className="text-center">الخصم</th>
-              <th className="text-center">المجموع</th>
-            </tr>
-          </thead>
-          <tbody>
-            {order.items?.map((item: any) => {
-              const piecesPerPackage = item.product?.pieces_per_package || 1;
-              return (
-                <tr key={item.id}>
-                  <td>
-                    <div className="font-medium">{item.product?.name}</div>
-                    {item.product?.barcode && (
-                      <div className="text-xs text-gray-400">{item.product.barcode}</div>
-                    )}
-                  </td>
-                  <td className="text-center font-semibold">{formatQty(item.quantity_ordered, piecesPerPackage)}</td>
-                  <td className="text-center">
-                    {formatCurrency(item.unit_price)}
-                    {piecesPerPackage > 1 && (
-                      <div className="text-xs text-blue-500">({formatCurrency(item.unit_price * piecesPerPackage)}/كرتون)</div>
-                    )}
-                  </td>
-                  <td className="text-center">
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {piecesPerPackage}
-                    </span>
-                  </td>
-                  <td className="text-center text-red-600">{item.discount > 0 ? `-${formatCurrency(item.discount)}` : '-'}</td>
-                  <td className="text-center font-semibold">
-                    {formatCurrency(item.subtotal)}
-                    <div className="text-xs text-gray-400">
-                      {item.unit_price} × {piecesPerPackage} × {formatQty(item.quantity_ordered, piecesPerPackage)}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      {/* ─── Items ─── */}
+      <div className="surface-pro p-4">
+        <h3 className="surface-heading mb-3">{t('orders.thProduct')}</h3>
+        <div className="table-pro-wrap">
+          <table className="table-pro compact">
+            <thead>
+              <tr>
+                <th>{t('orders.thProduct')}</th>
+                <th className="text-center">{t('orders.thQuantityOrdered')}</th>
+                <th className="text-center">{t('orders.thPrice')}</th>
+                <th className="text-center">{t('saleDetail.piecesPerUnit')}</th>
+                <th className="text-center">{t('saleDetail.discount')}</th>
+                <th className="text-center">{t('orders.thTotal')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {order.items?.map((item: any) => {
+                const piecesPerPackage = item.product?.pieces_per_package || 1;
+                return (
+                  <tr key={item.id}>
+                    <td>
+                      <div className="t-strong">{item.product?.name}</div>
+                      {item.product?.barcode && (
+                        <div className="text-[11px] text-gray-400">{item.product.barcode}</div>
+                      )}
+                    </td>
+                    <td className="text-center tnum t-strong">{formatQty(item.quantity_ordered, piecesPerPackage)}</td>
+                    <td className="text-center tnum">
+                      {formatCurrency(item.unit_price)}
+                      {piecesPerPackage > 1 && (
+                        <div className="text-[11px] text-gray-500 dark:text-gray-400">
+                          ({formatCurrency(item.unit_price * piecesPerPackage)}/{t('orders.unitCarton')})
+                        </div>
+                      )}
+                    </td>
+                    <td className="text-center tnum t-muted">{piecesPerPackage}</td>
+                    <td className="text-center tnum t-muted">{item.discount > 0 ? `-${formatCurrency(item.discount)}` : '-'}</td>
+                    <td className="text-center tnum t-strong">
+                      {formatCurrency(item.subtotal)}
+                      <div className="text-[11px] text-gray-400">
+                        {item.unit_price} × {piecesPerPackage} × {formatQty(item.quantity_ordered, piecesPerPackage)}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

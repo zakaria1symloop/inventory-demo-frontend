@@ -7,13 +7,8 @@ import { useLocale } from '@/lib/i18n/context';
 import DateInput from '@/components/ui/DateInput';
 import {
   CubeIcon,
-  MagnifyingGlassIcon,
   ArrowDownTrayIcon,
   ArrowPathIcon,
-  BanknotesIcon,
-  ChartBarIcon,
-  ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon,
   ChevronUpIcon,
   ChevronDownIcon,
   FunnelIcon,
@@ -23,6 +18,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell,
 } from 'recharts';
+import { PageHeader, FilterBar } from '@/components/dashboard';
 
 interface ProductReport {
   id: number;
@@ -132,8 +128,8 @@ export default function ProductReportPage() {
   const SortIcon = ({ col }: { col: SortKey }) => {
     if (sortKey !== col) return <ChevronUpIcon className="w-3 h-3 text-gray-300 dark:text-gray-600" />;
     return sortDir === 'asc'
-      ? <ChevronUpIcon className="w-3 h-3 text-blue-600" />
-      : <ChevronDownIcon className="w-3 h-3 text-blue-600" />;
+      ? <ChevronUpIcon className="w-3 h-3 text-gray-700 dark:text-gray-200" />
+      : <ChevronDownIcon className="w-3 h-3 text-gray-700 dark:text-gray-200" />;
   };
 
   const exportCSV = () => {
@@ -142,7 +138,7 @@ export default function ProductReportPage() {
       const margin = n(p.total_revenue) > 0 ? ((n(p.profit) / n(p.total_revenue)) * 100).toFixed(1) : '0';
       return [p.name, p.barcode || '', p.category_name || '', n(p.total_quantity), n(p.total_revenue).toFixed(0), n(p.total_cost).toFixed(0), n(p.profit).toFixed(0), margin];
     });
-    const csv = '\uFEFF' + [header, ...rows].map(r => r.join(',')).join('\n');
+    const csv = '﻿' + [header, ...rows].map(r => r.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -152,83 +148,67 @@ export default function ProductReportPage() {
 
   const activeFilterCount = [search, categoryFilter].filter(Boolean).length;
 
+  const marginDot = (margin: number) => {
+    if (margin >= 30) return 'metric-dot-green';
+    if (margin >= 15) return 'metric-dot-blue';
+    if (margin >= 0) return 'metric-dot-orange';
+    return 'metric-dot-red';
+  };
+
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-gray-100 tracking-tight leading-none">
-            {locale === 'ar' ? 'تقرير المنتجات' : 'Rapport Produits'}
-          </h1>
-          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-            {locale === 'ar' ? 'تحليل المبيعات والأرباح حسب المنتج' : 'Analyse des ventes et marges par produit'}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => refetch()} className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors">
-            <ArrowPathIcon className="w-4 h-4" />
-          </button>
-          <button onClick={exportCSV} className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-violet-600 hover:bg-violet-700 rounded-xl transition-colors">
-            <ArrowDownTrayIcon className="w-4 h-4" />
-            <span className="hidden sm:inline">CSV</span>
-          </button>
-        </div>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        title={locale === 'ar' ? 'تقرير المنتجات' : 'Rapport Produits'}
+        subtitle={locale === 'ar' ? 'تحليل المبيعات والأرباح حسب المنتج' : 'Analyse des ventes et marges par produit'}
+        tight
+      >
+        <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-2.5 h-[38px] text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" title="Refresh">
+          <ArrowPathIcon className="w-4 h-4" />
+        </button>
+        <button onClick={exportCSV} className="inline-flex items-center gap-1.5 px-3 h-[38px] text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+          <ArrowDownTrayIcon className="w-4 h-4" /> CSV
+        </button>
+      </PageHeader>
 
       {/* Date Range */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">
-              {locale === 'ar' ? 'من تاريخ' : 'Du'}
-            </label>
-            <DateInput value={dateFrom} onChange={setDateFrom} className="w-full" />
-          </div>
-          <div>
-            <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">
-              {locale === 'ar' ? 'إلى تاريخ' : 'Au'}
-            </label>
-            <DateInput value={dateTo} onChange={setDateTo} className="w-full" />
-          </div>
+      <FilterBar>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[12px] font-medium text-gray-500 dark:text-gray-400">{locale === 'ar' ? 'من' : 'Du'}</span>
+          <DateInput value={dateFrom} onChange={setDateFrom} />
         </div>
-      </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[12px] font-medium text-gray-500 dark:text-gray-400">{locale === 'ar' ? 'إلى' : 'Au'}</span>
+          <DateInput value={dateTo} onChange={setDateTo} />
+        </div>
+      </FilterBar>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5">
         {[
-          { label: locale === 'ar' ? 'عدد المنتجات' : 'Produits', value: String(filtered.length), icon: CubeIcon, color: 'violet' },
-          { label: locale === 'ar' ? 'إجمالي الإيرادات' : 'Revenus', value: formatCurrency(n(totals.total_revenue)), icon: BanknotesIcon, color: 'blue' },
-          { label: locale === 'ar' ? 'إجمالي التكلفة' : 'Coûts', value: formatCurrency(n(totals.total_cost)), icon: ChartBarIcon, color: 'amber' },
-          { label: locale === 'ar' ? 'إجمالي الربح' : 'Profit', value: formatCurrency(n(totals.total_profit)), icon: ArrowTrendingUpIcon, color: 'emerald' },
-          { label: locale === 'ar' ? 'هامش الربح' : 'Marge', value: `${totalMargin.toFixed(1)}%`, icon: n(totals.total_profit) >= 0 ? ArrowTrendingUpIcon : ArrowTrendingDownIcon, color: totalMargin >= 0 ? 'emerald' : 'red' },
-        ].map((kpi, i) => {
-          const colorMap: Record<string, string> = {
-            violet: 'bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400',
-            blue: 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
-            amber: 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
-            emerald: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400',
-            red: 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400',
-          };
-          return (
-            <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm p-4">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${colorMap[kpi.color]}`}>
-                  <kpi.icon className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">{kpi.label}</p>
-                  <p className="text-lg font-black text-gray-900 dark:text-white tabular-nums leading-none mt-0.5">{kpi.value}</p>
-                </div>
-              </div>
+          { label: locale === 'ar' ? 'عدد المنتجات' : 'Produits', value: String(filtered.length), dot: 'metric-dot-violet', currency: false },
+          { label: locale === 'ar' ? 'إجمالي الإيرادات' : 'Revenus', value: formatCurrency(n(totals.total_revenue)), dot: 'metric-dot-blue', currency: true },
+          { label: locale === 'ar' ? 'إجمالي التكلفة' : 'Coûts', value: formatCurrency(n(totals.total_cost)), dot: 'metric-dot-orange', currency: true },
+          { label: locale === 'ar' ? 'إجمالي الربح' : 'Profit', value: formatCurrency(n(totals.total_profit)), dot: 'metric-dot-green', currency: true },
+          { label: locale === 'ar' ? 'هامش الربح' : 'Marge', value: `${totalMargin.toFixed(1)}%`, dot: totalMargin >= 0 ? 'metric-dot-green' : 'metric-dot-red', currency: false },
+        ].map((kpi, i) => (
+          <div key={i} className="metric-tile">
+            <div className="flex items-center gap-1.5">
+              <span className={`metric-dot ${kpi.dot}`} aria-hidden />
+              <p className="metric-label truncate">{kpi.label}</p>
             </div>
-          );
-        })}
+            {kpi.currency ? (
+              <p className="metric-value-currency">{kpi.value}</p>
+            ) : (
+              <p className="metric-value truncate">{kpi.value}</p>
+            )}
+          </div>
+        ))}
       </div>
 
       {/* Chart - Top 10 */}
       {chartData.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm p-5">
-          <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-4">
+        <div className="surface-pro">
+          <h3 className="surface-heading mb-3">
             {locale === 'ar' ? 'أعلى 10 منتجات حسب الإيرادات' : 'Top 10 produits par revenu'}
           </h3>
           <div className="h-[300px]">
@@ -250,149 +230,134 @@ export default function ProductReportPage() {
         </div>
       )}
 
-      {/* Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm">
-        {/* Search + Filters */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-          <div className="relative flex-1">
-            <MagnifyingGlassIcon className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400`} />
-            <input
-              type="text"
-              placeholder={locale === 'ar' ? 'بحث بالاسم أو الباركود...' : 'Rechercher par nom ou code-barres...'}
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className={`input w-full ${isRTL ? 'pr-9' : 'pl-9'} text-sm`}
-            />
-          </div>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl border transition-all ${
-              showFilters || activeFilterCount > 0
-                ? 'border-violet-300 dark:border-violet-600 bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300'
-                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
-          >
-            <FunnelIcon className="w-4 h-4" />
-            {activeFilterCount > 0 && <span className="w-5 h-5 rounded-full bg-violet-600 text-white text-[10px] font-bold flex items-center justify-center">{activeFilterCount}</span>}
-          </button>
-          {activeFilterCount > 0 && (
-            <button onClick={() => { setSearch(''); setCategoryFilter(''); }} className="text-sm text-red-500 hover:text-red-700 font-medium flex items-center gap-1">
-              <XMarkIcon className="w-4 h-4" />
+      {/* Search + filter row */}
+      <FilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder={locale === 'ar' ? 'بحث بالاسم أو الباركود...' : 'Rechercher par nom ou code-barres...'}
+        trailing={
+          <>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`relative inline-flex items-center gap-1.5 px-3 h-[38px] text-[12px] font-semibold rounded-md transition-colors ${
+                showFilters || activeFilterCount > 0
+                  ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
+                  : 'border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+              }`}
+            >
+              <FunnelIcon className="w-4 h-4" />
+              {activeFilterCount > 0 && (
+                <span className="ms-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-[10px] font-bold tnum">{activeFilterCount}</span>
+              )}
             </button>
-          )}
-          <span className="text-xs text-gray-400 hidden sm:inline">{filtered.length} {locale === 'ar' ? 'منتج' : 'produits'}</span>
-        </div>
-
+            {activeFilterCount > 0 && (
+              <button onClick={() => { setSearch(''); setCategoryFilter(''); }} className="inline-flex items-center gap-1 px-2 h-[38px] text-[12px] font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors">
+                <XMarkIcon className="w-3.5 h-3.5" />
+                {locale === 'ar' ? 'مسح' : 'Clear'}
+              </button>
+            )}
+            <span className="text-[12px] text-gray-500 dark:text-gray-400 tnum hidden sm:inline">{filtered.length} {locale === 'ar' ? 'منتج' : 'produits'}</span>
+          </>
+        }
+      >
         {showFilters && (
-          <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30">
-            <div>
-              <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
-                {locale === 'ar' ? 'الفئة' : 'Catégorie'}
-              </label>
-              <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="select w-full sm:w-64">
-                <option value="">{locale === 'ar' ? 'كل الفئات' : 'Toutes les catégories'}</option>
-                {categories.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-          </div>
+          <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
+            <option value="">{locale === 'ar' ? 'كل الفئات' : 'Toutes les catégories'}</option>
+            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
         )}
+      </FilterBar>
 
-        {/* Data Table */}
+      {/* Data Table */}
+      <div className="table-pro-wrap">
         {isLoading ? (
-          <div className="flex items-center justify-center py-16"><div className="spinner w-8 h-8"></div></div>
+          <div className="flex items-center justify-center py-16"><div className="spinner"></div></div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-gray-400">
             <CubeIcon className="w-12 h-12 mb-3" />
-            <p className="text-lg font-semibold">{locale === 'ar' ? 'لا توجد بيانات' : 'Aucune donnée'}</p>
+            <p className="text-[13px] font-medium">{locale === 'ar' ? 'لا توجد بيانات' : 'Aucune donnée'}</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-700">
-                  <th className="text-start text-[10px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-4">#</th>
-                  <th className="text-start text-[10px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-4 cursor-pointer" onClick={() => handleSort('name')}>
-                    <span className="flex items-center gap-1">{locale === 'ar' ? 'المنتج' : 'Produit'} <SortIcon col="name" /></span>
-                  </th>
-                  <th className="text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-3 cursor-pointer" onClick={() => handleSort('total_quantity')}>
-                    <span className="flex items-center justify-center gap-1">{locale === 'ar' ? 'الكمية' : 'Qté'} <SortIcon col="total_quantity" /></span>
-                  </th>
-                  <th className="text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-3 cursor-pointer" onClick={() => handleSort('total_revenue')}>
-                    <span className="flex items-center justify-center gap-1">{locale === 'ar' ? 'الإيرادات' : 'Revenus'} <SortIcon col="total_revenue" /></span>
-                  </th>
-                  <th className="text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-3 cursor-pointer" onClick={() => handleSort('total_cost')}>
-                    <span className="flex items-center justify-center gap-1">{locale === 'ar' ? 'التكلفة' : 'Coûts'} <SortIcon col="total_cost" /></span>
-                  </th>
-                  <th className="text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-3 cursor-pointer" onClick={() => handleSort('profit')}>
-                    <span className="flex items-center justify-center gap-1">{locale === 'ar' ? 'الربح' : 'Profit'} <SortIcon col="profit" /></span>
-                  </th>
-                  <th className="text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-3 cursor-pointer" onClick={() => handleSort('margin')}>
-                    <span className="flex items-center justify-center gap-1">{locale === 'ar' ? 'الهامش' : 'Marge'} <SortIcon col="margin" /></span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
-                {filtered.map((p, i) => {
-                  const revenue = n(p.total_revenue);
-                  const cost = n(p.total_cost);
-                  const profit = n(p.profit);
-                  const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
-                  const isNegative = profit < 0;
+          <table className="table-pro compact">
+            <thead>
+              <tr>
+                <th className="text-start w-10">#</th>
+                <th className="cursor-pointer" onClick={() => handleSort('name')}>
+                  <span className="flex items-center gap-1">{locale === 'ar' ? 'المنتج' : 'Produit'} <SortIcon col="name" /></span>
+                </th>
+                <th className="text-end cursor-pointer" onClick={() => handleSort('total_quantity')}>
+                  <span className="flex items-center justify-end gap-1">{locale === 'ar' ? 'الكمية' : 'Qté'} <SortIcon col="total_quantity" /></span>
+                </th>
+                <th className="text-end cursor-pointer" onClick={() => handleSort('total_revenue')}>
+                  <span className="flex items-center justify-end gap-1">{locale === 'ar' ? 'الإيرادات' : 'Revenus'} <SortIcon col="total_revenue" /></span>
+                </th>
+                <th className="text-end cursor-pointer" onClick={() => handleSort('total_cost')}>
+                  <span className="flex items-center justify-end gap-1">{locale === 'ar' ? 'التكلفة' : 'Coûts'} <SortIcon col="total_cost" /></span>
+                </th>
+                <th className="text-end cursor-pointer" onClick={() => handleSort('profit')}>
+                  <span className="flex items-center justify-end gap-1">{locale === 'ar' ? 'الربح' : 'Profit'} <SortIcon col="profit" /></span>
+                </th>
+                <th className="text-end cursor-pointer" onClick={() => handleSort('margin')}>
+                  <span className="flex items-center justify-end gap-1">{locale === 'ar' ? 'الهامش' : 'Marge'} <SortIcon col="margin" /></span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((p, i) => {
+                const revenue = n(p.total_revenue);
+                const cost = n(p.total_cost);
+                const profit = n(p.profit);
+                const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
 
-                  return (
-                    <tr key={p.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
-                      <td className="py-3 px-4 text-xs text-gray-400">{i + 1}</td>
-                      <td className="py-3 px-4">
-                        <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">{p.name}</div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          {p.barcode && <span className="text-[10px] text-gray-400 font-mono">{p.barcode}</span>}
-                          {p.category_name && <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">{p.category_name}</span>}
-                        </div>
-                      </td>
-                      <td className="py-3 px-3 text-center text-sm font-bold text-gray-700 dark:text-gray-300">{n(p.total_quantity)}</td>
-                      <td className="py-3 px-3 text-center text-sm font-bold text-blue-600 dark:text-blue-400">{formatCurrency(revenue)}</td>
-                      <td className="py-3 px-3 text-center text-sm font-bold text-amber-600 dark:text-amber-400">{formatCurrency(cost)}</td>
-                      <td className={`py-3 px-3 text-center text-sm font-bold ${isNegative ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                        {formatCurrency(profit)}
-                      </td>
-                      <td className="py-3 px-3 text-center">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold ${
-                          margin >= 30 ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' :
-                          margin >= 15 ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' :
-                          margin >= 0 ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' :
-                          'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-                        }`}>
-                          {margin.toFixed(1)}%
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr className="bg-gray-50 dark:bg-gray-900/30 border-t-2 border-gray-200 dark:border-gray-600">
-                  <td colSpan={2} className="py-3 px-4 text-sm font-bold text-gray-700 dark:text-gray-300">
-                    {locale === 'ar' ? 'المجموع' : 'Total'} ({filtered.length})
-                  </td>
-                  <td className="py-3 px-3 text-center text-sm font-black text-gray-900 dark:text-white">
-                    {filtered.reduce((s, p) => s + n(p.total_quantity), 0)}
-                  </td>
-                  <td className="py-3 px-3 text-center text-sm font-black text-blue-600 dark:text-blue-400">
-                    {formatCurrency(filtered.reduce((s, p) => s + n(p.total_revenue), 0))}
-                  </td>
-                  <td className="py-3 px-3 text-center text-sm font-black text-amber-600 dark:text-amber-400">
-                    {formatCurrency(filtered.reduce((s, p) => s + n(p.total_cost), 0))}
-                  </td>
-                  <td className={`py-3 px-3 text-center text-sm font-black ${n(totals.total_profit) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                    {formatCurrency(filtered.reduce((s, p) => s + n(p.profit), 0))}
-                  </td>
-                  <td className="py-3 px-3 text-center text-sm font-black text-gray-700 dark:text-gray-300">
-                    {totalMargin.toFixed(1)}%
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+                return (
+                  <tr key={p.id}>
+                    <td className="text-gray-400 tnum">{i + 1}</td>
+                    <td>
+                      <div className="font-semibold text-gray-800 dark:text-gray-100">{p.name}</div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {p.barcode && <span className="text-[11px] text-gray-400 font-mono">{p.barcode}</span>}
+                        {p.category_name && <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">{p.category_name}</span>}
+                      </div>
+                    </td>
+                    <td className="text-end font-medium text-gray-700 dark:text-gray-300 tnum">{n(p.total_quantity)}</td>
+                    <td className="text-end font-semibold text-gray-800 dark:text-gray-100 tnum">{formatCurrency(revenue)}</td>
+                    <td className="text-end font-medium text-gray-700 dark:text-gray-300 tnum">{formatCurrency(cost)}</td>
+                    <td className="text-end font-semibold text-gray-800 dark:text-gray-100 tnum">
+                      {formatCurrency(profit)}
+                    </td>
+                    <td className="text-end">
+                      <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-300 tnum">
+                        <span className={`metric-dot ${marginDot(margin)}`} aria-hidden />
+                        {margin.toFixed(1)}%
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="bg-gray-50 dark:bg-gray-800/40 border-t border-gray-200 dark:border-gray-700">
+                <td colSpan={2} className="font-semibold text-gray-700 dark:text-gray-200">
+                  {locale === 'ar' ? 'المجموع' : 'Total'} ({filtered.length})
+                </td>
+                <td className="text-end font-semibold text-gray-900 dark:text-white tnum">
+                  {filtered.reduce((s, p) => s + n(p.total_quantity), 0)}
+                </td>
+                <td className="text-end font-semibold text-gray-900 dark:text-white tnum">
+                  {formatCurrency(filtered.reduce((s, p) => s + n(p.total_revenue), 0))}
+                </td>
+                <td className="text-end font-semibold text-gray-900 dark:text-white tnum">
+                  {formatCurrency(filtered.reduce((s, p) => s + n(p.total_cost), 0))}
+                </td>
+                <td className="text-end font-semibold text-gray-900 dark:text-white tnum">
+                  {formatCurrency(filtered.reduce((s, p) => s + n(p.profit), 0))}
+                </td>
+                <td className="text-end font-semibold text-gray-700 dark:text-gray-300 tnum">
+                  {totalMargin.toFixed(1)}%
+                </td>
+              </tr>
+            </tfoot>
+          </table>
         )}
       </div>
     </div>

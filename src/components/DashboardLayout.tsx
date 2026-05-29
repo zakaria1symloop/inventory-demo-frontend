@@ -8,6 +8,7 @@ import {
 } from '@heroicons/react/24/solid';
 import Image from 'next/image';
 import { useAuthStore } from '@/lib/store/auth';
+import { usePermissions } from '@/lib/usePermission';
 import { settingsApi } from '@/lib/api';
 import GuidedTour from './GuidedTour';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
@@ -23,6 +24,7 @@ import {
   UserGroupIcon,
   TruckIcon,
   ShoppingCartIcon,
+  ShieldCheckIcon,
   ClipboardDocumentListIcon,
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
@@ -52,15 +54,21 @@ import {
 interface MenuItem {
   nameKey: TranslationKey;
   href: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   roles?: string[];
   badgeKey?: TranslationKey;
   feature?: string;
+  /**
+   * Optional permission key (e.g. "roles.view"). When set, the item is
+   * hidden unless the current user's `permission_keys` include it
+   * (or include the `*` wildcard).
+   */
+  permission?: string;
 }
 
 interface MenuSection {
   nameKey: TranslationKey;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   items: MenuItem[];
   roles?: string[];
 }
@@ -166,6 +174,7 @@ const menuSections: MenuSection[] = [
       { nameKey: 'sidebar.fieldEmployees', href: '/dashboard/drivers', icon: UsersIcon, feature: 'deliveries' },
       { nameKey: 'sidebar.employees', href: '/dashboard/employees', icon: UsersIcon, badgeKey: 'sidebar.new', feature: 'employees' },
       { nameKey: 'sidebar.users', href: '/dashboard/users', icon: UsersIcon, feature: 'users' },
+      { nameKey: 'sidebar.roles', href: '/dashboard/roles', icon: ShieldCheckIcon, permission: 'roles.view' },
       { nameKey: 'sidebar.mobileApp', href: '/dashboard/mobile-app', icon: DevicePhoneMobileIcon, badgeKey: 'sidebar.new' },
       { nameKey: 'sidebar.settings', href: '/dashboard/settings', icon: Cog6ToothIcon, feature: 'settings' },
     ],
@@ -176,6 +185,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
   const { user, isLoading, isAuthenticated, checkAuth, logout, hasFeature } = useAuthStore();
+  const { has: hasPermission } = usePermissions();
   const { t, dir } = useLocale();
 
   const sidebarTourSteps: TourStep[] = useMemo(() => [
@@ -360,8 +370,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     .map((section) => ({
       ...section,
       items: section.items.filter((item) => {
-        if (!item.feature) return true;
-        return hasFeature(item.feature);
+        if (item.feature && !hasFeature(item.feature)) return false;
+        if (item.permission && !hasPermission(item.permission)) return false;
+        return true;
       }),
     }))
     .filter((section) => section.items.length > 0);
@@ -399,31 +410,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 ${dir === 'rtl' ? 'right-0' : 'left-0'} z-50 h-full bg-white dark:bg-gray-800 shadow-lg transform transition-all duration-200 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-0 ${dir === 'rtl' ? 'right-0' : 'left-0'} z-50 h-full bg-white dark:bg-gray-800 ${dir === 'rtl' ? 'border-l border-gray-200/80 dark:border-gray-700' : 'border-r border-gray-200/80 dark:border-gray-700'} shadow-sm lg:shadow-none transform transition-all duration-200 ease-in-out lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0 w-64' : (dir === 'rtl' ? 'translate-x-full' : '-translate-x-full') + ' lg:translate-x-0'
         } ${sidebarCollapsed ? 'lg:w-16' : 'lg:w-64'}`}
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className={`flex items-center p-4 border-b dark:border-gray-700 ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
+          <div className={`flex items-center px-4 py-3.5 border-b border-gray-200/80 dark:border-gray-700 ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
             {!sidebarCollapsed && (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2.5">
                 {companyLogo ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}/storage/${companyLogo}`}
                     alt={companyName}
-                    className="w-10 h-10 rounded-xl object-cover"
+                    className="w-8 h-8 rounded-md object-cover ring-1 ring-gray-200 dark:ring-gray-700"
                     onError={(e) => {
                       e.currentTarget.style.display = 'none';
                     }}
                   />
                 ) : (
-                  <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center">
-                    <CubeIcon className="w-6 h-6 text-white" />
-                  </div>
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src="/t-logo.png"
+                    alt="TrackSera"
+                    className="w-8 h-8 rounded-md object-contain ring-1 ring-gray-200 dark:ring-gray-700 bg-white p-1"
+                  />
                 )}
-                <span className="font-bold text-lg dark:text-white">{companyName}</span>
+                <span className="font-semibold text-[15px] text-gray-900 dark:text-white tracking-tight truncate">{companyName}</span>
               </div>
             )}
             {sidebarCollapsed && (
@@ -432,15 +446,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <img
                   src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}/storage/${companyLogo}`}
                   alt={companyName}
-                  className="w-10 h-10 rounded-xl object-cover"
+                  className="w-8 h-8 rounded-md object-cover ring-1 ring-gray-200 dark:ring-gray-700"
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                   }}
                 />
               ) : (
-                <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center">
-                  <CubeIcon className="w-6 h-6 text-white" />
-                </div>
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src="/t-logo.png"
+                  alt="TrackSera"
+                  className="w-8 h-8 rounded-md object-contain ring-1 ring-gray-200 dark:ring-gray-700 bg-white p-1"
+                />
               )
             )}
             <button
@@ -459,14 +476,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               onClick={() => setSidebarOpen(false)}
               title={t('sidebar.dashboard')}
               data-tour="dashboard-link"
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors mb-2 ${
+              className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors mb-1.5 ${
                 pathname === '/dashboard'
-                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  ? 'bg-gray-100 dark:bg-gray-700/60 text-gray-900 dark:text-white font-medium'
+                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/40 hover:text-gray-900 dark:hover:text-white'
               } ${sidebarCollapsed ? 'justify-center' : ''}`}
             >
-              <HomeIcon className="w-5 h-5 flex-shrink-0" />
-              {!sidebarCollapsed && <span className="text-sm font-medium">{t('sidebar.dashboard')}</span>}
+              <HomeIcon className={`w-[18px] h-[18px] flex-shrink-0 ${pathname === '/dashboard' ? 'text-gray-900 dark:text-white' : ''}`} strokeWidth={pathname === '/dashboard' ? 2.2 : 1.7} />
+              {!sidebarCollapsed && <span className="text-[13px]">{t('sidebar.dashboard')}</span>}
             </Link>
 
             {/* Accordion Sections */}
@@ -484,15 +501,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       onClick={() => !sidebarCollapsed && toggleSection(section.nameKey)}
                       title={sectionName}
                       data-tour={`section-${section.nameKey}`}
-                      className={`flex items-center w-full px-3 py-2.5 rounded-lg transition-colors ${
+                      className={`flex items-center w-full px-3 py-2 rounded-md transition-colors ${
                         hasActiveItem
-                          ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                          : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                          ? 'text-gray-900 dark:text-white font-medium'
+                          : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/40 hover:text-gray-900 dark:hover:text-white'
                       } ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}
                     >
                       <div className={`flex items-center gap-3 ${sidebarCollapsed ? '' : ''}`}>
-                        <section.icon className="w-5 h-5 flex-shrink-0" />
-                        {!sidebarCollapsed && <span className="text-sm font-medium">{sectionName}</span>}
+                        <section.icon className={`w-[18px] h-[18px] flex-shrink-0 ${hasActiveItem ? 'text-gray-900 dark:text-white' : ''}`} strokeWidth={hasActiveItem ? 2.2 : 1.7} />
+                        {!sidebarCollapsed && <span className="text-[13px]">{sectionName}</span>}
                       </div>
                       {!sidebarCollapsed && (
                         <ChevronDownIcon
@@ -518,16 +535,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 <Link
                                   href={item.href}
                                   onClick={() => setSidebarOpen(false)}
-                                  className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors text-sm ${
+                                  className={`relative flex items-center gap-2.5 px-3 py-1.5 rounded-md transition-colors text-[13px] ${
                                     isActive
-                                      ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 font-medium'
-                                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200'
+                                      ? 'text-gray-900 dark:text-white font-medium'
+                                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                                   }`}
                                 >
-                                  <item.icon className="w-4 h-4" />
-                                  <span className="flex-1">{t(item.nameKey)}</span>
+                                  {isActive && (
+                                    <span
+                                      aria-hidden
+                                      className={`absolute top-1 bottom-1 w-[2px] bg-gray-900 dark:bg-white rounded-full ${dir === 'rtl' ? '-right-[9px]' : '-left-[9px]'}`}
+                                    />
+                                  )}
+                                  <item.icon className="w-[15px] h-[15px] flex-shrink-0" strokeWidth={isActive ? 2.2 : 1.7} />
+                                  <span className="flex-1 truncate">{t(item.nameKey)}</span>
                                   {item.badgeKey && (
-                                    <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-emerald-500 text-white leading-none">
+                                    <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-gray-900 dark:bg-white text-white dark:text-gray-900 leading-none tracking-wide">
                                       {t(item.badgeKey)}
                                     </span>
                                   )}
@@ -545,39 +568,39 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </nav>
 
           {/* User section */}
-          <div className={`border-t dark:border-gray-700 ${sidebarCollapsed ? 'p-2' : 'p-4'}`}>
+          <div className={`border-t border-gray-200/80 dark:border-gray-700 ${sidebarCollapsed ? 'p-2' : 'p-3'}`}>
             {!sidebarCollapsed && (
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center">
-                  <span className="text-blue-600 dark:text-blue-400 font-bold">
+              <div className="flex items-center gap-2.5 mb-3 px-1">
+                <div className="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center ring-1 ring-gray-200 dark:ring-gray-600">
+                  <span className="text-gray-700 dark:text-gray-200 font-semibold text-[13px]">
                     {user?.name?.charAt(0) || 'U'}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{user?.name}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{user?.role}</p>
+                  <p className="text-[13px] font-medium text-gray-900 dark:text-gray-100 truncate leading-tight">{user?.name}</p>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-tight mt-0.5 uppercase tracking-wide">{user?.role}</p>
                 </div>
               </div>
             )}
             <button
               onClick={handleLogout}
               title={t('sidebar.logout')}
-              className={`flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors ${sidebarCollapsed ? 'justify-center' : ''}`}
+              className={`flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/60 hover:text-gray-900 dark:hover:text-white rounded-md transition-colors ${sidebarCollapsed ? 'justify-center' : ''}`}
             >
-              <ArrowRightOnRectangleIcon className="w-5 h-5 flex-shrink-0" />
+              <ArrowRightOnRectangleIcon className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={1.7} />
               {!sidebarCollapsed && t('sidebar.logout')}
             </button>
             {/* Collapse toggle button */}
             <button
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
               title={sidebarCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
-              className={`hidden lg:flex items-center gap-2 w-full px-3 py-2 mt-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors ${sidebarCollapsed ? 'justify-center' : ''}`}
+              className={`hidden lg:flex items-center gap-2.5 w-full px-3 py-2 mt-1 text-[13px] text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/60 hover:text-gray-900 dark:hover:text-white rounded-md transition-colors ${sidebarCollapsed ? 'justify-center' : ''}`}
             >
-              <Bars3Icon className="w-5 h-5 flex-shrink-0" />
+              <Bars3Icon className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={1.7} />
               {!sidebarCollapsed && t('sidebar.collapse')}
             </button>
             {!sidebarCollapsed && (
-              <Link href="/dashboard/changelog" className="block text-center text-[10px] text-gray-400 dark:text-gray-500 mt-2 hover:text-blue-500 dark:hover:text-blue-400 transition-colors">
+              <Link href="/dashboard/changelog" className="block text-center text-[10px] text-gray-400 dark:text-gray-500 mt-2 hover:text-gray-700 dark:hover:text-gray-300 transition-colors tracking-wide">
                 v1.0.6
               </Link>
             )}
@@ -588,8 +611,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main content */}
       <div className={`transition-all duration-200 ${dir === 'rtl' ? (sidebarCollapsed ? 'lg:mr-16' : 'lg:mr-64') : (sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64')}`}>
         {/* Header */}
-        <header className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b dark:border-gray-700">
-          <div className="flex items-center justify-between px-4 py-3">
+        <header className="sticky top-0 z-30 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border-b border-gray-200/80 dark:border-gray-700">
+          <div className="flex items-center justify-between px-4 py-2.5">
             <button
               onClick={() => setSidebarOpen(true)}
               className="lg:hidden p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
@@ -627,7 +650,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   setShowOnboarding(true);
                 }}
                 title={t('header.guidedTour')}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded-lg transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/60 hover:text-gray-900 dark:hover:text-white rounded-md transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />

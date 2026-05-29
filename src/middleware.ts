@@ -17,12 +17,11 @@ function detectLocale(req: NextRequest): 'ar' | 'fr' | 'en' {
   const stored = req.cookies.get('locale')?.value;
   if (stored === 'ar' || stored === 'fr' || stored === 'en') return stored;
 
-  // Accept-Language: Arabic / French browsers get their language,
-  // everyone else (English, Spanish, German, etc.) gets EN.
+  // Default language is French (Algeria). Arabic browsers get Arabic;
+  // everyone else (FR, EN, other) defaults to French.
   const accept = (req.headers.get('accept-language') || '').toLowerCase();
   if (accept.startsWith('ar')) return 'ar';
-  if (accept.startsWith('fr')) return 'fr';
-  return 'en';
+  return 'fr';
 }
 
 export function middleware(req: NextRequest) {

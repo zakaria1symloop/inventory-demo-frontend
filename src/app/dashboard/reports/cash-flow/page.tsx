@@ -13,6 +13,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from '@heroicons/react/24/outline';
+import { PageHeader, FilterBar } from '@/components/dashboard';
 import {
   BarChart, Bar, AreaChart, Area, Legend,
   XAxis, YAxis, CartesianGrid, Tooltip,
@@ -70,11 +71,10 @@ interface Warehouse {
   name: string;
 }
 
-// ─── KPI color map ───
-const colorMap: Record<string, { hover: string; hoverDark: string; bar: string; iconBg: string; iconText: string; valueText: string }> = {
-  emerald: { hover: 'hover:bg-emerald-50/40', hoverDark: 'dark:hover:bg-emerald-900/10', bar: 'bg-emerald-500', iconBg: 'bg-emerald-100 dark:bg-emerald-900/30', iconText: 'text-emerald-600 dark:text-emerald-400', valueText: 'text-emerald-600 dark:text-emerald-400' },
-  red: { hover: 'hover:bg-red-50/40', hoverDark: 'dark:hover:bg-red-900/10', bar: 'bg-red-500', iconBg: 'bg-red-100 dark:bg-red-900/30', iconText: 'text-red-600 dark:text-red-400', valueText: 'text-red-600 dark:text-red-400' },
-  blue: { hover: 'hover:bg-blue-50/40', hoverDark: 'dark:hover:bg-blue-900/10', bar: 'bg-blue-500', iconBg: 'bg-blue-100 dark:bg-blue-900/30', iconText: 'text-blue-600 dark:text-blue-400', valueText: 'text-blue-600 dark:text-blue-400' },
+const colorToDot: Record<string, string> = {
+  emerald: 'metric-dot-green',
+  red: 'metric-dot-red',
+  blue: 'metric-dot-blue',
 };
 
 const PER_PAGE = 15;
@@ -317,101 +317,85 @@ export default function CashFlowReportPage() {
     } catch (err) { console.error('Export failed:', err); toast.error((err instanceof Error ? err.message : '') || t('cashFlow.exportError' as TranslationKey)); }
   };
 
-  const thClass = "text-start text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-5 py-3";
-  const thEndClass = "text-end text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-5 py-3";
-  const tdClass = "px-5 py-3.5";
+  const thClass = "text-start text-[10.5px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-4 py-2.5 bg-gray-50/60 dark:bg-gray-800/60";
+  const thEndClass = "text-end text-[10.5px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-4 py-2.5 bg-gray-50/60 dark:bg-gray-800/60";
+  const tdClass = "px-4 py-2 text-[13px]";
 
   const dateRangeLabel = `${dateFrom} → ${dateTo}`;
 
+  const kpiItems: { label: string; value: string; color: string }[] = [
+    { label: t('cashFlow.kpiTotalInflow' as TranslationKey), value: formatCurrency(kpis.totalIn), color: 'emerald' },
+    { label: t('cashFlow.kpiTotalOutflow' as TranslationKey), value: formatCurrency(kpis.totalOut), color: 'red' },
+    { label: t('cashFlow.kpiNetCashFlow' as TranslationKey), value: formatCurrency(kpis.net), color: 'blue' },
+  ];
+
   return (
-    <div className="space-y-5">
-      {/* ─── Header ─── */}
-      <div>
-        <h1 className="text-[1.65rem] font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">{t('cashFlow.title' as TranslationKey)}</h1>
-        <p className="text-sm text-gray-400 mt-1">{t('cashFlow.subtitle' as TranslationKey)}</p>
-      </div>
+    <div className="space-y-4">
+      <PageHeader title={t('cashFlow.title' as TranslationKey)} subtitle={t('cashFlow.subtitle' as TranslationKey)} tight />
 
-      {/* ─── Filter Bar (inline, not side panel) ─── */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 px-5 py-3.5">
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('cashFlow.from' as TranslationKey)}</span>
-            <DateInput value={dateFrom} onChange={setDateFrom} className="w-36" />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('cashFlow.to' as TranslationKey)}</span>
-            <DateInput value={dateTo} onChange={setDateTo} className="w-36" />
-          </div>
-
-          <div className="h-6 w-px bg-gray-200 dark:bg-gray-700" />
-
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('cashFlow.filterAccount' as TranslationKey)}</span>
-            <select value={filterAccount} onChange={(e) => { setFilterAccount(e.target.value); setPage(1); }} className="input text-sm py-2 min-w-[140px]">
-              <option value="">{t('cashFlow.filterAll' as TranslationKey)}</option>
-              {(summary.caisses || []).map(c => (
-                <option key={c.id} value={String(c.id)}>{c.name || c.user?.name || `#${c.id}`}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('cashFlow.filterWarehouse' as TranslationKey)}</span>
-            <select value={filterWarehouse} onChange={(e) => { setFilterWarehouse(e.target.value); setPage(1); }} className="input text-sm py-2 min-w-[140px]">
-              <option value="">{t('cashFlow.filterAll' as TranslationKey)}</option>
-              {warehouses.map(w => (
-                <option key={w.id} value={String(w.id)}>{w.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <button onClick={() => { refetchSummary(); fetchFlowData(); }} className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-            <ArrowPathIcon className="w-4 h-4" />
-          </button>
-
-          <div className={`flex items-center gap-2 ${isRTL ? 'mr-auto' : 'ml-auto'}`}>
-            <button onClick={exportExcel} className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 transition-colors">
+      {/* ─── Filter Bar ─── */}
+      <FilterBar
+        trailing={
+          <>
+            <button onClick={() => { refetchSummary(); fetchFlowData(); }} className="inline-flex items-center gap-1.5 px-2.5 h-[38px] text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" title="Refresh">
+              <ArrowPathIcon className="w-4 h-4" />
+            </button>
+            <button onClick={exportExcel} className="inline-flex items-center gap-1.5 px-3 h-[38px] text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               <ArrowDownTrayIcon className="w-4 h-4" /> Excel
             </button>
-            <button onClick={exportPDF} className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium rounded-xl text-white bg-red-600 hover:bg-red-700 transition-colors">
+            <button onClick={exportPDF} className="inline-flex items-center gap-1.5 px-3 h-[38px] text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               <ArrowDownTrayIcon className="w-4 h-4" /> PDF
             </button>
-          </div>
+          </>
+        }
+      >
+        <div className="flex items-center gap-1.5">
+          <span className="text-[12px] font-medium text-gray-500 dark:text-gray-400">{t('cashFlow.from' as TranslationKey)}</span>
+          <DateInput value={dateFrom} onChange={setDateFrom} />
         </div>
-      </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[12px] font-medium text-gray-500 dark:text-gray-400">{t('cashFlow.to' as TranslationKey)}</span>
+          <DateInput value={dateTo} onChange={setDateTo} />
+        </div>
+        <select value={filterAccount} onChange={(e) => { setFilterAccount(e.target.value); setPage(1); }}>
+          <option value="">{t('cashFlow.filterAccount' as TranslationKey)}</option>
+          {(summary.caisses || []).map(c => (
+            <option key={c.id} value={String(c.id)}>{c.name || c.user?.name || `#${c.id}`}</option>
+          ))}
+        </select>
+        <select value={filterWarehouse} onChange={(e) => { setFilterWarehouse(e.target.value); setPage(1); }}>
+          <option value="">{t('cashFlow.filterWarehouse' as TranslationKey)}</option>
+          {warehouses.map(w => (
+            <option key={w.id} value={String(w.id)}>{w.name}</option>
+          ))}
+        </select>
+      </FilterBar>
 
       {/* ─── KPIs (3 cards) ─── */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
-        <div className={`grid grid-cols-1 md:grid-cols-3 md:divide-x ${isRTL ? 'md:divide-x-reverse' : ''} divide-gray-100 dark:divide-gray-700`}>
-          {[
-            { label: t('cashFlow.kpiTotalInflow' as TranslationKey), value: formatCurrency(kpis.totalIn), color: 'emerald' },
-            { label: t('cashFlow.kpiTotalOutflow' as TranslationKey), value: formatCurrency(kpis.totalOut), color: 'red' },
-            { label: t('cashFlow.kpiNetCashFlow' as TranslationKey), value: formatCurrency(kpis.net), color: 'blue' },
-          ].map((kpi, i) => {
-            const c = colorMap[kpi.color];
-            return (
-              <div key={i} className={`group relative p-5 ${c.hover} ${c.hoverDark} transition-colors duration-200`}>
-                <div className={`absolute top-0 inset-x-0 h-[3px] ${c.bar} scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center rounded-b`} />
-                <div className="text-center">
-                  <div className={`text-xl font-black ${c.valueText} tabular-nums leading-none`}>
-                    {(isLoading || flowLoading) ? <div className="w-20 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mx-auto" /> : kpi.value}
-                  </div>
-                  <div className="text-[11px] font-semibold text-gray-400 mt-2">{kpi.label}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+        {kpiItems.map((kpi, i) => (
+          <div key={i} className="metric-tile">
+            <div className="flex items-center gap-1.5">
+              <span className={`metric-dot ${colorToDot[kpi.color] || 'metric-dot-neutral'}`} aria-hidden />
+              <p className="metric-label truncate">{kpi.label}</p>
+            </div>
+            {(isLoading || flowLoading) ? (
+              <div className="w-20 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            ) : (
+              <p className="metric-value-currency">{kpi.value}</p>
+            )}
+          </div>
+        ))}
       </div>
 
       {/* ─── Charts ─── */}
       {!isLoading && !flowLoading && (barChartData.length > 0 || dailyFlowData.length > 0) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {/* ─── Left: Grouped Bar — Inflow vs Outflow per caisse ─── */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('cashFlow.chartInflowOutflow' as TranslationKey)}</h3>
-              <span className="text-[10px] text-gray-400 tabular-nums">{dateRangeLabel}</span>
+          <div className="surface-pro">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="surface-heading">{t('cashFlow.chartInflowOutflow' as TranslationKey)}</h3>
+              <span className="text-[11px] text-gray-500 dark:text-gray-400 tnum">{dateRangeLabel}</span>
             </div>
             {barChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
@@ -435,10 +419,10 @@ export default function CashFlowReportPage() {
           </div>
 
           {/* ─── Right: Area — Net Cash Flow Over Time ─── */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('cashFlow.chartNetOverTime' as TranslationKey)}</h3>
-              <span className="text-[10px] text-gray-400 tabular-nums">{dateRangeLabel}</span>
+          <div className="surface-pro">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="surface-heading">{t('cashFlow.chartNetOverTime' as TranslationKey)}</h3>
+              <span className="text-[11px] text-gray-500 dark:text-gray-400 tnum">{dateRangeLabel}</span>
             </div>
             {dailyFlowData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
@@ -478,14 +462,14 @@ export default function CashFlowReportPage() {
       )}
 
       {/* ─── Table: Group | Inflow | Outflow | Net ─── */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-          <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">{t('cashFlow.tableTitle' as TranslationKey)}</h3>
-          <span className="text-xs text-gray-400 tabular-nums">{groupedRows.length} {t('cashFlow.entries' as TranslationKey)}</span>
+      <div className="bg-white dark:bg-gray-900 rounded-[10px] border border-gray-200/80 dark:border-gray-700/60 overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-gray-200/80 dark:border-gray-700/60 flex items-center justify-between">
+          <h3 className="surface-heading">{t('cashFlow.tableTitle' as TranslationKey)}</h3>
+          <span className="text-[12px] text-gray-500 dark:text-gray-400 tnum">{groupedRows.length} {t('cashFlow.entries' as TranslationKey)}</span>
         </div>
         {(isLoading || flowLoading) ? (
           <div className="flex items-center justify-center py-20">
-            <div className="w-8 h-8 border-[3px] border-blue-200 dark:border-blue-800 border-t-blue-600 rounded-full animate-spin" />
+            <div className="spinner" />
           </div>
         ) : groupedRows.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-gray-400">
@@ -507,11 +491,12 @@ export default function CashFlowReportPage() {
                 <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
                   {paginated.map((r, i) => (
                     <tr key={i} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
-                      <td className={tdClass}><span className="text-sm font-bold text-blue-600 dark:text-blue-400">{r.name}</span></td>
-                      <td className={`${tdClass} text-end`}><span className="text-sm font-medium text-emerald-600 dark:text-emerald-400 tabular-nums">{formatCurrency(r.inflow)}</span></td>
-                      <td className={`${tdClass} text-end`}><span className="text-sm font-medium text-red-600 dark:text-red-400 tabular-nums">{formatCurrency(r.outflow)}</span></td>
+                      <td className={tdClass}><span className="font-semibold text-gray-800 dark:text-gray-100">{r.name}</span></td>
+                      <td className={`${tdClass} text-end`}><span className="font-medium text-gray-700 dark:text-gray-300 tnum">{formatCurrency(r.inflow)}</span></td>
+                      <td className={`${tdClass} text-end`}><span className="font-medium text-gray-700 dark:text-gray-300 tnum">{formatCurrency(r.outflow)}</span></td>
                       <td className={`${tdClass} text-end`}>
-                        <span className={`text-sm font-bold tabular-nums ${r.net >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>
+                        <span className="inline-flex items-center gap-1.5 font-semibold tnum text-gray-800 dark:text-gray-100">
+                          <span className={`metric-dot ${r.net >= 0 ? 'metric-dot-green' : 'metric-dot-red'}`} aria-hidden />
                           {formatCurrency(r.net)}
                         </span>
                       </td>
@@ -520,12 +505,13 @@ export default function CashFlowReportPage() {
                 </tbody>
                 {/* ─── Totals row ─── */}
                 <tfoot>
-                  <tr className="border-t-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/30">
-                    <td className={`${tdClass} text-sm font-extrabold text-gray-700 dark:text-gray-200`}>{t('cashFlow.totalsLabel' as TranslationKey)}</td>
-                    <td className={`${tdClass} text-end`}><span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400 tabular-nums">{formatCurrency(kpis.totalIn)}</span></td>
-                    <td className={`${tdClass} text-end`}><span className="text-sm font-extrabold text-red-600 dark:text-red-400 tabular-nums">{formatCurrency(kpis.totalOut)}</span></td>
+                  <tr className="border-t border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/40">
+                    <td className={`${tdClass} font-semibold text-gray-700 dark:text-gray-200`}>{t('cashFlow.totalsLabel' as TranslationKey)}</td>
+                    <td className={`${tdClass} text-end`}><span className="font-semibold text-gray-900 dark:text-white tnum">{formatCurrency(kpis.totalIn)}</span></td>
+                    <td className={`${tdClass} text-end`}><span className="font-semibold text-gray-900 dark:text-white tnum">{formatCurrency(kpis.totalOut)}</span></td>
                     <td className={`${tdClass} text-end`}>
-                      <span className={`text-sm font-extrabold tabular-nums ${kpis.net >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>
+                      <span className="inline-flex items-center gap-1.5 font-semibold tnum text-gray-900 dark:text-white">
+                        <span className={`metric-dot ${kpis.net >= 0 ? 'metric-dot-green' : 'metric-dot-red'}`} aria-hidden />
                         {formatCurrency(kpis.net)}
                       </span>
                     </td>
@@ -534,17 +520,17 @@ export default function CashFlowReportPage() {
               </table>
             </div>
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100 dark:border-gray-700">
-                <span className="text-xs text-gray-400 tabular-nums">
+              <div className="flex items-center justify-between px-4 py-2.5 border-t border-gray-200/80 dark:border-gray-700/60">
+                <span className="text-[12px] text-gray-500 dark:text-gray-400 tnum">
                   {t('cashFlow.pageInfo' as TranslationKey, { current: String(page), total: String(totalPages), count: String(groupedRows.length) })}
                 </span>
                 <div className="flex items-center gap-1">
                   <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40">
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40">
                     <PrevChevron className="w-3.5 h-3.5" /> {t('cashFlow.prev' as TranslationKey)}
                   </button>
                   <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40">
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[12px] font-semibold rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40">
                     {t('cashFlow.next' as TranslationKey)} <NextChevron className="w-3.5 h-3.5" />
                   </button>
                 </div>
