@@ -7,6 +7,9 @@ import Link from 'next/link';
 interface Tenant {
   id: number;
   name: string;
+  contact_phone?: string | null;
+  contact_email?: string | null;
+  registration_ip?: string | null;
   plan: string;
   product_limit: number;
   user_limit: number;
@@ -167,6 +170,7 @@ export default function AdminTenantsPage() {
                   <tr className="text-gray-500">
                     <th className="text-right py-3 px-4 font-medium">ID</th>
                     <th className="text-right py-3 px-4 font-medium">الاسم</th>
+                    <th className="text-right py-3 px-4 font-medium">الهاتف / البريد</th>
                     <th className="text-right py-3 px-4 font-medium">الخطة</th>
                     <th className="text-right py-3 px-4 font-medium">حد المنتجات</th>
                     <th className="text-right py-3 px-4 font-medium">حد المستخدمين</th>
@@ -184,6 +188,19 @@ export default function AdminTenantsPage() {
                         <Link href={`/admin/tenants/${tenant.id}`} className="text-blue-600 hover:underline">
                           {tenant.name}
                         </Link>
+                      </td>
+                      <td className="py-3 px-4">
+                        {tenant.contact_phone ? (
+                          <a href={`tel:${tenant.contact_phone}`} className="text-gray-700 font-medium hover:text-blue-600" dir="ltr">
+                            {tenant.contact_phone}
+                          </a>
+                        ) : tenant.contact_email ? (
+                          <a href={`mailto:${tenant.contact_email}`} className="text-gray-500 text-xs hover:text-blue-600" dir="ltr">
+                            {tenant.contact_email}
+                          </a>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
                       </td>
                       <td className="py-3 px-4">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${planColors[tenant.plan]}`}>
